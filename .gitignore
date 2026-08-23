@@ -31,6 +31,28 @@ package-lock.json
 package.json
 backup
 
+# Environment secret files (allow example templates only)
+.env.*
+!.env.example
+!.env.*.example
+
+# Release evidence working dirs
+.release-evidence-logs/
+.release-evidence-state/
+
+# Terraform state backups
+backups/
+
+# Frontend build/dev caches
+.next/
+.turbo/
+.wrangler/
+.vinext/
+.sites-runtime/npm-cache/
+.sites-runtime/tmp/
+node-compile-cache/
+v8-compile-cache*/
+
 # Terraform — secrets, state, binaries, plan files
 *.tfstate
 *.tfstate.backup
