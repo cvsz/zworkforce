@@ -16,8 +16,8 @@
 | **Voice Gateway (ZARVIS)** | `planning/exec-planning-zarvis.md` | `planning/planning-implementation-zarvis.md` | **Phases 1, 3, 4 Complete**: Gemini Live/Realtime PCM16 streaming, VAD Sensitivity Tuning, BCP-47 Caption Overlay |
 | **Content Engine (ZETO)** | `planning/exec-planning-zato.md` | `planning/planning-implementation-zato.md` | **Phases 1, 3 Complete**: 12-Point QA Self-Correction Engine, Multi-Platform SEO Density & Hashtag Engine |
 | **Deep Research (Skywork)** | `planning/exec-planning-skywork.md` | `planning/planning-implementation-skywork.md` | **Phases 3, 4 Complete**: Structured Citation JSON Schema Validator ($\ge 0.65$), A2A Discovery Manifest (`/.well-known/agent.json`) |
-| **Browser Companion (Zider)** | `planning/exec-planning.zider.md` | `planning/planning-implementation-zider.md` | **Phases 3, 4 Complete**: Browser Selection Context Menu Actions, Strict Manifest V3 CSP Hardening |
-| **AI Studio (ZSP-AITool)** | `planning/exec-planning.zsp-aitool.md` | `planning/planning-implementation-zsp-aitool.md` | **Phases 3, 4 Complete**: S3 Batch Video Export with HMAC Receipts, Real-Time Yjs CRDT Multi-User Collab Server |
+| **Browser Companion (Zider)** | `planning/exec-planning-zider.md` | `planning/planning-implementation-zider.md` | **Phases 3, 4 Complete**: Browser Selection Context Menu Actions, Strict Manifest V3 CSP Hardening |
+| **AI Studio (ZSP-AITool)** | `planning/exec-planning-zsp-aitool.md` | `planning/planning-implementation-zsp-aitool.md` | **Phases 3, 4 Complete**: S3 Batch Video Export with HMAC Receipts, Real-Time Yjs CRDT Multi-User Collab Server |
 | **Enterprise Security (zRed-Team)** | `planning/exec-zred-team.md` | `planning/planning-implementation-zred-team.md` | **Phases 3, 4 Complete**: CodeQL SARIF CVSS v3.1 Triage Scorer, Runtime Secret Canary Injection & Leak Halting |
 | **Router & Gateway** | `planning/exec-planning-router.md` | `planning/planning-implementation-router.md` | **Free-Model First Matrix Active**: `DeepSeek-R1:free`, `Llama-3.3-70B:free`, `Gemini-2.0-Flash` |
 

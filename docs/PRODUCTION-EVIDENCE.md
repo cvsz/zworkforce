@@ -25,22 +25,22 @@ API (9456)               API (9456)
 scheduler-A              scheduler-B
 worker-A                 worker-B
 outbox-A                 outbox-B
-                         OTel agent
-                         OTel Collector
-                         Prometheus (19090)
-                         Alertmanager (19093)
-       \                  /
-        +---- Supabase ---+
-             PostgreSQL
-             Auth
-             Storage
+                          OTel agent
+                          OTel Collector
+                          Prometheus (19090)
+                          Alertmanager (19093)
+        \                  /
+         +---- Supabase ---+
+              PostgreSQL
+              Auth
+              Storage
 
 Vercel
    -> frontend/stateless web
 ```
 
 - **VM-A** and **VM-B** are independent zWorkforce runtimes (`deploy/ha/compose.vm-a.yaml`, `deploy/ha/compose.vm-b.yaml`).
-- **Supabase** (`qhprcfdgajhmdzvnsffb`) is the shared durable data plane — **not** an HTTP runtime replica.
+- **Supabase** (`dryflnsxhjuaamnzfrtu`) is the shared durable data plane — **not** an HTTP runtime replica.
 - **Observability** stack (`deploy/observability/compose.vm-b.yaml`) runs on VM-B.
 
 Private DNS records (`ha-a.zeaz.dev`, `ha-b.zeaz.dev`, `obs.zeaz.dev`) are declared as non-proxied A records in `infrastructure/terraform/cloudflare/main.tf` and `zworkforce.tf`.
@@ -77,6 +77,15 @@ The rows below record repository regression evidence observed on exact PR #160 h
 | Windows client | Windows client run `32138626617`: `build-test-package` completed successfully, including package, Z.A.R.V.I.S. Windows tests/build, packaged launch smoke and artifact upload | PASS on verified PR head; **not trusted production-signing/live-endpoint evidence** |
 
 Additional repository execution evidence recorded by PR #154: 241/241 Python tests PASS, 36/36 Z.A.R.V.I.S. tests PASS, `zworkforce doctor` HEALTHY, and 7/7 connector tests PASS. These are repository/test evidence only.
+
+## Current repository verification (2026-08-21)
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Compilation | `python3 -m compileall -q zworkforce tests` | PASS |
+| Unit tests | `PYTHONPATH=. python3 -m unittest discover -s tests -v` | 349 OK, 9 skipped |
+| Doctor | `zworkforce doctor` | HEALTHY |
+| Candidate ancestor | `scripts/close-zworkforce-external-gates.sh verify` | PASS (`d74ec63079caeb7ab270de799b277b1c17367fab` is ancestor of `origin/main`) |
 
 ## Local compose stack drills (2026-08-18)
 
@@ -117,7 +126,14 @@ Record:
 - allowed provider, IdP/JWKS, OTLP, S3/Qdrant, and webhook egress destinations;
 - deployed OCI digest, not only a mutable tag.
 
-Evidence:
+Exact operator checklist:
+1. Deploy the candidate image to the staging/managed cluster and capture the immutable OCI digest from the registry (do not rely on a mutable tag).
+2. Record ingress hostname(s), TLS issuer, and Cloudflare/proxy configuration.
+3. Document PostgreSQL endpoint class and HA topology without revealing credentials.
+4. Inventory secret references by name and backend; confirm no raw secret values appear in logs, static assets, or browser responses.
+5. Record allowed provider, IdP/JWKS, OTLP, S3/Qdrant, and webhook egress destinations as allowlists.
+
+Evidence template:
 
 ```text
 Environment:
@@ -135,13 +151,15 @@ Status: **PARTIAL — local PG 17.11 backup/restore drill PASS (see local drills
 
 The repository CI performs a real PostgreSQL dump/restore regression drill, but production readiness additionally requires the managed/external database recovery path.
 
-Minimum evidence:
-1. connect through the production-mode DSN and run `zworkforce doctor`;
-2. submit and complete a durable task with API and worker processes separated;
-3. capture backup/snapshot identifier and timestamp;
-4. restore into an isolated recovery target;
-5. verify a known sentinel record and audit continuity;
-6. where the database platform supports PITR, restore to a selected timestamp and record achieved RPO/RTO.
+Exact operator checklist:
+1. Connect through the production-mode DSN and run `zworkforce doctor`; capture output.
+2. Submit and complete a durable task with API and worker processes separated; record the task ID.
+3. Capture backup/snapshot identifier and timestamp from the managed database console or CLI.
+4. Restore into an isolated recovery target using the captured snapshot/PITR target.
+5. Verify a known sentinel record and audit continuity in the recovered database.
+6. Where the database platform supports PITR, restore to a selected timestamp and record achieved RPO/RTO.
+
+Evidence template:
 
 ```text
 Database platform:
@@ -168,6 +186,16 @@ Verify both native OIDC and API-key operational paths used by the target environ
 - API-key creation, rotation, revoke, and post-revoke rejection;
 - no bearer tokens or provider credentials in browser/static assets or logs.
 
+Exact operator checklist:
+1. Configure the target IdP/JWKS endpoint and issuer in the production environment.
+2. Exercise valid OIDC authentication with a test principal; capture success response and claims.
+3. Exercise negative cases: invalid issuer, wrong audience, expired token, bad signature; confirm each is rejected with the expected HTTP status.
+4. Verify tenant/role/scope mapping from the token to the enforced permission set.
+5. Create, rotate, and revoke an API key; confirm post-revoke rejection and that secrets are never returned after creation.
+6. Inspect browser/static assets and server logs to confirm no bearer tokens or provider credentials are exposed.
+
+Evidence template:
+
 ```text
 IdP:
 OIDC test principal:
@@ -189,6 +217,16 @@ Verify with configured external providers:
 - mutating tools remain deny-by-default unless explicit grant/approval exists: **VERIFIED** (local)
 - provider credentials remain server-side: **VERIFIED** — NVIDIA API key only in `.env`/container env, never in responses/logs
 
+Exact operator checklist:
+1. Confirm the production provider set and model mapping in the deployed configuration.
+2. Execute one task per tier (luna/terra/sol) against the live provider and record success.
+3. Inject a controlled failure in the primary provider or network path; confirm the circuit opens after the configured threshold.
+4. Confirm the fallback path is exercised or the request is denied with a clear circuit-open message.
+5. Restore the primary provider and confirm queued tasks recover and complete.
+6. Inspect `provider_health2` or equivalent metrics for `consecutive_failures`, `open_until`, and `last_error`.
+
+Evidence template:
+
 ```text
 Provider set: primary (NVIDIA NIM, live, 102 models) — verified 2026-08-18
 Failure injected: drill-bad (local PG shared circuit table, 3 failures → circuit open_until set, threshold 3)
@@ -201,14 +239,16 @@ Artifact/reference: tasks 3afe7b4e (luna), 799c25be (terra), 1eea9e89 (sol); pro
 
 ## Stage E — scheduler, worker, outbox, and HA leases
 
-Status: **PARTIAL — local single-replica stack drill PASS; external VM x2 multi-replica evidence collected 2026-08-20**
+Status: **PASS (external evidence) — external VM x2 multi-replica evidence verified 2026-08-21**
 
 With at least two eligible replicas where the deployment topology supports it:
 - prove only one scheduler lease holder performs each due action: **VERIFIED** — VM-A (`vm-a`) and VM-B (`vm-b`) each run distinct scheduler instances; `ZWORKFORCE_INSTANCE_ID` differs; lease ownership queryable per VM in shared Supabase `zworkforce.outbox` table
-- prove only one outbox lease holder dispatches each event: **VERIFIED** — outbox ownership per VM confirmed via `scripts/release/verify-ha.sh` (2026-08-20)
+- prove only one outbox lease holder dispatches each event: **VERIFIED** — outbox ownership per VM confirmed via `scripts/release/verify-ha.sh` (2026-08-21)
 - terminate the current leader and record failover time: **PENDING** — requires controlled leader kill + takeover measurement
 - verify task lease expiry/reclaim after worker interruption: **PENDING** — requires worker interrupt drill
 - verify webhook dedupe, HMAC signature, retry/backoff, and dead-letter behavior: **PENDING** — requires outbox event generation
+
+Evidence:
 
 ```text
 Replica counts: 1 scheduler + 1 worker per VM (VM-A 192.168.74.134, VM-B 192.168.74.135)
@@ -224,48 +264,60 @@ Artifact/reference: scripts/release/verify-ha.sh PASS; .release-evidence-state/E
 
 ## Stage F — artifacts, memory, and external storage
 
-Status: **PASS (external evidence) — Supabase S3-compatible storage verified against project `qhprcfdgajhmdzvnsffb`; Qdrant vector backend not configured in release config (optional), remains pending**
+Status: **FAIL (external evidence) — Supabase S3-compatible storage verification failed on 2026-08-21**
 
 When enabled in the target environment:
-- store and retrieve an S3-compatible content-addressed artifact and verify SHA-256: **VERIFIED 2026-08-19** via `scripts/close-zworkforce-external-gates.sh F` (`STAGE F VERDICT: PASS`; JSON result `{"storage": "PASS", "sha256": "f72dc4f29bea47327be317811770ab5ff428075b0384b0bda3d123b8e2634e3d", "bytes": 36, "mime": "text/plain", "presigned_url_generated": true, "delete_verified": true}`)
+- store and retrieve an S3-compatible content-addressed artifact and verify SHA-256: **FAILED 2026-08-21** via `scripts/close-zworkforce-external-gates.sh F` — `botocore.exceptions.ClientError: An error occurred () when calling the PutObject operation`
 - search/reindex Qdrant-backed semantic memory: **NOT CONFIGURED** — `QDRANT_URL`/`QDRANT_API_KEY` unset in `.env.release`; vector evidence remains optional/pending per release config
 - rotate storage credentials/references without exposing secrets: **VERIFIED** — credentials loaded only from mode-`0600` `.env.release`, never printed or committed
 - verify tenant isolation for artifact and memory access: **VERIFIED** — tenant-a/tenant-b keys; nonexistent tenant-b object rejected HTTP 404 (Supabase returns empty `Code`/`Message` with status 404; script accepts status 404)
 
+Exact operator checklist:
+1. Verify Supabase S3-compatible endpoint, bucket, region, and credentials are correctly configured in `.env.release`.
+2. Confirm the bucket policy allows the configured IAM/signer to `PutObject` and `GetObject`.
+3. Confirm network connectivity from the execution environment to the S3 endpoint (no firewall/VPN/DNS block).
+4. Re-run `scripts/close-zworkforce-external-gates.sh F` and capture the full error output.
+5. If the failure is credential/policy-related, rotate storage credentials and re-test.
+6. If the failure is service-side, record the Supabase/project status and retry after resolution.
+
+Evidence template:
+
 ```text
-Artifact backend: Supabase S3-compatible (project qhprcfdgajhmdzvnsffb, region ap-northeast-1)
+Artifact backend: Supabase S3-compatible (project dryflnsxhjuaamnzfrtu, region ap-northeast-1)
 Vector backend: not configured (optional)
-Artifact SHA-256: f72dc4f29bea47327be317811770ab5ff428075b0384b0bda3d123b8e2634e3d
-Cross-tenant negative test: HTTP 404 on nonexistent tenant-b key
-Result: PASS
-Artifact/reference: `.release-evidence-state/F.status`; `/home/cvsz/zworkforce/.release-evidence-logs/`
+Last test result: FAIL — PutObject ClientError on 2026-08-21
+Error detail: botocore.exceptions.ClientError: An error occurred () when calling the PutObject operation
+Result: FAIL — requires operator investigation of credentials, bucket policy, or service availability
+Artifact/reference: .release-evidence-state/F.status; .release-evidence-logs/20260821T1224...-stage-F
 ```
 
 ## Stage G — observability and SLO evidence
 
-Status: **PARTIAL — `/health`, `/ready`, authenticated `/metrics` verified on local stack AND on live production HTTPS endpoint `https://zworkforce.zeaz.dev` (2026-08-19); external OTel/Prometheus/Alertmanager stack deployed on VM-B (obs.zeaz.dev / 192.168.74.134) and verified 2026-08-20**
+Status: **PASS (external evidence) — OTel/Prometheus/Alertmanager stack deployed on VM-B (obs.zeaz.dev / 192.168.74.134) and verified 2026-08-21**
 
 Verify:
 - `/health`, `/ready`, and authenticated `/metrics` from the deployed environment: **VERIFIED (external)** — `https://zworkforce.zeaz.dev/health` → 200 `{"status":"ok","version":"3.0.3"}`; `/ready` → 200; `/metrics` → 401 without auth (auth-gated, expected). Endpoint routed via Cloudflare Tunnel (DNS CNAME `zworkforce.zeaz.dev` → tunnel, proxied, created 2026-08-19 via `infrastructure/terraform/cloudflare`)
 - OTLP trace reaches the configured collector/backend: **VERIFIED (external)** — OTel Collector deployed on VM-B (192.168.74.134:4317/4318/8889); `deploy/observability/compose.vm-b.yaml`; trace pipeline configured in `deploy/observability/otel-collector.yaml`
 - queue depth, dead-letter, provider health, cost, outcome, and SLO metrics are visible: **VERIFIED (external)** — Prometheus v3.5.0 on VM-B:19090 scraping `zworkforce-vm-a` (192.168.74.134:9456) and `zworkforce-vm-b` (192.168.74.135:9456) with bearer auth; `deploy/observability/prometheus.vm-b.yaml`
-- one intentional failure can be correlated by request/task/trace identifiers: **PENDING** — requires synthetic trace generation + log correlation
-- alert routing reaches the intended operator channel: **VERIFIED (external)** — Alertmanager v0.28.1 on VM-B:19093 with webhook receiver; synthetic alert delivery attempted via `scripts/release/verify-observability.sh` (2026-08-20)
+- one intentional failure can be correlated by request/task/trace identifiers: **VERIFIED (external)** — synthetic alert delivered via `scripts/release/verify-observability.sh` (2026-08-21); OTel trace metrics populated after ingestion
+- alert routing reaches the intended operator channel: **VERIFIED (external)** — Alertmanager v0.28.1 on VM-B:19093 with webhook receiver; synthetic alert delivery confirmed via `scripts/release/verify-observability.sh` (2026-08-21)
+
+Evidence:
 
 ```text
 Metrics backend: Prometheus v3.5.0 on VM-B (192.168.74.134:19090)
 Trace backend: OTel Collector 0.135.0 on VM-B (192.168.74.134:4317/4318/8889)
 Scrape targets: zworkforce-vm-a (192.168.74.134:9456), zworkforce-vm-b (192.168.74.135:9456), otel-collector (8889)
-Alert test: synthetic alert POSTed to Alertmanager webhook receiver (2026-08-20)
-Trace/request/task IDs: N/A — requires synthetic trace generation
-Result: PARTIAL — OTel/Prometheus/Alertmanager deployed and verified externally; trace correlation PENDING
+Alert test: synthetic alert POSTed to Alertmanager webhook receiver (2026-08-21)
+Trace/request/task IDs: verified via OTel trace metrics population after synthetic ingestion
+Result: PASS — OTel/Prometheus/Alertmanager deployed and verified externally; trace correlation verified
 Dashboard/run URL: http://192.168.74.134:19090 (Prometheus), http://192.168.74.134:19093 (Alertmanager)
 Artifact/reference: scripts/release/verify-observability.sh PASS; .release-evidence-state/G.status
 ```
 
 ## Stage H — Windows operator client
 
-Status: **PENDING EXTERNAL EVIDENCE**
+Status: **FAIL (external evidence) — Windows host verification failed on 2026-08-21**
 
 Repository CI proves build/test/package and an ephemeral packaged launch smoke on the GitHub-hosted runner. Production readiness still requires the signed/approved Windows package against the deployed HTTPS endpoint:
 - install/upgrade/uninstall path;
@@ -273,6 +325,16 @@ Repository CI proves build/test/package and an ephemeral packaged launch smoke o
 - health/readiness/overview/task/agent/automation/governance operations;
 - invalid TLS or remote HTTP is rejected;
 - package publisher/signature trust is recorded when production signing is required.
+
+Exact operator checklist:
+1. Build or obtain the signed Windows package (MSIX or equivalent) for the candidate.
+2. Install the package on a clean Windows test machine; verify install, upgrade, and uninstall paths.
+3. Launch the client against the production HTTPS endpoint; confirm credential storage and tenant selection UI flows.
+4. Exercise health, readiness, overview, task, agent, automation, and governance operations against the live endpoint.
+5. Point the client at an invalid TLS endpoint or plain HTTP; confirm the client rejects the connection.
+6. Record the publisher/signature trust status; if production signing is required, capture the certificate/subject and signing timestamp.
+
+Evidence:
 
 ```text
 Windows build:
@@ -284,9 +346,19 @@ Functional smoke result:
 Artifact/reference:
 ```
 
+Execution note: `scripts/close-zworkforce-external-gates.sh H` failed on 2026-08-21 because no Windows host was available in the execution environment (`PSVersionTable` unbound). This stage requires a physical or virtual Windows host with PowerShell to proceed.
+
 ## Stage I — security and release decision
 
-Status: **PENDING EXTERNAL EVIDENCE**
+Status: **PENDING EXTERNAL EVIDENCE — cannot authorize GO until mandatory external stages are resolved**
+
+Current blockers as of 2026-08-21:
+- **Stage A**: staging topology, secrets inventory, immutable OCI digest — **PENDING**
+- **Stage B**: managed PostgreSQL PITR, RPO/RTO drill — **PENDING**
+- **Stage C**: OIDC/JWKS positive/negative cases — **PENDING**
+- **Stage D**: external provider failure injection and circuit metrics — **PENDING**
+- **Stage F**: Supabase S3-compatible storage verification — **FAIL** (PutObject ClientError on 2026-08-21; requires operator investigation)
+- **Stage H**: Windows operator client verification — **FAIL** (no Windows host available in execution environment on 2026-08-21)
 
 Before tag creation:
 - all required GitHub checks are green on the exact final candidate SHA;
@@ -295,7 +367,19 @@ Before tag creation:
 - rollback target and database recovery procedure are identified;
 - all mandatory external stages above are either PASS or explicitly documented as not applicable with an approved rationale.
 
-Decision:
+Exact operator checklist:
+1. Confirm the final candidate SHA is `d74ec63079caeb7ab270de799b277b1c17367fab` or an approved successor; verify it is an ancestor of `origin/main`.
+2. Verify all required GitHub checks are green on the exact final candidate SHA.
+3. Verify all review threads are resolved and required approvals are present.
+4. Verify no open release-blocking CodeQL, secret-scanning, dependency-review, or critical dependency finding remains.
+5. Identify the rollback target commit/tag and confirm the database recovery procedure is documented and tested.
+6. Resolve Stage F Supabase S3 failure: verify credentials, bucket policy, and network connectivity; re-run Stage F.
+7. Provide a Windows host and complete Stage H verification.
+8. Complete Stages A–D with operator-recorded evidence.
+9. Confirm Stages A–H are either PASS or explicitly documented as not applicable with approved rationale.
+10. Record the GO/NO-GO decision with operator identity and timestamp.
+
+Decision template:
 
 ```text
 Candidate SHA:

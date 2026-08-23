@@ -234,10 +234,16 @@ test('file session store survives process-level reconstruction and supports dele
 });
 
 test('HTTP service fails closed when the console service token is absent', () => {
-  assert.throws(
-    () => createZarvisServer({ serviceToken: undefined }),
-    /ZARVIS_ORCHESTRATOR_SERVICE_TOKEN/,
-  );
+  const original = process.env.ZARVIS_ORCHESTRATOR_SERVICE_TOKEN;
+  delete process.env.ZARVIS_ORCHESTRATOR_SERVICE_TOKEN;
+  try {
+    assert.throws(
+      () => createZarvisServer({ serviceToken: undefined }),
+      /ZARVIS_ORCHESTRATOR_SERVICE_TOKEN/,
+    );
+  } finally {
+    process.env.ZARVIS_ORCHESTRATOR_SERVICE_TOKEN = original;
+  }
 });
 
 test('HTTP service rejects requests without the owner service identity', async (t) => {

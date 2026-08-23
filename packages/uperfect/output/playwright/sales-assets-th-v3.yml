@@ -1,0 +1,146 @@
+- generic [ref=e2]:
+  - complementary "ส่วนงานหลัก" [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: U
+      - generic [ref=e6]:
+        - paragraph [ref=e7]: SOCIAL COMMERCE OS
+        - heading "U.Perfect" [level=1] [ref=e8]
+    - navigation [ref=e10]:
+      - button "⌂ ภาพรวม" [ref=e11] [cursor=pointer]:
+        - generic [ref=e12]: ⌂
+        - generic [ref=e13]: ภาพรวม
+      - button "◫ แชตรวม 0" [ref=e14] [cursor=pointer]:
+        - generic [ref=e15]: ◫
+        - generic [ref=e16]: แชตรวม
+        - generic [ref=e17]: "0"
+      - button "◇ Product Memory" [ref=e18] [cursor=pointer]:
+        - generic [ref=e19]: ◇
+        - generic [ref=e20]: Product Memory
+      - button "▣ ออเดอร์" [ref=e21] [cursor=pointer]:
+        - generic [ref=e22]: ▣
+        - generic [ref=e23]: ออเดอร์
+      - button "✦ Skills" [ref=e24] [cursor=pointer]:
+        - generic [ref=e25]: ✦
+        - generic [ref=e26]: Skills
+      - button "◎ Agents" [ref=e27] [cursor=pointer]:
+        - generic [ref=e28]: ◎
+        - generic [ref=e29]: Agents
+      - button "↗ n8n Automations" [ref=e30] [cursor=pointer]:
+        - generic [ref=e31]: ↗
+        - generic [ref=e32]: n8n Automations
+      - button "⌘ Channels" [ref=e33] [cursor=pointer]:
+        - generic [ref=e34]: ⌘
+        - generic [ref=e35]: Channels
+      - button "✿ Sales Assets" [ref=e36] [cursor=pointer]:
+        - generic [ref=e37]: ✿
+        - generic [ref=e38]: Sales Assets
+      - button "⚙ ตั้งค่า" [ref=e39] [cursor=pointer]:
+        - generic [ref=e40]: ⚙
+        - generic [ref=e41]: ตั้งค่า
+    - generic [ref=e42]:
+      - generic [ref=e43]: Local workspace
+      - paragraph [ref=e46]: Android · iOS · Windows PWA
+      - link "@spookyuperfect ↗" [ref=e47] [cursor=pointer]:
+        - /url: https://www.facebook.com/spookyuperfect
+  - main [ref=e48]:
+    - generic [ref=e49]:
+      - generic [ref=e50]:
+        - paragraph [ref=e51]: OPERATIONS WORKSPACE
+        - heading "ภาพรวมระบบ" [level=2] [ref=e52]
+      - generic [ref=e53]:
+        - generic [ref=e54]: API online
+        - button "เปลี่ยนภาษา" [ref=e56] [cursor=pointer]:
+          - generic [ref=e57]: TH
+          - generic [ref=e58]: EN
+        - button "รีเฟรชข้อมูล" [ref=e59] [cursor=pointer]: ↻
+    - generic [active] [ref=e61]:
+      - generic [ref=e62]:
+        - generic [ref=e63]:
+          - heading "ศูนย์ควบคุม U.Perfect" [level=3] [ref=e64]
+          - paragraph [ref=e65]: ติดตามแชท สินค้า ออเดอร์ และสถานะการเชื่อมต่อจากจุดเดียว
+        - button "เปิดแชตรวม" [ref=e67] [cursor=pointer]
+      - generic [ref=e68]:
+        - article [ref=e69]:
+          - generic [ref=e70]: สินค้าที่จำได้
+          - generic [ref=e71]: "2"
+          - generic [ref=e72]: merchant catalogue
+        - article [ref=e73]:
+          - generic [ref=e74]: บทสนทนา
+          - generic [ref=e75]: "0"
+          - generic [ref=e76]: ทุกช่องทาง
+        - article [ref=e77]:
+          - generic [ref=e78]: ออเดอร์
+          - generic [ref=e79]: "0"
+          - generic [ref=e80]: workspace ภายใน
+        - article [ref=e81]:
+          - generic [ref=e82]: รอตรวจสอบ
+          - generic [ref=e83]: "0"
+          - generic [ref=e84]: ตรวจหลักฐานการชำระเงิน
+      - generic [ref=e85]:
+        - article [ref=e86]:
+          - generic [ref=e87]:
+            - heading "สัญญาณกิจกรรม" [level=4] [ref=e88]
+            - generic [ref=e89]: รายการภายใน
+          - generic "กราฟกิจกรรม" [ref=e90]
+          - generic [ref=e98]:
+            - generic [ref=e99]: Mon
+            - generic [ref=e100]: Tue
+            - generic [ref=e101]: Wed
+            - generic [ref=e102]: Thu
+            - generic [ref=e103]: Fri
+            - generic [ref=e104]: Sat
+            - generic [ref=e105]: ปัจจุบัน
+        - article [ref=e106]:
+          - generic [ref=e107]:
+            - heading "ช่องทางและสถานะจริง" [level=4] [ref=e108]
+            - button "จัดการ" [ref=e109] [cursor=pointer]
+          - generic [ref=e110]:
+            - generic [ref=e111]:
+              - generic [ref=e114]:
+                - strong [ref=e115]: Facebook
+                - generic [ref=e116]: /api/webhooks/facebook
+                - generic [ref=e117]: สร้าง Meta App, Page access token และตรวจสอบ Messenger webhook
+              - generic [ref=e118]: ยังไม่ตั้งค่า
+            - generic [ref=e119]:
+              - generic [ref=e122]:
+                - strong [ref=e123]: Line
+                - generic [ref=e124]: notification outbox
+                - generic [ref=e125]: สร้าง Messaging API channel, ออก channel access token และตั้ง webhook ตามขอบเขตที่เปิดใช้
+              - generic [ref=e126]: ยังไม่ตั้งค่า
+            - generic [ref=e127]:
+              - generic [ref=e130]:
+                - strong [ref=e131]: Ollama local AI
+                - generic [ref=e132]: http://192.168.74.130:11434/api/tags
+              - generic [ref=e133]: ตั้งค่าแล้ว
+            - generic [ref=e134]:
+              - generic [ref=e137]:
+                - strong [ref=e138]: Shopee
+                - generic [ref=e139]: /api/webhooks/shopee
+                - generic [ref=e140]: สร้าง Open Platform app, authorize ร้านค้า และเก็บ Partner ID/Key ที่ server
+              - generic [ref=e141]: ยังไม่ตั้งค่า
+            - generic [ref=e142]:
+              - generic [ref=e145]:
+                - strong [ref=e146]: Tiktok
+                - generic [ref=e147]: /api/webhooks/tiktok
+                - generic [ref=e148]: สร้างแอปใน Partner Center, authorize shop และตั้งค่า HTTPS webhook
+              - generic [ref=e149]: ยังไม่ตั้งค่า
+      - generic [ref=e150]:
+        - article [ref=e151]:
+          - generic [ref=e152]:
+            - heading "สินค้าในคลัง memory" [level=4] [ref=e153]
+            - button "เปิด catalog" [ref=e154] [cursor=pointer]
+          - generic [ref=e155]:
+            - generic [ref=e157]:
+              - strong [ref=e158]: VIT C AURA SERUM เลอ บาย ยู เพอร์เฟค วิต ซี ออร่า เซรั่ม
+              - generic [ref=e159]: 200 มิลลิลิตร · ฿98
+            - generic [ref=e160]: พร้อมใช้งาน
+          - generic [ref=e161]:
+            - generic [ref=e163]:
+              - strong [ref=e164]: น้ำพริกเสือร้องไห้ 1 กระปุก 200 กรัม
+              - generic [ref=e165]: 200 กรัม · ยังไม่ระบุราคา
+            - generic [ref=e166]: พร้อมใช้งาน
+        - article [ref=e167]:
+          - generic [ref=e168]:
+            - heading "งานที่ต้องตรวจ" [level=4] [ref=e169]
+            - button "ดูออเดอร์" [ref=e170] [cursor=pointer]
+          - strong [ref=e172]: ไม่มี payment review ค้างอยู่

@@ -1,0 +1,12 @@
+{
+  "name": "U.Perfect Social Commerce OS",
+  "short_name": "U.Perfect OS",
+  "description": "U.Perfect omnichannel operations workspace",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f0f8",
+  "theme_color": "#31283e",
+  "orientation": "any",
+  "icons": []
+}

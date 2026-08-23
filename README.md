@@ -99,10 +99,12 @@ Install the full ProMeta runtime baseline with `zworkforce prometa-install`.
 git clone https://github.com/cvsz/zWorkforce.git
 cd zWorkforce
 cp .env.example .env
-python -m pip install .
-python -m zworkforce doctor
-python -m zworkforce serve
+python3 -m pip install .
+python3 -m zworkforce doctor
+python3 -m zworkforce serve
 ```
+
+> Commands use `python3`; fall back to `python` on systems where `python3` is unavailable (e.g. some Windows setups).
 
 Open `http://localhost:9569`. Development bootstrap credentials are not for production.
 
@@ -126,8 +128,8 @@ explicit destination. Existing secret files are not overwritten.
 ## Production Compose — PostgreSQL
 
 ```bash
-export ZWORKFORCE_POSTGRES_PASSWORD="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
-export ZWORKFORCE_API_KEYS="$(python -c 'import secrets; print(secrets.token_urlsafe(32))'):superadmin:default:bootstrap:*"
+export ZWORKFORCE_POSTGRES_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+export ZWORKFORCE_API_KEYS="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))'):superadmin:default:bootstrap:*"
 docker compose up -d --build
 ```
 
@@ -269,7 +271,7 @@ S3-compatible:
 
 ```env
 ZWORKFORCE_ARTIFACT_BACKEND=s3
-ZWORKFORCE_S3_BUCKET=zworkforce-artifacts
+ZWORKFORCE_S3_BUCKET=zworkforce
 ZWORKFORCE_S3_PREFIX=zworkforce
 ```
 

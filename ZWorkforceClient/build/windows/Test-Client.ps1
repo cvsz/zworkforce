@@ -108,19 +108,7 @@ if ($LaunchSmoke) {
         }
 
         Write-Host "Installing the packaged client."
-        $installationJob = Start-Job -ScriptBlock {
-            param($PackagePath)
-            Add-AppxPackage -Path $PackagePath -ForceApplicationShutdown -ErrorAction Stop
-        } -ArgumentList $package.FullName
-        try {
-            if ($null -eq (Wait-Job -Job $installationJob -Timeout 180)) {
-                Stop-Job -Job $installationJob -ErrorAction SilentlyContinue
-                throw "Timed out installing the packaged client MSIX."
-            }
-            Receive-Job -Job $installationJob -ErrorAction Stop | Out-Null
-        } finally {
-            Remove-Job -Job $installationJob -Force -ErrorAction SilentlyContinue
-        }
+        Add-AppxPackage -Path $package.FullName -ForceApplicationShutdown -ErrorAction Stop
 
         Write-Host "Resolving the installed package identity."
         $installedPackage = Find-ClientPackage

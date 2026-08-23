@@ -2,7 +2,7 @@
 
 **Updated:** 2026-08-18T18:30Z (auto-quad-loop)  
 **Module:** `packages/zider/` Manifest V3 Browser Sidebar, Shadow DOM Isolation, ChatPDF, YouTube Translator, and Governed Browser Automation  
-**Parent Strategy:** [`exec-planning.master.md`](exec-planning.master.md) & [`exec-planning.zider.md`](exec-planning.zider.md)
+**Parent Strategy:** [`exec-planning-master.md`](exec-planning-master.md) & [`exec-planning-zider.md`](exec-planning-zider.md)
 
 ---
 
@@ -90,10 +90,10 @@ pnpm --dir packages/zider test
 pnpm --dir packages/zider build
 
 # 2. Root cross-package browser security matrix
-python -m pip install '.[test]'
-PYTHONPATH=. python -m unittest tests.test_browser_e2e_security -v
+python3 -m pip install '.[test]'
+PYTHONPATH=. python3 -m unittest tests.test_browser_e2e_security -v
 
 # 3. Required repository gates
-PYTHONPATH=. python -m unittest discover -s tests -v
-python scripts/verify_release.py
+PYTHONPATH=. python3 -m unittest discover -s tests -v
+python3 scripts/verify_release.py
 ```

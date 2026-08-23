@@ -3,7 +3,7 @@
 **Updated:** 2026-08-17  
 **Status:** Active Execution Plan  
 **Scope:** `zworkforce` Model Router, OpenRouter Integration, Open WebUI Gateway, and Provider Privacy/Failover Policies  
-**Parent Framework:** [`exec-planning.master.md`](exec-planning.master.md) & [`../ROADMAPS.md`](../ROADMAPS.md)
+**Parent Framework:** [`exec-planning-master.md`](exec-planning-master.md) & [`../ROADMAPS.md`](../ROADMAPS.md)
 
 ---
 
@@ -150,8 +150,8 @@ graph TD
 
 ```bash
 # 1. Verify Router and Core Services
-python -m compileall -q zworkforce tests
-PYTHONPATH=. python -m unittest discover -s tests -v
+python3 -m compileall -q zworkforce tests
+PYTHONPATH=. python3 -m unittest discover -s tests -v
 zworkforce doctor
 
 # 2. Test Open WebUI and Container Health

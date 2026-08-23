@@ -1,4 +1,4 @@
-PYTHON ?= python3
+PYTHON ?= $(shell command -v python3 2>/dev/null || command -v python)
 VERSION ?= 3.0.3
 
 .PHONY: help check test compile doctor postgres-test release-check shell-check run worker scheduler lint-security docker-build
@@ -41,13 +41,13 @@ shell-check:
 	node --check zworkforce/static/app.js
 
 run:
-	python -m zworkforce serve
+	$(PYTHON) -m zworkforce serve
 
 worker:
-	python -m zworkforce worker
+	$(PYTHON) -m zworkforce worker
 
 scheduler:
-	python -m zworkforce scheduler --once
+	$(PYTHON) -m zworkforce scheduler --once
 
 lint-security:
 	! grep -R --line-number --include="*.py" "shell=True" zworkforce

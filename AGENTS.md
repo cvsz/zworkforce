@@ -15,8 +15,8 @@ zWorkforce is a production AI Workforce control plane. Changes must preserve ten
 ## Required validation
 
 ```bash
-python -m compileall -q zworkforce tests
-PYTHONPATH=. python -m unittest discover -s tests -v
+python3 -m compileall -q zworkforce tests
+PYTHONPATH=. python3 -m unittest discover -s tests -v
 zworkforce doctor
 ```
 

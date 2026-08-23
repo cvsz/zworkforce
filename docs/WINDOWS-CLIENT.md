@@ -93,9 +93,9 @@ server after launch.
 Start zWorkforce in the repository's normal development environment:
 
 ```bash
-python -m pip install .
-python -m zworkforce doctor
-python -m zworkforce serve
+python3 -m pip install .
+python3 -m zworkforce doctor
+python3 -m zworkforce serve
 ```
 
 Then enter the following in the Windows client:

@@ -80,7 +80,7 @@ def main() -> int:
     for needle in [
         f"default: v{expected}",
         f"default: {expected}",
-        'python scripts/verify_release.py --expected "$RELEASE_VERSION"',
+        'python3 scripts/verify_release.py --expected "$RELEASE_VERSION"',
         "Refusing to overwrite existing immutable image tag",
     ]:
         if needle not in publish:

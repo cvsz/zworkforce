@@ -1,0 +1,16 @@
+{
+  "schema_version": "zarvis.owner-domain.v1",
+  "generated_at": "2026-08-17T19:33:33+00:00",
+  "owner_github_id": "4076926",
+  "primary_domain": "zarvis.zeaz.dev",
+  "action_domain": "action.zarvis.zeaz.dev",
+  "proactive_domain": "proactive.zarvis.zeaz.dev",
+  "server_host": "192.168.74.130",
+  "ssh_user": "cvsz",
+  "ssh_port": 22,
+  "linux_listener": "127.0.0.1:8443",
+  "windows_listener": "127.0.0.1:443",
+  "public_dns_required": false,
+  "public_http_ingress": false,
+  "private_ca_sha256_fingerprint": "32:BA:EA:27:13:73:3C:9C:B0:6B:FC:CF:19:D2:35:47:53:41:C0:50:AD:49:FC:24:BF:39:2C:1C:F9:02:73:EC"
+}

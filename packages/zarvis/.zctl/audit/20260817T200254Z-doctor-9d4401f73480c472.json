@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "1.0.0",
+  "operationId": "9d4401f73480c472",
+  "command": "doctor",
+  "profile": "local",
+  "actor": "cvsz",
+  "startedAt": "2026-08-17T20:02:54.614912005Z",
+  "completedAt": "2026-08-17T20:02:54.627105224Z",
+  "result": "failed",
+  "error": "doctor checks failed"
+}

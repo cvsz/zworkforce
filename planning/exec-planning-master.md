@@ -240,14 +240,14 @@ Core skill categories remain:
 
 ```bash
 # 1. Compile and Unit Tests
-python -m compileall -q zworkforce tests scripts
-PYTHONPATH=. python -m unittest discover -s tests -v
+python3 -m compileall -q zworkforce tests scripts
+PYTHONPATH=. python3 -m unittest discover -s tests -v
 
 # 2. System Doctor & Policy Audit
 zworkforce doctor
 
 # 3. PostgreSQL Regression
-PYTHONPATH=. python -m unittest tests/test_v3_postgres.py -v
+PYTHONPATH=. python3 -m unittest tests/test_v3_postgres.py -v
 
 # 4. Z.A.R.V.I.S. / workspace skill runtime
 pnpm --dir packages/zarvis install --frozen-lockfile
@@ -259,7 +259,7 @@ pnpm --dir packages/zarvis audit --audit-level high
 ./scripts/install/install_hermes_full_stack_master.sh --dry-run
 
 # 6. Release consistency
-python scripts/verify_release.py --expected 3.0.3
+python3 scripts/verify_release.py --expected 3.0.3
 ```
 
 Production readiness remains governed by `docs/PRODUCTION-EVIDENCE.md`; repository tests do not substitute for external environment evidence.

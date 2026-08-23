@@ -1,0 +1,87 @@
+{
+  "version": "1.0.0",
+  "policy": "local_product_media_only",
+  "items": [
+    {
+      "asset_id": "loe-charcoal-soap-reference",
+      "product_id": "LOE_CHARCOAL_SOAP",
+      "kind": "reference_photo",
+      "path": "assets/loe_soap/707931534_10165024508616122_6595834135060529509_n.jpg",
+      "language": "th",
+      "preferred": true,
+      "alt": "ภาพอ้างอิง Loe Charcoal Mud Dtox & Whitening Soap"
+    },
+    {
+      "asset_id": "loe-vitc-serum-detail",
+      "product_id": "LOE_VITC_SERUM",
+      "kind": "product_photo",
+      "path": "assets/loe_vit_c_aura_serum/740989214_1018922527724486_9181674417295497468_n.jpg",
+      "language": "th",
+      "preferred": false,
+      "alt": "รายละเอียดผลิตภัณฑ์ Loe VIT C Aura Serum"
+    },
+    {
+      "asset_id": "loe-vitc-serum-ingredients",
+      "product_id": "LOE_VITC_SERUM",
+      "kind": "product_photo",
+      "path": "assets/loe_vit_c_aura_serum/762688930_1051515217628458_8139762741551873127_n.jpg",
+      "language": "th",
+      "preferred": false,
+      "alt": "ข้อมูลผลิตภัณฑ์และส่วนประกอบ Loe VIT C Aura Serum"
+    },
+    {
+      "asset_id": "loe-vitc-serum-pack",
+      "product_id": "LOE_VITC_SERUM",
+      "kind": "product_photo",
+      "path": "assets/loe_vit_c_aura_serum/759094178_1347281164139738_6071201512865185075_n.jpg",
+      "language": "th",
+      "preferred": false,
+      "alt": "แพ็กเกจ Loe VIT C Aura Serum"
+    },
+    {
+      "asset_id": "loe-vitc-body-serum-front",
+      "product_id": "LOE_VITC_SERUM",
+      "kind": "product_photo",
+      "path": "assets/loe_vit_c_aura_serum/1fb763e97cb649a4bdbfe2fcd38369fc~tplv-aphluv4xwc-resize-webp_800_1067.webp",
+      "language": "th",
+      "preferred": false,
+      "alt": "ภาพสินค้า Loe VIT C Aura Body Serum"
+    },
+    {
+      "asset_id": "mala-chili-oil-front",
+      "product_id": "MALA_CHILI_OIL",
+      "kind": "product_photo",
+      "path": "assets/suea_rong_hai_mala_chili_oil/637e6c92c06a41d38d222a2233fa2431~tplv-aphluv4xwc-resize-webp_800_800.webp",
+      "language": "th",
+      "preferred": true,
+      "alt": "น้ำพริกเสือร้องไห้ พริกน้ำมันรำข้าว 200 กรัม"
+    },
+    {
+      "asset_id": "mala-chili-oil-detail",
+      "product_id": "MALA_CHILI_OIL",
+      "kind": "product_photo",
+      "path": "assets/suea_rong_hai_mala_chili_oil/8595fb79a239445e8f5e99d001175a73~tplv-aphluv4xwc-resize-webp_800_800.webp",
+      "language": "th",
+      "preferred": false,
+      "alt": "รายละเอียดน้ำพริกเสือร้องไห้และส่วนประกอบ"
+    },
+    {
+      "asset_id": "choe-foundation-reference",
+      "product_id": "CHOE_FOUNDATION",
+      "kind": "reference_photo",
+      "path": "assets/choe/703915001_10164994697921122_6943873879144250715_n.jpg",
+      "language": "th",
+      "preferred": true,
+      "alt": "ภาพอ้างอิงสินค้า Choe แบบซอง"
+    },
+    {
+      "asset_id": "copper-cream-reference",
+      "product_id": "THE_COPPER_CREAM",
+      "kind": "reference_photo",
+      "path": "assets/the_copper/761584744_1074954168205277_5266911363237506144_n.jpg",
+      "language": "th",
+      "preferred": true,
+      "alt": "ภาพอ้างอิงสินค้า The Copper Rouges Capsule Cream"
+    }
+  ]
+}

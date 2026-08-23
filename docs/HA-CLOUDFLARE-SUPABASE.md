@@ -7,7 +7,7 @@ zWorkforce uses two independent runtime VMs behind a shared Supabase durable dat
 - **VM-A (ha-a.zeaz.dev / 192.168.74.134):** primary zWorkforce runtime — API/control plane, scheduler, worker, outbox.
 - **VM-B (ha-b.zeaz.dev / 192.168.74.135):** secondary zWorkforce runtime — API/control plane, scheduler, worker, outbox.
 - **Observability (obs.zeaz.dev / 192.168.74.134):** OTel Collector, Prometheus, Alertmanager. Co-located on VM-B for this release.
-- **Supabase (qhprcfdgajhmdzvnsffb):** shared durable PostgreSQL and Supabase Storage data plane. **Not an HTTP origin substitute.**
+- **Supabase (dryflnsxhjuaamnzfrtu):** shared durable PostgreSQL and Supabase Storage data plane. **Not an HTTP origin substitute.**
 - **Vercel:** frontend / stateless web compute.
 
 ```text

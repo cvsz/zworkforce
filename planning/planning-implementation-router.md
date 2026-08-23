@@ -2,7 +2,7 @@
 
 **Updated:** 2026-08-18T18:30Z (auto-quad-loop)  
 **Module:** Router Gateway, OpenRouter 600+ Model Catalog, Free-Model-First Dispatch, `.env.ai` Key Matrix, and Open WebUI  
-**Parent Strategy:** [`exec-planning.master.md`](exec-planning.master.md) & [`exec-planning-router.md`](exec-planning-router.md)
+**Parent Strategy:** [`exec-planning-master.md`](exec-planning-master.md) & [`exec-planning-router.md`](exec-planning-router.md)
 
 ---
 

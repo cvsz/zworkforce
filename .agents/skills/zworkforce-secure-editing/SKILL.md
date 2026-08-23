@@ -27,9 +27,9 @@ platform security model.
 Use these commands when relevant:
 
 ```bash
-python -m unittest discover -s tests -v
-python -m compileall -q zworkforce tests
-python scripts/verify_release.py --expected 3.0.2
+python3 -m unittest discover -s tests -v
+python3 -m compileall -q zworkforce tests
+python3 scripts/verify_release.py --expected 3.0.2
 git diff --check
 ```
 

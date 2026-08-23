@@ -30,7 +30,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
-      - run: python -m unittest tests.test_zarvis_package -v
+      - run: python3 -m unittest tests.test_zarvis_package -v
 
   node-workspace:
     runs-on: ubuntu-latest
@@ -65,7 +65,7 @@ jobs:
           cache: pip
           cache-dependency-path: packages/zarvis/services/zarvis-api/requirements.txt
       - run: pip install --no-cache-dir -r requirements.txt pytest pip-audit
-      - run: python -m pytest tests -q
+      - run: python3 -m pytest tests -q
       - run: pip-audit -r requirements.txt
 
   zarvis-windows-linux-restore:

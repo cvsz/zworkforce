@@ -42,6 +42,10 @@ tfplan.*
 .env.openai
 .env.release
 .env.supabase
+.env.sbha.node.*
 .release-evidence-logs/
 .release-evidence-state/
 deploy/observability/*.rendered.yml
+packages/zttshop/.next/
+packages/zttshop/.sites-runtime/npm-cache/
+packages/zttshop/.sites-runtime/tmp/

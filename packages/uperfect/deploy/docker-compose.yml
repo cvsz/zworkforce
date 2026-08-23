@@ -1,0 +1,45 @@
+services:
+  uperfect:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    environment:
+      UPERFECT_DATABASE_PATH: /data/uperfect.db
+      UPERFECT_LOCAL_ONLY: "true"
+      UPERFECT_LOCAL_AI_BASE_URL: http://192.168.74.130:11434
+      UPERFECT_LOCAL_AI_MODEL: zCoder:latest
+    ports:
+      - "192.168.74.130:18765:18765"
+    volumes:
+      - uperfect_data:/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python -c "import urllib.request; urllib.request.urlopen(
+          'http://127.0.0.1:18765/api/health', timeout=2)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    command: ["python", "-m", "app.worker"]
+    restart: unless-stopped
+    depends_on:
+      uperfect:
+        condition: service_healthy
+    environment:
+      UPERFECT_DATABASE_PATH: /data/uperfect.db
+      UPERFECT_LOCAL_ONLY: "true"
+      UPERFECT_LOCAL_AI_BASE_URL: http://192.168.74.130:11434
+      UPERFECT_LOCAL_AI_MODEL: zCoder:latest
+    volumes:
+      - uperfect_data:/data
+
+volumes:
+  uperfect_data:

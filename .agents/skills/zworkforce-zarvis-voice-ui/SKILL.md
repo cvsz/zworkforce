@@ -113,8 +113,8 @@ Cover as applicable:
 Run the smallest relevant tests, then:
 
 ```bash
-python -m compileall -q zworkforce tests
-PYTHONPATH=. python -m unittest discover -s tests -v
+python3 -m compileall -q zworkforce tests
+PYTHONPATH=. python3 -m unittest discover -s tests -v
 pnpm --dir packages/zarvis test
 ```
 

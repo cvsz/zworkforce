@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "1.0.0",
+  "operationId": "1541123a152c1858",
+  "command": "doctor",
+  "profile": "local",
+  "actor": "cvsz",
+  "startedAt": "2026-08-17T20:03:13.797634737Z",
+  "completedAt": "2026-08-17T20:03:13.802144943Z",
+  "result": "success"
+}

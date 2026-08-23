@@ -18,7 +18,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: zworkforce-artifacts
+  name: zworkforce
   namespace: zworkforce
 spec:
   accessModes: ["ReadWriteMany"]

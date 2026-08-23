@@ -1,0 +1,205 @@
+- generic [ref=f1e2]:
+  - complementary "ส่วนงานหลัก" [ref=f1e130]:
+    - generic [ref=f1e131]:
+      - generic [ref=f1e132]: U
+      - generic [ref=f1e133]:
+        - paragraph [ref=f1e134]: SOCIAL COMMERCE OS
+        - heading "U.Perfect" [level=1] [ref=f1e135]
+    - navigation [ref=f1e137]:
+      - button "⌂ Overview" [ref=f1e609] [cursor=pointer]:
+        - generic [ref=f1e139]: ⌂
+        - generic [ref=f1e140]: Overview
+      - button "◫ Unified Inbox 0" [ref=f1e610] [cursor=pointer]:
+        - generic [ref=f1e142]: ◫
+        - generic [ref=f1e143]: Unified Inbox
+        - generic [ref=f1e144]: "0"
+      - button "◇ Product Memory" [ref=f1e145] [cursor=pointer]:
+        - generic [ref=f1e146]: ◇
+        - generic [ref=f1e147]: Product Memory
+      - button "▣ Orders" [ref=f1e611] [cursor=pointer]:
+        - generic [ref=f1e149]: ▣
+        - generic [ref=f1e150]: Orders
+      - button "✦ Skills" [ref=f1e151] [cursor=pointer]:
+        - generic [ref=f1e152]: ✦
+        - generic [ref=f1e153]: Skills
+      - button "◎ Agents" [ref=f1e154] [cursor=pointer]:
+        - generic [ref=f1e155]: ◎
+        - generic [ref=f1e156]: Agents
+      - button "↗ n8n Automations" [ref=f1e157] [cursor=pointer]:
+        - generic [ref=f1e158]: ↗
+        - generic [ref=f1e159]: n8n Automations
+      - button "⌘ Channels" [ref=f1e160] [cursor=pointer]:
+        - generic [ref=f1e161]: ⌘
+        - generic [ref=f1e162]: Channels
+      - button "✿ Sales Assets" [ref=f1e612] [cursor=pointer]:
+        - generic [ref=f1e164]: ✿
+        - generic [ref=f1e165]: Sales Assets
+      - button "⚙ Settings" [ref=f1e613] [cursor=pointer]:
+        - generic [ref=f1e167]: ⚙
+        - generic [ref=f1e168]: Settings
+    - generic [ref=f1e169]:
+      - generic [ref=f1e170]: Local workspace
+      - paragraph [ref=f1e173]: Android · iOS · Windows PWA
+      - link "@spookyuperfect ↗" [ref=f1e174] [cursor=pointer]:
+        - /url: https://www.facebook.com/spookyuperfect
+  - main [ref=f1e3]:
+    - generic [ref=f1e4]:
+      - button "Open menu" [ref=f1e614] [cursor=pointer]: ☰
+      - generic [ref=f1e6]:
+        - paragraph [ref=f1e7]: OPERATIONS WORKSPACE
+        - heading "Sales Assets" [level=2] [ref=f1e615]
+      - generic [ref=f1e9]:
+        - button "Switch language" [ref=f1e616] [cursor=pointer]:
+          - generic [ref=f1e11]: TH
+          - generic [ref=f1e12]: EN
+        - button "Refresh data" [ref=f1e617] [cursor=pointer]: ↻
+    - generic [active] [ref=f1e18]:
+      - generic [ref=f1e618]:
+        - generic [ref=f1e619]:
+          - heading "Sales assets and closing replies" [level=3] [ref=f1e620]
+          - paragraph [ref=f1e621]: Validated TH/EN response copy and local product media for the Autobot and admins.
+        - button "View API guides" [ref=f1e623] [cursor=pointer]
+      - generic [ref=f1e624]: The admin tone is warm, friendly, purchase-oriented, and CTA-led, while never inventing prices, stock, shipping, medical outcomes, or payment approval.
+      - generic [ref=f1e625]:
+        - article [ref=f1e626]:
+          - generic [ref=f1e627]:
+            - generic [ref=f1e628]:
+              - heading "LOE_VITC_SERUM" [level=4] [ref=f1e629]
+              - text: Active · catalog_review
+            - generic [ref=f1e630]: Merchant brief and seeded catalog value; verify before live checkout.
+          - generic [ref=f1e631]:
+            - figure "product_photo" [ref=f1e632]:
+              - img "รายละเอียดผลิตภัณฑ์ Loe VIT C Aura Serum" [ref=f1e633]
+            - figure "product_photo" [ref=f1e635]:
+              - img "ข้อมูลผลิตภัณฑ์และส่วนประกอบ Loe VIT C Aura Serum" [ref=f1e636]
+            - figure "product_photo" [ref=f1e638]:
+              - img "แพ็กเกจ Loe VIT C Aura Serum" [ref=f1e639]
+            - figure "product_photo" [ref=f1e641]:
+              - img "ภาพสินค้า Loe VIT C Aura Body Serum" [ref=f1e642]
+          - list [ref=f1e644]:
+            - listitem [ref=f1e645]: 200 ml body serum
+            - listitem [ref=f1e646]: Helps care for smoother and hydrated-looking body skin
+            - listitem [ref=f1e647]: Eight highlighted ingredients from the merchant brief
+          - generic [ref=f1e648]:
+            - strong [ref=f1e649]: Closing CTA
+            - text: We are looking at VIT C AURA SERUM เลอ บาย ยู เพอร์เฟค วิต ซี ออร่า เซรั่ม. I can recommend the best current catalog offer. Reply 'take the offer' or tell me the quantity.
+        - article [ref=f1e650]:
+          - generic [ref=f1e651]:
+            - generic [ref=f1e652]:
+              - heading "MALA_CHILI_OIL" [level=4] [ref=f1e653]
+              - text: Active · admin_review
+            - generic [ref=f1e654]: No price supplied in the canonical catalog.
+          - generic [ref=f1e655]:
+            - figure "product_photo" [ref=f1e656]:
+              - img "น้ำพริกเสือร้องไห้ พริกน้ำมันรำข้าว 200 กรัม" [ref=f1e657]
+            - figure "product_photo" [ref=f1e659]:
+              - img "รายละเอียดน้ำพริกเสือร้องไห้และส่วนประกอบ" [ref=f1e660]
+          - list [ref=f1e662]:
+            - listitem [ref=f1e663]: Rice-bran-oil chili condiment with tiger-striped peanuts
+            - listitem [ref=f1e664]: Merchant brief describes it as containing no animal ingredients
+            - listitem [ref=f1e665]: Contains peanuts; people with allergies should avoid it
+          - generic [ref=f1e666]:
+            - strong [ref=f1e667]: Closing CTA
+            - text: Interested in Mala Chili Oil? I can confirm the ingredients, and an admin will verify price and stock before quoting the total.
+        - article [ref=f1e668]:
+          - generic [ref=f1e669]:
+            - generic [ref=f1e670]:
+              - heading "LOE_CHARCOAL_SOAP" [level=4] [ref=f1e671]
+              - text: Reference only · admin_review
+            - generic [ref=f1e672]: Reference media is available, but price and active catalog status are not verified.
+          - figure "reference_photo" [ref=f1e674]:
+            - img "ภาพอ้างอิง Loe Charcoal Mud Dtox & Whitening Soap" [ref=f1e675]
+          - list [ref=f1e677]:
+            - listitem [ref=f1e678]: Reference media for Loe Charcoal Mud Dtox & Whitening Soap is available
+            - listitem [ref=f1e679]: Price, stock, and final details must be confirmed by an admin before sale
+          - generic [ref=f1e680]:
+            - strong [ref=f1e681]: Closing CTA
+            - text: Interested in Loe Charcoal Mud Soap? An admin will confirm price and stock before sharing the current offer.
+        - article [ref=f1e682]:
+          - generic [ref=f1e683]:
+            - generic [ref=f1e684]:
+              - heading "CHOE_FOUNDATION" [level=4] [ref=f1e685]
+              - text: Reference only · admin_review
+            - generic [ref=f1e686]: Reference media and notes exist, but this product is not active in the canonical catalog.
+          - figure "reference_photo" [ref=f1e688]:
+            - img "ภาพอ้างอิงสินค้า Choe แบบซอง" [ref=f1e689]
+          - list [ref=f1e691]:
+            - listitem [ref=f1e692]: Reference media and merchant notes are available
+            - listitem [ref=f1e693]: Price, stock, and final details must be confirmed before sale
+          - generic [ref=f1e694]:
+            - strong [ref=f1e695]: Closing CTA
+            - text: We have reference information for CHOE_FOUNDATION. An admin will confirm price and stock before sharing a final offer.
+        - article [ref=f1e696]:
+          - generic [ref=f1e697]:
+            - generic [ref=f1e698]:
+              - heading "THE_COPPER_CREAM" [level=4] [ref=f1e699]
+              - text: Reference only · admin_review
+            - generic [ref=f1e700]: Reference media and notes exist, but this product is not active in the canonical catalog.
+          - figure "reference_photo" [ref=f1e702]:
+            - img "ภาพอ้างอิงสินค้า The Copper Rouges Capsule Cream" [ref=f1e703]
+          - list [ref=f1e705]:
+            - listitem [ref=f1e706]: Reference media and merchant notes are available
+            - listitem [ref=f1e707]: Price, stock, and final details must be confirmed before sale
+          - generic [ref=f1e708]:
+            - strong [ref=f1e709]: Closing CTA
+            - text: We have reference information for THE_COPPER_CREAM. An admin will confirm price and stock before sharing a final offer.
+      - article [ref=f1e710]:
+        - generic [ref=f1e711]:
+          - heading "Supported Autobot intents" [level=4] [ref=f1e712]
+          - generic [ref=f1e713]: 11 records
+        - generic [ref=f1e714]:
+          - generic [ref=f1e715]:
+            - generic [ref=f1e716]:
+              - strong [ref=f1e717]: greeting
+              - generic [ref=f1e718]: hello, hi, hey
+            - generic [ref=f1e719]: Ready
+          - generic [ref=f1e720]:
+            - generic [ref=f1e721]:
+              - strong [ref=f1e722]: product_lookup
+              - generic [ref=f1e723]: product, products, which one, details
+            - generic [ref=f1e724]: Ready
+          - generic [ref=f1e725]:
+            - generic [ref=f1e726]:
+              - strong [ref=f1e727]: ingredients
+              - generic [ref=f1e728]: ingredient, ingredients, extract, inci, benefit, skin
+            - generic [ref=f1e729]: Ready
+          - generic [ref=f1e730]:
+            - generic [ref=f1e731]:
+              - strong [ref=f1e732]: price
+              - generic [ref=f1e733]: price, how much, cost, promotion, promo, discount
+            - generic [ref=f1e734]: Ready
+          - generic [ref=f1e735]:
+            - generic [ref=f1e736]:
+              - strong [ref=f1e737]: delivery
+              - generic [ref=f1e738]: delivery, shipping, shipping fee, ship, free shipping, how long
+            - generic [ref=f1e739]: Ready
+          - generic [ref=f1e740]:
+            - generic [ref=f1e741]:
+              - strong [ref=f1e742]: buy
+              - generic [ref=f1e743]: buy, order, take, get it, place order, checkout
+            - generic [ref=f1e744]: Ready
+          - generic [ref=f1e745]:
+            - generic [ref=f1e746]:
+              - strong [ref=f1e747]: payment
+              - generic [ref=f1e748]: pay, payment, transfer, slip, promptpay, qr
+            - generic [ref=f1e749]: Ready
+          - generic [ref=f1e750]:
+            - generic [ref=f1e751]:
+              - strong [ref=f1e752]: address
+              - generic [ref=f1e753]: address, phone, ship to, recipient
+            - generic [ref=f1e754]: Ready
+          - generic [ref=f1e755]:
+            - generic [ref=f1e756]:
+              - strong [ref=f1e757]: objection
+              - generic [ref=f1e758]: expensive, think about it, not sure, sensitive skin, allergy, allergic, more discount
+            - generic [ref=f1e759]: Ready
+          - generic [ref=f1e760]:
+            - generic [ref=f1e761]:
+              - strong [ref=f1e762]: fallback
+              - generic [ref=f1e763]: other, unknown
+            - generic [ref=f1e764]: Ready
+          - generic [ref=f1e765]:
+            - generic [ref=f1e766]:
+              - strong [ref=f1e767]: takeover
+              - generic [ref=f1e768]: talk to admin, human, agent, customer service
+            - generic [ref=f1e769]: Ready

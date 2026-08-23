@@ -1,0 +1,29 @@
+{
+  "export_name": "uperfect",
+  "requested_on": "2026-08-10",
+  "source_platform": "TikTok Shop Thailand",
+  "retrieval_scope": "Public, unauthenticated access only; no CAPTCHA interaction or bypass.",
+  "products": [
+    {
+      "product_id": "1736533886654383714",
+      "source_url": "https://shop.tiktok.com/th/pdp/1736533886654383714",
+      "status": "blocked",
+      "reason": "TikTok Shop Security Check CAPTCHA prevented access to product content.",
+      "exported_fields": []
+    },
+    {
+      "product_id": "1736534222483654242",
+      "source_url": "https://shop.tiktok.com/th/pdp/1736534222483654242",
+      "status": "blocked",
+      "reason": "TikTok Shop Security Check CAPTCHA prevented access to product content.",
+      "exported_fields": []
+    },
+    {
+      "product_id": "1736721811552831074",
+      "source_url": "https://shop.tiktok.com/th/pdp/1736721811552831074",
+      "status": "blocked",
+      "reason": "TikTok Shop Security Check CAPTCHA prevented access to product content.",
+      "exported_fields": []
+    }
+  ]
+}

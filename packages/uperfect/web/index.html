@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#31283e">
+  <meta name="description" content="U.Perfect Social Commerce OS admin workspace">
+  <link rel="icon" href="/favicon.svg?v=20260810-local-v7" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/styles.css?v=20260810-local-v7">
+  <title>U.Perfect Social Commerce OS</title>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="ส่วนงานหลัก">
+      <div class="brand-lockup">
+        <div class="brand-mark" aria-hidden="true">U</div>
+        <div>
+          <p class="eyebrow">SOCIAL COMMERCE OS</p>
+          <h1>U.Perfect</h1>
+        </div>
+      </div>
+      <div class="sidebar-rule"></div>
+      <nav class="main-nav">
+        <button class="nav-item is-active" data-view="overview"><span class="nav-glyph">⌂</span><span data-i18n="nav.overview">ภาพรวม</span></button>
+        <button class="nav-item" data-view="inbox"><span class="nav-glyph">◫</span><span data-i18n="nav.inbox">แชตรวม</span><b class="nav-count" id="inbox-count">0</b></button>
+        <button class="nav-item" data-view="memory"><span class="nav-glyph">◇</span><span data-i18n="nav.memory">Product Memory</span></button>
+        <button class="nav-item" data-view="orders"><span class="nav-glyph">▣</span><span data-i18n="nav.orders">ออเดอร์</span></button>
+        <button class="nav-item" data-view="skills"><span class="nav-glyph">✦</span><span data-i18n="nav.skills">Skills</span></button>
+        <button class="nav-item" data-view="agents"><span class="nav-glyph">◎</span><span data-i18n="nav.agents">Agents</span></button>
+        <button class="nav-item" data-view="automations"><span class="nav-glyph">↗</span><span data-i18n="nav.automations">n8n Automations</span></button>
+        <button class="nav-item" data-view="integrations"><span class="nav-glyph">⌘</span><span data-i18n="nav.integrations">Channels</span></button>
+        <button class="nav-item" data-view="sales-assets"><span class="nav-glyph">✿</span><span data-i18n="nav.sales-assets">Sales Assets</span></button>
+        <button class="nav-item" data-view="settings"><span class="nav-glyph">⚙</span><span data-i18n="nav.settings">Settings</span></button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="status-line"><span class="status-dot"></span><span data-i18n="system.local">Local workspace</span></div>
+        <p>Android · iOS · Windows PWA</p>
+        <a href="https://www.facebook.com/spookyuperfect" target="_blank" rel="noreferrer">@spookyuperfect ↗</a>
+      </div>
+    </aside>
+
+    <main class="main-stage">
+      <header class="topbar">
+        <button class="mobile-menu" id="mobile-menu" aria-label="Open menu">☰</button>
+        <div class="topbar-title">
+          <p class="eyebrow" data-i18n="top.workspace">OPERATIONS WORKSPACE</p>
+          <h2 id="view-title">ภาพรวมระบบ</h2>
+        </div>
+        <div class="topbar-actions">
+          <span class="connection-pill" id="api-status"><span class="status-dot"></span> API checking</span>
+          <button class="language-toggle" id="language-toggle" type="button" aria-label="Switch language"><span class="lang-active">TH</span><span>EN</span></button>
+          <button class="icon-button" id="refresh-button" type="button" title="Refresh data" aria-label="Refresh data">↻</button>
+        </div>
+      </header>
+
+      <div class="page-wrap">
+        <div id="notice" class="notice" role="status" hidden></div>
+        <section id="view" tabindex="-1" aria-live="polite"></section>
+      </div>
+    </main>
+  </div>
+  <script src="/app.js?v=20260810-local-v7" defer></script>
+</body>
+</html>

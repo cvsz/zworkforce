@@ -1,6 +1,12 @@
 from __future__ import annotations
 
+import os
+import sys
 import unittest
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
 
 from scripts.sarif_triage import SarifTriager, TriageFinding
 from zworkforce.secret_canary import SecretCanaryRegistry, CanaryLeakError

@@ -2,7 +2,7 @@
 
 **Updated:** 2026-08-18T18:30Z (auto-quad-loop)  
 **Module:** `packages/zeto/` Content Lifecycle Engine (`IDEATE → GENERATE → WRITE → APPROVE → PUBLISH → MONITOR → LEARN`)  
-**Parent Strategy:** [`exec-planning.master.md`](exec-planning.master.md) & [`exec-planning-zato.md`](exec-planning-zato.md)
+**Parent Strategy:** [`exec-planning-master.md`](exec-planning-master.md) & [`exec-planning-zato.md`](exec-planning-zato.md)
 
 ---
 

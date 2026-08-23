@@ -1,0 +1,248 @@
+{
+  "version": "1.0.0",
+  "languages": ["th", "en"],
+  "default_language": "th",
+  "intents": {
+    "greeting": {
+      "keywords": {
+        "th": ["สวัสดี", "หวัดดี", "ทักทาย"],
+        "en": ["hello", "hi", "hey"]
+      },
+      "replies": {
+        "th": "สวัสดีค่ะ ยินดีต้อนรับสู่ U.Perfect นะคะ สนใจตัวไหนบอกแอดมินได้เลย เดี๋ยวช่วยเลือกให้เหมาะและสรุปโปรให้ค่ะ",
+        "en": "Hello and welcome to U.Perfect. Tell me what you are looking for and I will help choose an option and summarize the current offer."
+      }
+    },
+    "product_lookup": {
+      "keywords": {
+        "th": ["สินค้า", "มีอะไรบ้าง", "ตัวไหน", "รายละเอียด"],
+        "en": ["product", "products", "which one", "details"]
+      },
+      "replies": {
+        "th": "แจ้งชื่อสินค้าหรือคำที่จำได้ เช่น วิตซีโลเอ้ หรือน้ำพริกเสือร้องไห้ได้เลยค่ะ เดี๋ยวช่วยเช็กข้อมูลจากคลังสินค้าให้ค่ะ",
+        "en": "Tell me the product name or a keyword, such as Loe Vit C Serum or Mala Chili Oil, and I will check the catalog."
+      }
+    },
+    "ingredients": {
+      "keywords": {
+        "th": ["ส่วนผสม", "สารสกัด", "inci", "ช่วยเรื่อง", "ใช้กับผิว"],
+        "en": ["ingredient", "ingredients", "extract", "inci", "benefit", "skin"]
+      },
+      "replies": {
+        "th": "{{product_name}} มีข้อมูลสารสกัดจากผู้ขายดังนี้:\n{{ingredient_lines}}\n\nข้อมูลนี้เป็นคำอธิบายจากผู้ขาย ไม่ใช่คำรับรองผลทางการแพทย์ หากผิวไวต่อการระคายเคืองควรทดสอบการแพ้ก่อนใช้และหยุดใช้หากมีอาการผิดปกติค่ะ\n\nสนใจให้ช่วยสรุปโปรหรือสร้างร่างออเดอร์ไหมคะ",
+        "en": "{{product_name}} has the following seller-provided ingredient information:\n{{ingredient_lines}}\n\nThis is product information, not medical advice or a guaranteed result. Patch-test first if your skin is sensitive and stop using it if irritation occurs.\n\nWould you like the current offer or a draft order?"
+      }
+    },
+    "price": {
+      "keywords": {
+        "th": ["ราคา", "กี่บาท", "เท่าไหร่", "เท่าไร", "โปร", "บาท", "ลดไหม"],
+        "en": ["price", "how much", "cost", "promotion", "promo", "discount"]
+      },
+      "replies": {
+        "th": "{{product_name}} ราคาเริ่มต้น {{price}} บาทค่ะ\n{{promotion_lines}}\n\nถ้าอยากเริ่มลอง แอดมินแนะนำโปรที่คุ้มที่สุดในระบบนะคะ พิมพ์ว่า 'รับโปร' หรือบอกจำนวนที่ต้องการได้เลย เดี๋ยวแอดมินสรุปร่างออเดอร์ให้ค่ะ",
+        "en": "{{product_name}} starts at {{price}} THB.\n{{promotion_lines}}\n\nIf you would like to try it, I can recommend the best current catalog offer. Reply 'take the offer' or tell me the quantity and I will prepare the draft order."
+      },
+      "unpriced_replies": {
+        "th": "{{product_name}} ตอนนี้ยังไม่มีราคาที่ยืนยันในระบบค่ะ แอดมินขอตรวจสอบราคาให้ก่อนนะคะ จะได้แจ้งยอดถูกต้องและไม่ทำให้คุณลูกค้าเสียเวลา",
+        "en": "{{product_name}} does not have a verified catalog price yet. I will ask an admin to confirm it so you receive the correct total before ordering."
+      }
+    },
+    "delivery": {
+      "keywords": {
+        "th": ["ส่ง", "จัดส่ง", "ค่าส่ง", "ขนส่ง", "ส่งฟรี", "กี่วัน"],
+        "en": ["delivery", "shipping", "shipping fee", "ship", "free shipping", "how long"]
+      },
+      "replies": {
+        "th": "ขออนุญาตตรวจสอบค่าจัดส่งตามพื้นที่ก่อนนะคะ ระบบยังไม่ยืนยันค่าจัดส่งทุกพื้นที่ หากเข้าเงื่อนไขโปรจึงจะแสดงว่าส่งฟรีค่ะ",
+        "en": "Shipping depends on the destination. The system has not verified every area, so free shipping is shown only when the catalog promotion explicitly includes it."
+      },
+      "free_promotion_replies": {
+        "th": "โปรของสินค้านี้ระบุว่าส่งฟรีเมื่อเข้าเงื่อนไขโปรโมชันค่ะ แต่ค่าจัดส่งของทุกพื้นที่ยังต้องตรวจสอบก่อนชำระเงิน สนใจให้ช่วยเตรียมร่างออเดอร์ไหมคะ",
+        "en": "This catalog promotion states free shipping when its conditions are met. Destination coverage still needs to be checked before payment. Would you like a draft order?"
+      }
+    },
+    "buy": {
+      "keywords": {
+        "th": ["ซื้อ", "สั่ง", "รับ", "เอา", "ขอโปร", "สั่งเลย"],
+        "en": ["buy", "order", "take", "get it", "place order", "checkout"]
+      },
+      "replies": {
+        "th": "รับ {{product_name}} จำนวน {{quantity}} ชิ้นไหมคะ ถ้าพร้อม พิมพ์ยืนยันจำนวนได้เลย เดี๋ยวแอดมินสรุปยอดและสร้างร่างออเดอร์ให้ตรวจสอบก่อนชำระค่ะ",
+        "en": "Would you like {{quantity}} item(s) of {{product_name}}? Confirm the quantity and I will summarize the order for your review before payment."
+      },
+      "unpriced_replies": {
+        "th": "รับเรื่อง {{product_name}} ไว้ให้แล้วนะคะ ตอนนี้ยังไม่มีราคาที่ยืนยันในระบบ แอดมินจะเช็กราคาและสต็อกให้ก่อน แล้วรีบกลับมาปิดการขายให้ถูกต้องค่ะ",
+        "en": "I noted your request for {{product_name}}. Its price is not verified, so an admin must confirm price and stock before we close the sale correctly."
+      }
+    },
+    "payment": {
+      "keywords": {
+        "th": ["โอน", "สลิป", "ชำระ", "จ่าย", "พร้อมเพย์", "qr"],
+        "en": ["pay", "payment", "transfer", "slip", "promptpay", "qr"]
+      },
+      "replies": {
+        "th": "ได้เลยค่ะ หลังโอนส่งสลิปเข้ามาได้เลยนะคะ แอดมินจะตรวจสอบให้ทันที แต่สถานะออเดอร์จะเป็น 'รอตรวจสอบ' จนกว่าจะยืนยันโดยผู้มีสิทธิ์ค่ะ",
+        "en": "After you transfer, please send the slip here and an admin will review it. The order remains 'pending review' until an authorized reviewer confirms it."
+      }
+    },
+    "address": {
+      "keywords": {
+        "th": ["ที่อยู่", "เบอร์โทร", "จัดส่งไป", "ชื่อผู้รับ"],
+        "en": ["address", "phone", "ship to", "recipient"]
+      },
+      "replies": {
+        "th": "ได้เลยค่ะ ส่งชื่อผู้รับ ที่อยู่ และเบอร์โทรมาในข้อความเดียวกันได้เลยนะคะ แอดมินจะเช็กให้ครบ แล้วเตรียมออเดอร์ต่อให้ค่ะ",
+        "en": "Sure. Send the recipient name, full address, and phone number in one message. I will check that everything is complete and move the order forward."
+      }
+    },
+    "objection": {
+      "keywords": {
+        "th": ["แพง", "ขอคิดก่อน", "ยังไม่แน่ใจ", "ผิวแพ้ง่าย", "แพ้", "กลัวแพ้", "ลดอีกได้ไหม"],
+        "en": ["expensive", "think about it", "not sure", "sensitive skin", "allergy", "allergic", "more discount"]
+      },
+      "replies": {
+        "th": "เข้าใจคุณลูกค้าเลยค่ะ เดี๋ยวแอดมินช่วยตอบให้ตรงจุดและแนะนำเฉพาะโปรที่ยืนยันในระบบนะคะ ถ้าพร้อมเมื่อไร พิมพ์ 'รับโปร' ได้เลยค่ะ",
+        "en": "I understand. I will answer clearly and recommend only offers confirmed in the catalog. When you are ready, reply 'take the offer' and I will prepare the next step."
+      }
+    },
+    "fallback": {
+      "keywords": {
+        "th": ["อื่นๆ", "ไม่เข้าใจ"],
+        "en": ["other", "unknown"]
+      },
+      "replies": {
+        "th": "บอกแอดมินเพิ่มได้เลยนะคะ เช่น ชื่อสินค้า ส่วนผสม ราคา หรือการจัดส่ง เดี๋ยวช่วยเช็กให้ค่ะ ถ้าพร้อมซื้อพิมพ์ 'รับโปร' ได้เลยนะคะ",
+        "en": "Tell me the product, ingredients, price, or delivery question and I will check it for you. If you are ready to buy, reply 'take the offer'."
+      }
+    },
+    "takeover": {
+      "keywords": {
+        "th": ["คุยกับแอดมิน", "คุยกับคน", "เจ้าหน้าที่", "แอดมิน"],
+        "en": ["talk to admin", "human", "agent", "customer service"]
+      },
+      "replies": {
+        "th": "ได้เลยค่ะ รับเรื่องให้แล้วนะคะ ระบบจะหยุดตอบอัตโนมัติชั่วคราว และส่งต่อให้แอดมินตัวจริงเข้ามาดูแลต่อค่ะ",
+        "en": "Of course. I have passed this to a human admin. Automated replies will pause while the admin takes over."
+      }
+    }
+  },
+  "objections": {
+    "sensitive_skin": {
+      "keywords": {
+        "th": ["ผิวแพ้ง่าย", "แพ้ง่าย", "กลัวแพ้", "ระคายเคือง", "แพ้"],
+        "en": ["sensitive skin", "sensitive", "allergy", "allergic", "irritation"]
+      },
+      "replies": {
+        "th": "สำหรับผิวแพ้ง่าย ข้อมูลผู้ขายระบุสารสกัดที่ช่วยดูแลและปลอบประโลมผิว แต่ไม่สามารถรับรองว่าเหมาะกับทุกคนได้ค่ะ แนะนำทดสอบการแพ้บนบริเวณเล็กๆ ก่อนใช้ และหยุดใช้หากระคายเคืองหรือมีอาการผิดปกติ สนใจให้ช่วยดูส่วนผสมหรือโปรต่อไหมคะ ถ้าพร้อมพิมพ์ 'รับโปร' ได้เลยนะคะ",
+        "en": "For sensitive skin, the seller describes soothing ingredients, but no product can be guaranteed suitable for everyone. Patch-test a small area first and stop using it if irritation or an unusual reaction occurs. Would you like the ingredient list or current offer?"
+      }
+    },
+    "hesitation": {
+      "keywords": {
+        "th": ["ขอคิดก่อน", "ยังไม่แน่ใจ", "ไว้ก่อน", "เดี๋ยวค่อยสั่ง"],
+        "en": ["think about it", "not sure", "later", "maybe later"]
+      },
+      "replies": {
+        "th": "ได้เลยค่ะ ไม่ต้องรีบตัดสินใจนะคะ หากต้องการ เดี๋ยวสรุปข้อมูลและโปรที่ยืนยันในระบบไว้ให้ แล้วค่อยกลับมาสั่งกับแอดมินได้ค่ะ",
+        "en": "Of course. There is no need to decide now. I can leave you with the catalog facts and current offer, and an admin can help when you are ready."
+      }
+    },
+    "price_objection": {
+      "keywords": {
+        "th": ["แพง", "ลดอีก", "งบไม่พอ", "มีส่วนลดไหม"],
+        "en": ["expensive", "more discount", "budget", "discount"]
+      },
+      "replies": {
+        "th": "เข้าใจค่ะ ตอนนี้ระบบแสดงเฉพาะราคาและโปรที่ยืนยันใน catalog เท่านั้น ยังไม่สามารถรับปากส่วนลดเพิ่มเติมได้ค่ะ หากต้องการให้แอดมินตรวจโปรอื่น พิมพ์ 'คุยกับแอดมิน' ได้เลยค่ะ",
+        "en": "I understand. The bot can only show prices and promotions confirmed in the catalog and cannot promise an extra discount. Say 'talk to an admin' if you want an admin to check other offers."
+      }
+    }
+  },
+  "products": {
+    "LOE_VITC_SERUM": {
+      "catalog_status": "active",
+      "close_mode": "catalog_review",
+      "price_verified": false,
+      "price_note": "Merchant brief and seeded catalog value; verify before live checkout.",
+      "asset_ids": ["loe-vitc-serum-detail", "loe-vitc-serum-ingredients", "loe-vitc-serum-pack", "loe-vitc-body-serum-front"],
+      "selling_points": {
+        "th": ["บอดี้เซรั่ม 200 มิลลิลิตร", "ดูแลผิวกายให้เนียนนุ่มและชุ่มชื้น", "สารสกัดเด่น 8 รายการตาม merchant brief"],
+        "en": ["200 ml body serum", "Helps care for smoother and hydrated-looking body skin", "Eight highlighted ingredients from the merchant brief"]
+      },
+      "closing_cta": {
+        "th": "กำลังคุยเรื่อง {{product_name}} อยู่นะคะ ถ้าต้องการเริ่มลอง แอดมินช่วยแนะนำโปรที่คุ้มในระบบให้ได้เลย พิมพ์ 'รับโปร' หรือบอกจำนวนที่ต้องการค่ะ",
+        "en": "We are looking at {{product_name}}. I can recommend the best current catalog offer. Reply 'take the offer' or tell me the quantity."
+      }
+    },
+    "MALA_CHILI_OIL": {
+      "catalog_status": "active",
+      "close_mode": "admin_review",
+      "price_verified": false,
+      "price_note": "No price supplied in the canonical catalog.",
+      "asset_ids": ["mala-chili-oil-front", "mala-chili-oil-detail"],
+      "selling_points": {
+        "th": ["พริกน้ำมันรำข้าวใส่ถั่วลายเสือ", "ไม่มีส่วนประกอบของเนื้อสัตว์ตาม merchant brief", "มีส่วนผสมของถั่ว ผู้แพ้อาหารควรหลีกเลี่ยง"],
+        "en": ["Rice-bran-oil chili condiment with tiger-striped peanuts", "Merchant brief describes it as containing no animal ingredients", "Contains peanuts; people with allergies should avoid it"]
+      },
+      "closing_cta": {
+        "th": "สนใจน้ำพริกเสือร้องไห้ใช่ไหมคะ แอดมินเช็กส่วนประกอบให้ได้เลยค่ะ ตอนนี้ขอตรวจราคาและสต็อกก่อน แล้วจะแจ้งยอดที่ถูกต้องให้ค่ะ",
+        "en": "Interested in Mala Chili Oil? I can confirm the ingredients, and an admin will verify price and stock before quoting the total."
+      }
+    },
+    "LOE_CHARCOAL_SOAP": {
+      "catalog_status": "reference_only",
+      "close_mode": "admin_review",
+      "price_verified": false,
+      "price_note": "Reference media is available, but price and active catalog status are not verified.",
+      "asset_ids": ["loe-charcoal-soap-reference"],
+      "selling_points": {
+        "th": ["มีภาพอ้างอิง Loe Charcoal Mud Dtox & Whitening Soap", "ต้องยืนยันราคา สต็อก และรายละเอียดกับแอดมินก่อนขาย"],
+        "en": ["Reference media for Loe Charcoal Mud Dtox & Whitening Soap is available", "Price, stock, and final details must be confirmed by an admin before sale"]
+      },
+      "closing_cta": {
+        "th": "สนใจสบู่โคลน Loe ใช่ไหมคะ แอดมินขอเช็กราคาและสต็อกให้ก่อน แล้วจะแจ้งโปรที่ถูกต้องให้ค่ะ",
+        "en": "Interested in Loe Charcoal Mud Soap? An admin will confirm price and stock before sharing the current offer."
+      }
+    },
+    "CHOE_FOUNDATION": {
+      "catalog_status": "reference_only",
+      "close_mode": "admin_review",
+      "price_verified": false,
+      "price_note": "Reference media and notes exist, but this product is not active in the canonical catalog.",
+      "asset_ids": ["choe-foundation-reference"],
+      "selling_points": {
+        "th": ["มีภาพและข้อมูลอ้างอิงจาก merchant assets", "ต้องยืนยันราคา สต็อก และรายละเอียดก่อนขาย"],
+        "en": ["Reference media and merchant notes are available", "Price, stock, and final details must be confirmed before sale"]
+      },
+      "closing_cta": {
+        "th": "แอดมินมีข้อมูลอ้างอิงของ {{product_name}} แล้วนะคะ ขอเช็กราคาและสต็อกกับทีมก่อน แล้วจะกลับมาแจ้งให้ถูกต้องค่ะ",
+        "en": "We have reference information for {{product_name}}. An admin will confirm price and stock before sharing a final offer."
+      }
+    },
+    "THE_COPPER_CREAM": {
+      "catalog_status": "reference_only",
+      "close_mode": "admin_review",
+      "price_verified": false,
+      "price_note": "Reference media and notes exist, but this product is not active in the canonical catalog.",
+      "asset_ids": ["copper-cream-reference"],
+      "selling_points": {
+        "th": ["มีภาพและข้อมูลอ้างอิงจาก merchant assets", "ต้องยืนยันราคา สต็อก และรายละเอียดก่อนขาย"],
+        "en": ["Reference media and merchant notes are available", "Price, stock, and final details must be confirmed before sale"]
+      },
+      "closing_cta": {
+        "th": "แอดมินมีข้อมูลอ้างอิงของ {{product_name}} แล้วนะคะ ขอเช็กราคาและสต็อกกับทีมก่อน แล้วจะกลับมาแจ้งให้ถูกต้องค่ะ",
+        "en": "We have reference information for {{product_name}}. An admin will confirm price and stock before sharing a final offer."
+      }
+    }
+  },
+  "safety": {
+    "never_claim": {
+      "th": ["ชำระเงินสำเร็จจากสลิปที่ยังไม่ตรวจ", "รักษาโรคหรือรับรองผลทางการแพทย์", "ส่งฟรีทุกพื้นที่โดยไม่มีเงื่อนไข", "ราคาสินค้าที่ไม่ได้อยู่ใน catalog"],
+      "en": ["payment success before review", "medical treatment or guaranteed results", "free shipping for every area without conditions", "a price that is not in the catalog"]
+    },
+    "always_include": {
+      "th": ["คำเตือนและ allergen เมื่อเกี่ยวข้อง", "การทดสอบการแพ้สำหรับผิวไว", "สถานะ payment review ก่อนยืนยันออเดอร์"],
+      "en": ["relevant warnings and allergens", "patch-test guidance for sensitive skin", "payment review status before order confirmation"]
+    }
+  }
+}

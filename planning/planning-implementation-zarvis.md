@@ -2,7 +2,7 @@
 
 **Updated:** 2026-08-18T18:30Z (auto-quad-loop)  
 **Module:** `packages/zarvis/` Voice UI, Realtime Audio Streaming, Session Orchestrator, and WinUI Integration  
-**Parent Strategy:** [`exec-planning.master.md`](exec-planning.master.md) & [`exec-planning-zarvis.md`](exec-planning-zarvis.md)
+**Parent Strategy:** [`exec-planning-master.md`](exec-planning-master.md) & [`exec-planning-zarvis.md`](exec-planning-zarvis.md)
 
 ---
 

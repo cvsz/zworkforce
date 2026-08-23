@@ -9,7 +9,7 @@ Before creating a release tag:
 1. Merge the intended release commit to `main`.
 2. Confirm CI, Windows client, Dependency Review, CodeQL, and every affected path-filtered package workflow are green.
 3. Confirm `pyproject.toml`, `zworkforce.__version__`, Makefile, dashboard, Compose/Kubernetes image references, publication defaults, and `CHANGELOG.md` carry the same version.
-4. Run `python scripts/verify_release.py` locally or rely on the mandatory CI release-integrity job.
+4. Run `python3 scripts/verify_release.py` (fallback: `python` where `python3` is unavailable) locally or rely on the mandatory CI release-integrity job.
 5. Confirm production migration/rollback notes are current and complete the mandatory environment evidence in `docs/PRODUCTION-EVIDENCE.md`.
 6. Run `pnpm peers check` from `packages/zarvis` when Z.A.R.V.I.S. paths changed and reject dependency updates with unresolved peer constraints.
 7. Confirm the Z.A.R.V.I.S. API audit and test suite pass for the exact release commit when those paths changed.

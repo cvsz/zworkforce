@@ -3,9 +3,9 @@ Describe the change and the production behavior it affects.
 
 ## Validation
 - [ ] Unit/integration tests added or updated where behavior changed
-- [ ] `python -m compileall -q zworkforce tests scripts`
-- [ ] `python -m unittest discover -s tests -v`
-- [ ] `python scripts/verify_release.py`
+- [ ] `python3 -m compileall -q zworkforce tests scripts`
+- [ ] `python3 -m unittest discover -s tests -v`
+- [ ] `python3 scripts/verify_release.py`
 - [ ] `make check` (or equivalent individual gates)
 - [ ] PostgreSQL integration run against a real service when applicable
 - [ ] No `shell=True` in runtime and no provider secrets in static assets

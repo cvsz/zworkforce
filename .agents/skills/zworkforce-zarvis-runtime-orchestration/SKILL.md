@@ -123,8 +123,8 @@ Add success and denial/failure coverage for:
 ## Validation
 
 ```bash
-python -m compileall -q zworkforce tests scripts
-PYTHONPATH=. python -m unittest discover -s tests -v
+python3 -m compileall -q zworkforce tests scripts
+PYTHONPATH=. python3 -m unittest discover -s tests -v
 pnpm --dir packages/zarvis install --frozen-lockfile
 pnpm --dir packages/zarvis peers check
 pnpm --dir packages/zarvis test

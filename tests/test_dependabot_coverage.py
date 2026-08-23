@@ -47,7 +47,7 @@ class DependabotCoverageTests(unittest.TestCase):
 
         self.assertIn("zarvis-api:", workflow)
         self.assertIn("pip install --no-cache-dir -r requirements.txt pytest", workflow)
-        self.assertIn("python -m pytest tests -q", workflow)
+        self.assertIn("python3 -m pytest tests -q", workflow)
 
     def test_node_ci_rejects_peer_dependency_conflicts(self):
         workflow = ZARVIS_WORKFLOW.read_text(encoding="utf-8")

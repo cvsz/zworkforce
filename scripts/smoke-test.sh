@@ -8,7 +8,8 @@ check_json_field() {
   local url="$1" field="$2" expected="$3"
   local body
   body="$("${CURL[@]}" "$url")"
-  BODY="$body" FIELD="$field" EXPECTED="$expected" python - <<'PY'
+  PY_BIN="$(command -v python3 || command -v python)"
+  BODY="$body" FIELD="$field" EXPECTED="$expected" "$PY_BIN" - <<'PY'
 import json, os
 
 data = json.loads(os.environ["BODY"])

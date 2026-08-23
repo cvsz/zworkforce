@@ -53,10 +53,10 @@ You are Antigravity, leading the architectural synchronization and forward execu
 
 Execution Protocol:
 1. Synchronize Master Roadmap & Sub-Plans:
-   - Align `planning/exec-planning.master.md` with active releases (`v3.0.3`) and forward milestones.
+   - Align `planning/exec-planning-master.md` with active releases (`v3.0.3`) and forward milestones.
    - Audit cross-system execution contracts across `exec-planning-router.md`, `exec-planning-zarvis.md`, `exec-planning-skywork.md`, and `exec-planning-zato.md`.
 2. Verify Skill Matrix & Capability Mappings:
-   - Ensure all 23+ skills in Section 5 of `exec-planning.master.md` map to concrete implementations.
+   - Ensure all 23+ skills in Section 5 of `exec-planning-master.md` map to concrete implementations.
    - Verify server-side secret isolation, tenant boundaries, and fail-closed tool guards.
 3. Validate Package Release Constraints:
    - Ensure `packages/zarvis` adheres to the loopback topology, signed session tickets, and zero client credential disclosure.
@@ -217,7 +217,7 @@ Pipeline:
 
 Autonomous Self-Sustaining Quad-Loop Directives:
 1. Loop A (do-all-e2e): Full platform verification — Slices A–F, Free Model First routing matrix, Doom-loop detection, MCP/ACP endpoints, compileall + unittest + doctor.
-2. Loop B (do-planning-all-e2e): Architectural sync — align exec-planning.master.md, audit exec-planning-*.md contracts, validate zarvis release templates and schemas.
+2. Loop B (do-planning-all-e2e): Architectural sync — align exec-planning-master.md, audit exec-planning-*.md contracts, validate zarvis release templates and schemas.
 3. Loop C (do-implementation-all-e2e): Code construction — implement next phases from planning-implementation-*.md, build tests, enforce shell=False + fail-closed invariants.
 4. Loop E (do-plugins-e2e): Plugin + connector E2E — verify Shopee/TikTok/Meta HMAC, manifest schemas, skill YAML frontmatter, connector 7/7 tests, doctor probe.
 5. After all loops complete:

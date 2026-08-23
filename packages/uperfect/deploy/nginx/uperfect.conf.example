@@ -1,0 +1,29 @@
+# Optional reverse-proxy template. The Cloudflare/Terraform owner may use a
+# different ingress path; keep the application origin on the LAN address.
+upstream uperfect_app {
+    server 192.168.74.130:18765;
+}
+
+server {
+    listen 80;
+    server_name uperfect.zeaz.dev;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name uperfect.zeaz.dev;
+
+    ssl_certificate /etc/letsencrypt/live/uperfect.zeaz.dev/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/uperfect.zeaz.dev/privkey.pem;
+
+    location / {
+        proxy_pass http://uperfect_app;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+}

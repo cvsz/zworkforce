@@ -5,7 +5,9 @@ from datetime import datetime
 from pathlib import Path
 
 ZIDER_SERVER = Path(__file__).resolve().parent.parent / "packages" / "zider" / "server"
+ROOT = Path(__file__).resolve().parent.parent
 if str(ZIDER_SERVER) not in sys.path:
+    sys.path = [p for p in sys.path if p != str(ROOT)]
     sys.path.insert(0, str(ZIDER_SERVER))
 
 from app.services.agent_runner import (

@@ -35,8 +35,8 @@ Run the narrowest relevant test first, then the repository checks before
 publishing a change:
 
 ```bash
-python -m unittest discover -s tests -v
-python -m compileall -q zworkforce tests
+python3 -m unittest discover -s tests -v
+python3 -m compileall -q zworkforce tests
 ```
 
 For Windows-client changes, use the solution and pinned SDK under

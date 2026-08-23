@@ -12,7 +12,7 @@ workflow intent.
 
 1. Confirm version consistency in `pyproject.toml`, `README.md`,
    `CHANGELOG.md`, release docs, deployment manifests, and examples.
-2. Run `python scripts/verify_release.py --expected <version>`.
+2. Run `python3 scripts/verify_release.py --expected <version>`.
 3. Run the Python unit suite and compile check.
 4. Inspect GitHub Actions for CI, CodeQL, dependency review, release,
    container, PostgreSQL, security, and Windows-client jobs.

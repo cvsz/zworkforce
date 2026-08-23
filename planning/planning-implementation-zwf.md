@@ -2,7 +2,7 @@
 
 **Updated:** 2026-08-18T18:30Z (auto-quad-loop)  
 **Module:** `zworkforce/` Python Control Plane, DB Repository, Distributed Task Queue, and Auth Gateway  
-**Parent Strategy:** [`exec-planning.master.md`](exec-planning.master.md) & [`exec-planning-zwf.md`](exec-planning-zwf.md)
+**Parent Strategy:** [`exec-planning-master.md`](exec-planning-master.md) & [`exec-planning-zwf.md`](exec-planning-zwf.md)
 
 ---
 

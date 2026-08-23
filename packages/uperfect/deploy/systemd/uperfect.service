@@ -1,0 +1,25 @@
+[Unit]
+Description=U.Perfect Social Commerce OS
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/mnt/uperfect
+ExecStart=/mnt/uperfect/.venv/bin/uvicorn app.main:app --host 192.168.74.130 --port 18765
+Environment=UPERFECT_DATABASE_PATH=/mnt/uperfect/uperfect.db
+EnvironmentFile=-/mnt/uperfect/.env.local
+Environment=PYTHONUNBUFFERED=1
+Environment=UPERFECT_LOCAL_ONLY=true
+Environment=UPERFECT_LOCAL_AI_BASE_URL=http://192.168.74.130:11434
+Environment=UPERFECT_LOCAL_AI_MODEL=zCoder:latest
+Restart=always
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/mnt/uperfect
+
+[Install]
+WantedBy=default.target

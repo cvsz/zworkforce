@@ -1,0 +1,146 @@
+- generic [ref=f1e2]:
+  - complementary "ส่วนงานหลัก" [ref=f1e130]:
+    - generic [ref=f1e131]:
+      - generic [ref=f1e132]: U
+      - generic [ref=f1e133]:
+        - paragraph [ref=f1e134]: SOCIAL COMMERCE OS
+        - heading "U.Perfect" [level=1] [ref=f1e135]
+    - navigation [ref=f1e137]:
+      - button "⌂ Overview" [ref=f1e175] [cursor=pointer]:
+        - generic [ref=f1e139]: ⌂
+        - generic [ref=f1e140]: Overview
+      - button "◫ Unified Inbox 0" [ref=f1e176] [cursor=pointer]:
+        - generic [ref=f1e142]: ◫
+        - generic [ref=f1e143]: Unified Inbox
+        - generic [ref=f1e144]: "0"
+      - button "◇ Product Memory" [ref=f1e145] [cursor=pointer]:
+        - generic [ref=f1e146]: ◇
+        - generic [ref=f1e147]: Product Memory
+      - button "▣ Orders" [ref=f1e177] [cursor=pointer]:
+        - generic [ref=f1e149]: ▣
+        - generic [ref=f1e150]: Orders
+      - button "✦ Skills" [ref=f1e151] [cursor=pointer]:
+        - generic [ref=f1e152]: ✦
+        - generic [ref=f1e153]: Skills
+      - button "◎ Agents" [ref=f1e154] [cursor=pointer]:
+        - generic [ref=f1e155]: ◎
+        - generic [ref=f1e156]: Agents
+      - button "↗ n8n Automations" [ref=f1e157] [cursor=pointer]:
+        - generic [ref=f1e158]: ↗
+        - generic [ref=f1e159]: n8n Automations
+      - button "⌘ Channels" [ref=f1e160] [cursor=pointer]:
+        - generic [ref=f1e161]: ⌘
+        - generic [ref=f1e162]: Channels
+      - button "✿ Sales Assets" [ref=f1e178] [cursor=pointer]:
+        - generic [ref=f1e164]: ✿
+        - generic [ref=f1e165]: Sales Assets
+      - button "⚙ Settings" [ref=f1e179] [cursor=pointer]:
+        - generic [ref=f1e167]: ⚙
+        - generic [ref=f1e168]: Settings
+    - generic [ref=f1e169]:
+      - generic [ref=f1e170]: Local workspace
+      - paragraph [ref=f1e173]: Android · iOS · Windows PWA
+      - link "@spookyuperfect ↗" [ref=f1e174] [cursor=pointer]:
+        - /url: https://www.facebook.com/spookyuperfect
+  - main [ref=f1e3]:
+    - generic [ref=f1e4]:
+      - button "Open menu" [ref=f1e180] [cursor=pointer]: ☰
+      - generic [ref=f1e6]:
+        - paragraph [ref=f1e7]: OPERATIONS WORKSPACE
+        - heading "System overview" [level=2] [ref=f1e181]
+      - generic [ref=f1e9]:
+        - button "Switch language" [ref=f1e182] [cursor=pointer]:
+          - generic [ref=f1e11]: TH
+          - generic [ref=f1e12]: EN
+        - button "Refresh data" [ref=f1e183] [cursor=pointer]: ↻
+    - generic [active] [ref=f1e18]:
+      - generic [ref=f1e184]:
+        - generic [ref=f1e185]:
+          - heading "U.Perfect control room" [level=3] [ref=f1e186]
+          - paragraph [ref=f1e187]: Monitor conversations, catalogue, orders, and integration truth in one place.
+        - button "Open inbox" [ref=f1e189] [cursor=pointer]
+      - generic [ref=f1e190]:
+        - article [ref=f1e191]:
+          - generic [ref=f1e192]: Products remembered
+          - generic [ref=f1e193]: "2"
+          - generic [ref=f1e194]: merchant catalogue
+        - article [ref=f1e195]:
+          - generic [ref=f1e196]: Conversations
+          - generic [ref=f1e197]: "0"
+          - generic [ref=f1e198]: all channels
+        - article [ref=f1e199]:
+          - generic [ref=f1e200]: Orders
+          - generic [ref=f1e201]: "0"
+          - generic [ref=f1e202]: local workspace
+        - article [ref=f1e203]:
+          - generic [ref=f1e204]: Pending review
+          - generic [ref=f1e205]: "0"
+          - generic [ref=f1e206]: payment review
+      - generic [ref=f1e207]:
+        - article [ref=f1e208]:
+          - generic [ref=f1e209]:
+            - heading "Activity pulse" [level=4] [ref=f1e210]
+            - generic [ref=f1e211]: local records
+          - generic "activity bars" [ref=f1e212]
+          - generic [ref=f1e220]:
+            - generic [ref=f1e221]: Mon
+            - generic [ref=f1e222]: Tue
+            - generic [ref=f1e223]: Wed
+            - generic [ref=f1e224]: Thu
+            - generic [ref=f1e225]: Fri
+            - generic [ref=f1e226]: Sat
+            - generic [ref=f1e227]: Now
+        - article [ref=f1e228]:
+          - generic [ref=f1e229]:
+            - heading "Channels and connection truth" [level=4] [ref=f1e230]
+            - button "Manage" [ref=f1e231] [cursor=pointer]
+          - generic [ref=f1e232]:
+            - generic [ref=f1e233]:
+              - generic [ref=f1e236]:
+                - strong [ref=f1e237]: Facebook
+                - generic [ref=f1e238]: /api/webhooks/facebook
+                - generic [ref=f1e239]: Create the Meta app, Page access token, and verify the Messenger webhook.
+              - generic [ref=f1e240]: Unconfigured
+            - generic [ref=f1e241]:
+              - generic [ref=f1e244]:
+                - strong [ref=f1e245]: Line
+                - generic [ref=f1e246]: notification outbox
+                - generic [ref=f1e247]: Create a Messaging API channel, issue a channel access token, and configure a webhook for the enabled scope.
+              - generic [ref=f1e248]: Unconfigured
+            - generic [ref=f1e249]:
+              - generic [ref=f1e252]:
+                - strong [ref=f1e253]: Ollama local AI
+                - generic [ref=f1e254]: http://192.168.74.130:11434/api/tags
+              - generic [ref=f1e255]: Configured
+            - generic [ref=f1e256]:
+              - generic [ref=f1e259]:
+                - strong [ref=f1e260]: Shopee
+                - generic [ref=f1e261]: /api/webhooks/shopee
+                - generic [ref=f1e262]: Create the Open Platform app, authorize the shop, and keep Partner ID/Key server-side.
+              - generic [ref=f1e263]: Unconfigured
+            - generic [ref=f1e264]:
+              - generic [ref=f1e267]:
+                - strong [ref=f1e268]: Tiktok
+                - generic [ref=f1e269]: /api/webhooks/tiktok
+                - generic [ref=f1e270]: Create a Partner Center app, authorize the shop, and configure an HTTPS webhook.
+              - generic [ref=f1e271]: Unconfigured
+      - generic [ref=f1e272]:
+        - article [ref=f1e273]:
+          - generic [ref=f1e274]:
+            - heading "Products in memory" [level=4] [ref=f1e275]
+            - button "Open catalog" [ref=f1e276] [cursor=pointer]
+          - generic [ref=f1e277]:
+            - generic [ref=f1e279]:
+              - strong [ref=f1e280]: VIT C AURA SERUM เลอ บาย ยู เพอร์เฟค วิต ซี ออร่า เซรั่ม
+              - generic [ref=f1e281]: 200 มิลลิลิตร · ฿98
+            - generic [ref=f1e282]: Active
+          - generic [ref=f1e283]:
+            - generic [ref=f1e285]:
+              - strong [ref=f1e286]: น้ำพริกเสือร้องไห้ 1 กระปุก 200 กรัม
+              - generic [ref=f1e287]: 200 กรัม · Price not supplied
+            - generic [ref=f1e288]: Active
+        - article [ref=f1e289]:
+          - generic [ref=f1e290]:
+            - heading "Work requiring review" [level=4] [ref=f1e291]
+            - button "View orders" [ref=f1e292] [cursor=pointer]
+          - strong [ref=f1e294]: No payment review is waiting

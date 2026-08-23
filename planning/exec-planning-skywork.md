@@ -395,14 +395,14 @@ Required suites:
 ## 5. Validation baseline
 
 ```bash
-python -m compileall -q zworkforce tests scripts
-PYTHONPATH=. python -m unittest discover -s tests -v
+python3 -m compileall -q zworkforce tests scripts
+PYTHONPATH=. python3 -m unittest discover -s tests -v
 zworkforce doctor
 pnpm --dir packages/zarvis install --frozen-lockfile
 pnpm --dir packages/zarvis peers check
 pnpm --dir packages/zarvis test
 pnpm --dir packages/zarvis audit --audit-level high
-python scripts/verify_release.py --expected 3.0.3
+python3 scripts/verify_release.py --expected 3.0.3
 ```
 
 Changed packages must also execute their package-native type/build/test/security gates. PostgreSQL behavior changes must run the real CI PostgreSQL service tests. Production claims remain subject to `docs/PRODUCTION-EVIDENCE.md`.

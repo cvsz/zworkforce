@@ -19,12 +19,12 @@ At the start of every run, refresh from current `main` and read, at minimum:
 - ROADMAP.md
 - ARCHITECTURE.md
 - CHANGELOG.md
-- planning/exec-planning.master.md
+- planning/exec-planning-master.md
 - planning/exec-planning-zwf.md
 - planning/exec-planning-zarvis.md
 - planning/exec-planning-zato.md
-- planning/exec-planning.zider.md
-- planning/exec-planning.zsp-aitool.md
+- planning/exec-planning-zider.md
+- planning/exec-planning-zsp-aitool.md
 - planning/exec-zred-team.md
 - docs/PROMETA-MASTER.md
 - docs/PRODUCTION-EVIDENCE.md
@@ -78,8 +78,8 @@ D. IMPLEMENT
 
 E. VALIDATE
 Run the repository-required gates applicable to the changed surface. At minimum, where executable:
-- python -m compileall -q zworkforce tests
-- PYTHONPATH=. python -m unittest discover -s tests -v
+- python3 -m compileall -q zworkforce tests
+- PYTHONPATH=. python3 -m unittest discover -s tests -v
 - zworkforce doctor
 - PostgreSQL tests against a real PostgreSQL service when PostgreSQL behavior changes
 Also run affected package tests, Node/pnpm tests/typechecks, Windows checks, static/security checks, release verification, container/deployment validation and dependency audits as defined by the repository.
@@ -160,7 +160,7 @@ Continue progressing toward the Global Definition of Complete. Never fabricate e
 ```text
 Audit `cvsz/zworkforce` as if you are the final release authority, but do not grant yourself permissions that are not present.
 
-Prove or disprove that the repository and target production release satisfy every item in the Global Definition of Complete and every applicable gate in AGENTS.md, ROADMAP.md, planning/exec-planning.master.md, subsystem execution plans, docs/PROMETA-MASTER.md and docs/PRODUCTION-EVIDENCE.md.
+Prove or disprove that the repository and target production release satisfy every item in the Global Definition of Complete and every applicable gate in AGENTS.md, ROADMAP.md, planning/exec-planning-master.md, subsystem execution plans, docs/PROMETA-MASTER.md and docs/PRODUCTION-EVIDENCE.md.
 
 Use evidence from the exact candidate SHA, current GitHub checks/reviews, tests, security/dependency analysis, artifacts, release metadata and authorized external environments. Treat missing evidence as failure/pending, never as implicit success.
 
