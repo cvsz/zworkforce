@@ -1,6 +1,6 @@
 services:
   serve:
-    image: ${ZWORKFORCE_IMAGE:-ghcr.io/cvsz/zworkforce:v3.0.3}
+    image: ${ZWORKFORCE_IMAGE:-ghcr.io/cvsz/zworkforce:v3.0.4}
     command: ["serve"]
     environment: &zworkforce-env
       ZWORKFORCE_ENV: production
@@ -41,7 +41,7 @@ services:
     volumes:
       - ./workspace:/workspace
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:9569/health"]
+      test: ["CMD", "python", "-c", "import json,urllib.request; assert json.load(urllib.request.urlopen('http://127.0.0.1:9569/health', timeout=3))['status']=='ok'"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -49,7 +49,7 @@ services:
     restart: unless-stopped
 
   worker:
-    image: ${ZWORKFORCE_IMAGE:-ghcr.io/cvsz/zworkforce:v3.0.3}
+    image: ${ZWORKFORCE_IMAGE:-ghcr.io/cvsz/zworkforce:v3.0.4}
     command: ["worker"]
     environment: *zworkforce-env
     volumes:
@@ -60,7 +60,7 @@ services:
     restart: unless-stopped
 
   scheduler:
-    image: ${ZWORKFORCE_IMAGE:-ghcr.io/cvsz/zworkforce:v3.0.3}
+    image: ${ZWORKFORCE_IMAGE:-ghcr.io/cvsz/zworkforce:v3.0.4}
     command: ["scheduler"]
     environment: *zworkforce-env
     volumes:
@@ -71,7 +71,7 @@ services:
     restart: unless-stopped
 
   outbox:
-    image: ${ZWORKFORCE_IMAGE:-ghcr.io/cvsz/zworkforce:v3.0.3}
+    image: ${ZWORKFORCE_IMAGE:-ghcr.io/cvsz/zworkforce:v3.0.4}
     command: ["outbox"]
     environment: *zworkforce-env
     volumes:

@@ -17,7 +17,7 @@ spec:
         seccompProfile: {type: RuntimeDefault}
       containers:
       - name: worker
-        image: ghcr.io/cvsz/zworkforce:v3.0.3
+        image: ghcr.io/cvsz/zworkforce:v3.0.4
         args: ["worker"]
         envFrom:
           - configMapRef:

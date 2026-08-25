@@ -34,7 +34,7 @@ def handle_acp(
                 "protocolVersion": ACP_PROTOCOL_VERSION,
                 "agentInfo": {
                     "name": "zWorkforce-Agent",
-                    "version": "3.0.3",
+                    "version": "3.0.4",
                     "capabilities": {
                         "sessions": True,
                         "tools": True,

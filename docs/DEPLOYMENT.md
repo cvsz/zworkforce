@@ -19,7 +19,7 @@ docker compose up -d --build
 For an immutable published release, set `ZWORKFORCE_IMAGE` and do not rebuild on the production host:
 
 ```bash
-export ZWORKFORCE_IMAGE=ghcr.io/cvsz/zworkforce:v3.0.3
+export ZWORKFORCE_IMAGE=ghcr.io/cvsz/zworkforce:v3.0.4
 docker compose pull
 docker compose up -d --no-build
 ```
@@ -51,7 +51,7 @@ Use `.env.production.example` as a field inventory only; replace all placeholder
 - non-root/read-only/capability-drop security contexts;
 - workspace/artifact PVCs;
 - default-deny network policy;
-- immutable `v3.0.3` GHCR image references for this release candidate.
+- immutable `v3.0.4` GHCR image references for this release candidate.
 
 ```bash
 kubectl apply -k deploy/kubernetes

@@ -10,7 +10,7 @@ if [ ! -f "$ENV_FILE" ]; then
     cat <<EOF > "$ENV_FILE"
 ZWORKFORCE_POSTGRES_PASSWORD=$POSTGRES_PWD
 ZWORKFORCE_API_KEYS=$API_KEY:superadmin:default:bootstrap:*
-ZWORKFORCE_IMAGE=ghcr.io/cvsz/zworkforce:v3.0.3
+ZWORKFORCE_IMAGE=ghcr.io/cvsz/zworkforce:v3.0.4
 EOF
     chmod 600 "$ENV_FILE"
     echo "--- Secrets generated and saved to $ENV_FILE ---"

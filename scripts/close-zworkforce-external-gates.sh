@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# zWorkforce v3.0.3 External Gate Automation
+# zWorkforce v3.0.4 External Gate Automation
 #
 # Automates:
 #   F - Supabase S3-compatible storage verification (+ optional Qdrant)
@@ -10,7 +10,7 @@ set -Eeuo pipefail
 #   H - Windows trusted-signing/build/install verification (remote Windows host supported)
 #
 # IMPORTANT:
-# - This script does NOT tag/publish v3.0.3.
+# - This script does NOT tag/publish v3.0.4.
 # - It does NOT fabricate PASS.
 # - Local-only HA/observability deployments are marked LOCAL, not external evidence.
 # - Secrets are read from environment/.env.release and never printed.
@@ -40,7 +40,7 @@ LOG_DIR="${LOG_DIR:-$REPO_DIR/.release-evidence-logs}"
 # Default to the exact repository candidate currently being verified. Operators
 # may override this for a historical evidence replay, but must do so
 # explicitly rather than silently collecting evidence against an old commit.
-FROZEN_CANDIDATE="${FROZEN_CANDIDATE:-4ffdfa6e926153b70d97d59803e0ede77842599f}"
+FROZEN_CANDIDATE="${FROZEN_CANDIDATE:-}"
 
 mkdir -p "$STATE_DIR" "$LOG_DIR"
 
@@ -77,6 +77,11 @@ verify_candidate(){
 
   git -C "$REPO_DIR" fetch --quiet --prune origin main
   main_sha="$(git -C "$REPO_DIR" rev-parse refs/remotes/origin/main)"
+
+  if [[ -z "$FROZEN_CANDIDATE" ]]; then
+    FROZEN_CANDIDATE="$main_sha"
+    note "no FROZEN_CANDIDATE supplied; freezing fetched origin/main"
+  fi
 
   note "origin/main=$main_sha"
   note "expected=$FROZEN_CANDIDATE"

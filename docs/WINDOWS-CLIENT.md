@@ -65,7 +65,7 @@ script temporarily applies the version to the package manifest and restores
 the source file before it exits:
 
 ```powershell
-.\build\windows\Package-Client.ps1 -Configuration Release -Platform x64 -Version 3.0.3
+.\build\windows\Package-Client.ps1 -Configuration Release -Platform x64 -Version 3.0.4
 ```
 
 The project is a packaged app. The normal IDE launch path is Visual Studio F5,

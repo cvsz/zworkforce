@@ -72,7 +72,7 @@ class OtlpHttpExporter:
             "resourceSpans": [{
                 "resource": {"attributes": [{"key": "service.name", "value": {"stringValue": self.service_name}}]},
                 "scopeSpans": [{
-                    "scope": {"name": "zworkforce", "version": "3.0.3"},
+                    "scope": {"name": "zworkforce", "version": "3.0.4"},
                     "spans": [span_obj]
                 }],
             }]

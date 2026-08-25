@@ -1,5 +1,5 @@
 PYTHON ?= python3
-VERSION ?= 3.0.3
+VERSION ?= 3.0.4
 
 .PHONY: help check test compile doctor postgres-test release-check shell-check run worker scheduler lint-security docker-build
 

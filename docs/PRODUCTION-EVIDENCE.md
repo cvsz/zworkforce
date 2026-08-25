@@ -1,12 +1,19 @@
-# Production Release Evidence — zWorkforce v3.0.3
+# Production Release Evidence — zWorkforce v3.0.4
+
+`v3.0.3` is an immutable published predecessor. It was published before the
+external GO evidence was complete and its exact HA image verification exposed
+two production defects: the image omitted the S3 runtime extra and its HA
+healthcheck invoked `curl`, which is not installed in the image. It must not be
+retagged or treated as the production promotion target. This ledger tracks the
+corrective `v3.0.4` candidate.
 
 This ledger is the evidence boundary between repository-complete release readiness and environment-complete production readiness.
 
 **Rule:** an item remains `PENDING EXTERNAL EVIDENCE` until an operator records the real environment, timestamp, command or run URL, result, and durable artifact/reference. CI simulations are useful regression evidence but do not substitute for staging or production drills where the item explicitly requires an external service.
 
-## Production topology (v3.0.3)
+## Production topology (v3.0.4)
 
-The v3.0.3 release candidate is validated against a **HA Runtime VM x2 + Observability** topology:
+The v3.0.4 release candidate is validated against a **HA Runtime VM x2 + Observability** topology:
 
 ```text
 Cloudflare
@@ -49,20 +56,22 @@ Private DNS records (`ha-a.zeaz.dev`, `ha-b.zeaz.dev`, `obs.zeaz.dev`) are decla
 
 | Field | Value |
 | --- | --- |
-| Candidate version | `3.0.3` |
-| Candidate branch | `main` |
+| Candidate version | `3.0.4` |
+| Candidate branch | `fix/v3.0.4-production-image` (pending merge to `main`) |
 | Default-branch ruleset | `zWorkforce main release protection` applied server-side, ruleset ID `20988030` (verified 2026-08-25) |
-| Reconciliation baseline | `4ffdfa6e926153b70d97d59803e0ede77842599f` |
-| Latest fully verified PR head | `a4db916ec088bea9341ef6382624a5740edb0810` (PR #178; merged as `4ffdfa6e926153b70d97d59803e0ede77842599f`) |
-| Final release candidate SHA | `4ffdfa6e926153b70d97d59803e0ede77842599f` — exact `origin/main` candidate verified 2026-08-25; no immutable tag or artifact publication has occurred |
-| Post-candidate main drift | None after this candidate refresh. The earlier frozen-candidate evidence for `d74ec63...` is historical; the gate script now defaults to this exact candidate and accepts an older SHA only when an operator explicitly overrides it. |
+| Reconciliation baseline | `e9405f2fb34c51ac7f221ba6894b14fa712ec522` (merged PR #179; v3.0.3 predecessor fix line) |
+| Latest reviewed patch head | `4ca4e60a53af1d7824762028cdd70551fcd6df65` — signed production-image fix; follow-up review/merge pending |
+| Final release candidate SHA | _pending merge and exact-candidate CI_ |
+| Post-candidate main drift | _record after the follow-up PR merges; external evidence must bind to that exact SHA_ |
 | Release tag | _create only after merge and all mandatory evidence_ |
 | OCI image digest | _record immutable GHCR digest after publication_ |
 | Python artifact checksums | _record from release workflow_ |
 
 ## Repository gates
 
-The current repository gate refresh is bound to exact candidate `4ffdfa6e926153b70d97d59803e0ede77842599f`, the merge commit for PR #178. These PASS results are repository evidence only; they do not constitute a production GO decision or waive the external evidence listed below.
+The v3.0.3 repository gate results below are historical predecessor evidence.
+The v3.0.4 follow-up must repeat the required checks on its exact merged SHA;
+local validation of the corrective image fix is recorded in the follow-up PR.
 
 | Gate | Verified evidence | Status |
 | --- | --- | --- |
@@ -79,13 +88,18 @@ The current repository gate refresh is bound to exact candidate `4ffdfa6e926153b
 
 Additional repository execution evidence recorded by PR #154: 241/241 Python tests PASS, 36/36 Z.A.R.V.I.S. tests PASS, `zworkforce doctor` HEALTHY, and 7/7 connector tests PASS. These are repository/test evidence only.
 
-## Latest external gate attempt (2026-08-25)
+## Latest external gate attempt for published v3.0.3 (2026-08-25)
 
-The operator reran the external gates against the exact candidate `4ffdfa6e...`. None of these attempts authorizes a production GO:
+The operator reran the external gates against predecessor candidate
+`4ffdfa6e...`. None of these attempts authorizes a production GO. The exact
+published `ghcr.io/cvsz/zworkforce:3.0.3` image was subsequently inspected and
+failed runtime readiness because the S3 extra was absent and the HA healthcheck
+called missing `curl`; the corrected image is therefore being released as
+`v3.0.4`.
 
 | Gate | Result | Evidence / next action |
 | --- | --- | --- |
-| E | FAIL | Both hosts were reachable, but the deployed `compose.yaml` did not expose `ZWORKFORCE_INSTANCE_ID`; the remote runtime image was also not proven to be the exact candidate. Provision the repository HA Compose files, an immutable candidate image reference/digest, and rerun. |
+| E | FAIL | Both hosts were reachable, but the published predecessor image failed readiness: its S3 backend dependency was absent and its HA healthcheck called unavailable `curl`. Rerun against the immutable `v3.0.4` image and corrected HA Compose files. |
 | F | FAIL | Supabase S3 `PutObject` returned HTTP 403. Regenerate/verify the S3 access key, secret, endpoint, and region from the Supabase S3 configuration, then rerun. |
 | G | FAIL | The first rerun used a generated single `zworkforce` job while the verifier required `zworkforce-vm-a` and `zworkforce-vm-b`; the gate generator is now corrected, but exact-candidate observability evidence must be rerun. |
 | H | FAIL | Windows checkout was `6f6fe3f...`, not the exact candidate `4ffdfa6e...`; sync the Windows checkout to the candidate before rebuilding/signing. |
@@ -106,19 +120,28 @@ The operator's local `compose.yaml` stack (api/worker/scheduler/outbox + Postgre
 | Stage E HA leases | Single `scheduler` lease holder (owner `scheduler-<host>`), heartbeat current; two probe replicas rejected while leader held lease; leader stopped -> takeover acquired at ≈ 28.2 s (lease 20 s + expiry slack + poll); restarted compose scheduler cleanly reacquired lease; only one outbox/scheduler owner at all times | PASS (local stack); **outbox dispatch/failover drill still pending** |
 | Stage G probes | `/health` 200 `{"status":"ok","version":"3.0.3"}`; `/ready` 200; `/metrics` without auth -> `auth_failed`; `/metrics` with API-key auth -> 200 Prometheus text (zworkforce_active_tasks, provider health, etc.); `/api/v1/api-keys` requires `admin`+`key:read`, returns key rows without secrets | PASS (local stack); **OTLP/metrics backend/alert routing pending** |
 
-Note: the earlier running image (`ghcr.io/cvsz/zworkforce:v3.0.3`, built 2026-08-14) carried `SCHEMA_VERSION` 4 and is **not** the current candidate; it has been replaced by the candidate build above. The immutable GHCR-published `v3.0.3` artifact set does not exist yet and is created only after the Stage I GO decision.
+Note: the local v3.0.3 drills above are historical and are not evidence for
+the corrective v3.0.4 production image. The published v3.0.3 artifact is
+retained for rollback/reference only and is not the promotion target.
 
 ## External publication state (verified 2026-08-25)
 
-The current recheck via `gh release list` and `docker manifest inspect ghcr.io/cvsz/zworkforce:3.0.3` confirms that GitHub Releases still stops at `v3.0.2` and the `v3.0.3` OCI tag returns `manifest unknown`. The GHCR API was not readable with the available token, so the registry table below retains its last readable package snapshot from 2026-08-18:
+The current recheck confirms that the immutable v3.0.3 publication already
+exists. It is recorded here as a superseded predecessor; v3.0.4 remains
+unpublished until its exact candidate and mandatory external evidence permit
+GO:
 
 | Registry | State |
 | --- | --- |
-| GitHub Releases | Latest = `v3.0.2` (2026-08-12T23:36:13Z, target `main`, assets `SHA256SUMS`, `zworkforce-3.0.2-py3-none-any.whl`, `zworkforce-3.0.2.cdx.json`, `zworkforce-3.0.2.tar.gz`); `v3.0.1` (2026-08-09T08:37:04Z); `v3.0.0` (2026-08-09T04:47:21Z) |
-| GHCR `ghcr.io/cvsz/zworkforce` | Published versions: `latest`/`3.0.2`/`v3.0.2` digest `sha256:d111c095ab6877e1ea6c44379d21d0f407d238e498b61b2f8406f2f7f919b3e0`; `3.0.1`/`v3.0.1` digest `sha256:70b79a09ef6883c78e46beff189304a76ba5711de30293ba5dd1775fc989da98`; `3.0.0`/`v3.0.0` digest `sha256:5093f8982976afa780b1233b7331660b0b1f617fbfe08f6807029bf086ea9624`. **No `3.0.3` image exists** |
-| Git tags | `v3.0.2` -> `f56544ba58281e910dfa2132829f79992afa2a50`; `v3.0.1` -> `d5c0655c1ae343334e2ef2dc17f770e76461ee82`; `v3.0.0` -> `1425192f9f544683b37352032298138c8b36b519` |
+| GitHub Releases | `v3.0.3` published 2026-08-25T20:53:55Z from commit `4ffdfa6e...`; assets: `SHA256SUMS`, wheel, sdist, CycloneDX SBOM. It is superseded for production promotion because its exact image failed HA readiness. |
+| v3.0.3 Python artifact SHA-256 | wheel `89497635d30fdf1f9c2fac216ebe8a4d9e83090254aeeda8825cabf66db29252`; SBOM `ae0be576fcdb79fc3988f1b3d36744fdf525e43230a3bd4ed1f1f4a313830f46`; sdist `a21f8065949cda1bbb8411cdcad9e78a9865e147c47b74f30e937493a710ee01`; all matched `SHA256SUMS`. |
+| GHCR `ghcr.io/cvsz/zworkforce` | `3.0.3`/`v3.0.3` index digest `sha256:0df25cf8e6b298fa7b316ffb89f2f8d44f0b123e71a864c24caae724a05bf069`; retained as immutable rollback/reference only. |
+| Git tags | `v3.0.3` annotated signed tag -> `4ffdfa6e926153b70d97d59803e0ede77842599f`; `v3.0.2` -> `f56544ba58281e910dfa2132829f79992afa2a50`; `v3.0.1` -> `d5c0655c1ae343334e2ef2dc17f770e76461ee82`; `v3.0.0` -> `1425192f9f544683b37352032298138c8b36b519` |
+| v3.0.4 publication | _pending exact-candidate GO_ |
 
-No immutable `v3.0.3` artifact was published early; the publication boundary (Stage I GO) is intact.
+The v3.0.3 publication boundary was crossed early and is immutable; the
+v3.0.4 publication boundary remains closed until the evidence ledger records
+GO.
 
 ## Stage A — staging topology and secrets
 
@@ -215,7 +238,7 @@ Artifact/reference: tasks 3afe7b4e (luna), 799c25be (terra), 1eea9e89 (sol); pro
 
 ## Stage E — scheduler, worker, outbox, and HA leases
 
-Status: **FAIL on latest exact-candidate attempt — local single-replica stack drill PASS; external VM x2 deployment lacked runtime identity and exact image binding. Rerun after corrected Compose/image inputs.**
+Status: **PENDING v3.0.4 external rerun — predecessor exact-image attempt failed readiness; local corrective-image checks PASS.**
 
 With at least two eligible replicas where the deployment topology supports it:
 - prove only one scheduler lease holder performs each due action: **HISTORICAL EVIDENCE** — VM-A (`vm-a`) and VM-B (`vm-b`) each ran distinct scheduler instances; `ZWORKFORCE_INSTANCE_ID` differed; lease ownership was queryable per VM in shared Supabase `zworkforce.outbox` table
@@ -238,7 +261,7 @@ Artifact/reference: scripts/release/verify-ha.sh; `.release-evidence-state/E.sta
 
 ## Stage F — artifacts, memory, and external storage
 
-Status: **FAIL on latest exact-candidate attempt — Supabase S3 `PutObject` returned HTTP 403 at 2026-08-25T20:55:13Z; corrected credentials/endpoint/region and a successful rerun are required.**
+Status: **FAIL on latest predecessor attempt — Supabase S3 `PutObject` returned HTTP 403 at 2026-08-25T20:55:13Z; corrected credentials/endpoint/region and a successful v3.0.4 rerun are required.**
 
 When enabled in the target environment:
 - store and retrieve an S3-compatible content-addressed artifact and verify SHA-256: **HISTORICAL PASS 2026-08-19, SUPERSEDED BY FAILURE 2026-08-21** — the latest state record reports `PutObject` failure; rerun Stage F for the exact candidate before relying on storage evidence
@@ -257,10 +280,10 @@ Artifact/reference: `.release-evidence-state/F.status`; `/home/cvsz/zworkforce/.
 
 ## Stage G — observability and SLO evidence
 
-Status: **FAIL on latest exact-candidate attempt — Prometheus targets were not in the verifier's required job contract; the generator is corrected, but external observability evidence must be rerun after bearer rotation.**
+Status: **FAIL on latest predecessor attempt — Prometheus targets were not in the verifier's required job contract; the generator is corrected, but v3.0.4 observability evidence must be rerun after bearer rotation.**
 
 Verify:
-- `/health`, `/ready`, and authenticated `/metrics` from the deployed environment: **VERIFIED (external)** — `https://zworkforce.zeaz.dev/health` → 200 `{"status":"ok","version":"3.0.3"}`; `/ready` → 200; `/metrics` → 401 without auth (auth-gated, expected). Endpoint routed via Cloudflare Tunnel (DNS CNAME `zworkforce.zeaz.dev` → tunnel, proxied, created 2026-08-19 via `infrastructure/terraform/cloudflare`)
+- `/health`, `/ready`, and authenticated `/metrics` from the deployed environment: **HISTORICAL predecessor evidence** — `https://zworkforce.zeaz.dev/health` returned 200 for v3.0.3; the v3.0.4 endpoint must be rechecked after promotion. Endpoint routed via Cloudflare Tunnel (DNS CNAME `zworkforce.zeaz.dev` → tunnel, proxied, created 2026-08-19 via `infrastructure/terraform/cloudflare`)
 - OTLP trace reaches the configured collector/backend: **VERIFIED (external)** — OTel Collector deployed on VM-B (192.168.74.134:4317/4318/8889); `deploy/observability/compose.vm-b.yaml`; trace pipeline configured in `deploy/observability/otel-collector.yaml`
 - queue depth, dead-letter, provider health, cost, outcome, and SLO metrics are visible: **VERIFIED (external)** — Prometheus v3.5.0 on VM-B:19090 scraping `zworkforce-vm-a` (192.168.74.134:9456) and `zworkforce-vm-b` (192.168.74.135:9456) with bearer auth; `deploy/observability/prometheus.vm-b.yaml`
 - one intentional failure can be correlated by request/task/trace identifiers: **PENDING** — requires synthetic trace generation + log correlation
@@ -279,7 +302,7 @@ Artifact/reference: scripts/release/verify-observability.sh; `.release-evidence-
 
 ## Stage H — Windows operator client
 
-Status: **FAIL on latest exact-candidate attempt — Windows checkout `6f6fe3f...` did not match candidate `4ffdfa6e...`; sync the checkout, then rerun trusted build/sign/live HTTPS verification.**
+Status: **FAIL on latest predecessor attempt — Windows checkout `6f6fe3f...` did not match candidate `4ffdfa6e...`; sync the checkout to the merged v3.0.4 SHA, then rerun trusted build/sign/live HTTPS verification.**
 
 Repository CI proves build/test/package and an ephemeral packaged launch smoke on the GitHub-hosted runner. Production readiness still requires the signed/approved Windows package against the deployed HTTPS endpoint:
 - install/upgrade/uninstall path;
@@ -321,4 +344,4 @@ Rollback target:
 Notes:
 ```
 
-A `GO` decision authorizes creating immutable tag `v3.0.3` from the approved commit, running the tag-driven release workflow, and recording release artifact checksums and GHCR digest back into this ledger or the release record. The repository candidate may already be merged to `main`; the GO decision is specifically the authorization boundary for immutable release promotion, not permission to fabricate or skip external evidence.
+A `GO` decision authorizes creating immutable tag `v3.0.4` from the approved commit, running the tag-driven release workflow, and recording release artifact checksums and GHCR digest back into this ledger or the release record. The repository candidate may already be merged to `main`; the GO decision is specifically the authorization boundary for immutable release promotion, not permission to fabricate or skip external evidence.

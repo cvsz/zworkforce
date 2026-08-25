@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.0.4 — 2026-08-25
+
+- Fixed the production container to install the S3 runtime extra used by the S3 artifact backend.
+- Replaced the HA API healthcheck's unavailable `curl` dependency with an in-image Python healthcheck.
+- Corrected current deployment, installer, dashboard, telemetry, client, and release metadata to the immutable `v3.0.4` patch line.
+- Records `v3.0.3` as the published predecessor; production promotion remains gated on the corrected image and external evidence.
+
 ## 3.0.3 — 2026-08-17
 
 ### Autonomous Control Plane & Subsystems
