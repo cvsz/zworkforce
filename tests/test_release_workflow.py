@@ -71,6 +71,8 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("source: alertmanager-webhook-url", gates)
         self.assertNotIn("./metrics-bearer:/etc/prometheus/secrets/metrics-bearer", gates)
         self.assertIn("for _ in $(seq 1 12)", verifier)
+        self.assertIn('ALERTMANAGER_PORT="${ALERTMANAGER_PORT:-19093}"', verifier)
+        self.assertIn("ALERTMANAGER_PORT=9093 OBS_COMPOSE_FILE=compose.yml", gates)
 
 
 if __name__ == "__main__":

@@ -9,6 +9,7 @@ PROM_API="${PROMETHEUS_API_URL:-http://127.0.0.1:19090}"
 OBS_HOST="${OBS_HOST:?set OBS_HOST (ssh target hosting observability stack)}"
 OBS_DEPLOY_DIR="${OBS_DEPLOY_DIR:-/opt/zworkforce-observability}"
 OBS_COMPOSE_FILE="${OBS_COMPOSE_FILE:-compose.vm-b.yaml}"
+ALERTMANAGER_PORT="${ALERTMANAGER_PORT:-19093}"
 ALERT_RECEIVER_TEST_URL="${ALERT_RECEIVER_TEST_URL:?set ALERT_RECEIVER_TEST_URL receipt endpoint}"
 
 fail(){ echo "VERIFY-OBS: FAIL: $*" >&2; exit 1; }
@@ -55,9 +56,9 @@ if not required.issubset(jobs):
     raise SystemExit(1)
 ' || fail "metrics query does not prove both runtime targets"
 
-note "checking Alertmanager readiness on published port 19093"
+note "checking Alertmanager readiness on published port ${ALERTMANAGER_PORT}"
 ssh -o BatchMode=yes -o ConnectTimeout=10 "$OBS_HOST" \
-  "curl -fsS http://127.0.0.1:19093/-/ready >/dev/null" || fail "Alertmanager not ready"
+  "curl -fsS http://127.0.0.1:${ALERTMANAGER_PORT}/-/ready >/dev/null" || fail "Alertmanager not ready"
 
 evidence_id="zworkforce-stage-g-$(date -u +%Y%m%dT%H%M%SZ)-$$"
 alert_json="$(python3 - "$evidence_id" <<'PY'
@@ -76,7 +77,7 @@ PY
 
 note "submitting synthetic alert through Alertmanager API"
 printf '%s' "$alert_json" | ssh -o BatchMode=yes "$OBS_HOST" \
-  "curl -fsS -X POST -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:19093/api/v2/alerts >/dev/null" || \
+  "curl -fsS -X POST -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:${ALERTMANAGER_PORT}/api/v2/alerts >/dev/null" || \
   fail "Alertmanager rejected synthetic alert"
 
 receiver_host="$(safe_host "$ALERT_RECEIVER_TEST_URL")"

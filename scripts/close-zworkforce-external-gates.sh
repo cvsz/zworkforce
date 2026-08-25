@@ -558,9 +558,9 @@ YAML
 
   # Optional repository-specific trace/alert evidence drill.
   if [[ -x "$REPO_DIR/scripts/release/verify-observability.sh" ]]; then
-    OBS_COMPOSE_FILE=compose.yml "$REPO_DIR/scripts/release/verify-observability.sh"
+    ALERTMANAGER_PORT=9093 OBS_COMPOSE_FILE=compose.yml "$REPO_DIR/scripts/release/verify-observability.sh"
   elif [[ -x "$REPO_DIR/scripts/verify-observability.sh" ]]; then
-    OBS_COMPOSE_FILE=compose.yml "$REPO_DIR/scripts/verify-observability.sh"
+    ALERTMANAGER_PORT=9093 OBS_COMPOSE_FILE=compose.yml "$REPO_DIR/scripts/verify-observability.sh"
   else
     die "no repository observability verification script found; cannot prove trace + actual alert delivery"
   fi
