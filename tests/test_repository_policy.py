@@ -96,7 +96,7 @@ class RepositoryPolicyTests(unittest.TestCase):
         self.assertIn("submodule-validation:", ci)
         self.assertIn("needs: submodule-validation", ci)
         self.assertIn("submodules: recursive", ci)
-        self.assertIn("pytest -m \\"not uat and not performance\\"", ci)
+        self.assertIn('pytest -m "not uat and not performance"', ci)
         self.assertIn("composer audit --locked --no-interaction", ci)
         self.assertIn("composer test", ci)
 
