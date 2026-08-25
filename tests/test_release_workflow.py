@@ -54,6 +54,11 @@ class ReleaseWorkflowTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_ha_verifier_uses_project_postgres_dependency(self):
+        verifier = HA_VERIFIER.read_text(encoding="utf-8")
+        self.assertIn("import psycopg", verifier)
+        self.assertNotIn("import psycopg2", verifier)
+
 
 if __name__ == "__main__":
     unittest.main()

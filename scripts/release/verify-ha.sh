@@ -82,9 +82,9 @@ verify_host B "$HA_HOST_B" "$HA_COMPOSE_FILE_B"
 db_evidence="$(ssh "${ssh_opts[@]}" "$HA_HOST_A" "cd '$HA_DEPLOY_DIR' && docker compose -f '$HA_COMPOSE_FILE_A' exec -T serve python - <<'PY'
 import os, sys
 try:
-    import psycopg2
+    import psycopg
 except Exception as exc:
-    print('ERROR psycopg2 unavailable:', exc)
+    print('ERROR psycopg unavailable:', exc)
     raise SystemExit(2)
 
 dsn = os.environ.get('ZWORKFORCE_DATABASE_URL', '').strip()
@@ -92,7 +92,7 @@ if not dsn:
     print('ERROR ZWORKFORCE_DATABASE_URL missing')
     raise SystemExit(3)
 
-conn = psycopg2.connect(dsn, connect_timeout=5)
+conn = psycopg.connect(dsn, connect_timeout=5)
 cur = conn.cursor()
 cur.execute('SELECT name, owner, expires_at, heartbeat_at FROM service_leases3 ORDER BY name')
 leases = cur.fetchall()
