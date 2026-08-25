@@ -13,9 +13,6 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v7
-        with:
-          submodules: recursive
-          token: ${{ secrets.ZWORKFORCE_SUBMODULES_TOKEN }}
       - uses: actions/dependency-review-action@v5
         with:
           fail-on-severity: high
