@@ -85,16 +85,18 @@ class RepositoryPolicyTests(unittest.TestCase):
             with self.subTest(context=context):
                 self.assertNotIn(context, required)
 
-    def test_submodules_are_https_accessible_and_security_validated(self):
+    def test_submodules_are_ssh_accessible_and_security_validated(self):
         gitmodules = GITMODULES.read_text(encoding="utf-8")
-        self.assertIn("url = https://github.com/cvsz/zksato.git", gitmodules)
-        self.assertIn("url = https://github.com/cvsz/zttshop-php.git", gitmodules)
-        self.assertNotIn("git@github.com:", gitmodules)
+        self.assertIn("url = git@github.com:cvsz/zksato.git", gitmodules)
+        self.assertIn("url = git@github.com:cvsz/zttshop-php.git", gitmodules)
+        self.assertNotIn("url = https://github.com/cvsz/", gitmodules)
 
         ci = CI.read_text(encoding="utf-8")
         self.assertIn("submodule-validation:", ci)
         self.assertIn("needs: submodule-validation", ci)
         self.assertIn("submodules: recursive", ci)
+        self.assertIn("ssh-key: ${{ secrets.SUBMODULE_SSH_KEY }}", ci)
+        self.assertIn("ssh-known-hosts:", ci)
         self.assertIn("persist-credentials: false", ci)
         self.assertIn("if: always()", ci)
         self.assertIn('run: test "${{ needs.submodule-validation.result }}" = success', ci)

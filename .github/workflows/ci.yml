@@ -46,12 +46,18 @@ jobs:
           set -euo pipefail
           git diff --exit-code origin/${{ github.base_ref }}...HEAD -- \
             .gitmodules packages/zksato packages/zttshop-php
-      - name: Checkout pinned public submodules
+      - name: Require submodule SSH key
+        if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
+        env:
+          SUBMODULE_SSH_KEY: ${{ secrets.SUBMODULE_SSH_KEY }}
+        run: test -n "$SUBMODULE_SSH_KEY"
+      - name: Checkout pinned SSH submodules
         if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
         uses: actions/checkout@v7
         with:
           submodules: recursive
-          token: ${{ github.token }}
+          ssh-key: ${{ secrets.SUBMODULE_SSH_KEY }}
+          ssh-known-hosts: github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAmAtXIzpC1L9luOXq47qfWAz3JkYyXyAQTLn2mzVxR5
           persist-credentials: false
       - name: Verify pinned submodule revisions
         if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')

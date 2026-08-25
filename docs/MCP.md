@@ -6,6 +6,7 @@ Protocol version: `2026-07-28`.
 
 ## Methods
 
+- `initialize` (standard MCP client handshake)
 - `server/discover`
 - `tools/list`
 - `tools/call`
