@@ -59,6 +59,11 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("import psycopg", verifier)
         self.assertNotIn("import psycopg2", verifier)
 
+    def test_ha_verifier_checks_component_lease_ownership(self):
+        verifier = HA_VERIFIER.read_text(encoding="utf-8")
+        self.assertIn("lease_services=scheduler,outbox", verifier)
+        self.assertNotIn("service_leases3 ownership does not match either runtime instance", verifier)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -81,6 +81,7 @@ verify_host B "$HA_HOST_B" "$HA_COMPOSE_FILE_B"
 # ownership evidence before this verifier is run.
 db_evidence="$(ssh "${ssh_opts[@]}" "$HA_HOST_A" "cd '$HA_DEPLOY_DIR' && docker compose -f '$HA_COMPOSE_FILE_A' exec -T serve python - <<'PY'
 import os, sys
+from datetime import datetime, timezone
 try:
     import psycopg
 except Exception as exc:
@@ -100,9 +101,36 @@ if not leases:
     print('ERROR service_leases3 has no rows')
     raise SystemExit(4)
 
+now = datetime.now(timezone.utc)
+lease_map = {str(row[0]): (str(row[1] or ''), str(row[2] or '')) for row in leases}
+required = ('scheduler', 'outbox')
+missing = [name for name in required if name not in lease_map]
+if missing:
+    print('ERROR required service lease rows missing: ' + ','.join(missing))
+    raise SystemExit(6)
+
+invalid = []
+for name in required:
+    owner, expires_at = lease_map[name]
+    try:
+        expires = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+    except ValueError:
+        invalid.append(name + ':invalid-expiry')
+        continue
+    if not owner.startswith(name + '-'):
+        invalid.append(name + ':invalid-owner')
+    elif expires <= now:
+        invalid.append(name + ':expired')
+if invalid:
+    print('ERROR invalid service lease evidence: ' + ','.join(invalid))
+    raise SystemExit(7)
+
 owners = {str(row[1]) for row in leases if row[1]}
 print('lease_rows=' + str(len(leases)))
 print('lease_owners=' + ','.join(sorted(owners)))
+print('lease_services=' + ','.join(required))
 
 cur.execute('SELECT claim_owner, COUNT(*) FROM outbox3 WHERE claim_owner IS NOT NULL AND claim_owner <> %s GROUP BY claim_owner ORDER BY claim_owner', ('',))
 outbox = cur.fetchall()
@@ -116,8 +144,7 @@ PY" 2>&1)" || fail "shared PostgreSQL lease/outbox evidence query failed: $db_ev
 
 note "$db_evidence"
 
-grep -Fq "$a_instance" <<<"$db_evidence" || grep -Fq "$b_instance" <<<"$db_evidence" || \
-  fail "service_leases3 ownership does not match either runtime instance"
+grep -Fq "lease_services=scheduler,outbox" <<<"$db_evidence" || fail "required scheduler/outbox lease evidence missing"
 grep -Fq "outbox_claim_owners=" <<<"$db_evidence" || fail "outbox3 claim_owner evidence missing"
 
 # Metrics are mandatory for Stage E evidence; health-only fallback is not enough.
