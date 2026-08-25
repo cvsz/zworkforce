@@ -9,6 +9,7 @@ HA_COMPOSES = (
     Path(__file__).resolve().parents[1] / "deploy" / "ha" / "compose.vm-a.yaml",
     Path(__file__).resolve().parents[1] / "deploy" / "ha" / "compose.vm-b.yaml",
 )
+HA_ENV_EXAMPLE = Path(__file__).resolve().parents[1] / "deploy" / "ha" / "compose.shared.env.example"
 
 
 def service_block(source: str, service: str) -> str:
@@ -53,6 +54,11 @@ class ComposeHealthcheckContractTests(unittest.TestCase):
                 source = path.read_text(encoding="utf-8")
                 self.assertIn(expected, source)
                 self.assertNotIn('["CMD", "curl",', source)
+
+    def test_supabase_s3_example_uses_direct_storage_hostname(self):
+        source = HA_ENV_EXAMPLE.read_text(encoding="utf-8")
+        self.assertIn(".storage.supabase.co/storage/v1/s3", source)
+        self.assertNotIn(".supabase.co/storage/v1/s3", source.replace(".storage.supabase.co/storage/v1/s3", ""))
 
 
 if __name__ == "__main__":
