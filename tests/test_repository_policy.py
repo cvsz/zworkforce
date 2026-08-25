@@ -112,6 +112,7 @@ class RepositoryPolicyTests(unittest.TestCase):
         self.assertIn('run: test "${{ needs.submodule-validation.result }}" = success', ci)
         self.assertIn("Reject untrusted submodule changes", ci)
         self.assertIn('pytest -m "not uat and not performance"', ci)
+        self.assertIn("bandit -q -r src --severity-level medium", ci)
         self.assertIn("composer audit --locked --no-interaction", ci)
         self.assertIn("composer test", ci)
 
