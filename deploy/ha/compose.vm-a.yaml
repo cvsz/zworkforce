@@ -54,6 +54,8 @@ services:
     environment: *zworkforce-env
     volumes:
       - ./workspace:/workspace
+    healthcheck:
+      disable: true
     depends_on:
       serve:
         condition: service_healthy
@@ -65,6 +67,8 @@ services:
     environment: *zworkforce-env
     volumes:
       - ./workspace:/workspace
+    healthcheck:
+      disable: true
     depends_on:
       serve:
         condition: service_healthy
@@ -76,6 +80,8 @@ services:
     environment: *zworkforce-env
     volumes:
       - ./workspace:/workspace
+    healthcheck:
+      disable: true
     depends_on:
       serve:
         condition: service_healthy
