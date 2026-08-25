@@ -38,10 +38,35 @@ class StaticAssetTests(unittest.TestCase):
         self.assertIn("prefers-reduced-motion", css)
         self.assertIn("zworkforce-voice-capture", worklet)
 
+    def test_dashboard_exposes_accessible_zarvis_agent_reasoning_hud(self):
+        html = (ROOT / "zworkforce" / "static" / "index.html").read_text(encoding="utf-8")
+        hud_js = (ROOT / "zworkforce" / "static" / "zarvis-hud.js").read_text(encoding="utf-8")
+        hud_css = (ROOT / "zworkforce" / "static" / "zarvis-hud.css").read_text(encoding="utf-8")
+
+        self.assertIn('id="zarvisReasoningWeb"', html)
+        self.assertIn('id="zarvisAgentOverview"', html)
+        self.assertIn('id="zarvisHudState"', html)
+        self.assertIn('src="/zarvis-hud.js"', html)
+        self.assertIn('href="/zarvis-hud.css"', html)
+        self.assertIn("MutationObserver", hud_js)
+        self.assertIn("aria-label", hud_js)
+        self.assertIn("event.key==='Enter'", hud_js)
+        self.assertIn("event.key==='Escape'", hud_js)
+        self.assertIn("prefers-reduced-motion", hud_css)
+        self.assertNotIn("three", hud_js.lower())
+        self.assertNotIn("webgl", hud_js.lower())
+
     def test_static_voice_assets_contain_no_server_secret_configuration_names(self):
         combined = "\n".join(
             (ROOT / "zworkforce" / "static" / name).read_text(encoding="utf-8")
-            for name in ("index.html", "app.js", "styles.css", "zarvis-voice-worklet.js")
+            for name in (
+                "index.html",
+                "app.js",
+                "styles.css",
+                "zarvis-voice-worklet.js",
+                "zarvis-hud.js",
+                "zarvis-hud.css",
+            )
         )
         for forbidden in (
             "ZWORKFORCE_ZARVIS_VOICE_SERVICE_TOKEN",
