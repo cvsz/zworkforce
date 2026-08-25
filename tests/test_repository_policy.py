@@ -8,6 +8,8 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 RULESET = ROOT / ".github" / "rulesets" / "main.json"
 CI = ROOT / ".github" / "workflows" / "ci.yml"
+CODEQL = ROOT / ".github" / "workflows" / "codeql.yml"
+GITMODULES = ROOT / ".gitmodules"
 DEPENDENCY_REVIEW = ROOT / ".github" / "workflows" / "dependency-review.yml"
 WINDOWS = ROOT / ".github" / "workflows" / "windows-client.yml"
 ZARVIS = ROOT / ".github" / "workflows" / "zarvis.yml"
@@ -83,6 +85,25 @@ class RepositoryPolicyTests(unittest.TestCase):
         ]:
             with self.subTest(context=context):
                 self.assertNotIn(context, required)
+
+    def test_submodules_are_https_accessible_and_security_validated(self):
+        gitmodules = GITMODULES.read_text(encoding="utf-8")
+        self.assertIn("url = https://github.com/cvsz/zksato.git", gitmodules)
+        self.assertIn("url = https://github.com/cvsz/zttshop-php.git", gitmodules)
+        self.assertNotIn("git@github.com:", gitmodules)
+
+        ci = CI.read_text(encoding="utf-8")
+        self.assertIn("submodule-validation:", ci)
+        self.assertIn("needs: submodule-validation", ci)
+        self.assertIn("submodules: recursive", ci)
+        self.assertIn("pytest -m \\"not uat and not performance\\"", ci)
+        self.assertIn("composer audit --locked --no-interaction", ci)
+        self.assertIn("composer test", ci)
+
+        for workflow in [CODEQL, DEPENDENCY_REVIEW]:
+            with self.subTest(workflow=workflow.name):
+                contents = workflow.read_text(encoding="utf-8")
+                self.assertIn("submodules: recursive", contents)
 
 
 if __name__ == "__main__":
