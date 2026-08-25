@@ -99,6 +99,13 @@ class RepositoryPolicyTests(unittest.TestCase):
         self.assertIn("ZTTSHOP_PHP_SUBMODULE_SSH_KEY: ${{ secrets.ZTTSHOP_PHP_SUBMODULE_SSH_KEY }}", ci)
         self.assertIn("git@github.com-zksato:cvsz/zksato.git", ci)
         self.assertIn("git@github.com-zttshop-php:cvsz/zttshop-php.git", ci)
+        sync_index = ci.index("git submodule sync --recursive")
+        for alias in [
+            "git config --local submodule.packages/zksato.url git@github.com-zksato:cvsz/zksato.git",
+            "git config --local submodule.packages/zttshop-php.url git@github.com-zttshop-php:cvsz/zttshop-php.git",
+        ]:
+            with self.subTest(alias=alias):
+                self.assertGreater(ci.index(alias), sync_index)
         self.assertIn("~/.ssh/known_hosts", ci)
         self.assertIn("persist-credentials: false", ci)
         self.assertIn("if: always()", ci)

@@ -91,9 +91,13 @@ jobs:
             UserKnownHostsFile ~/.ssh/known_hosts
           EOF
           chmod 600 ~/.ssh/config ~/.ssh/known_hosts
-          git config submodule.packages/zksato.url git@github.com-zksato:cvsz/zksato.git
-          git config submodule.packages/zttshop-php.url git@github.com-zttshop-php:cvsz/zttshop-php.git
           git submodule sync --recursive
+          # sync copies .gitmodules URLs into .git/config, so apply the
+          # per-repository SSH aliases after synchronization and before clone.
+          git config --local submodule.packages/zksato.url git@github.com-zksato:cvsz/zksato.git
+          git config --local submodule.packages/zttshop-php.url git@github.com-zttshop-php:cvsz/zttshop-php.git
+          test "$(git config --local --get submodule.packages/zksato.url)" = git@github.com-zksato:cvsz/zksato.git
+          test "$(git config --local --get submodule.packages/zttshop-php.url)" = git@github.com-zttshop-php:cvsz/zttshop-php.git
           git submodule update --init --recursive --depth=1
       - name: Verify pinned submodule revisions
         if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
