@@ -3,4 +3,4 @@
 	url = https://github.com/cvsz/zksato.git
 [submodule "packages/zttshop-php"]
 	path = packages/zttshop-php
-	url = git@github.com:cvsz/zttshop-php.git
+	url = https://github.com/cvsz/zttshop-php.git
