@@ -9,7 +9,7 @@ from typing import Any
 
 from .agent_handoff import AgentHandoffProtocol, AgentHandoffError
 from .db import TERMINAL_STATUSES, utcnow
-from .evaluator import EvaluationError, evaluate
+from .evaluator import EvaluationError, evaluate, validate_criteria
 from .providers import ProviderError
 from .router import ModelRouter
 from .security import canonical_request_hash, redact
@@ -105,7 +105,7 @@ class Engine:
         required = int(agent.get("required_approvals", 1)) if mutating and agent.get("requires_approval_for_mutations") else 0
         required = max(0, min(required, 3))
         criteria = success_criteria or [{"type": "non_empty"}]
-        evaluate("validation-placeholder", criteria)
+        validate_criteria(criteria)
         status = "waiting_approval" if required else "queued"
         task_id = str(uuid.uuid4())
         payload_for_hash = {
