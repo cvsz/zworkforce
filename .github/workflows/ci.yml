@@ -46,17 +46,12 @@ jobs:
           set -euo pipefail
           git diff --exit-code origin/${{ github.base_ref }}...HEAD -- \
             .gitmodules packages/zksato packages/zttshop-php
-      - name: Require read-only submodule credential
-        if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
-        env:
-          SUBMODULES_TOKEN: ${{ secrets.ZWORKFORCE_SUBMODULES_TOKEN }}
-        run: test -n "$SUBMODULES_TOKEN"
-      - name: Checkout pinned submodules
+      - name: Checkout pinned public submodules
         if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
         uses: actions/checkout@v7
         with:
           submodules: recursive
-          token: ${{ secrets.ZWORKFORCE_SUBMODULES_TOKEN }}
+          token: ${{ github.token }}
           persist-credentials: false
       - name: Verify pinned submodule revisions
         if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
