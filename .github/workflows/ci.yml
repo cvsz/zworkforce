@@ -120,7 +120,10 @@ jobs:
         working-directory: packages/zksato
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e '.[dev,security]'
+          # The pinned package imports its AWS Secrets Manager adapter eagerly,
+          # but its metadata does not declare boto3 yet; install that required
+          # runtime dependency so the full test collection remains meaningful.
+          python -m pip install -e '.[dev,security]' 'boto3>=1.35,<2.0'
           python -m pip check
           python -m compileall -q src tests scripts
           ruff check .
