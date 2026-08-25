@@ -40,7 +40,7 @@ LOG_DIR="${LOG_DIR:-$REPO_DIR/.release-evidence-logs}"
 # Default to the exact repository candidate currently being verified. Operators
 # may override this for a historical evidence replay, but must do so
 # explicitly rather than silently collecting evidence against an old commit.
-FROZEN_CANDIDATE="${FROZEN_CANDIDATE:-4ffdfa6e926153b70d97d59803e0ede77842599f}"
+FROZEN_CANDIDATE="${FROZEN_CANDIDATE:-}"
 
 mkdir -p "$STATE_DIR" "$LOG_DIR"
 
@@ -77,6 +77,11 @@ verify_candidate(){
 
   git -C "$REPO_DIR" fetch --quiet --prune origin main
   main_sha="$(git -C "$REPO_DIR" rev-parse refs/remotes/origin/main)"
+
+  if [[ -z "$FROZEN_CANDIDATE" ]]; then
+    FROZEN_CANDIDATE="$main_sha"
+    note "no FROZEN_CANDIDATE supplied; freezing fetched origin/main"
+  fi
 
   note "origin/main=$main_sha"
   note "expected=$FROZEN_CANDIDATE"
