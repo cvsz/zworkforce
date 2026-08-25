@@ -46,19 +46,55 @@ jobs:
           set -euo pipefail
           git diff --exit-code origin/${{ github.base_ref }}...HEAD -- \
             .gitmodules packages/zksato packages/zttshop-php
-      - name: Require submodule SSH key
+      - name: Require submodule SSH deploy keys
         if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
         env:
-          SUBMODULE_SSH_KEY: ${{ secrets.SUBMODULE_SSH_KEY }}
-        run: test -n "$SUBMODULE_SSH_KEY"
+          ZKSATO_SUBMODULE_SSH_KEY: ${{ secrets.ZKSATO_SUBMODULE_SSH_KEY }}
+          ZTTSHOP_PHP_SUBMODULE_SSH_KEY: ${{ secrets.ZTTSHOP_PHP_SUBMODULE_SSH_KEY }}
+        run: |
+          test -n "$ZKSATO_SUBMODULE_SSH_KEY"
+          test -n "$ZTTSHOP_PHP_SUBMODULE_SSH_KEY"
       - name: Checkout pinned SSH submodules
         if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
-        uses: actions/checkout@v7
-        with:
-          submodules: recursive
-          ssh-key: ${{ secrets.SUBMODULE_SSH_KEY }}
-          ssh-known-hosts: github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAmAtXIzpC1L9luOXq47qfWAz3JkYyXyAQTLn2mzVxR5
-          persist-credentials: false
+        shell: bash
+        env:
+          ZKSATO_SUBMODULE_SSH_KEY: ${{ secrets.ZKSATO_SUBMODULE_SSH_KEY }}
+          ZTTSHOP_PHP_SUBMODULE_SSH_KEY: ${{ secrets.ZTTSHOP_PHP_SUBMODULE_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$ZKSATO_SUBMODULE_SSH_KEY" > ~/.ssh/zksato_submodule
+          printf '%s\n' "$ZTTSHOP_PHP_SUBMODULE_SSH_KEY" > ~/.ssh/zttshop_php_submodule
+          chmod 600 ~/.ssh/zksato_submodule ~/.ssh/zttshop_php_submodule
+          cat > ~/.ssh/known_hosts <<'EOF'
+          ssh.github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
+          EOF
+          cat > ~/.ssh/config <<'EOF'
+          Host github.com-zksato
+            HostName ssh.github.com
+            Port 443
+            User git
+            IdentityFile ~/.ssh/zksato_submodule
+            IdentitiesOnly yes
+            HostKeyAlias ssh.github.com
+            StrictHostKeyChecking yes
+            UserKnownHostsFile ~/.ssh/known_hosts
+
+          Host github.com-zttshop-php
+            HostName ssh.github.com
+            Port 443
+            User git
+            IdentityFile ~/.ssh/zttshop_php_submodule
+            IdentitiesOnly yes
+            HostKeyAlias ssh.github.com
+            StrictHostKeyChecking yes
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          chmod 600 ~/.ssh/config ~/.ssh/known_hosts
+          git config submodule.packages/zksato.url git@github.com-zksato:cvsz/zksato.git
+          git config submodule.packages/zttshop-php.url git@github.com-zttshop-php:cvsz/zttshop-php.git
+          git submodule sync --recursive
+          git submodule update --init --recursive --depth=1
       - name: Verify pinned submodule revisions
         if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
         shell: bash
