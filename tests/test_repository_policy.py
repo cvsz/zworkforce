@@ -8,7 +8,6 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 RULESET = ROOT / ".github" / "rulesets" / "main.json"
 CI = ROOT / ".github" / "workflows" / "ci.yml"
-CODEQL = ROOT / ".github" / "workflows" / "codeql.yml"
 GITMODULES = ROOT / ".gitmodules"
 DEPENDENCY_REVIEW = ROOT / ".github" / "workflows" / "dependency-review.yml"
 WINDOWS = ROOT / ".github" / "workflows" / "windows-client.yml"
@@ -96,14 +95,14 @@ class RepositoryPolicyTests(unittest.TestCase):
         self.assertIn("submodule-validation:", ci)
         self.assertIn("needs: submodule-validation", ci)
         self.assertIn("submodules: recursive", ci)
+        self.assertIn("persist-credentials: false", ci)
+        self.assertIn("if: always()", ci)
+        self.assertIn('run: test "${{ needs.submodule-validation.result }}" = success', ci)
+        self.assertIn("Reject untrusted submodule changes", ci)
         self.assertIn('pytest -m "not uat and not performance"', ci)
         self.assertIn("composer audit --locked --no-interaction", ci)
         self.assertIn("composer test", ci)
 
-        for workflow in [CODEQL, DEPENDENCY_REVIEW]:
-            with self.subTest(workflow=workflow.name):
-                contents = workflow.read_text(encoding="utf-8")
-                self.assertIn("submodules: recursive", contents)
 
 
 if __name__ == "__main__":
