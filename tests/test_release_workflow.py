@@ -4,6 +4,9 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
+EXTERNAL_GATES = ROOT / "scripts" / "close-zworkforce-external-gates.sh"
+HA_VERIFIER = ROOT / "scripts" / "release" / "verify-ha.sh"
+OBS_VERIFIER = ROOT / "scripts" / "release" / "verify-observability.sh"
 
 
 class ReleaseWorkflowTests(unittest.TestCase):
@@ -14,6 +17,32 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertGreaterEqual(workflow.count("mkdir -p windows-assets"), 2)
         self.assertIn("Windows release artifacts were skipped", workflow)
         self.assertIn("find dist windows-assets -type f -print", workflow)
+
+    def test_external_gates_bind_evidence_to_runtime_and_candidate(self):
+        gates = EXTERNAL_GATES.read_text(encoding="utf-8")
+        ha = HA_VERIFIER.read_text(encoding="utf-8")
+        self.assertIn('job_name: "zworkforce-vm-a"', gates)
+        self.assertIn('job_name: "zworkforce-vm-b"', gates)
+        self.assertIn("credentials_file: \"/etc/prometheus/secrets/metrics-bearer\"", gates)
+        self.assertIn('url_file: "/etc/alertmanager/secrets/webhook-url"', gates)
+        self.assertIn("HA_EXPECTED_IMAGE_DIGEST", gates)
+        self.assertIn("ZWORKFORCE_INSTANCE_ID=vm-a", gates)
+        self.assertIn("ZWORKFORCE_INSTANCE_ID=vm-b", gates)
+        self.assertIn("HA_COMPOSE_FILE_A", ha)
+        self.assertIn("HA_COMPOSE_FILE_B", ha)
+        self.assertIn('HA_EXPECTED_IMAGE="$HA_EXPECTED_IMAGE"', gates)
+        self.assertIn('HA_EXPECTED_IMAGE_DIGEST="$HA_EXPECTED_IMAGE_DIGEST"', gates)
+        self.assertIn("exact candidate image", ha)
+        self.assertIn("S3 operation=PutObject failed", gates)
+
+    def test_external_gate_shell_boundaries_are_quoted_and_versioned(self):
+        gates = EXTERNAL_GATES.read_text(encoding="utf-8")
+        observability = OBS_VERIFIER.read_text(encoding="utf-8")
+        self.assertIn("-Command -", gates)
+        self.assertIn("$PSVersionTable.PSVersion.ToString()", gates)
+        self.assertIn("-ExpectedVersion '$release_version.0'", gates)
+        self.assertIn("s3={\"addressing_style\": \"path\"}", gates)
+        self.assertIn("OBS_COMPOSE_FILE", observability)
 
 
 if __name__ == "__main__":

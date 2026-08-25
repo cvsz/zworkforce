@@ -87,6 +87,10 @@ def build_provider_factories(
             if logger:
                 logger.debug("Skipping provider '%s': %s", spec.key, exc)
             continue
+        if getattr(provider_cls, "supported", True) is not True:
+            if logger:
+                logger.debug("Skipping provider '%s': production adapter is unavailable", spec.key)
+            continue
 
         def factory(provider_cls: type[Any] = provider_cls) -> Any:
             return provider_cls()

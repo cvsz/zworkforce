@@ -55,6 +55,8 @@ class AIRouterTests(unittest.TestCase):
                 self.assertIn(provider_name, factories)
 
         self.assertNotIn("cohere", factories)
+        self.assertNotIn("alibaba_dashscope", factories)
+        self.assertNotIn("qdrant_cloud", factories)
 
     def test_route_request_blocks_prompt_injection(self) -> None:
         router = AIRouter(provider_factories={})

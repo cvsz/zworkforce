@@ -28,6 +28,8 @@ set -Eeuo pipefail
 #
 # Optional config:
 #   /home/cvsz/zworkforce/.env.release
+#   HA_COMPOSE_FILE_A / HA_COMPOSE_FILE_B: remote Compose filenames
+#   HA_EXPECTED_IMAGE / HA_EXPECTED_IMAGE_DIGEST: exact candidate image and OCI digest
 #
 # See generated .env.release.example.
 
@@ -35,7 +37,10 @@ REPO_DIR="${REPO_DIR:-/home/cvsz/zworkforce}"
 ENV_FILE="${ENV_FILE:-$REPO_DIR/.env.release}"
 STATE_DIR="${STATE_DIR:-$REPO_DIR/.release-evidence-state}"
 LOG_DIR="${LOG_DIR:-$REPO_DIR/.release-evidence-logs}"
-FROZEN_CANDIDATE="${FROZEN_CANDIDATE:-d74ec63079caeb7ab270de799b277b1c17367fab}"
+# Default to the exact repository candidate currently being verified. Operators
+# may override this for a historical evidence replay, but must do so
+# explicitly rather than silently collecting evidence against an old commit.
+FROZEN_CANDIDATE="${FROZEN_CANDIDATE:-4ffdfa6e926153b70d97d59803e0ede77842599f}"
 
 mkdir -p "$STATE_DIR" "$LOG_DIR"
 
@@ -97,6 +102,9 @@ mark(){
     > "$STATE_DIR/$s.status"
 }
 
+CURRENT_GATE=""
+trap 'rc=$?; if [[ $rc -ne 0 && -n "$CURRENT_GATE" ]]; then mark "$CURRENT_GATE" FAIL gate_execution_failed; fi' EXIT
+
 # ---------------------------------------------------------------------------
 # Stage F — Supabase Storage / optional Qdrant
 # ---------------------------------------------------------------------------
@@ -138,7 +146,7 @@ import hashlib, os, sys, json
 try:
     import boto3
     from botocore.config import Config
-    from botocore.exceptions import ClientError
+    from botocore.exceptions import ClientError, BotoCoreError
 except Exception as e:
     print("ERROR: boto3/botocore required:", e, file=sys.stderr)
     sys.exit(2)
@@ -160,12 +168,33 @@ s3=boto3.client(
     region_name=region,
     aws_access_key_id=access,
     aws_secret_access_key=secret,
-    config=Config(signature_version="s3v4"),
+    config=Config(
+        signature_version="s3v4",
+        s3={"addressing_style": "path"},
+        connect_timeout=10,
+        read_timeout=30,
+        retries={"max_attempts": 2, "mode": "standard"},
+    ),
 )
 
 data=open(payload,"rb").read()
-s3.put_object(Bucket=bucket, Key=key_a, Body=data, ContentType="text/plain",
-              Metadata={"sha256": expected_sha, "tenant":"tenant-a"})
+try:
+    s3.put_object(Bucket=bucket, Key=key_a, Body=data, ContentType="text/plain",
+                  Metadata={"sha256": expected_sha, "tenant":"tenant-a"})
+except ClientError as exc:
+    response=exc.response or {}
+    error=response.get("Error") or {}
+    metadata=response.get("ResponseMetadata") or {}
+    print(
+        "S3 operation=PutObject failed "
+        f"code={error.get('Code') or 'unknown'} "
+        f"status={metadata.get('HTTPStatusCode') or 'unknown'}",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+except BotoCoreError as exc:
+    print(f"S3 operation=PutObject failed client={type(exc).__name__}", file=sys.stderr)
+    sys.exit(1)
 
 obj=s3.get_object(Bucket=bucket, Key=key_a)
 got=obj["Body"].read()
@@ -279,6 +308,11 @@ stage_e(){
   : "${HA_HOST_B:?set HA_HOST_B (ssh target)}"
   : "${HA_DEPLOY_DIR:?set HA_DEPLOY_DIR on remote hosts}"
   : "${HA_DB_DSN_SECRET_REF:?set HA_DB_DSN_SECRET_REF (reference name only)}"
+  : "${HA_EXPECTED_IMAGE:?set HA_EXPECTED_IMAGE to the exact candidate image reference}"
+  : "${HA_EXPECTED_IMAGE_DIGEST:?set HA_EXPECTED_IMAGE_DIGEST to the exact candidate OCI digest}"
+
+  local compose_a="${HA_COMPOSE_FILE_A:-compose.vm-a.yaml}"
+  local compose_b="${HA_COMPOSE_FILE_B:-compose.vm-b.yaml}"
 
   [[ "$HA_HOST_A" != "$HA_HOST_B" ]] || die "HA_HOST_A and HA_HOST_B must differ"
 
@@ -289,24 +323,28 @@ stage_e(){
   # We intentionally do NOT inject DB secrets via shell.
   # Each host must already have its external secret/config material provisioned.
   note "Stage E: deploying/starting zworkforce HA services on host A"
-  ssh "$HA_HOST_A" "cd '$HA_DEPLOY_DIR' && docker compose up -d worker scheduler outbox"
+  ssh "$HA_HOST_A" "cd '$HA_DEPLOY_DIR' && test -f '$compose_a' && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' ZWORKFORCE_INSTANCE_ID=vm-a docker compose -f '$compose_a' pull && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' ZWORKFORCE_INSTANCE_ID=vm-a docker compose -f '$compose_a' up -d"
 
   note "Stage E: deploying/starting zworkforce HA services on host B"
-  ssh "$HA_HOST_B" "cd '$HA_DEPLOY_DIR' && docker compose up -d worker scheduler outbox"
+  ssh "$HA_HOST_B" "cd '$HA_DEPLOY_DIR' && test -f '$compose_b' && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' ZWORKFORCE_INSTANCE_ID=vm-b docker compose -f '$compose_b' pull && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' ZWORKFORCE_INSTANCE_ID=vm-b docker compose -f '$compose_b' up -d"
 
   note "Stage E: capturing replica identities"
   local a_ids b_ids
-  a_ids="$(ssh "$HA_HOST_A" "cd '$HA_DEPLOY_DIR' && docker compose ps --format json" | sha256sum | awk '{print $1}')"
-  b_ids="$(ssh "$HA_HOST_B" "cd '$HA_DEPLOY_DIR' && docker compose ps --format json" | sha256sum | awk '{print $1}')"
+  a_ids="$(ssh "$HA_HOST_A" "cd '$HA_DEPLOY_DIR' && docker compose -f '$compose_a' ps --format json" | sha256sum | awk '{print $1}')"
+  b_ids="$(ssh "$HA_HOST_B" "cd '$HA_DEPLOY_DIR' && docker compose -f '$compose_b' ps --format json" | sha256sum | awk '{print $1}')"
   note "hostA_replica_snapshot_sha256=$a_ids"
   note "hostB_replica_snapshot_sha256=$b_ids"
 
   # HA verification is delegated to repository's own release drill if present.
   if [[ -x "$REPO_DIR/scripts/release/verify-ha.sh" ]]; then
-    HA_HOST_A="$HA_HOST_A" HA_HOST_B="$HA_HOST_B" \
+    HA_HOST_A="$HA_HOST_A" HA_HOST_B="$HA_HOST_B" HA_DEPLOY_DIR="$HA_DEPLOY_DIR" \
+      HA_COMPOSE_FILE_A="$compose_a" HA_COMPOSE_FILE_B="$compose_b" \
+      HA_EXPECTED_IMAGE="$HA_EXPECTED_IMAGE" HA_EXPECTED_IMAGE_DIGEST="$HA_EXPECTED_IMAGE_DIGEST" \
       "$REPO_DIR/scripts/release/verify-ha.sh"
   elif [[ -x "$REPO_DIR/scripts/verify-ha.sh" ]]; then
-    HA_HOST_A="$HA_HOST_A" HA_HOST_B="$HA_HOST_B" \
+    HA_HOST_A="$HA_HOST_A" HA_HOST_B="$HA_HOST_B" HA_DEPLOY_DIR="$HA_DEPLOY_DIR" \
+      HA_COMPOSE_FILE_A="$compose_a" HA_COMPOSE_FILE_B="$compose_b" \
+      HA_EXPECTED_IMAGE="$HA_EXPECTED_IMAGE" HA_EXPECTED_IMAGE_DIGEST="$HA_EXPECTED_IMAGE_DIGEST" \
       "$REPO_DIR/scripts/verify-ha.sh"
   else
     die "no repository HA verification script found; cannot honestly mark Stage E PASS"
@@ -341,6 +379,7 @@ services:
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+      - ./metrics-bearer:/etc/prometheus/secrets/metrics-bearer:ro
     ports:
       - "9090:9090"
     restart: unless-stopped
@@ -350,10 +389,26 @@ services:
     command: ["--config.file=/etc/alertmanager/alertmanager.yml"]
     volumes:
       - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./alertmanager-webhook-url:/etc/alertmanager/secrets/webhook-url:ro
     ports:
       - "9093:9093"
     restart: unless-stopped
 YAML
+}
+
+metrics_hostport_for(){
+  local explicit="$1" ssh_target="$2"
+  if [[ -n "$explicit" ]]; then
+    printf '%s' "$explicit"
+    return
+  fi
+
+  ssh_target="${ssh_target#*@}"
+  if [[ "$ssh_target" == *:* ]]; then
+    printf '%s' "$ssh_target"
+  else
+    printf '%s:%s' "$ssh_target" "${ZWORKFORCE_METRICS_PORT:-9456}"
+  fi
 }
 
 stage_g(){
@@ -364,14 +419,25 @@ stage_g(){
 
   : "${OBS_HOST:?set OBS_HOST (ssh target)}"
   : "${OBS_DEPLOY_DIR:?set OBS_DEPLOY_DIR}"
+  : "${HA_HOST_A:?set HA_HOST_A (VM-A SSH target)}"
+  : "${HA_HOST_B:?set HA_HOST_B (VM-B SSH target)}"
   : "${ZWORKFORCE_METRICS_URL:?set ZWORKFORCE_METRICS_URL}"
   : "${ZWORKFORCE_HEALTH_URL:?set ZWORKFORCE_HEALTH_URL}"
   : "${ZWORKFORCE_READY_URL:?set ZWORKFORCE_READY_URL}"
   : "${ALERT_RECEIVER_TEST_URL:?set ALERT_RECEIVER_TEST_URL or external receipt endpoint}"
+  : "${ALERTMANAGER_WEBHOOK_URL:?set ALERTMANAGER_WEBHOOK_URL}"
+  : "${ZWORKFORCE_METRICS_BEARER:?set ZWORKFORCE_METRICS_BEARER}"
+
+  local metrics_a metrics_b
+  metrics_a="$(metrics_hostport_for "${ZWORKFORCE_METRICS_HOSTPORT_A:-${ZWORKFORCE_METRICS_HOSTPORT:-}}" "$HA_HOST_A")"
+  metrics_b="$(metrics_hostport_for "${ZWORKFORCE_METRICS_HOSTPORT_B:-}" "$HA_HOST_B")"
 
   local tmp="$LOG_DIR/obs-deploy-$(date -u +%Y%m%dT%H%M%SZ)"
+  umask 077
   mkdir -p "$tmp"
   write_observability_compose "$tmp/compose.yml"
+  printf '%s' "$ZWORKFORCE_METRICS_BEARER" > "$tmp/metrics-bearer"
+  printf '%s' "$ALERTMANAGER_WEBHOOK_URL" > "$tmp/alertmanager-webhook-url"
 
   cat > "$tmp/otel-collector.yaml" <<'YAML'
 receivers:
@@ -406,14 +472,22 @@ alerting:
     - static_configs:
         - targets: ["alertmanager:9093"]
 scrape_configs:
-  - job_name: "zworkforce"
+  - job_name: "zworkforce-vm-a"
     metrics_path: "/metrics"
     scheme: "http"
     authorization:
       type: Bearer
-      credentials: "${ZWORKFORCE_METRICS_BEARER}"
+      credentials_file: "/etc/prometheus/secrets/metrics-bearer"
     static_configs:
-      - targets: ["${ZWORKFORCE_METRICS_HOSTPORT:-localhost:9443}"]
+      - targets: ["$metrics_a"]
+  - job_name: "zworkforce-vm-b"
+    metrics_path: "/metrics"
+    scheme: "http"
+    authorization:
+      type: Bearer
+      credentials_file: "/etc/prometheus/secrets/metrics-bearer"
+    static_configs:
+      - targets: ["$metrics_b"]
   - job_name: "otel-collector"
     static_configs:
       - targets: ["otel-collector:8889"]
@@ -424,7 +498,7 @@ groups:
   - name: zworkforce-release-evidence
     rules:
       - alert: ZWorkforceEvidenceHeartbeatMissing
-        expr: up{job="zworkforce"} == 0
+        expr: up{job=~"zworkforce-vm-(a|b)"} == 0
         for: 30s
         labels:
           severity: test
@@ -432,20 +506,20 @@ groups:
           summary: "zWorkforce release evidence test alert"
 YAML
 
-  # ALERTMANAGER_WEBHOOK_URL is used on the remote host from its secret environment.
   cat > "$tmp/alertmanager.yml" <<YAML
 route:
   receiver: operator
 receivers:
   - name: operator
     webhook_configs:
-      - url: "${ALERTMANAGER_WEBHOOK_URL}"
+      - url_file: "/etc/alertmanager/secrets/webhook-url"
         send_resolved: true
 YAML
 
   note "Stage G: copying observability config to $OBS_HOST"
   ssh "$OBS_HOST" "mkdir -p '$OBS_DEPLOY_DIR'"
   scp -q "$tmp/"* "$OBS_HOST:$OBS_DEPLOY_DIR/"
+  ssh "$OBS_HOST" "chmod 600 '$OBS_DEPLOY_DIR/metrics-bearer' '$OBS_DEPLOY_DIR/alertmanager-webhook-url'"
 
   note "Stage G: deploying OTel/Prometheus/Alertmanager"
   ssh "$OBS_HOST" "cd '$OBS_DEPLOY_DIR' && docker compose -f compose.yml up -d"
@@ -469,9 +543,9 @@ YAML
 
   # Optional repository-specific trace/alert evidence drill.
   if [[ -x "$REPO_DIR/scripts/release/verify-observability.sh" ]]; then
-    "$REPO_DIR/scripts/release/verify-observability.sh"
+    OBS_COMPOSE_FILE=compose.yml "$REPO_DIR/scripts/release/verify-observability.sh"
   elif [[ -x "$REPO_DIR/scripts/verify-observability.sh" ]]; then
-    "$REPO_DIR/scripts/verify-observability.sh"
+    OBS_COMPOSE_FILE=compose.yml "$REPO_DIR/scripts/verify-observability.sh"
   else
     die "no repository observability verification script found; cannot prove trace + actual alert delivery"
   fi
@@ -484,10 +558,23 @@ YAML
 # Stage H — Windows trusted signing
 # ---------------------------------------------------------------------------
 
+ps_single_quote(){
+  local value="${1:-}"
+  value="${value//\'/\'\'}"
+  printf "'%s'" "$value"
+}
+
+run_remote_pwsh(){
+  local script="$1"
+  printf '%s\n' '$ErrorActionPreference = "Stop"' "$script" | \
+    ssh "$WINDOWS_HOST" 'pwsh -NoProfile -NonInteractive -Command -'
+}
+
 stage_h(){
   load_env
   verify_candidate
   need ssh
+  need python3
 
   : "${WINDOWS_HOST:?set WINDOWS_HOST (OpenSSH-enabled Windows target)}"
   : "${WINDOWS_REPO_DIR:?set WINDOWS_REPO_DIR e.g. C:/src/zworkforce}"
@@ -496,35 +583,62 @@ stage_h(){
   : "${WINDOWS_MSIX_PUBLISHER:?set WINDOWS_MSIX_PUBLISHER}"
   : "${ZWORKFORCE_HTTPS_ENDPOINT:?set ZWORKFORCE_HTTPS_ENDPOINT}"
 
+  local release_version
+  release_version="$(PYTHONPATH="$REPO_DIR" python3 -c 'from zworkforce import __version__; print(__version__)')"
+
   # Never copy/export PFX material from this script. It must already be securely
   # provisioned on the Windows host.
   note "Stage H: verifying Windows host"
-  ssh "$WINDOWS_HOST" "pwsh -NoProfile -Command \"\\$PSVersionTable.PSVersion.ToString()\""
+  run_remote_pwsh '$PSVersionTable.PSVersion.ToString()'
 
   note "Stage H: build/test/sign package"
-  ssh "$WINDOWS_HOST" \
-    "pwsh -NoProfile -Command \"Set-Location '$WINDOWS_REPO_DIR'; \
-      \$env:WINDOWS_MSIX_PFX_PATH='$WINDOWS_MSIX_PFX_PATH'; \
-      \$env:WINDOWS_MSIX_PFX_PASSWORD='$WINDOWS_MSIX_PFX_PASSWORD'; \
-      \$env:WINDOWS_MSIX_PUBLISHER='$WINDOWS_MSIX_PUBLISHER'; \
-      ./ZWorkforceClient/build/windows/Test-Client.ps1 -Configuration Release -ExpectedVersion 1.0.0.0 -LaunchSmoke\""
+  local ps_repo_dir ps_pfx_path ps_pfx_password ps_publisher
+  ps_repo_dir="$(ps_single_quote "$WINDOWS_REPO_DIR")"
+  ps_pfx_path="$(ps_single_quote "$WINDOWS_MSIX_PFX_PATH")"
+  ps_pfx_password="$(ps_single_quote "$WINDOWS_MSIX_PFX_PASSWORD")"
+  ps_publisher="$(ps_single_quote "$WINDOWS_MSIX_PUBLISHER")"
 
-  # Find newest MSIX and validate Authenticode + hash without printing secrets.
-  ssh "$WINDOWS_HOST" \
-    "pwsh -NoProfile -Command \"Set-Location '$WINDOWS_REPO_DIR'; \
-      \$pkg=Get-ChildItem -Recurse -Filter *.msix | Sort-Object LastWriteTime -Desc | Select-Object -First 1; \
-      if(-not \$pkg){throw 'MSIX not found'}; \
-      \$sig=Get-AuthenticodeSignature \$pkg.FullName; \
-      if(\$sig.Status -ne 'Valid'){throw ('Signature invalid: '+\$sig.Status)}; \
-      \$hash=(Get-FileHash -Algorithm SHA256 \$pkg.FullName).Hash; \
-      Write-Output ('PACKAGE='+\$pkg.Name); \
-      Write-Output ('SHA256='+\$hash); \
-      Write-Output ('PUBLISHER='+\$sig.SignerCertificate.Subject); \
-      Write-Output ('SIGNATURE='+\$sig.Status)\""
+  local candidate_script ps_candidate
+  ps_candidate="$(ps_single_quote "$FROZEN_CANDIDATE")"
+  candidate_script="$(printf '%s\n' \
+    "Set-Location $ps_repo_dir" \
+    '$sha = (git rev-parse HEAD).Trim()' \
+    "if (\$sha -ne $ps_candidate) { [Console]::Error.WriteLine(\"Windows checkout does not match candidate $FROZEN_CANDIDATE\"); exit 1 }" \
+    'Write-Output ("WINDOWS_CANDIDATE=" + $sha)')"
+  run_remote_pwsh "$candidate_script"
+
+  local build_script
+  build_script="$(printf '%s\n' \
+    "Set-Location $ps_repo_dir" \
+    "\$env:ZWORKFORCE_MSIX_SIGNING_PFX_PATH = $ps_pfx_path" \
+    "\$env:ZWORKFORCE_MSIX_SIGNING_PFX_PASSWORD = $ps_pfx_password" \
+    "\$env:ZWORKFORCE_MSIX_SIGNING_PUBLISHER = $ps_publisher" \
+    "\$env:ZWORKFORCE_MSIX_REQUIRE_TRUSTED_SIGNING = 'true'" \
+    "& ./ZWorkforceClient/build/windows/Build-Client.ps1 -Configuration Release -Platform x64; if (-not \$?) { exit 1 }" \
+    "& ./ZWorkforceClient/build/windows/Test-Client.ps1 -Configuration Release; if (-not \$?) { exit 1 }" \
+    "& ./ZWorkforceClient/build/windows/Package-Client.ps1 -Configuration Release -Platform x64 -Version '$release_version'; if (-not \$?) { exit 1 }" \
+    "& ./ZWorkforceClient/build/windows/Test-Client.ps1 -Configuration Release -ExpectedVersion '$release_version.0' -LaunchSmoke; if (-not \$?) { exit 1 }")"
+  run_remote_pwsh "$build_script"
+
+  # Find newest MSIX/MSIXBundle and validate Authenticode + hash without
+  # printing signing secrets.
+  local inspect_script
+  inspect_script="$(printf '%s\n' \
+    "Set-Location $ps_repo_dir" \
+    '$packages = @(Get-ChildItem -Recurse -File | Where-Object { $_.Extension -in @(".msix", ".msixbundle") } | Sort-Object LastWriteTime -Descending)' \
+    'if ($packages.Count -eq 0) { [Console]::Error.WriteLine("MSIX/MSIXBundle not found"); exit 1 }' \
+    '$pkg = $packages[0]' \
+    '$sig = Get-AuthenticodeSignature $pkg.FullName' \
+    'if ($sig.Status -ne "Valid") { [Console]::Error.WriteLine("Signature invalid: " + $sig.Status); exit 1 }' \
+    '$hash = (Get-FileHash -Algorithm SHA256 $pkg.FullName).Hash' \
+    'Write-Output ("PACKAGE=" + $pkg.Name)' \
+    'Write-Output ("SHA256=" + $hash)' \
+    'Write-Output ("PUBLISHER=" + $sig.SignerCertificate.Subject)' \
+    'Write-Output ("SIGNATURE=" + $sig.Status)')"
+  run_remote_pwsh "$inspect_script"
 
   # Live HTTPS endpoint check from Windows host.
-  ssh "$WINDOWS_HOST" \
-    "pwsh -NoProfile -Command \"Invoke-WebRequest -UseBasicParsing '$ZWORKFORCE_HTTPS_ENDPOINT/health' | Out-Null\""
+  run_remote_pwsh "Invoke-WebRequest -UseBasicParsing '$(ps_single_quote "$ZWORKFORCE_HTTPS_ENDPOINT/health")' | Out-Null; if (-not \$?) { exit 1 }"
 
   if [[ -x "$REPO_DIR/scripts/release/verify-windows-live.sh" ]]; then
     WINDOWS_HOST="$WINDOWS_HOST" \
@@ -540,7 +654,13 @@ status(){
   verify_candidate
   for s in F E G H; do
     if [[ -f "$STATE_DIR/$s.status" ]]; then
-      echo "$s: $(cat "$STATE_DIR/$s.status")"
+      local line
+      line="$(cat "$STATE_DIR/$s.status")"
+      if [[ "$line" == *"candidate=$FROZEN_CANDIDATE "* ]]; then
+        echo "$s: $line"
+      else
+        echo "$s: STALE_EVIDENCE candidate-mismatch rerun-stage-$s"
+      fi
     else
       echo "$s: NOT VERIFIED"
     fi
@@ -557,22 +677,35 @@ case "${1:-}" in
     status
     ;;
   F)
+    CURRENT_GATE=F
     stage_f
+    CURRENT_GATE=
     ;;
   E)
+    CURRENT_GATE=E
     stage_e
+    CURRENT_GATE=
     ;;
   G)
+    CURRENT_GATE=G
     stage_g
+    CURRENT_GATE=
     ;;
   H)
+    CURRENT_GATE=H
     stage_h
+    CURRENT_GATE=
     ;;
   all)
+    CURRENT_GATE=F
     stage_f
+    CURRENT_GATE=E
     stage_e
+    CURRENT_GATE=G
     stage_g
+    CURRENT_GATE=H
     stage_h
+    CURRENT_GATE=
     ;;
   *)
     cat <<'EOF'

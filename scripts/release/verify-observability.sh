@@ -8,6 +8,7 @@ set -euo pipefail
 PROM_API="${PROMETHEUS_API_URL:-http://127.0.0.1:19090}"
 OBS_HOST="${OBS_HOST:?set OBS_HOST (ssh target hosting observability stack)}"
 OBS_DEPLOY_DIR="${OBS_DEPLOY_DIR:-/opt/zworkforce-observability}"
+OBS_COMPOSE_FILE="${OBS_COMPOSE_FILE:-compose.vm-b.yaml}"
 ALERT_RECEIVER_TEST_URL="${ALERT_RECEIVER_TEST_URL:?set ALERT_RECEIVER_TEST_URL receipt endpoint}"
 
 fail(){ echo "VERIFY-OBS: FAIL: $*" >&2; exit 1; }
@@ -112,7 +113,7 @@ printf '%s' "$trace_json" | ssh -o BatchMode=yes "$OBS_HOST" \
   fail "OTel Collector rejected synthetic trace"
 
 sleep 2
-trace_logs="$(ssh -o BatchMode=yes "$OBS_HOST" "cd '$OBS_DEPLOY_DIR' && docker compose -f compose.vm-b.yaml logs --since 2m otel-collector 2>/dev/null" || true)"
+trace_logs="$(ssh -o BatchMode=yes "$OBS_HOST" "cd '$OBS_DEPLOY_DIR' && docker compose -f '$OBS_COMPOSE_FILE' logs --since 2m otel-collector 2>/dev/null" || true)"
 grep -Fqi "$trace_id" <<<"$trace_logs" || fail "synthetic trace ID not observed in OTel Collector debug exporter logs"
 note "OTel trace arrival verified"
 

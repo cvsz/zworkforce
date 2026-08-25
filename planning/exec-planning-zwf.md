@@ -1,8 +1,8 @@
 # zWorkforce Production Readiness Execution Plan (zwf Core)
 
-**Updated:** 2026-08-18  
+**Updated:** 2026-08-25
 **Candidate:** `v3.0.3` repository candidate on `main`  
-**Baseline main:** `4f8935759bda02a89bd0bc2eeb5b9a3ab6777045`  
+**Baseline main:** `4ffdfa6e926153b70d97d59803e0ede77842599f`
 **Parent Framework:** [`exec-planning.master.md`](exec-planning.master.md) & [`../AGENTS.md`](../AGENTS.md)
 
 This is the production-readiness execution plan for the root `zWorkforce` control plane. It defines required validation gates, state invariants, secret safety, PostgreSQL operations, and durable release proofs before tagging `v3.0.3`.

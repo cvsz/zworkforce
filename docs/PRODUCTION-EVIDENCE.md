@@ -51,32 +51,46 @@ Private DNS records (`ha-a.zeaz.dev`, `ha-b.zeaz.dev`, `obs.zeaz.dev`) are decla
 | --- | --- |
 | Candidate version | `3.0.3` |
 | Candidate branch | `main` |
-| Default-branch ruleset | `zWorkforce main release protection` applied server-side, ruleset ID `20988030` (verified 2026-08-18) |
-| Reconciliation baseline | `3c8bf2c0b067d09687fd986c3255ae8569f8f21c` |
-| Latest fully verified PR head | `05e959112050b0d398a8a6fc593a66750056fc61` (PR #160; merged as `3c8bf2c0b067d09687fd986c3255ae8569f8f21c`) |
-| Final release candidate SHA | `d74ec63079caeb7ab270de799b277b1c17367fab` — verified 2026-08-19 on `origin/main` via `scripts/close-zworkforce-external-gates.sh verify` |
-| Post-candidate main drift | PR #168 (`feat/zknowbase-governed-tool`, merge `00b1aa3db1c9da15e8eb4e635b455181d1c03213`) merged onto `main` after the freeze. Classified as **forward roadmap** per `planning/RELEASE-SCOPE-STATUS.md:27` — NOT a v3.0.3 blocker. Candidate `d74ec63...` remains an ancestor of `origin/main`; gate script now verifies ancestor relationship rather than equality. |
+| Default-branch ruleset | `zWorkforce main release protection` applied server-side, ruleset ID `20988030` (verified 2026-08-25) |
+| Reconciliation baseline | `4ffdfa6e926153b70d97d59803e0ede77842599f` |
+| Latest fully verified PR head | `a4db916ec088bea9341ef6382624a5740edb0810` (PR #178; merged as `4ffdfa6e926153b70d97d59803e0ede77842599f`) |
+| Final release candidate SHA | `4ffdfa6e926153b70d97d59803e0ede77842599f` — exact `origin/main` candidate verified 2026-08-25; no immutable tag or artifact publication has occurred |
+| Post-candidate main drift | None after this candidate refresh. The earlier frozen-candidate evidence for `d74ec63...` is historical; the gate script now defaults to this exact candidate and accepts an older SHA only when an operator explicitly overrides it. |
 | Release tag | _create only after merge and all mandatory evidence_ |
 | OCI image digest | _record immutable GHCR digest after publication_ |
 | Python artifact checksums | _record from release workflow_ |
 
 ## Repository gates
 
-The rows below record repository regression evidence observed on exact PR #160 head `05e959112050b0d398a8a6fc593a66750056fc61` on 2026-08-18. The head was merged to `main` as `3c8bf2c0b067d09687fd986c3255ae8569f8f21c`. Prior fully verified PR #157 head `c89076e6453babda328387958b5cbf3ca8ae80bd` (merged as `4f8935759bda02a89bd0bc2eeb5b9a3ab6777045`) remains in repository history as earlier evidence. These PASS results are not a production GO decision and do not waive the requirement to rerun mandatory checks on the final release-candidate SHA after subsequent repository changes.
+The current repository gate refresh is bound to exact candidate `4ffdfa6e926153b70d97d59803e0ede77842599f`, the merge commit for PR #178. These PASS results are repository evidence only; they do not constitute a production GO decision or waive the external evidence listed below.
 
 | Gate | Verified evidence | Status |
 | --- | --- | --- |
-| Python 3.12 / 3.13 / 3.14 | CI run `32138626757`: `test (3.12)`, `test (3.13)`, `test (3.14)` all completed successfully | PASS on `05e959112050b0d398a8a6fc593a66750056fc61` |
-| PostgreSQL integration | CI run `32138626757`: `postgres-integration` completed successfully, including PostgreSQL backup/restore regression drill | PASS on verified PR head; **not external PITR evidence** |
-| Documentation / ruleset contract | CI run `32138626757`: `documentation-contract` completed successfully | PASS on verified PR head |
-| Release integrity | CI run `32138626757`: `release-integrity` completed successfully | PASS on verified PR head |
-| Container build | CI run `32138626757`: `container` completed successfully | PASS on verified PR head |
-| Security invariants | CI run `32138626757`: `security-invariants` completed successfully; runtime `shell=True` and static provider-secret guards passed | PASS on verified PR head |
-| Dependency review | Dependency Review run `32138626664` completed successfully | PASS on verified PR head |
-| CodeQL | CodeQL run `32138626642`: `Analyze (python)`, `Analyze (actions)`, and summary `CodeQL` all completed successfully | PASS on verified PR head |
-| Windows client | Windows client run `32138626617`: `build-test-package` completed successfully, including package, Z.A.R.V.I.S. Windows tests/build, packaged launch smoke and artifact upload | PASS on verified PR head; **not trusted production-signing/live-endpoint evidence** |
+| Python 3.12 / 3.13 / 3.14 | CI run `32892904620`: `test (3.12)`, `test (3.13)`, `test (3.14)` all completed successfully | PASS on exact candidate |
+| PostgreSQL integration | CI run `32892904620`: `postgres-integration` completed successfully, including PostgreSQL backup/restore regression drill | PASS on exact candidate; **not external PITR evidence** |
+| Documentation / ruleset contract | CI run `32892904620`: `documentation-contract` completed successfully | PASS on exact candidate |
+| Release integrity | CI run `32892904620`: `release-integrity` completed successfully | PASS on exact candidate |
+| Container build | CI run `32892904620`: `container` completed successfully | PASS on exact candidate |
+| Security invariants | CI run `32892904620`: `security-invariants` completed successfully; runtime `shell=True` and static provider-secret guards passed | PASS on exact candidate |
+| Dependency review | PR #178 run `32892220435` completed successfully on reviewed head `a4db916e…`; the workflow is pull-request scoped | PASS for merge review; exact-main rerun remains a release-process improvement |
+| CodeQL | CodeQL run `32892904633`: `Analyze (python)`, `Analyze (actions)`, and summary `CodeQL` all completed successfully | PASS on exact candidate |
+| Z.A.R.V.I.S. package gates | ZARVIS run `32892904642`: `node-workspace`, `migration-contract`, `zarvis-api`, and `zarvis-windows-linux-restore` all completed successfully | PASS on exact candidate |
+| Windows client | Windows client run `32892904646`: `build-test-package` completed successfully, including package, Z.A.R.V.I.S. Windows tests/build, packaged launch smoke and artifact upload | PASS on exact candidate; **not trusted production-signing/live-endpoint evidence** |
 
 Additional repository execution evidence recorded by PR #154: 241/241 Python tests PASS, 36/36 Z.A.R.V.I.S. tests PASS, `zworkforce doctor` HEALTHY, and 7/7 connector tests PASS. These are repository/test evidence only.
+
+## Latest external gate attempt (2026-08-25)
+
+The operator reran the external gates against the exact candidate `4ffdfa6e...`. None of these attempts authorizes a production GO:
+
+| Gate | Result | Evidence / next action |
+| --- | --- | --- |
+| E | FAIL | Both hosts were reachable, but the deployed `compose.yaml` did not expose `ZWORKFORCE_INSTANCE_ID`; the remote runtime image was also not proven to be the exact candidate. Provision the repository HA Compose files, an immutable candidate image reference/digest, and rerun. |
+| F | FAIL | Supabase S3 `PutObject` returned HTTP 403. Regenerate/verify the S3 access key, secret, endpoint, and region from the Supabase S3 configuration, then rerun. |
+| G | FAIL | The first rerun used a generated single `zworkforce` job while the verifier required `zworkforce-vm-a` and `zworkforce-vm-b`; the gate generator is now corrected, but exact-candidate observability evidence must be rerun. |
+| H | FAIL | Windows checkout was `6f6fe3f...`, not the exact candidate `4ffdfa6e...`; sync the Windows checkout to the candidate before rebuilding/signing. |
+
+The Stage G generator now mounts both the metrics bearer and Alertmanager webhook as remote secret files rather than embedding them in generated YAML. The bearer used by the failed run was present in a generated remote configuration and must be rotated before the next observability run.
 
 ## Local compose stack drills (2026-08-18)
 
@@ -94,9 +108,9 @@ The operator's local `compose.yaml` stack (api/worker/scheduler/outbox + Postgre
 
 Note: the earlier running image (`ghcr.io/cvsz/zworkforce:v3.0.3`, built 2026-08-14) carried `SCHEMA_VERSION` 4 and is **not** the current candidate; it has been replaced by the candidate build above. The immutable GHCR-published `v3.0.3` artifact set does not exist yet and is created only after the Stage I GO decision.
 
-## External publication state (verified 2026-08-18)
+## External publication state (verified 2026-08-25)
 
-Verified via `gh release list` / `gh release view` / the GHCR package page on 2026-08-18:
+The current recheck via `gh release list` and `docker manifest inspect ghcr.io/cvsz/zworkforce:3.0.3` confirms that GitHub Releases still stops at `v3.0.2` and the `v3.0.3` OCI tag returns `manifest unknown`. The GHCR API was not readable with the available token, so the registry table below retains its last readable package snapshot from 2026-08-18:
 
 | Registry | State |
 | --- | --- |
@@ -201,11 +215,11 @@ Artifact/reference: tasks 3afe7b4e (luna), 799c25be (terra), 1eea9e89 (sol); pro
 
 ## Stage E — scheduler, worker, outbox, and HA leases
 
-Status: **PARTIAL — local single-replica stack drill PASS; external VM x2 multi-replica evidence collected 2026-08-20**
+Status: **FAIL on latest exact-candidate attempt — local single-replica stack drill PASS; external VM x2 deployment lacked runtime identity and exact image binding. Rerun after corrected Compose/image inputs.**
 
 With at least two eligible replicas where the deployment topology supports it:
-- prove only one scheduler lease holder performs each due action: **VERIFIED** — VM-A (`vm-a`) and VM-B (`vm-b`) each run distinct scheduler instances; `ZWORKFORCE_INSTANCE_ID` differs; lease ownership queryable per VM in shared Supabase `zworkforce.outbox` table
-- prove only one outbox lease holder dispatches each event: **VERIFIED** — outbox ownership per VM confirmed via `scripts/release/verify-ha.sh` (2026-08-20)
+- prove only one scheduler lease holder performs each due action: **HISTORICAL EVIDENCE** — VM-A (`vm-a`) and VM-B (`vm-b`) each ran distinct scheduler instances; `ZWORKFORCE_INSTANCE_ID` differed; lease ownership was queryable per VM in shared Supabase `zworkforce.outbox` table
+- prove only one outbox lease holder dispatches each event: **HISTORICAL EVIDENCE** — outbox ownership per VM was confirmed via `scripts/release/verify-ha.sh` (2026-08-20); exact-current-candidate verification is pending
 - terminate the current leader and record failover time: **PENDING** — requires controlled leader kill + takeover measurement
 - verify task lease expiry/reclaim after worker interruption: **PENDING** — requires worker interrupt drill
 - verify webhook dedupe, HMAC signature, retry/backoff, and dead-letter behavior: **PENDING** — requires outbox event generation
@@ -218,16 +232,16 @@ New leader time (UTC): N/A
 Observed failover: N/A
 Duplicate count: N/A
 Dead-letter/retry evidence: N/A
-Result: VM x2 runtime stack deployed and verified reachable; lease/outbox ownership per VM confirmed
-Artifact/reference: scripts/release/verify-ha.sh PASS; .release-evidence-state/E.status
+Result: HISTORICAL — VM x2 runtime stack was reachable and lease/outbox ownership was confirmed for the older candidate; exact current-candidate evidence is pending
+Artifact/reference: scripts/release/verify-ha.sh; `.release-evidence-state/E.status` (candidate-bound state must match the current SHA)
 ```
 
 ## Stage F — artifacts, memory, and external storage
 
-Status: **PASS (external evidence) — Supabase S3-compatible storage verified against project `qhprcfdgajhmdzvnsffb`; Qdrant vector backend not configured in release config (optional), remains pending**
+Status: **FAIL on latest exact-candidate attempt — Supabase S3 `PutObject` returned HTTP 403 at 2026-08-25T20:55:13Z; corrected credentials/endpoint/region and a successful rerun are required.**
 
 When enabled in the target environment:
-- store and retrieve an S3-compatible content-addressed artifact and verify SHA-256: **VERIFIED 2026-08-19** via `scripts/close-zworkforce-external-gates.sh F` (`STAGE F VERDICT: PASS`; JSON result `{"storage": "PASS", "sha256": "f72dc4f29bea47327be317811770ab5ff428075b0384b0bda3d123b8e2634e3d", "bytes": 36, "mime": "text/plain", "presigned_url_generated": true, "delete_verified": true}`)
+- store and retrieve an S3-compatible content-addressed artifact and verify SHA-256: **HISTORICAL PASS 2026-08-19, SUPERSEDED BY FAILURE 2026-08-21** — the latest state record reports `PutObject` failure; rerun Stage F for the exact candidate before relying on storage evidence
 - search/reindex Qdrant-backed semantic memory: **NOT CONFIGURED** — `QDRANT_URL`/`QDRANT_API_KEY` unset in `.env.release`; vector evidence remains optional/pending per release config
 - rotate storage credentials/references without exposing secrets: **VERIFIED** — credentials loaded only from mode-`0600` `.env.release`, never printed or committed
 - verify tenant isolation for artifact and memory access: **VERIFIED** — tenant-a/tenant-b keys; nonexistent tenant-b object rejected HTTP 404 (Supabase returns empty `Code`/`Message` with status 404; script accepts status 404)
@@ -237,13 +251,13 @@ Artifact backend: Supabase S3-compatible (project qhprcfdgajhmdzvnsffb, region a
 Vector backend: not configured (optional)
 Artifact SHA-256: f72dc4f29bea47327be317811770ab5ff428075b0384b0bda3d123b8e2634e3d
 Cross-tenant negative test: HTTP 404 on nonexistent tenant-b key
-Result: PASS
-Artifact/reference: `.release-evidence-state/F.status`; `/home/cvsz/zworkforce/.release-evidence-logs/`
+Result: PENDING — latest state is `FAIL supabase_s3_putobject_failed` for the older candidate; exact current-candidate verification is required
+Artifact/reference: `.release-evidence-state/F.status`; `/home/cvsz/zworkforce/.release-evidence-logs/` (candidate-bound)
 ```
 
 ## Stage G — observability and SLO evidence
 
-Status: **PARTIAL — `/health`, `/ready`, authenticated `/metrics` verified on local stack AND on live production HTTPS endpoint `https://zworkforce.zeaz.dev` (2026-08-19); external OTel/Prometheus/Alertmanager stack deployed on VM-B (obs.zeaz.dev / 192.168.74.134) and verified 2026-08-20**
+Status: **FAIL on latest exact-candidate attempt — Prometheus targets were not in the verifier's required job contract; the generator is corrected, but external observability evidence must be rerun after bearer rotation.**
 
 Verify:
 - `/health`, `/ready`, and authenticated `/metrics` from the deployed environment: **VERIFIED (external)** — `https://zworkforce.zeaz.dev/health` → 200 `{"status":"ok","version":"3.0.3"}`; `/ready` → 200; `/metrics` → 401 without auth (auth-gated, expected). Endpoint routed via Cloudflare Tunnel (DNS CNAME `zworkforce.zeaz.dev` → tunnel, proxied, created 2026-08-19 via `infrastructure/terraform/cloudflare`)
@@ -258,14 +272,14 @@ Trace backend: OTel Collector 0.135.0 on VM-B (192.168.74.134:4317/4318/8889)
 Scrape targets: zworkforce-vm-a (192.168.74.134:9456), zworkforce-vm-b (192.168.74.135:9456), otel-collector (8889)
 Alert test: synthetic alert POSTed to Alertmanager webhook receiver (2026-08-20)
 Trace/request/task IDs: N/A — requires synthetic trace generation
-Result: PARTIAL — OTel/Prometheus/Alertmanager deployed and verified externally; trace correlation PENDING
+Result: HISTORICAL PARTIAL — OTel/Prometheus/Alertmanager were deployed and verified for the older candidate; trace correlation and exact-current-candidate verification are pending
 Dashboard/run URL: http://192.168.74.134:19090 (Prometheus), http://192.168.74.134:19093 (Alertmanager)
-Artifact/reference: scripts/release/verify-observability.sh PASS; .release-evidence-state/G.status
+Artifact/reference: scripts/release/verify-observability.sh; `.release-evidence-state/G.status` (candidate-bound state must match the current SHA)
 ```
 
 ## Stage H — Windows operator client
 
-Status: **PENDING EXTERNAL EVIDENCE**
+Status: **FAIL on latest exact-candidate attempt — Windows checkout `6f6fe3f...` did not match candidate `4ffdfa6e...`; sync the checkout, then rerun trusted build/sign/live HTTPS verification.**
 
 Repository CI proves build/test/package and an ephemeral packaged launch smoke on the GitHub-hosted runner. Production readiness still requires the signed/approved Windows package against the deployed HTTPS endpoint:
 - install/upgrade/uninstall path;

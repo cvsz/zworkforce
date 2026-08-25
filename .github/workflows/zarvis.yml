@@ -66,6 +66,7 @@ jobs:
           cache-dependency-path: packages/zarvis/services/zarvis-api/requirements.txt
       - run: pip install --no-cache-dir -r requirements.txt pytest pip-audit
       - run: python -m pytest tests -q
+      - run: PYTHONPATH=../.. python -m unittest discover -s ../../tests -v
       - run: pip-audit -r requirements.txt
 
   zarvis-windows-linux-restore:
