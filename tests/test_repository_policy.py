@@ -95,6 +95,7 @@ class RepositoryPolicyTests(unittest.TestCase):
         self.assertIn("submodule-validation:", ci)
         self.assertIn("needs: submodule-validation", ci)
         self.assertIn("git submodule update --init --recursive --depth=1", ci)
+        self.assertIn("python -m pip install --upgrade pip 'setuptools>=83.0.0'", ci)
         self.assertIn("ZKSATO_SUBMODULE_SSH_KEY: ${{ secrets.ZKSATO_SUBMODULE_SSH_KEY }}", ci)
         self.assertIn("ZTTSHOP_PHP_SUBMODULE_SSH_KEY: ${{ secrets.ZTTSHOP_PHP_SUBMODULE_SSH_KEY }}", ci)
         self.assertIn("git@github.com-zksato:cvsz/zksato.git", ci)
