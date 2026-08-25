@@ -22,6 +22,11 @@ class MCPTests(unittest.TestCase):
         discovery=self.client.discover();self.assertEqual(discovery["protocolVersion"],MCP_PROTOCOL_VERSION)
         tools=self.client.list_tools()["tools"];self.assertTrue(any(x["name"]=="workforce.submit_task" for x in tools))
         self.assertTrue(any(x["name"]=="workforce.install_prometa" for x in tools))
+    def test_standard_initialize_handshake(self):
+        initialized=self.client.request("initialize",{"clientInfo":{"name":"codex","version":"test"}})
+        self.assertEqual(initialized["protocolVersion"],MCP_PROTOCOL_VERSION)
+        self.assertEqual(initialized["serverInfo"]["name"],"zworkforce")
+        self.assertIn("tools",initialized["capabilities"])
     def test_submit_and_get_task(self):
         created=self.client.call_tool("workforce.submit_task",{"agent_id":"researcher","prompt":"MCP task"})
         task_id=created["structuredContent"]["task"]["id"]

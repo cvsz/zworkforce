@@ -6,6 +6,144 @@ on:
 permissions:
   contents: read
 jobs:
+  submodule-validation:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: zksato_test
+          POSTGRES_USER: zksato
+          POSTGRES_PASSWORD: zksato_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U zksato -d zksato_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ZKSATO_TEST_DATABASE_URL: postgresql+psycopg://zksato:zksato_test@127.0.0.1:5432/zksato_test
+      PGPASSWORD: zksato_test
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Reject untrusted submodule changes
+        if: github.event_name == 'pull_request' && (github.event.pull_request.head.repo.full_name != github.repository || github.actor == 'dependabot[bot]')
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code origin/${{ github.base_ref }}...HEAD -- \
+            .gitmodules packages/zksato packages/zttshop-php
+      - name: Require submodule SSH deploy keys
+        if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
+        env:
+          ZKSATO_SUBMODULE_SSH_KEY: ${{ secrets.ZKSATO_SUBMODULE_SSH_KEY }}
+          ZTTSHOP_PHP_SUBMODULE_SSH_KEY: ${{ secrets.ZTTSHOP_PHP_SUBMODULE_SSH_KEY }}
+        run: |
+          test -n "$ZKSATO_SUBMODULE_SSH_KEY"
+          test -n "$ZTTSHOP_PHP_SUBMODULE_SSH_KEY"
+      - name: Checkout pinned SSH submodules
+        if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
+        shell: bash
+        env:
+          ZKSATO_SUBMODULE_SSH_KEY: ${{ secrets.ZKSATO_SUBMODULE_SSH_KEY }}
+          ZTTSHOP_PHP_SUBMODULE_SSH_KEY: ${{ secrets.ZTTSHOP_PHP_SUBMODULE_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$ZKSATO_SUBMODULE_SSH_KEY" > ~/.ssh/zksato_submodule
+          printf '%s\n' "$ZTTSHOP_PHP_SUBMODULE_SSH_KEY" > ~/.ssh/zttshop_php_submodule
+          chmod 600 ~/.ssh/zksato_submodule ~/.ssh/zttshop_php_submodule
+          cat > ~/.ssh/known_hosts <<'EOF'
+          ssh.github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
+          EOF
+          cat > ~/.ssh/config <<'EOF'
+          Host github.com-zksato
+            HostName ssh.github.com
+            Port 443
+            User git
+            IdentityFile ~/.ssh/zksato_submodule
+            IdentitiesOnly yes
+            HostKeyAlias ssh.github.com
+            StrictHostKeyChecking yes
+            UserKnownHostsFile ~/.ssh/known_hosts
+
+          Host github.com-zttshop-php
+            HostName ssh.github.com
+            Port 443
+            User git
+            IdentityFile ~/.ssh/zttshop_php_submodule
+            IdentitiesOnly yes
+            HostKeyAlias ssh.github.com
+            StrictHostKeyChecking yes
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          chmod 600 ~/.ssh/config ~/.ssh/known_hosts
+          git submodule sync --recursive
+          # sync copies .gitmodules URLs into .git/config, so apply the
+          # per-repository SSH aliases after synchronization and before clone.
+          git config --local submodule.packages/zksato.url git@github.com-zksato:cvsz/zksato.git
+          git config --local submodule.packages/zttshop-php.url git@github.com-zttshop-php:cvsz/zttshop-php.git
+          test "$(git config --local --get submodule.packages/zksato.url)" = git@github.com-zksato:cvsz/zksato.git
+          test "$(git config --local --get submodule.packages/zttshop-php.url)" = git@github.com-zttshop-php:cvsz/zttshop-php.git
+          git submodule update --init --recursive --depth=1
+      - name: Verify pinned submodule revisions
+        if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(git submodule status --recursive)"
+          printf '%s\n' "$status"
+          ! grep -Eq '^[+-U]' <<<"$status"
+          test "$(git -C packages/zksato rev-parse HEAD)" = "$(git rev-parse HEAD:packages/zksato)"
+          test "$(git -C packages/zttshop-php rev-parse HEAD)" = "$(git rev-parse HEAD:packages/zttshop-php)"
+      - uses: actions/setup-python@v7
+        if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: packages/zksato/pyproject.toml
+      - name: Validate zksato
+        if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
+        working-directory: packages/zksato
+        run: |
+          python -m pip install --upgrade pip 'setuptools>=83.0.0'
+          # The pinned package imports its AWS Secrets Manager adapter eagerly,
+          # but its metadata does not declare boto3 yet; install that required
+          # runtime dependency so the full test collection remains meaningful.
+          python -m pip install -e '.[dev,security]' 'boto3>=1.35,<2.0'
+          python -m pip check
+          python -m compileall -q src tests scripts
+          ruff check .
+          # Paper/synthetic paths have known low-severity Bandit patterns;
+          # keep medium/high findings blocking the submodule gate.
+          bandit -q -r src --severity-level medium
+          for migration in migrations/[0-9][0-9][0-9][0-9]_*.sql; do
+            psql -h 127.0.0.1 -U zksato -d zksato_test -v ON_ERROR_STOP=1 -f "$migration"
+          done
+          pytest -m "not uat and not performance"
+          pip-audit
+      - name: Validate zttshop-php
+        if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
+        working-directory: packages/zttshop-php
+        run: |
+          composer validate --strict
+          composer install --no-interaction --prefer-dist
+          composer audit --locked --no-interaction
+          composer test
+
   test:
     strategy:
       fail-fast: false
@@ -189,8 +327,12 @@ jobs:
           docker build --build-arg VERSION="$VERSION" -t zworkforce:ci .
 
   security-invariants:
+    needs: submodule-validation
+    if: always()
     runs-on: ubuntu-latest
     steps:
+      - name: Enforce submodule validation result
+        run: test "${{ needs.submodule-validation.result }}" = success
       - uses: actions/checkout@v7
       - name: No shell=True in runtime
         run: '! grep -R --line-number --include="*.py" "shell=True" zworkforce'

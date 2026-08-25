@@ -8,6 +8,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 RULESET = ROOT / ".github" / "rulesets" / "main.json"
 CI = ROOT / ".github" / "workflows" / "ci.yml"
+GITMODULES = ROOT / ".gitmodules"
 DEPENDENCY_REVIEW = ROOT / ".github" / "workflows" / "dependency-review.yml"
 WINDOWS = ROOT / ".github" / "workflows" / "windows-client.yml"
 ZARVIS = ROOT / ".github" / "workflows" / "zarvis.yml"
@@ -83,6 +84,43 @@ class RepositoryPolicyTests(unittest.TestCase):
         ]:
             with self.subTest(context=context):
                 self.assertNotIn(context, required)
+
+    def test_submodules_are_ssh_accessible_and_security_validated(self):
+        gitmodules = GITMODULES.read_text(encoding="utf-8")
+        self.assertIn("url = git@github.com:cvsz/zksato.git", gitmodules)
+        self.assertIn("url = git@github.com:cvsz/zttshop-php.git", gitmodules)
+        self.assertNotIn("url = https://github.com/cvsz/", gitmodules)
+
+        ci = CI.read_text(encoding="utf-8")
+        self.assertIn("submodule-validation:", ci)
+        self.assertIn("needs: submodule-validation", ci)
+        self.assertIn("git submodule update --init --recursive --depth=1", ci)
+        self.assertIn("python -m pip install --upgrade pip 'setuptools>=83.0.0'", ci)
+        self.assertIn("ZKSATO_SUBMODULE_SSH_KEY: ${{ secrets.ZKSATO_SUBMODULE_SSH_KEY }}", ci)
+        self.assertIn("ZTTSHOP_PHP_SUBMODULE_SSH_KEY: ${{ secrets.ZTTSHOP_PHP_SUBMODULE_SSH_KEY }}", ci)
+        self.assertIn("git@github.com-zksato:cvsz/zksato.git", ci)
+        self.assertIn("git@github.com-zttshop-php:cvsz/zttshop-php.git", ci)
+        sync_index = ci.index("git submodule sync --recursive")
+        for alias in [
+            "git config --local submodule.packages/zksato.url git@github.com-zksato:cvsz/zksato.git",
+            "git config --local submodule.packages/zttshop-php.url git@github.com-zttshop-php:cvsz/zttshop-php.git",
+        ]:
+            with self.subTest(alias=alias):
+                self.assertGreater(ci.index(alias), sync_index)
+        self.assertIn("~/.ssh/known_hosts", ci)
+        self.assertIn("persist-credentials: false", ci)
+        self.assertIn("if: always()", ci)
+        self.assertIn('run: test "${{ needs.submodule-validation.result }}" = success', ci)
+        self.assertIn("Reject untrusted submodule changes", ci)
+        self.assertIn('pytest -m "not uat and not performance"', ci)
+        self.assertIn("bandit -q -r src --severity-level medium", ci)
+        self.assertIn(
+            "python -m pip install -e '.[dev,security]' 'boto3>=1.35,<2.0'",
+            ci,
+        )
+        self.assertIn("composer audit --locked --no-interaction", ci)
+        self.assertIn("composer test", ci)
+
 
 
 if __name__ == "__main__":
