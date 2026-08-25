@@ -62,8 +62,10 @@ def handle_mcp(app, principal, tenant_id: str, request: dict[str, Any], header_m
     params = request.get("params") or {}
     if not isinstance(params, dict):
         return _error(request_id, -32602, "params must be an object")
-    if method == "server/discover":
-        return _result(request_id, {"protocolVersion": MCP_PROTOCOL_VERSION, "serverInfo": {"name": "zworkforce", "version": _version()}, "capabilities": {"tools": {}}})
+    if method in {"initialize", "server/discover"}:
+        return _result(request_id, _server_metadata())
+    if method == "notifications/initialized":
+        return _result(request_id, {})
     if method == "tools/list":
         return _result(request_id, {"tools": [MCP_TOOLS[name] for name in sorted(MCP_TOOLS)]})
     if method != "tools/call":
@@ -127,6 +129,10 @@ def _require(principal, role: str, scope: str) -> None:
 def _version() -> str:
     from . import __version__
     return __version__
+
+
+def _server_metadata() -> dict[str, Any]:
+    return {"protocolVersion": MCP_PROTOCOL_VERSION, "serverInfo": {"name": "zworkforce", "version": _version()}, "capabilities": {"tools": {}}}
 
 
 def _result(request_id, result):

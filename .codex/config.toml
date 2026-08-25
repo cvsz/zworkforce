@@ -17,8 +17,8 @@ args = ["-y", "@upstash/context7-mcp@latest"]
 url = "https://mcp.exa.ai/mcp"
 
 [mcp_servers.memory]
-command = "npx"
-args = ["-y", "@modelcontextprotocol/server-memory"]
+command = "/home/cvsz/.codex/mcp-memory/node_modules/.bin/mcp-server-memory"
+env = { MEMORY_FILE_PATH = "/home/cvsz/.codex/mcp-memory/memory.jsonl" }
 
 [mcp_servers.playwright]
 command = "npx"
