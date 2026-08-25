@@ -1,5 +1,5 @@
 FROM python:3.14-slim AS runtime
-ARG VERSION=3.0.2
+ARG VERSION=3.0.3
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=/app PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /app
 LABEL org.opencontainers.image.title="zWorkforce" \
@@ -12,7 +12,7 @@ COPY zworkforce ./zworkforce
 RUN apt-get update \
     && apt-get install -y --no-install-recommends bubblewrap util-linux \
     && rm -rf /var/lib/apt/lists/* \
-    && python -m pip install --no-cache-dir . \
+    && python -m pip install --no-cache-dir ".[s3]" \
     && groupadd --system --gid 10001 zworkforce \
     && useradd --system --uid 10001 --gid zworkforce --home /nonexistent --shell /usr/sbin/nologin zworkforce \
     && mkdir -p /data /workspace /artifacts \
