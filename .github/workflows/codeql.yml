@@ -61,6 +61,9 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v7
+      with:
+        submodules: recursive
+        token: ${{ secrets.ZWORKFORCE_SUBMODULES_TOKEN }}
 
     # Add any setup steps before running the `github/codeql-action/init` action.
     # This includes steps like installing compilers or runtimes (`actions/setup-node`
