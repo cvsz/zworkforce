@@ -35,11 +35,14 @@ class Principal:
 
 
 class AuthManager:
-    def __init__(self, db, bootstrap_keys=(), trust_proxy_identity: bool = False, proxy_identity_secret: str = "", oidc=None):
+    def __init__(self, db, bootstrap_keys=(), trust_proxy_identity: bool = False, proxy_identity_secret: str = "", oidc=None,
+                 metrics_bearer: str = "", metrics_tenant_id: str = "default"):
         self.db = db
         self.trust_proxy_identity = trust_proxy_identity
         self.proxy_identity_secret = proxy_identity_secret
         self.oidc = oidc
+        self.metrics_bearer = metrics_bearer.strip()
+        self.metrics_tenant_id = metrics_tenant_id
         for item in bootstrap_keys:
             key_id = _bootstrap_key_id(item.tenant_id, item.name)
             self.db.upsert_api_key(key_id, item.tenant_id, item.name, _hash_secret(item.secret), item.role, list(item.scopes))
@@ -61,6 +64,8 @@ class AuthManager:
             candidate = authorization[7:].strip()
         if not candidate:
             return None
+        if self.metrics_bearer and hmac.compare_digest(candidate, self.metrics_bearer):
+            return Principal("metrics-scraper", "viewer", self.metrics_tenant_id, ("metrics:read",), "metrics-bearer")
         for row in self.db.list_active_api_keys(limit=10_000):
             if not _verify_secret(row.get("key_hash", ""), candidate):
                 continue
@@ -95,6 +100,8 @@ class AuthManager:
 
     @staticmethod
     def require(principal: Principal | None, role: str, scope: str | None = None) -> bool:
+        if principal and principal.key_id == "metrics-bearer" and (role != "viewer" or scope != "metrics:read"):
+            return False
         if not principal or ROLE_LEVEL.get(principal.role, 0) < ROLE_LEVEL.get(role, 999):
             return False
         return not scope or principal.has_scope(scope)

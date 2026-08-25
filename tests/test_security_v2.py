@@ -41,6 +41,18 @@ class SecurityV2Tests(unittest.TestCase):
         )
         self.assertIsNone(AuthManager(self.db).authenticate(None, secret))
 
+    def test_metrics_bearer_is_scoped_to_metrics(self):
+        bearer = "m" * 32
+        auth = AuthManager(self.db, metrics_bearer=bearer, metrics_tenant_id="default")
+        principal = auth.authenticate("Bearer " + bearer, None)
+        self.assertIsNotNone(principal)
+        self.assertEqual(principal.key_id, "metrics-bearer")
+        self.assertEqual(principal.tenant_id, "default")
+        self.assertTrue(AuthManager.require(principal, "viewer", "metrics:read"))
+        self.assertFalse(AuthManager.require(principal, "viewer", "workforce:read"))
+        self.assertFalse(AuthManager.require(principal, "viewer"))
+        self.assertIsNone(auth.authenticate("Bearer " + "x" * 32, None))
+
     def test_active_api_key_scan_is_bounded(self):
         self.assertLessEqual(len(self.db.list_active_api_keys(limit=100_000)), 10_000)
     def test_rate_limiter(self):

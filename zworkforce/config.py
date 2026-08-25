@@ -58,6 +58,7 @@ class Settings:
 
     providers: tuple[ProviderConfig, ...] = ()
     bootstrap_keys: tuple[BootstrapKey, ...] = ()
+    metrics_bearer: str = ""
 
     http_allowlist: tuple[str, ...] = ()
     http_allow_private: bool = False
@@ -139,6 +140,10 @@ class Settings:
         if env == "production" and skill_key and len(skill_key) < 24:
             raise ValueError("ZWORKFORCE_SKILL_SIGNING_KEY must be at least 24 characters")
 
+        metrics_bearer = os.getenv("ZWORKFORCE_METRICS_BEARER", "").strip()
+        if env == "production" and metrics_bearer and len(metrics_bearer) < 24:
+            raise ValueError("ZWORKFORCE_METRICS_BEARER must be at least 24 characters when configured")
+
         return cls(
             env=env,
             host=os.getenv("ZWORKFORCE_HOST", "0.0.0.0"),
@@ -155,6 +160,7 @@ class Settings:
             max_delegation_depth=i("ZWORKFORCE_MAX_DELEGATION_DEPTH", 8, 1),
             providers=providers,
             bootstrap_keys=bootstrap_keys,
+            metrics_bearer=metrics_bearer,
             http_allowlist=tuple(x.lower().rstrip(".") for x in csv("ZWORKFORCE_HTTP_ALLOWLIST")),
             http_allow_private=b("ZWORKFORCE_HTTP_ALLOW_PRIVATE"),
             http_mutating_enabled=b("ZWORKFORCE_HTTP_MUTATING_ENABLED"),
