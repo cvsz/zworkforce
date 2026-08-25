@@ -17,7 +17,7 @@ spec:
         seccompProfile: {type: RuntimeDefault}
       containers:
       - name: scheduler
-        image: ghcr.io/cvsz/zworkforce:v3.0.3
+        image: ghcr.io/cvsz/zworkforce:v3.0.4
         args: ["scheduler", "--poll", "1"]
         envFrom:
           - configMapRef:

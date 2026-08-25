@@ -18,8 +18,8 @@ services:
     build:
       context: .
       args:
-        VERSION: "3.0.3"
-    image: ${ZWORKFORCE_IMAGE:-zworkforce:3.0.3}
+        VERSION: "3.0.4"
+    image: ${ZWORKFORCE_IMAGE:-zworkforce:3.0.4}
     command: ["serve"]
     ports:
       # The container API remains on 9569; the host port is separated from
@@ -68,11 +68,11 @@ services:
         condition: service_healthy
 
   worker:
-    image: ${ZWORKFORCE_IMAGE:-zworkforce:3.0.3}
+    image: ${ZWORKFORCE_IMAGE:-zworkforce:3.0.4}
     build:
       context: .
       args:
-        VERSION: "3.0.3"
+        VERSION: "3.0.4"
     command: ["worker"]
     environment: *zworkforce-env
     volumes:
@@ -91,11 +91,11 @@ services:
         condition: service_healthy
 
   scheduler:
-    image: ${ZWORKFORCE_IMAGE:-zworkforce:3.0.3}
+    image: ${ZWORKFORCE_IMAGE:-zworkforce:3.0.4}
     build:
       context: .
       args:
-        VERSION: "3.0.3"
+        VERSION: "3.0.4"
     command: ["scheduler", "--poll", "1"]
     environment: *zworkforce-env
     volumes:
@@ -114,11 +114,11 @@ services:
         condition: service_healthy
 
   outbox:
-    image: ${ZWORKFORCE_IMAGE:-zworkforce:3.0.3}
+    image: ${ZWORKFORCE_IMAGE:-zworkforce:3.0.4}
     build:
       context: .
       args:
-        VERSION: "3.0.3"
+        VERSION: "3.0.4"
     command: ["outbox", "--poll", "2"]
     environment: *zworkforce-env
     read_only: true

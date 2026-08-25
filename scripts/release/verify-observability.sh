@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# zWorkforce v3.0.3 Observability release verification (Stage G)
+# zWorkforce v3.0.4 Observability release verification (Stage G)
 # PASS requires both runtime scrape targets, Alertmanager routing receipt, and
 # a synthetic trace observed by the external OTel Collector.
 

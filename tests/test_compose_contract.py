@@ -43,7 +43,7 @@ class ComposeHealthcheckContractTests(unittest.TestCase):
 
     def test_production_image_installs_s3_runtime_extra(self):
         dockerfile = DOCKERFILE.read_text(encoding="utf-8")
-        self.assertIn("ARG VERSION=3.0.3", dockerfile)
+        self.assertIn("ARG VERSION=3.0.4", dockerfile)
         self.assertIn('python -m pip install --no-cache-dir ".[s3]"', dockerfile)
 
     def test_ha_healthchecks_use_runtime_python_not_missing_curl(self):

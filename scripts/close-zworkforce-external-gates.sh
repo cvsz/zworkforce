@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# zWorkforce v3.0.3 External Gate Automation
+# zWorkforce v3.0.4 External Gate Automation
 #
 # Automates:
 #   F - Supabase S3-compatible storage verification (+ optional Qdrant)
@@ -10,7 +10,7 @@ set -Eeuo pipefail
 #   H - Windows trusted-signing/build/install verification (remote Windows host supported)
 #
 # IMPORTANT:
-# - This script does NOT tag/publish v3.0.3.
+# - This script does NOT tag/publish v3.0.4.
 # - It does NOT fabricate PASS.
 # - Local-only HA/observability deployments are marked LOCAL, not external evidence.
 # - Secrets are read from environment/.env.release and never printed.

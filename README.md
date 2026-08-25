@@ -4,7 +4,9 @@
 
 zWorkforce turns one or more LLM endpoints into a governed AI workforce. A tenant dispatches work to named agents; a cost-aware Luna/Terra/Sol router chooses a model tier; durable workers claim tasks; approvals and policy-as-code gate risky actions; workflows/schedules/events compose tasks; evaluation suites compare model strategies; memory and artifacts preserve knowledge; and the control plane measures cost, SLOs and business outcomes.
 
-## v3.0.3 highlights
+## v3.0.4 highlights
+
+- **Production image hardening** installs the S3 runtime extra and uses an in-image Python healthcheck for the HA deployment, so the published image's declared artifact backend and liveness contract agree.
 
 - **PostgreSQL distributed runtime** with `FOR UPDATE SKIP LOCKED` task leasing for cross-host workers; SQLite/WAL remains the zero-config local backend.
 - **Workflow DAG engine** with dependency validation, versioning, templated inputs/results and durable step state.
@@ -354,7 +356,7 @@ See [SECURITY.md](SECURITY.md).
 
 ## Deployment boundary
 
-v3.0.3 provides real distributed execution through PostgreSQL, multiple API/worker replicas, leader-elected scheduler/outbox services, Kubernetes autoscaling, native OIDC, MCP, S3/Qdrant adapters and observability hooks. External services still need to exist and be operated: PostgreSQL HA, IdP, S3/Qdrant, OTLP collector, model providers and ingress/egress infrastructure. Multi-region database replication and disaster-recovery topology are infrastructure responsibilities rather than simulated inside the Python process. Release readiness for those external boundaries is recorded as real operator evidence in [docs/PRODUCTION-EVIDENCE.md](docs/PRODUCTION-EVIDENCE.md); repository CI does not claim those services are provisioned or exercised.
+v3.0.4 provides real distributed execution through PostgreSQL, multiple API/worker replicas, leader-elected scheduler/outbox services, Kubernetes autoscaling, native OIDC, MCP, S3/Qdrant adapters and observability hooks. It carries the v3.0.3 execution surface with the production-image fixes described above. External services still need to exist and be operated: PostgreSQL HA, IdP, S3/Qdrant, OTLP collector, model providers and ingress/egress infrastructure. Multi-region database replication and disaster-recovery topology are infrastructure responsibilities rather than simulated inside the Python process. Release readiness for those external boundaries is recorded as real operator evidence in [docs/PRODUCTION-EVIDENCE.md](docs/PRODUCTION-EVIDENCE.md); repository CI does not claim those services are provisioned or exercised.
 
 ## License
 

@@ -6,11 +6,11 @@ on:
       ref:
         description: Git ref to publish from
         required: true
-        default: v3.0.3
+        default: v3.0.4
       version:
         description: Semantic version without leading v
         required: true
-        default: 3.0.3
+        default: 3.0.4
       latest:
         description: Also update the latest tag
         required: true

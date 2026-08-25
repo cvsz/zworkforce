@@ -108,7 +108,7 @@ def chat(
     headers = {
         "Content-Type": "application/json",
         "Accept": "application/json",
-        "User-Agent": "zktcoder/3.0.3",
+        "User-Agent": "zktcoder/3.0.4",
     }
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -145,7 +145,7 @@ def list_models(
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
 ) -> list[str]:
     """Fetch the gateway model catalog; falls back to the known free catalog."""
-    headers = {"Accept": "application/json", "User-Agent": "zktcoder/3.0.3"}
+    headers = {"Accept": "application/json", "User-Agent": "zktcoder/3.0.4"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
     url = _normalize_base_url(base_url) + "/models"

@@ -22,8 +22,8 @@ Use an immutable semantic version tag:
 ```bash
 git checkout main
 git pull --ff-only
-git tag -a v3.0.3 -m 'zWorkforce v3.0.3'
-git push origin v3.0.3
+git tag -a v3.0.4 -m 'zWorkforce v3.0.4'
+git push origin v3.0.4
 ```
 
 Do not move or reuse an existing release tag. Publish a new patch/minor/major version instead.

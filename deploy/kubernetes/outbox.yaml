@@ -17,7 +17,7 @@ spec:
         seccompProfile: {type: RuntimeDefault}
       containers:
       - name: outbox
-        image: ghcr.io/cvsz/zworkforce:v3.0.3
+        image: ghcr.io/cvsz/zworkforce:v3.0.4
         args: ["outbox", "--poll", "2"]
         envFrom:
           - configMapRef: {name: zworkforce}

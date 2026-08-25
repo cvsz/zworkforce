@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# zWorkforce v3.0.3 HA Runtime VM x2 release verification (Stage E)
+# zWorkforce v3.0.4 HA Runtime VM x2 release verification (Stage E)
 # Fail-closed verifier: PASS requires real shared-DB lease/outbox evidence.
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

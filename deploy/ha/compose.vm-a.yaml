@@ -1,6 +1,6 @@
 services:
   serve:
-    image: ${ZWORKFORCE_IMAGE:-ghcr.io/cvsz/zworkforce:v3.0.3}
+    image: ${ZWORKFORCE_IMAGE:-ghcr.io/cvsz/zworkforce:v3.0.4}
     command: ["serve"]
     environment: &zworkforce-env
       ZWORKFORCE_ENV: production
@@ -49,7 +49,7 @@ services:
     restart: unless-stopped
 
   worker:
-    image: ${ZWORKFORCE_IMAGE:-ghcr.io/cvsz/zworkforce:v3.0.3}
+    image: ${ZWORKFORCE_IMAGE:-ghcr.io/cvsz/zworkforce:v3.0.4}
     command: ["worker"]
     environment: *zworkforce-env
     volumes:
@@ -60,7 +60,7 @@ services:
     restart: unless-stopped
 
   scheduler:
-    image: ${ZWORKFORCE_IMAGE:-ghcr.io/cvsz/zworkforce:v3.0.3}
+    image: ${ZWORKFORCE_IMAGE:-ghcr.io/cvsz/zworkforce:v3.0.4}
     command: ["scheduler"]
     environment: *zworkforce-env
     volumes:
@@ -71,7 +71,7 @@ services:
     restart: unless-stopped
 
   outbox:
-    image: ${ZWORKFORCE_IMAGE:-ghcr.io/cvsz/zworkforce:v3.0.3}
+    image: ${ZWORKFORCE_IMAGE:-ghcr.io/cvsz/zworkforce:v3.0.4}
     command: ["outbox"]
     environment: *zworkforce-env
     volumes:
