@@ -9,6 +9,21 @@ CHECK_LOCAL_ORIGIN="${ZARVIS_CHECK_LOCAL_ORIGIN:-0}"
 log() { printf '[zarvis-online] %s\n' "$*"; }
 die() { printf '[zarvis-online][ERROR] %s\n' "$*" >&2; exit 1; }
 
+require_2xx() {
+  local url="$1"
+  shift
+  local status
+
+  if ! status="$(
+    curl --silent --show-error --output /dev/null \
+      --write-out '%{http_code}' --max-redirs 0 \
+      --connect-timeout 10 --max-time 20 "$@" "$url"
+  )"; then
+    die "HTTP request failed for $url"
+  fi
+  [[ "$status" =~ ^2[0-9][0-9]$ ]] || die "expected HTTP 2xx from $url, got $status"
+}
+
 command -v curl >/dev/null 2>&1 || die "curl is required"
 command -v getent >/dev/null 2>&1 || die "getent is required"
 
@@ -21,22 +36,14 @@ getent ahosts "$HOST" >/dev/null 2>&1 || die "DNS does not resolve for $HOST"
 
 if [[ "$CHECK_LOCAL_ORIGIN" == "1" ]]; then
   log "checking local governed origin $ORIGIN_URL/health"
-  curl --fail --silent --show-error \
-    --connect-timeout 5 --max-time 15 \
-    "$ORIGIN_URL/health" >/dev/null || die "local origin health failed"
+  require_2xx "$ORIGIN_URL/health"
 fi
 
 PUBLIC_HEALTH="https://${HOST}${HEALTH_PATH}"
 log "checking public HTTPS health $PUBLIC_HEALTH"
-curl --fail --silent --show-error \
-  --proto '=https' --tlsv1.2 \
-  --connect-timeout 10 --max-time 20 \
-  "$PUBLIC_HEALTH" >/dev/null || die "public Z.A.R.V.I.S. health failed"
+require_2xx "$PUBLIC_HEALTH" --proto '=https' --tlsv1.2
 
 log "checking public application route https://${HOST}/"
-curl --fail --silent --show-error \
-  --proto '=https' --tlsv1.2 \
-  --connect-timeout 10 --max-time 20 \
-  -o /dev/null "https://${HOST}/" || die "public Z.A.R.V.I.S. application route failed"
+require_2xx "https://${HOST}/" --proto '=https' --tlsv1.2
 
 log "PASS: Z.A.R.V.I.S. is online at https://${HOST}"
