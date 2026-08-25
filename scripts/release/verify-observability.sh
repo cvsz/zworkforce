@@ -24,17 +24,25 @@ PY
 }
 
 note "checking Prometheus targets"
-targets="$(curl -fsS "${PROM_API}/api/v1/targets" || fail "cannot reach Prometheus API")"
-echo "$targets" | python3 -c '
+targets=""
+targets_ready=0
+for _ in $(seq 1 12); do
+  targets="$(curl -fsS "${PROM_API}/api/v1/targets" 2>/dev/null || true)"
+  if [[ -n "$targets" ]] && echo "$targets" | python3 -c '
 import json, sys
 d=json.load(sys.stdin)
 jobs={t.get("labels",{}).get("job"): t.get("health") for t in d["data"]["activeTargets"]}
 required=("zworkforce-vm-a","zworkforce-vm-b","otel-collector")
 missing=[j for j in required if jobs.get(j)!="up"]
 if missing:
-    print("not_up=" + ",".join(missing), file=sys.stderr)
     raise SystemExit(1)
-' || fail "Prometheus does not have all required targets UP"
+'; then
+    targets_ready=1
+    break
+  fi
+  sleep 5
+done
+[[ "$targets_ready" -eq 1 ]] || fail "Prometheus does not have all required targets UP after bounded polling"
 note "Prometheus targets UP: vm-a, vm-b, otel-collector"
 
 metrics_resp="$(curl -fsS --get "${PROM_API}/api/v1/query" --data-urlencode 'query=up{job=~"zworkforce-vm-(a|b)"} == 1' || fail "metrics query failed")"

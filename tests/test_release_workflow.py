@@ -24,8 +24,8 @@ class ReleaseWorkflowTests(unittest.TestCase):
         ha = HA_VERIFIER.read_text(encoding="utf-8")
         self.assertIn('job_name: "zworkforce-vm-a"', gates)
         self.assertIn('job_name: "zworkforce-vm-b"', gates)
-        self.assertIn("credentials_file: \"/etc/prometheus/secrets/metrics-bearer\"", gates)
-        self.assertIn('url_file: "/etc/alertmanager/secrets/webhook-url"', gates)
+        self.assertIn("credentials_file: \"/run/secrets/metrics-bearer\"", gates)
+        self.assertIn('url_file: "/run/secrets/alertmanager-webhook-url"', gates)
         self.assertIn("HA_EXPECTED_IMAGE_DIGEST", gates)
         self.assertIn("ZWORKFORCE_INSTANCE_ID=vm-a", gates)
         self.assertIn("ZWORKFORCE_INSTANCE_ID=vm-b", gates)
@@ -63,6 +63,14 @@ class ReleaseWorkflowTests(unittest.TestCase):
         verifier = HA_VERIFIER.read_text(encoding="utf-8")
         self.assertIn("lease_services=scheduler,outbox", verifier)
         self.assertNotIn("service_leases3 ownership does not match either runtime instance", verifier)
+
+    def test_observability_uses_compose_secrets_and_bounded_target_polling(self):
+        gates = EXTERNAL_GATES.read_text(encoding="utf-8")
+        verifier = OBS_VERIFIER.read_text(encoding="utf-8")
+        self.assertIn("source: metrics-bearer", gates)
+        self.assertIn("source: alertmanager-webhook-url", gates)
+        self.assertNotIn("./metrics-bearer:/etc/prometheus/secrets/metrics-bearer", gates)
+        self.assertIn("for _ in $(seq 1 12)", verifier)
 
 
 if __name__ == "__main__":

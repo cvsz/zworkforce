@@ -366,6 +366,12 @@ stage_e(){
 write_observability_compose(){
   local out="$1"
   cat > "$out" <<'YAML'
+secrets:
+  metrics-bearer:
+    file: ./metrics-bearer
+  alertmanager-webhook-url:
+    file: ./alertmanager-webhook-url
+
 services:
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.135.0
@@ -384,7 +390,9 @@ services:
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
-      - ./metrics-bearer:/etc/prometheus/secrets/metrics-bearer:ro
+    secrets:
+      - source: metrics-bearer
+        target: metrics-bearer
     ports:
       - "9090:9090"
     restart: unless-stopped
@@ -394,7 +402,9 @@ services:
     command: ["--config.file=/etc/alertmanager/alertmanager.yml"]
     volumes:
       - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-      - ./alertmanager-webhook-url:/etc/alertmanager/secrets/webhook-url:ro
+    secrets:
+      - source: alertmanager-webhook-url
+        target: alertmanager-webhook-url
     ports:
       - "9093:9093"
     restart: unless-stopped
@@ -482,7 +492,7 @@ scrape_configs:
     scheme: "http"
     authorization:
       type: Bearer
-      credentials_file: "/etc/prometheus/secrets/metrics-bearer"
+      credentials_file: "/run/secrets/metrics-bearer"
     static_configs:
       - targets: ["$metrics_a"]
   - job_name: "zworkforce-vm-b"
@@ -490,7 +500,7 @@ scrape_configs:
     scheme: "http"
     authorization:
       type: Bearer
-      credentials_file: "/etc/prometheus/secrets/metrics-bearer"
+      credentials_file: "/run/secrets/metrics-bearer"
     static_configs:
       - targets: ["$metrics_b"]
   - job_name: "otel-collector"
@@ -517,7 +527,7 @@ route:
 receivers:
   - name: operator
     webhook_configs:
-      - url_file: "/etc/alertmanager/secrets/webhook-url"
+      - url_file: "/run/secrets/alertmanager-webhook-url"
         send_resolved: true
 YAML
 
