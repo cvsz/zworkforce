@@ -1,4 +1,5 @@
 from pathlib import Path
+import subprocess
 import unittest
 
 
@@ -43,6 +44,15 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("-ExpectedVersion '$release_version.0'", gates)
         self.assertIn("s3={\"addressing_style\": \"path\"}", gates)
         self.assertIn("OBS_COMPOSE_FILE", observability)
+
+    def test_ha_verifier_is_valid_bash(self):
+        result = subprocess.run(
+            ["bash", "-n", str(HA_VERIFIER)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == "__main__":

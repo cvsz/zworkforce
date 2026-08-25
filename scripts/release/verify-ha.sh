@@ -104,7 +104,7 @@ owners = {str(row[1]) for row in leases if row[1]}
 print('lease_rows=' + str(len(leases)))
 print('lease_owners=' + ','.join(sorted(owners)))
 
-cur.execute("SELECT claim_owner, COUNT(*) FROM outbox3 WHERE claim_owner IS NOT NULL AND claim_owner <> '' GROUP BY claim_owner ORDER BY claim_owner")
+cur.execute('SELECT claim_owner, COUNT(*) FROM outbox3 WHERE claim_owner IS NOT NULL AND claim_owner <> %s GROUP BY claim_owner ORDER BY claim_owner', ('',))
 outbox = cur.fetchall()
 if not outbox:
     print('ERROR outbox3 has no claimed ownership evidence; run the HA outbox drill first')
