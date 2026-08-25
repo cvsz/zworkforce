@@ -69,6 +69,8 @@ class ReleaseWorkflowTests(unittest.TestCase):
         verifier = OBS_VERIFIER.read_text(encoding="utf-8")
         self.assertIn("source: metrics-bearer", gates)
         self.assertIn("source: alertmanager-webhook-url", gates)
+        self.assertIn("group_add:", gates)
+        self.assertIn("OBS_SECRET_GID", gates)
         self.assertNotIn("./metrics-bearer:/etc/prometheus/secrets/metrics-bearer", gates)
         self.assertIn("for _ in $(seq 1 12)", verifier)
         self.assertIn('ALERTMANAGER_PORT="${ALERTMANAGER_PORT:-19093}"', verifier)

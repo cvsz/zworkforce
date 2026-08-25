@@ -393,6 +393,8 @@ services:
     secrets:
       - source: metrics-bearer
         target: metrics-bearer
+    group_add:
+      - "${OBS_SECRET_GID:?set OBS_SECRET_GID}"
     ports:
       - "9090:9090"
     restart: unless-stopped
@@ -405,6 +407,8 @@ services:
     secrets:
       - source: alertmanager-webhook-url
         target: alertmanager-webhook-url
+    group_add:
+      - "${OBS_SECRET_GID:?set OBS_SECRET_GID}"
     ports:
       - "9093:9093"
     restart: unless-stopped
@@ -534,10 +538,14 @@ YAML
   note "Stage G: copying observability config to $OBS_HOST"
   ssh "$OBS_HOST" "mkdir -p '$OBS_DEPLOY_DIR'"
   scp -q "$tmp/"* "$OBS_HOST:$OBS_DEPLOY_DIR/"
-  ssh "$OBS_HOST" "chmod 600 '$OBS_DEPLOY_DIR/metrics-bearer' '$OBS_DEPLOY_DIR/alertmanager-webhook-url'"
+  ssh "$OBS_HOST" "chmod 640 '$OBS_DEPLOY_DIR/metrics-bearer' '$OBS_DEPLOY_DIR/alertmanager-webhook-url'"
+
+  local secret_gid
+  secret_gid="$(ssh "$OBS_HOST" "stat -c '%g' '$OBS_DEPLOY_DIR/metrics-bearer'")"
+  [[ "$secret_gid" =~ ^[0-9]+$ ]] || die "observability secret group id is invalid"
 
   note "Stage G: deploying OTel/Prometheus/Alertmanager"
-  ssh "$OBS_HOST" "cd '$OBS_DEPLOY_DIR' && docker compose -f compose.yml up -d"
+  ssh "$OBS_HOST" "cd '$OBS_DEPLOY_DIR' && OBS_SECRET_GID='$secret_gid' docker compose -f compose.yml up -d"
   ssh "$OBS_HOST" "docker exec zworkforce-observability-prometheus-1 sh -c 'kill -HUP 1' || true"
 
   note "Stage G: health/readiness"
