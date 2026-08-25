@@ -6,6 +6,7 @@
   <meta name="color-scheme" content="dark light">
   <title>zWorkforce — AI Workforce Control Plane</title>
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/zarvis-hud.css">
 </head>
 <body>
   <header class="topbar">
@@ -31,16 +32,25 @@
           <div><span>You</span><p id="zarvisTranscript" aria-live="polite">—</p></div>
           <div><span>Z.A.R.V.I.S.</span><p id="zarvisReply" aria-live="polite">Ready when the secure voice runtime is available.</p></div>
         </div>
+        <div class="zarvis-runtime-strip" aria-label="Z.A.R.V.I.S. runtime status">
+          <span class="zarvis-eq" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+          <strong id="zarvisHudState">idle</strong>
+          <span id="zarvisAgentCount" class="zarvis-agent-count">0 agents</span>
+        </div>
       </div>
 
-      <div class="zarvis-stage" aria-hidden="true">
-        <div class="zarvis-orb" id="zarvisOrb">
-          <span class="zarvis-orbit orbit-one"></span>
-          <span class="zarvis-orbit orbit-two"></span>
-          <span class="zarvis-orbit orbit-three"></span>
-          <span class="zarvis-core"></span>
-          <span class="zarvis-wave wave-one"></span>
-          <span class="zarvis-wave wave-two"></span>
+      <div class="zarvis-stage" aria-label="Z.A.R.V.I.S. agent reasoning HUD">
+        <div class="zarvis-hud">
+          <div id="zarvisReasoningWeb" class="zarvis-reasoning-web"></div>
+          <div class="zarvis-orb" id="zarvisOrb" aria-hidden="true">
+            <span class="zarvis-orbit orbit-one"></span>
+            <span class="zarvis-orbit orbit-two"></span>
+            <span class="zarvis-orbit orbit-three"></span>
+            <span class="zarvis-core"></span>
+            <span class="zarvis-wave wave-one"></span>
+            <span class="zarvis-wave wave-two"></span>
+          </div>
+          <div id="zarvisAgentOverview" class="zarvis-agent-overview" role="status" aria-live="polite" hidden></div>
         </div>
       </div>
 
@@ -63,5 +73,6 @@
   </main>
   <footer>zWorkforce v3.0.3 · tenant-isolated durable agent runtime · secrets stay server-side</footer>
   <script src="/app.js" defer></script>
+  <script src="/zarvis-hud.js" defer></script>
 </body>
 </html>
