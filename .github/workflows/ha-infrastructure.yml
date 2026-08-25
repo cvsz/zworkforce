@@ -8,6 +8,7 @@ on:
       - "infrastructure/terraform/cloudflare/**"
       - "scripts/cloudflare-*.sh"
       - "scripts/lib/cloudflare-terraform-env.sh"
+      - "scripts/verify-zarvis-online.sh"
       - "docs/HA-CLOUDFLARE-SUPABASE.md"
   workflow_dispatch:
     inputs:
@@ -63,6 +64,8 @@ jobs:
           if "local.zworkforce_ingress" not in Path("infrastructure/terraform/cloudflare/main.tf").read_text():
               raise SystemExit("managed tunnel config does not include local.zworkforce_ingress")
           print("HA-A ingress contract is consistent")
+      - name: Validate Z.A.R.V.I.S. online verifier
+        run: bash -n scripts/verify-zarvis-online.sh
 
   production:
     name: ${{ inputs.action }}-ha-production
@@ -147,11 +150,12 @@ jobs:
       - name: Cloudflare reconcile and apply reviewed plan
         if: inputs.action == 'apply'
         run: ./scripts/cloudflare-apply.sh --all-dns --apply
-      - name: Verify HA-A public health
+      - name: Verify HA-A and Z.A.R.V.I.S. public health
         if: inputs.action == 'apply'
         run: |
           set -euo pipefail
           curl --fail --silent --show-error --max-time 20 https://zwf.zeaz.dev/health >/dev/null
+          bash scripts/verify-zarvis-online.sh
       - name: Remove rendered secret file
         if: always()
         run: rm -f .env.cloudflare
