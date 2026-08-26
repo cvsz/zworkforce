@@ -140,6 +140,7 @@ stage_f(){
   key_b="tenant-b/evidence/$expected_sha.txt"
 
   note "Stage F: testing Supabase S3-compatible storage"
+  PYTHONPATH="$REPO_DIR${PYTHONPATH:+:$PYTHONPATH}" \
   STAGE_F_PAYLOAD="$payload" \
   STAGE_F_KEY_A="$key_a" \
   STAGE_F_KEY_B="$key_b" \
@@ -152,6 +153,7 @@ try:
     import boto3
     from botocore.config import Config
     from botocore.exceptions import ClientError, BotoCoreError
+    from zworkforce.s3_errors import is_missing_object_error
 except Exception as e:
     print("ERROR: boto3/botocore required:", e, file=sys.stderr)
     sys.exit(2)
@@ -213,13 +215,9 @@ assert obj.get("ContentType") == "text/plain"
 try:
     s3.get_object(Bucket=bucket, Key=key_b)
 except ClientError as e:
-    response=e.response or {}
-    code=str((response.get("Error") or {}).get("Code", ""))
-    # Supabase can return a status-only error for a missing object, with an
-    # empty S3 error code. Accept the documented missing/denied status while
-    # still rejecting unrelated errors.
-    missing_object_status=(response.get("ResponseMetadata") or {}).get("HTTPStatusCode")
-    if code not in ("NoSuchKey", "404", "AccessDenied") and missing_object_status not in (403, 404):
+    # Supabase can return a status-only error for a missing object. The
+    # classifier accepts that only when no S3 error code is present.
+    if not is_missing_object_error(e):
         raise
 else:
     raise AssertionError("tenant-b/nonexistent object unexpectedly readable")
