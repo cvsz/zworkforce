@@ -2,6 +2,10 @@ from pathlib import Path
 import subprocess
 import unittest
 
+from botocore.exceptions import ClientError
+
+from zworkforce.s3_errors import is_missing_object_error
+
 
 ROOT = Path(__file__).resolve().parents[1]
 RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
@@ -35,6 +39,23 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn('HA_EXPECTED_IMAGE_DIGEST="$HA_EXPECTED_IMAGE_DIGEST"', gates)
         self.assertIn("exact candidate image", ha)
         self.assertIn("S3 operation=PutObject failed", gates)
+
+    def test_supabase_missing_object_accepts_status_only_errors(self):
+        def client_error(code, status):
+            return ClientError(
+                {
+                    "Error": {"Code": code},
+                    "ResponseMetadata": {"HTTPStatusCode": status},
+                },
+                "GetObject",
+            )
+
+        self.assertTrue(is_missing_object_error(client_error("", 403)))
+        self.assertTrue(is_missing_object_error(client_error("", 404)))
+        self.assertTrue(is_missing_object_error(client_error("NoSuchKey", 404)))
+        self.assertTrue(is_missing_object_error(client_error("AccessDenied", 403)))
+        self.assertFalse(is_missing_object_error(client_error("InvalidAccessKeyId", 403)))
+        self.assertFalse(is_missing_object_error(client_error("NoSuchBucket", 404)))
 
     def test_external_gate_shell_boundaries_are_quoted_and_versioned(self):
         gates = EXTERNAL_GATES.read_text(encoding="utf-8")

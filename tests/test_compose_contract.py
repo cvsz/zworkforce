@@ -63,6 +63,9 @@ class ComposeHealthcheckContractTests(unittest.TestCase):
                     block = service_block(source, role)
                     self.assertRegex(block, r"(?m)^    healthcheck:\n      disable: true$")
 
+    def test_ha_runtime_identity_is_propagated_through_shared_environment(self):
+        self.assertIn("ZWORKFORCE_INSTANCE_ID: ${ZWORKFORCE_INSTANCE_ID:-}", self.source)
+
     def test_supabase_s3_example_uses_direct_storage_hostname(self):
         source = HA_ENV_EXAMPLE.read_text(encoding="utf-8")
         self.assertIn(".storage.supabase.co/storage/v1/s3", source)
