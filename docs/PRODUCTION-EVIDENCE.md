@@ -123,12 +123,23 @@ Artifact/reference:
 
 ## Stage B — PostgreSQL durability, backup, restore, and PITR
 
-Status: **PARTIAL — repository PostgreSQL backup/restore regression passes; managed/external PITR and measured production RPO/RTO remain PENDING.**
+Status: **PARTIAL — repository PostgreSQL backup/restore regression passes; managed/external production-mode smoke, PITR, and measured RPO/RTO remain PENDING.**
 
 Historical local PG 17.11 drills recorded a successful dump/restore, sentinel verification, audit continuity, and local recovery timing. Those drills are regression evidence only and do not replace managed-database recovery evidence for the final candidate.
 
+Mandatory final-candidate evidence must:
+- connect through the production-mode DSN and run `zworkforce doctor` successfully against the target database;
+- submit and complete a durable task with API and worker processes separated, proving the restored/target database is usable by the deployed topology;
+- capture the managed backup/snapshot identifier and timestamp;
+- restore into an isolated recovery target;
+- verify a known sentinel record, schema state, and audit continuity after restore;
+- where supported, perform point-in-time recovery to a selected timestamp and record achieved RPO/RTO;
+- retain the exact candidate SHA/image digest, operator, UTC timestamps, commands/run URLs, captured outputs, and durable artifact references.
+
 ```text
 Database platform:
+Production-mode doctor result:
+Separated API/worker durable task ID and result:
 Backup/snapshot ID:
 Backup completed (UTC):
 Restore target:
@@ -154,9 +165,30 @@ Required final evidence:
 
 ## Stage D — provider routing, failover, and bounded execution
 
-Status: **PARTIAL — real NVIDIA NIM routing succeeded for Luna/Terra/Sol and local circuit behavior was exercised; external provider failure/fallback metrics remain PENDING.**
+Status: **PARTIAL — real NVIDIA NIM routing succeeded for Luna/Terra/Sol and local circuit behavior was exercised; exact-candidate production routing, bounded-execution safety, and external failure/fallback telemetry remain PENDING.**
 
-Historical routing evidence used NVIDIA NIM and verified the configured Luna/Terra/Sol model mapping. A local `drill-bad` provider exercised bounded retries, circuit open, denial, and recovery through the healthy provider. Final production evidence still requires an exact-candidate external failure/fallback observation with retained telemetry.
+Historical routing evidence used NVIDIA NIM and verified the configured Luna/Terra/Sol model mapping. A local `drill-bad` provider exercised bounded retries, circuit open, denial, and recovery through the healthy provider. Historical results are regression evidence only.
+
+Mandatory final-candidate evidence must:
+- verify Luna/Terra/Sol resolve to the intended production providers/models and complete successful requests in the frozen environment;
+- inject or otherwise control a primary-provider failure and capture the expected circuit/fallback/recovery path with external telemetry;
+- prove retry, timeout, iteration, and cost/token budgets remain bounded by the deployed configuration and do not permit unbounded execution;
+- verify mutating tools remain deny-by-default and execute only with the required explicit grant/policy/approval authority;
+- verify provider credentials remain server-side and are absent from browser/static assets, model-visible payloads where not required, logs, traces, and audit details;
+- retain candidate-bound provider health/circuit metrics, task/request/trace identifiers, exact candidate SHA/image digest, operator, UTC timestamps, and durable run artifacts.
+
+```text
+Provider/model mapping:
+Successful tier requests:
+Failure injected:
+Fallback/recovery observed:
+Retry/timeout/iteration/cost bounds:
+Mutation deny-by-default / approved mutation evidence:
+Credential containment evidence:
+Task/request/trace IDs:
+Result:
+Artifact/reference:
+```
 
 ## Stage E — scheduler, worker, outbox, and HA leases
 
