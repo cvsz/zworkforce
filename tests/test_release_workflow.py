@@ -76,6 +76,21 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn('ALERTMANAGER_PORT="${ALERTMANAGER_PORT:-19093}"', verifier)
         self.assertIn("ALERTMANAGER_PORT=9093 OBS_COMPOSE_FILE=compose.yml", gates)
 
+    def test_windows_live_endpoint_uses_one_powershell_quoted_literal(self):
+        gates = EXTERNAL_GATES.read_text(encoding="utf-8")
+        self.assertIn(
+            'ps_health_endpoint="$(ps_single_quote "$ZWORKFORCE_HTTPS_ENDPOINT/health")"',
+            gates,
+        )
+        self.assertIn(
+            'run_remote_pwsh "Invoke-WebRequest -UseBasicParsing $ps_health_endpoint',
+            gates,
+        )
+        self.assertNotIn(
+            "Invoke-WebRequest -UseBasicParsing '$(ps_single_quote",
+            gates,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

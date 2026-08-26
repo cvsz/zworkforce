@@ -660,8 +660,11 @@ stage_h(){
     'Write-Output ("SIGNATURE=" + $sig.Status)')"
   run_remote_pwsh "$inspect_script"
 
-  # Live HTTPS endpoint check from Windows host.
-  run_remote_pwsh "Invoke-WebRequest -UseBasicParsing '$(ps_single_quote "$ZWORKFORCE_HTTPS_ENDPOINT/health")' | Out-Null; if (-not \$?) { exit 1 }"
+  # Live HTTPS endpoint check from Windows host. The helper already returns a
+  # complete PowerShell single-quoted literal; do not add a second quote pair.
+  local ps_health_endpoint
+  ps_health_endpoint="$(ps_single_quote "$ZWORKFORCE_HTTPS_ENDPOINT/health")"
+  run_remote_pwsh "Invoke-WebRequest -UseBasicParsing $ps_health_endpoint | Out-Null; if (-not \$?) { exit 1 }"
 
   if [[ -x "$REPO_DIR/scripts/release/verify-windows-live.sh" ]]; then
     WINDOWS_HOST="$WINDOWS_HOST" \
