@@ -57,10 +57,10 @@ Private DNS records (`ha-a.zeaz.dev`, `ha-b.zeaz.dev`, `obs.zeaz.dev`) are decla
 | Field | Value |
 | --- | --- |
 | Candidate version | `3.0.4` |
-| Candidate branch | `fix/v3.0.4-production-image` (pending merge to `main`) |
+| Candidate branch | `fix/ha-verifier-sql-quoting` (PR #181; pending merge to `main`) |
 | Default-branch ruleset | `zWorkforce main release protection` applied server-side, ruleset ID `20988030` (verified 2026-08-25) |
-| Reconciliation baseline | `e9405f2fb34c51ac7f221ba6894b14fa712ec522` (merged PR #179; v3.0.3 predecessor fix line) |
-| Latest reviewed patch head | `4ca4e60a53af1d7824762028cdd70551fcd6df65` — signed production-image fix; follow-up review/merge pending |
+| Reconciliation baseline | `e15b7d60c58c58e75ee031ed8b9c6fc360257cbd` (merged PR #180; v3.0.4 production-image/HA fix line) |
+| Latest candidate head | `e88add873df763f5e4d86f380bff94572c2b4451` — signed PR #181 head; required `policedbc` review pending |
 | Final release candidate SHA | _pending merge and exact-candidate CI_ |
 | Post-candidate main drift | _record after the follow-up PR merges; external evidence must bind to that exact SHA_ |
 | Release tag | _create only after merge and all mandatory evidence_ |
@@ -105,6 +105,26 @@ called missing `curl`; the corrected image is therefore being released as
 | H | FAIL | Windows checkout was `6f6fe3f...`, not the exact candidate `4ffdfa6e...`; sync the Windows checkout to the candidate before rebuilding/signing. |
 
 The Stage G generator now mounts both the metrics bearer and Alertmanager webhook as remote secret files rather than embedding them in generated YAML. The bearer used by the failed run was present in a generated remote configuration and must be rotated before the next observability run.
+
+## Corrective v3.0.4 candidate gate follow-up (2026-08-25 — 2026-08-26)
+
+The signed PR #181 head is `e88add873df763f5e4d86f380bff94572c2b4451`. The
+following evidence is intentionally separated from final-release evidence
+because the PR still requires `policedbc` approval and has not merged to
+`main`:
+
+| Gate | Result | Evidence / next action |
+| --- | --- | --- |
+| E | PARTIAL | Corrected runtime image `3.0.4-rc-local-42c81b9` passed the direct HA lease/outbox verifier on both VMs, including distinct `vm-a`/`vm-b` identities and authenticated metrics. The wrapper and exact final-candidate rerun remain pending because the image is not an immutable published artifact and PR #181 is not merged. |
+| F | FAIL | Supabase S3 `PutObject` still returns HTTP 403. The configured access key/secret, direct storage endpoint, and region must be corrected by the operator before rerun. |
+| G | PARTIAL/FAIL | After the secret-file and bounded-polling fixes, Prometheus targets and Alertmanager readiness passed, but the configured `httpbin.org` endpoint provided no queryable delivery receipt. A real receipt-capable operator endpoint is required before rerun. |
+| H | PARTIAL/FAIL | The clean Windows checkout at the PR #180 baseline passed PowerShell/.NET build and 27 core tests, but trusted packaging could not start because the approved PFX and secure directory are absent. Rerun on the merged final candidate after signing material is provisioned. |
+
+The public Cloudflare route still serves the predecessor service.
+A tunnel-token rotation was attempted with the available Cloudflare API token
+but the API rejected it with method-not-allowed for that authentication
+scheme. The exposed connector credentials remain an operator security action
+before production GO. No release tag has been created for v3.0.4.
 
 ## Local compose stack drills (2026-08-18)
 
@@ -238,7 +258,7 @@ Artifact/reference: tasks 3afe7b4e (luna), 799c25be (terra), 1eea9e89 (sol); pro
 
 ## Stage E — scheduler, worker, outbox, and HA leases
 
-Status: **PENDING v3.0.4 external rerun — predecessor exact-image attempt failed readiness; local corrective-image checks PASS.**
+Status: **PARTIAL — corrected runtime verifier passed on a local v3.0.4 image, but the exact final candidate and immutable published image rerun remain pending review, merge, and external publication.**
 
 With at least two eligible replicas where the deployment topology supports it:
 - prove only one scheduler lease holder performs each due action: **HISTORICAL EVIDENCE** — VM-A (`vm-a`) and VM-B (`vm-b`) each ran distinct scheduler instances; `ZWORKFORCE_INSTANCE_ID` differed; lease ownership was queryable per VM in shared Supabase `zworkforce.outbox` table
@@ -261,7 +281,7 @@ Artifact/reference: scripts/release/verify-ha.sh; `.release-evidence-state/E.sta
 
 ## Stage F — artifacts, memory, and external storage
 
-Status: **FAIL on latest predecessor attempt — Supabase S3 `PutObject` returned HTTP 403 at 2026-08-25T20:55:13Z; corrected credentials/endpoint/region and a successful v3.0.4 rerun are required.**
+Status: **FAIL — Supabase S3 `PutObject` returned HTTP 403 at 2026-08-25T20:55:13Z; corrected credentials/endpoint/region and a successful exact-candidate rerun are required.**
 
 When enabled in the target environment:
 - store and retrieve an S3-compatible content-addressed artifact and verify SHA-256: **HISTORICAL PASS 2026-08-19, SUPERSEDED BY FAILURE 2026-08-21** — the latest state record reports `PutObject` failure; rerun Stage F for the exact candidate before relying on storage evidence
@@ -280,7 +300,7 @@ Artifact/reference: `.release-evidence-state/F.status`; `/home/cvsz/zworkforce/.
 
 ## Stage G — observability and SLO evidence
 
-Status: **FAIL on latest predecessor attempt — Prometheus targets were not in the verifier's required job contract; the generator is corrected, but v3.0.4 observability evidence must be rerun after bearer rotation.**
+Status: **PARTIAL/FAIL — corrected Prometheus target and secret-delivery checks passed, but the configured external receipt endpoint was not queryable; a real operator receipt endpoint and exact-candidate rerun are required.**
 
 Verify:
 - `/health`, `/ready`, and authenticated `/metrics` from the deployed environment: **HISTORICAL predecessor evidence** — `https://zworkforce.zeaz.dev/health` returned 200 for v3.0.3; the v3.0.4 endpoint must be rechecked after promotion. Endpoint routed via Cloudflare Tunnel (DNS CNAME `zworkforce.zeaz.dev` → tunnel, proxied, created 2026-08-19 via `infrastructure/terraform/cloudflare`)
@@ -302,7 +322,7 @@ Artifact/reference: scripts/release/verify-observability.sh; `.release-evidence-
 
 ## Stage H — Windows operator client
 
-Status: **FAIL on latest predecessor attempt — Windows checkout `6f6fe3f...` did not match candidate `4ffdfa6e...`; sync the checkout to the merged v3.0.4 SHA, then rerun trusted build/sign/live HTTPS verification.**
+Status: **PARTIAL/FAIL — the clean Windows checkout at the PR #180 baseline built and passed its 27 core tests, but the approved trusted-signing PFX and secure directory are missing; rerun on the merged exact candidate after provisioning signing material.**
 
 Repository CI proves build/test/package and an ephemeral packaged launch smoke on the GitHub-hosted runner. Production readiness still requires the signed/approved Windows package against the deployed HTTPS endpoint:
 - install/upgrade/uninstall path;
