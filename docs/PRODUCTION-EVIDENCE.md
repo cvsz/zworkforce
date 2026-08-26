@@ -60,7 +60,7 @@ Private DNS records (`ha-a.zeaz.dev`, `ha-b.zeaz.dev`, `obs.zeaz.dev`) are decla
 | Candidate branch | `fix/ha-verifier-sql-quoting` (PR #181; pending merge to `main`) |
 | Default-branch ruleset | `zWorkforce main release protection` applied server-side, ruleset ID `20988030` (verified 2026-08-25) |
 | Reconciliation baseline | `e15b7d60c58c58e75ee031ed8b9c6fc360257cbd` (merged PR #180; v3.0.4 production-image/HA fix line) |
-| Latest candidate head | `e88add873df763f5e4d86f380bff94572c2b4451` — signed PR #181 head; required `policedbc` review pending |
+| Latest candidate head | `453c8195b7ebf5e4d86f380bff94572c2b4451` — signed PR #181 head; required `policedbc` review pending |
 | Final release candidate SHA | _pending merge and exact-candidate CI_ |
 | Post-candidate main drift | _record after the follow-up PR merges; external evidence must bind to that exact SHA_ |
 | Release tag | _create only after merge and all mandatory evidence_ |
@@ -108,14 +108,14 @@ The Stage G generator now mounts both the metrics bearer and Alertmanager webhoo
 
 ## Corrective v3.0.4 candidate gate follow-up (2026-08-25 — 2026-08-26)
 
-The signed PR #181 head is `e88add873df763f5e4d86f380bff94572c2b4451`. The
+The signed PR #181 head is `453c8195b7ebf5e4d86f380bff94572c2b4451`. The
 following evidence is intentionally separated from final-release evidence
 because the PR still requires `policedbc` approval and has not merged to
 `main`:
 
 | Gate | Result | Evidence / next action |
 | --- | --- | --- |
-| E | PARTIAL | Corrected runtime image `3.0.4-rc-local-42c81b9` passed the direct HA lease/outbox verifier on both VMs, including distinct `vm-a`/`vm-b` identities and authenticated metrics. The wrapper and exact final-candidate rerun remain pending because the image is not an immutable published artifact and PR #181 is not merged. |
+| E | PARTIAL | Exact PR-head image `3.0.4-rc-local-453c819` (`sha256:649325577d99ec79a42edbea3698a3dae7f8e166b9982280c6795d24b92ba2af`, SBOM/provenance enabled) passed the direct HA lease/outbox verifier on both VMs, including distinct `vm-a`/`vm-b` identities, authenticated metrics, and live outbox ownership. The wrapper and final immutable published-image rerun remain pending because PR #181 is not merged and the image is local-only. |
 | F | FAIL | Supabase S3 `PutObject` still returns HTTP 403. The configured access key/secret, direct storage endpoint, and region must be corrected by the operator before rerun. |
 | G | PARTIAL/FAIL | After the secret-file and bounded-polling fixes, Prometheus targets and Alertmanager readiness passed, but the configured `httpbin.org` endpoint provided no queryable delivery receipt. A real receipt-capable operator endpoint is required before rerun. |
 | H | PARTIAL/FAIL | The clean Windows checkout at the PR #180 baseline passed PowerShell/.NET build and 27 core tests, but trusted packaging could not start because the approved PFX and secure directory are absent. Rerun on the merged final candidate after signing material is provisioned. |
