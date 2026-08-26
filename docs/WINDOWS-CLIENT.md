@@ -170,6 +170,14 @@ artifact name, trusted publisher/signature state, deployed HTTPS endpoint, and
 functional smoke result in `docs/PRODUCTION-EVIDENCE.md` or the immutable
 release record.
 
+Before tag creation, run the manual `Windows signed candidate` workflow with
+the full 40-character commit SHA already merged into `main`. It is the safe
+pre-tag signing path: it requires the protected release environment, refuses
+unmerged or moving refs, and uploads a candidate-bound signed package,
+certificate, checksum, metadata, and run record without publishing a release.
+Use those outputs to complete Stage H; the tag workflow signs the immutable
+release artifact again after GO.
+
 ## Package signing
 
 `Package-Client.ps1` produces a self-contained, versioned MSIX so a clean Windows 11 host

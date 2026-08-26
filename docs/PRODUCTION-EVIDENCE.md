@@ -257,6 +257,7 @@ Final evidence must record:
 ```text
 Windows checkout: final frozen SHA PENDING
 Azure Artifact Signing account/profile/verified publisher: operator provisioning PENDING
+Pre-tag candidate signing workflow/run: PENDING
 MSIX artifact:
 Publisher/signature:
 Timestamp:

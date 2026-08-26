@@ -9,6 +9,7 @@ from zworkforce.s3_errors import is_missing_object_error
 
 ROOT = Path(__file__).resolve().parents[1]
 RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
+WINDOWS_SIGNED_CANDIDATE_WORKFLOW = ROOT / ".github" / "workflows" / "windows-signed-candidate.yml"
 EXTERNAL_GATES = ROOT / "scripts" / "close-zworkforce-external-gates.sh"
 HA_VERIFIER = ROOT / "scripts" / "release" / "verify-ha.sh"
 OBS_VERIFIER = ROOT / "scripts" / "release" / "verify-observability.sh"
@@ -46,6 +47,24 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertNotIn("WINDOWS_MSIX_PFX_BASE64", workflow)
         self.assertNotIn("Import-PfxCertificate", workflow)
 
+    def test_pre_tag_windows_candidate_signing_is_sha_pinned_and_non_publishing(self):
+        workflow = WINDOWS_SIGNED_CANDIDATE_WORKFLOW.read_text(encoding="utf-8")
+
+        self.assertIn("workflow_dispatch:", workflow)
+        self.assertIn("CANDIDATE_REF", workflow)
+        self.assertIn("ref must be a full 40-character commit SHA", workflow)
+        self.assertIn("git merge-base --is-ancestor", workflow)
+        self.assertIn("environment: release", workflow)
+        self.assertIn("id-token: write", workflow)
+        self.assertIn("uses: azure/login@v3", workflow)
+        self.assertIn("uses: azure/artifact-signing-action@v2", workflow)
+        self.assertIn("Package-Client.ps1 -Configuration Release -Platform x64 -Unsigned", workflow)
+        self.assertIn('ExpectedVersion "$($env:RELEASE_VERSION).0"', workflow)
+        self.assertIn("Upload signed candidate evidence", workflow)
+        self.assertNotIn("gh release create", workflow)
+        self.assertNotIn("docker/build-push-action", workflow)
+        self.assertNotIn("WINDOWS_MSIX_PFX_BASE64", workflow)
+
     def test_unsigned_windows_package_is_explicit_and_signature_verifier_is_required(self):
         package_script = WINDOWS_PACKAGE_SCRIPT.read_text(encoding="utf-8")
         signature_script = WINDOWS_SIGNATURE_SCRIPT.read_text(encoding="utf-8")
@@ -60,6 +79,8 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("X509Chain", signature_script)
         self.assertIn("AppxSignature.p7x", signature_script)
         self.assertIn("AppxBlockMap.xml", signature_script)
+        self.assertIn("Get-ZipEntryByName", signature_script)
+        self.assertIn("[IO.Path]::GetFileName", signature_script)
         self.assertIn("Code Signing", signature_script)
         self.assertIn("ExpectedSha256", signature_script)
 

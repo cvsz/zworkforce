@@ -10,10 +10,12 @@ Before creating a release tag:
 2. Confirm CI, Windows client, Dependency Review, CodeQL, and every affected path-filtered package workflow are green.
 3. Confirm `pyproject.toml`, `zworkforce.__version__`, Makefile, dashboard, Compose/Kubernetes image references, publication defaults, and `CHANGELOG.md` carry the same version.
 4. Run `python scripts/verify_release.py` locally or rely on the mandatory CI release-integrity job.
-5. Confirm production migration/rollback notes are current and complete the mandatory environment evidence in `docs/PRODUCTION-EVIDENCE.md`.
-6. Run `pnpm peers check` from `packages/zarvis` when Z.A.R.V.I.S. paths changed and reject dependency updates with unresolved peer constraints.
-7. Confirm the Z.A.R.V.I.S. API audit and test suite pass for the exact release commit when those paths changed.
-8. Reconcile `.github/rulesets/main.json` with the server-side GitHub Ruleset using repository administration permissions; the checked-in desired-state file alone is not proof that GitHub enforcement is active.
+5. After the exact commit is merged, run `Windows signed candidate` manually with its full 40-character `main` commit SHA and version; retain the signed artifact and workflow URL.
+6. Stage that exact artifact on the Windows evidence host and complete Stage H, together with the other mandatory environment evidence in `docs/PRODUCTION-EVIDENCE.md`, before creating the immutable tag.
+7. Confirm production migration/rollback notes are current.
+8. Run `pnpm peers check` from `packages/zarvis` when Z.A.R.V.I.S. paths changed and reject dependency updates with unresolved peer constraints.
+9. Confirm the Z.A.R.V.I.S. API audit and test suite pass for the exact release commit when those paths changed.
+10. Reconcile `.github/rulesets/main.json` with the server-side GitHub Ruleset using repository administration permissions; the checked-in desired-state file alone is not proof that GitHub enforcement is active.
 
 ## Tag format
 
@@ -54,6 +56,16 @@ notes without Windows packages. Partial Azure configuration fails closed. The
 publish job creates an empty `windows-assets` staging directory when the
 optional Windows artifact download is skipped, so non-Windows release assets
 remain publishable.
+
+The tag-driven workflow is not the pre-tag evidence path because it publishes
+the release after signing. Use the manual
+`.github/workflows/windows-signed-candidate.yml` workflow after the exact
+candidate is on `main`. It accepts only a full commit SHA already reachable
+from `origin/main`, requires the protected `release` environment, signs and
+verifies the candidate, runs the exact-file install smoke check, and uploads a
+candidate-bound MSIX, public certificate, checksum, metadata file, and run
+record without creating a tag, GitHub Release, or container image. Stage H can
+then consume that artifact before Stage I authorizes tag creation.
 
 Production deployments should pin the semantic tag or image digest, never `latest`.
 

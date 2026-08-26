@@ -52,6 +52,23 @@ function Get-PackageIdentity {
     return $identity
 }
 
+function Get-ZipEntryByName {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.IO.Compression.ZipArchive]$Archive,
+        [Parameter(Mandatory = $true)]
+        [string]$Name
+    )
+
+    $entry = $Archive.GetEntry($Name)
+    if ($null -eq $entry) {
+        $entry = $Archive.Entries |
+            Where-Object { [IO.Path]::GetFileName($_.FullName) -eq $Name } |
+            Select-Object -First 1
+    }
+    return $entry
+}
+
 $package = Get-Item -LiteralPath $PackagePath -ErrorAction Stop
 if ($package.PSIsContainer) {
     throw "MSIX package path is a directory: $PackagePath"
@@ -126,11 +143,11 @@ Assert-TrustedCertificateChain -Certificate $signer -Description "MSIX signer"
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archive = [System.IO.Compression.ZipFile]::OpenRead($package.FullName)
 try {
-    $signatureEntry = $archive.GetEntry("AppxSignature.p7x")
-    $blockMapEntry = $archive.GetEntry("AppxBlockMap.xml")
-    $manifestEntry = $archive.GetEntry("AppxManifest.xml")
+    $signatureEntry = Get-ZipEntryByName -Archive $archive -Name "AppxSignature.p7x"
+    $blockMapEntry = Get-ZipEntryByName -Archive $archive -Name "AppxBlockMap.xml"
+    $manifestEntry = Get-ZipEntryByName -Archive $archive -Name "AppxManifest.xml"
     if ($null -eq $manifestEntry) {
-        $manifestEntry = $archive.GetEntry("AppxBundleManifest.xml")
+        $manifestEntry = Get-ZipEntryByName -Archive $archive -Name "AppxBundleManifest.xml"
     }
     if ($null -eq $signatureEntry) {
         throw "MSIX package is missing AppxSignature.p7x."

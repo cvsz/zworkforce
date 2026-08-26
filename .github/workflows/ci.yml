@@ -315,6 +315,12 @@ jobs:
           grep -q 'id-token: write' .github/workflows/release.yml
           grep -q 'azure/login@v3' .github/workflows/release.yml
           grep -q 'azure/artifact-signing-action@v2' .github/workflows/release.yml
+          grep -q 'workflow_dispatch:' .github/workflows/windows-signed-candidate.yml
+          grep -q 'git merge-base --is-ancestor' .github/workflows/windows-signed-candidate.yml
+          grep -q 'azure/login@v3' .github/workflows/windows-signed-candidate.yml
+          grep -q 'azure/artifact-signing-action@v2' .github/workflows/windows-signed-candidate.yml
+          grep -q 'CANDIDATE_REF' .github/workflows/windows-signed-candidate.yml
+          grep -q 'Upload signed candidate evidence' .github/workflows/windows-signed-candidate.yml
           grep -q 'Package-Client.ps1 -Configuration Release -Platform x64 -Unsigned' .github/workflows/release.yml
           grep -q 'timestamp-rfc3161: http://timestamp.acs.microsoft.com' .github/workflows/release.yml
           grep -q 'AppxPackageSigningEnabled=false' ZWorkforceClient/build/windows/Package-Client.ps1
