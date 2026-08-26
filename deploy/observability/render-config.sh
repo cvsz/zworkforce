@@ -9,6 +9,12 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 : "${ZWORKFORCE_VM_B_HOSTPORT:?set ZWORKFORCE_VM_B_HOSTPORT}"
 : "${ZWORKFORCE_METRICS_BEARER:?set ZWORKFORCE_METRICS_BEARER}"
 : "${ALERTMANAGER_WEBHOOK_URL:?set ALERTMANAGER_WEBHOOK_URL}"
+: "${ALERT_RECEIVER_TOKEN_FILE:?set ALERT_RECEIVER_TOKEN_FILE}"
+
+[[ -r "$ALERT_RECEIVER_TOKEN_FILE" ]] || {
+  echo 'ALERT_RECEIVER_TOKEN_FILE is not readable' >&2
+  exit 1
+}
 
 export ZWORKFORCE_VM_A_HOSTPORT ZWORKFORCE_VM_B_HOSTPORT ZWORKFORCE_METRICS_BEARER ALERTMANAGER_WEBHOOK_URL
 
@@ -58,6 +64,10 @@ receivers:
   - name: operator
     webhook_configs:
       - url: {q(os.environ["ALERTMANAGER_WEBHOOK_URL"])}
+        http_config:
+          authorization:
+            type: Bearer
+            credentials_file: "/run/secrets/alert-receiver-auth"
         send_resolved: true
 '''
 

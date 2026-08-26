@@ -11,4 +11,8 @@ receivers:
   - name: operator
     webhook_configs:
       - url: "RENDER_REQUIRED"
+        http_config:
+          authorization:
+            type: Bearer
+            credentials_file: "/run/secrets/alert-receiver-auth"
         send_resolved: true

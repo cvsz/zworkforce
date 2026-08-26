@@ -14,11 +14,11 @@ WorkingDirectory=/opt/zworkforce-observability
 # startup failure while keeping static unit validation usable on the repo host.
 EnvironmentFile=-/etc/zworkforce-observability/alert-receiver.env
 Environment=ALERT_RECEIVER_PORT=18080
-Environment=ALERT_RECEIVER_TOKEN_FILE=/opt/zworkforce-observability/alert-receiver-token
 StateDirectory=zworkforce-observability
 StateDirectoryMode=0700
 Environment=ALERT_RECEIVER_DATA_DIR=/var/lib/zworkforce-observability/alert-receipts
 ExecStartPre=/usr/bin/test -n ${ALERT_RECEIVER_BIND}
+ExecStartPre=/usr/bin/test -r ${ALERT_RECEIVER_TOKEN_FILE}
 ExecStartPre=/usr/bin/install -d -m 700 /var/lib/zworkforce-observability/alert-receipts
 ExecStart=/usr/bin/python3 /opt/zworkforce-observability/alert_receiver.py
 Restart=on-failure

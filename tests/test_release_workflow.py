@@ -13,6 +13,9 @@ WINDOWS_SIGNED_CANDIDATE_WORKFLOW = ROOT / ".github" / "workflows" / "windows-si
 EXTERNAL_GATES = ROOT / "scripts" / "close-zworkforce-external-gates.sh"
 HA_VERIFIER = ROOT / "scripts" / "release" / "verify-ha.sh"
 OBS_VERIFIER = ROOT / "scripts" / "release" / "verify-observability.sh"
+OBS_RENDER_CONFIG = ROOT / "deploy" / "observability" / "render-config.sh"
+OBS_COMPOSE = ROOT / "deploy" / "observability" / "compose.vm-b.yaml"
+OBS_ALERTMANAGER = ROOT / "deploy" / "observability" / "alertmanager.vm-b.yaml"
 ALERT_RECEIVER_SERVICE = ROOT / "deploy" / "observability" / "alert-receiver.service"
 WINDOWS_PACKAGE_SCRIPT = ROOT / "ZWorkforceClient" / "build" / "windows" / "Package-Client.ps1"
 WINDOWS_TEST_SCRIPT = ROOT / "ZWorkforceClient" / "build" / "windows" / "Test-Client.ps1"
@@ -291,12 +294,25 @@ class ReleaseWorkflowTests(unittest.TestCase):
         service = ALERT_RECEIVER_SERVICE.read_text(encoding="utf-8")
         self.assertIn("EnvironmentFile=-/etc/zworkforce-observability/alert-receiver.env", service)
         self.assertIn("ExecStartPre=/usr/bin/test -n ${ALERT_RECEIVER_BIND}", service)
+        self.assertIn("ExecStartPre=/usr/bin/test -r ${ALERT_RECEIVER_TOKEN_FILE}", service)
+        self.assertNotIn("ALERT_RECEIVER_TOKEN_FILE=/opt/zworkforce-observability/alert-receiver-token", service)
         self.assertNotIn("Environment=ALERT_RECEIVER_BIND=192.168.74.134", service)
         self.assertIn("StateDirectory=zworkforce-observability", service)
         self.assertIn("StateDirectoryMode=0700", service)
         self.assertIn("ExecStartPre=/usr/bin/install -d -m 700", service)
         self.assertIn("ProtectSystem=strict", service)
         self.assertIn("/var/lib/zworkforce-observability/alert-receipts", service)
+
+    def test_observability_compose_and_renderer_use_protected_receiver_auth(self):
+        compose = OBS_COMPOSE.read_text(encoding="utf-8")
+        renderer = OBS_RENDER_CONFIG.read_text(encoding="utf-8")
+        alertmanager = OBS_ALERTMANAGER.read_text(encoding="utf-8")
+        self.assertIn("file: ${ALERT_RECEIVER_TOKEN_FILE:?set ALERT_RECEIVER_TOKEN_FILE}", compose)
+        self.assertIn("source: alert-receiver-auth", compose)
+        self.assertIn('credentials_file: "/run/secrets/alert-receiver-auth"', renderer)
+        self.assertIn('credentials_file: "/run/secrets/alert-receiver-auth"', alertmanager)
+        self.assertIn('ALERT_RECEIVER_TOKEN_FILE:?set ALERT_RECEIVER_TOKEN_FILE', renderer)
+        self.assertIn('[[ -r "$ALERT_RECEIVER_TOKEN_FILE" ]]', renderer)
 
     def test_windows_gate_reports_signing_blockers_without_powershell_error_prefix(self):
         gates = EXTERNAL_GATES.read_text(encoding="utf-8")

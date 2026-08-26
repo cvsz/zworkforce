@@ -156,16 +156,25 @@ loads the observability host's private bind address from the required
 `/etc/zworkforce-observability/alert-receiver.env`; do not copy an HA node IP
 into the unit. Install the tracked example, set `ALERT_RECEIVER_BIND` to the
 actual private interface used by the operator-owned receipt URL, and keep the
-file root-owned before enabling the unit:
+file root-owned before enabling the unit. Set `ALERT_RECEIVER_TOKEN_FILE` to
+the same host path where the Stage G deployment installs the token (the
+default `/opt/zworkforce-observability/alert-receiver-auth` is used when
+`OBS_DEPLOY_DIR` is the default):
 
 ```bash
 install -D -o root -g root -m 0644 \
   deploy/observability/alert-receiver.env.example \
   /etc/zworkforce-observability/alert-receiver.env
 # Edit ALERT_RECEIVER_BIND to the observability host's private address.
+# Edit ALERT_RECEIVER_TOKEN_FILE if OBS_DEPLOY_DIR is not /opt/zworkforce-observability.
 systemctl daemon-reload
 systemctl enable --now alert-receiver.service
 ```
+
+The Compose deployment also requires `ALERT_RECEIVER_TOKEN_FILE` while
+rendering and starting `compose.vm-b.yaml`; it mounts that file as the
+protected `/run/secrets/alert-receiver-auth` and uses the same bearer
+authorization for Alertmanager delivery.
 
 The verifier allows up to 60 seconds of bounded host-clock skew for
 `received_at` by default. Set `RECEIPT_MAX_CLOCK_SKEW_SECONDS` only when the
