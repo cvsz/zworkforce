@@ -96,6 +96,9 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn('IFS= read -r metrics_bearer', verifier)
         self.assertIn('metrics_bearer', verifier)
         self.assertNotIn('Authorization: Bearer $ZWORKFORCE_METRICS_BEARER', verifier)
+        gates = EXTERNAL_GATES.read_text(encoding="utf-8")
+        self.assertIn('-H @-', gates)
+        self.assertNotIn('curl -fsS -H "Authorization: Bearer $ZWORKFORCE_METRICS_BEARER"', gates)
 
 
 if __name__ == "__main__":

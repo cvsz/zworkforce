@@ -552,11 +552,12 @@ YAML
   curl -fsS "$ZWORKFORCE_HEALTH_URL" >/dev/null
   curl -fsS "$ZWORKFORCE_READY_URL" >/dev/null
 
-  # Metrics auth can use an existing locally exported token without printing it.
-  if [[ -n "${ZWORKFORCE_METRICS_BEARER:-}" ]]; then
-    curl -fsS -H "Authorization: Bearer $ZWORKFORCE_METRICS_BEARER" "$ZWORKFORCE_METRICS_URL" \
-      | grep -E 'zworkforce_|provider_|queue_' >/dev/null
-  else
+ # Metrics auth can use an existing locally exported token without printing it.
+ if [[ -n "${ZWORKFORCE_METRICS_BEARER:-}" ]]; then
+    printf '%s\n' "Authorization: Bearer $ZWORKFORCE_METRICS_BEARER" |
+      curl -fsS -H @- "$ZWORKFORCE_METRICS_URL" \
+     | grep -E 'zworkforce_|provider_|queue_' >/dev/null
+ else
     die "ZWORKFORCE_METRICS_BEARER required for authenticated metrics evidence"
   fi
 
