@@ -79,10 +79,12 @@ jobs:
     timeout-minutes: 35
     permissions:
       contents: read
+      id-token: write
     env:
       DOTNET_NOLOGO: true
       DOTNET_CLI_TELEMETRY_OPTOUT: true
       NUGET_XMLDOC_MODE: skip
+      WINDOWS_MSIX_PUBLISHER: ${{ vars.WINDOWS_MSIX_PUBLISHER }}
     defaults:
       run:
         shell: pwsh
@@ -95,34 +97,35 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Configure trusted MSIX signing
+      - name: Configure Azure Artifact Signing
         id: signing
         env:
-          WINDOWS_MSIX_PFX_BASE64: ${{ secrets.WINDOWS_MSIX_PFX_BASE64 }}
-          WINDOWS_MSIX_PFX_PASSWORD: ${{ secrets.WINDOWS_MSIX_PFX_PASSWORD }}
-          WINDOWS_MSIX_PUBLISHER: ${{ vars.WINDOWS_MSIX_PUBLISHER }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          AZURE_ARTIFACT_SIGNING_ENDPOINT: ${{ vars.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
+          AZURE_ARTIFACT_SIGNING_ACCOUNT_NAME: ${{ vars.AZURE_ARTIFACT_SIGNING_ACCOUNT_NAME }}
+          AZURE_ARTIFACT_SIGNING_PROFILE_NAME: ${{ vars.AZURE_ARTIFACT_SIGNING_PROFILE_NAME }}
         run: |
-          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_MSIX_PFX_BASE64) -or
-              [string]::IsNullOrWhiteSpace($env:WINDOWS_MSIX_PFX_PASSWORD)) {
+          $azureValues = @(
+              $env:AZURE_CLIENT_ID,
+              $env:AZURE_TENANT_ID,
+              $env:AZURE_SUBSCRIPTION_ID,
+              $env:AZURE_ARTIFACT_SIGNING_ENDPOINT,
+              $env:AZURE_ARTIFACT_SIGNING_ACCOUNT_NAME,
+              $env:AZURE_ARTIFACT_SIGNING_PROFILE_NAME
+          )
+          $present = @($azureValues | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+          if ($present.Count -eq 0) {
               "has_signing=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-              "Trusted MSIX signing secrets are not configured; skipping Windows MSIX release artifacts."
+              "Azure Artifact Signing is not configured; skipping Windows MSIX release artifacts."
               exit 0
           }
-          $pfxPath = Join-Path $env:RUNNER_TEMP "zworkforce-release-signing.pfx"
-          try {
-              $pfxBytes = [Convert]::FromBase64String($env:WINDOWS_MSIX_PFX_BASE64)
-          } catch {
-              throw "WINDOWS_MSIX_PFX_BASE64 is not valid base64."
+          if ($present.Count -ne $azureValues.Count -or [string]::IsNullOrWhiteSpace($env:WINDOWS_MSIX_PUBLISHER)) {
+              throw "Azure Artifact Signing configuration is incomplete; configure the identity, account, profile, endpoint, and publisher together."
           }
-          if ($pfxBytes.Length -eq 0) {
-              throw "WINDOWS_MSIX_PFX_BASE64 decoded to an empty file."
-          }
-          [IO.File]::WriteAllBytes($pfxPath, $pfxBytes)
-          "ZWORKFORCE_MSIX_SIGNING_PFX_PATH=$pfxPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "ZWORKFORCE_MSIX_SIGNING_PFX_PASSWORD=$env:WINDOWS_MSIX_PFX_PASSWORD" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "ZWORKFORCE_MSIX_REQUIRE_TRUSTED_SIGNING=true" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          if (-not [string]::IsNullOrWhiteSpace($env:WINDOWS_MSIX_PUBLISHER)) {
-              "ZWORKFORCE_MSIX_SIGNING_PUBLISHER=$env:WINDOWS_MSIX_PUBLISHER" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          if ($env:AZURE_ARTIFACT_SIGNING_ENDPOINT -notmatch '^https://') {
+              throw "AZURE_ARTIFACT_SIGNING_ENDPOINT must be an HTTPS endpoint."
           }
           "has_signing=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
@@ -144,30 +147,70 @@ jobs:
 
       - name: Package versioned MSIX
         if: steps.signing.outputs.has_signing == 'true'
-        run: ./ZWorkforceClient/build/windows/Package-Client.ps1 -Configuration Release -Platform x64 -Version "${{ needs.prepare-release.outputs.version }}"
+        run: ./ZWorkforceClient/build/windows/Package-Client.ps1 -Configuration Release -Platform x64 -Unsigned -Publisher "$env:WINDOWS_MSIX_PUBLISHER" -Version "${{ needs.prepare-release.outputs.version }}"
+
+      - name: Locate versioned MSIX
+        if: steps.signing.outputs.has_signing == 'true'
+        id: package
+        run: |
+          $packageDirectory = Join-Path $PWD "ZWorkforceClient\out\Release-x64"
+          $expectedVersion = "${{ needs.prepare-release.outputs.version }}.0"
+          $escapedVersion = [regex]::Escape($expectedVersion)
+          $packages = @(Get-ChildItem -LiteralPath $packageDirectory -File |
+              Where-Object {
+                  $_.Extension -in @(".msix", ".msixbundle") -and
+                  $_.Name -match ("_" + $escapedVersion + "_")
+              })
+          if ($packages.Count -ne 1) {
+              throw "Expected exactly one versioned unsigned MSIX artifact, found $($packages.Count)."
+          }
+          "path=$($packages[0].FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Login to Azure for Artifact Signing
+        if: steps.signing.outputs.has_signing == 'true'
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Sign MSIX with Azure Artifact Signing
+        if: steps.signing.outputs.has_signing == 'true'
+        uses: azure/artifact-signing-action@v2
+        with:
+          endpoint: ${{ vars.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.AZURE_ARTIFACT_SIGNING_ACCOUNT_NAME }}
+          certificate-profile-name: ${{ vars.AZURE_ARTIFACT_SIGNING_PROFILE_NAME }}
+          files: ${{ steps.package.outputs.path }}
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          enhanced-key-usage: 1.3.6.1.5.5.7.3.3
+          timeout: 600
+
+      - name: Verify Azure Artifact Signing signature
+        if: steps.signing.outputs.has_signing == 'true'
+        run: |
+          $packagePath = "${{ steps.package.outputs.path }}"
+          $certificatePath = "$packagePath.cer"
+          ./ZWorkforceClient/build/windows/Verify-MSIXSignature.ps1 -PackagePath $packagePath -ExpectedPublisher "$env:WINDOWS_MSIX_PUBLISHER" -ExpectedVersion "${{ needs.prepare-release.outputs.version }}.0" -SignerCertificateOutputPath $certificatePath
 
       - name: Launch smoke check
         if: steps.signing.outputs.has_signing == 'true'
         timeout-minutes: 8
-        run: ./ZWorkforceClient/build/windows/Test-Client.ps1 -Configuration Release -ExpectedVersion "${{ needs.prepare-release.outputs.version }}.0" -LaunchSmoke
+        run: ./ZWorkforceClient/build/windows/Test-Client.ps1 -Configuration Release -PackagePath "${{ steps.package.outputs.path }}" -ExpectedVersion "${{ needs.prepare-release.outputs.version }}.0" -LaunchSmoke -SkipCertificateTrust
 
       - name: Generate Windows checksums
         if: steps.signing.outputs.has_signing == 'true'
         run: |
-          $packageDirectory = Join-Path $PWD "ZWorkforceClient\out\Release-x64"
-          $packages = @(Get-ChildItem -LiteralPath $packageDirectory -File |
-              Where-Object { $_.Extension -in ".msix", ".msixbundle" })
-          if ($packages.Count -eq 0) {
-              throw "No Windows package was produced for the release."
-          }
-          foreach ($package in $packages) {
-              $hash = (Get-FileHash -LiteralPath $package.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-              [IO.File]::WriteAllText(
-                  "$($package.FullName).sha256",
-                  "$hash  $($package.Name)`n",
-                  [Text.UTF8Encoding]::new($false)
-              )
-          }
+          $packagePath = "${{ steps.package.outputs.path }}"
+          $package = Get-Item -LiteralPath $packagePath -ErrorAction Stop
+          $hash = (Get-FileHash -LiteralPath $package.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          [IO.File]::WriteAllText(
+              "$($package.FullName).sha256",
+              "$hash  $($package.Name)$([Environment]::NewLine)",
+              [Text.UTF8Encoding]::new($false)
+          )
 
       - name: Upload Windows release artifact
         if: steps.signing.outputs.has_signing == 'true'
@@ -176,6 +219,7 @@ jobs:
           name: zworkforce-windows-client-${{ github.ref_name }}
           path: |
             ZWorkforceClient/out/Release-x64/*.msix
+            ZWorkforceClient/out/Release-x64/*.msixbundle
             ZWorkforceClient/out/Release-x64/*.cer
             ZWorkforceClient/out/Release-x64/*.sha256
           if-no-files-found: error
@@ -223,6 +267,8 @@ jobs:
           set -euo pipefail
           mkdir -p windows-assets
           python - <<'PY'
+          import hashlib
+          import re
           from pathlib import Path
 
           def require(pattern, root):
@@ -233,14 +279,24 @@ jobs:
           windows_root = Path("windows-assets")
           windows_files = [path for path in windows_root.rglob("*") if path.is_file()]
           if windows_files:
-              try:
-                  require("*.msix", "windows-assets")
-              except AssertionError:
-                  require("*.msixbundle", "windows-assets")
-              require("*.cer", "windows-assets")
-              require("*.sha256", "windows-assets")
+              packages = [
+                  path for pattern in ("*.msix", "*.msixbundle")
+                  for path in windows_root.rglob(pattern)
+                  if path.is_file() and path.stat().st_size > 0
+              ]
+              assert len(packages) == 1, f"expected exactly one Windows package, found {len(packages)}"
+              package = packages[0]
+              certificates = [path for path in windows_root.rglob("*.cer") if path.is_file() and path.stat().st_size > 0]
+              assert certificates, "missing exported public signer certificate"
+              checksums = [path for path in windows_root.rglob("*.sha256") if path.is_file() and path.stat().st_size > 0]
+              assert len(checksums) == 1, f"expected exactly one Windows checksum, found {len(checksums)}"
+              checksum_parts = checksums[0].read_text(encoding="utf-8").strip().split()
+              assert len(checksum_parts) >= 2 and re.fullmatch(r"[0-9a-fA-F]{64}", checksum_parts[0]), "invalid Windows checksum record"
+              assert checksum_parts[1] == package.name, "Windows checksum is for a different package"
+              actual = hashlib.sha256(package.read_bytes()).hexdigest()
+              assert checksum_parts[0].lower() == actual, "Windows package checksum mismatch"
           else:
-              print("Windows release artifacts were skipped because trusted MSIX signing is not configured.")
+              print("Windows release artifacts were skipped because Azure Artifact Signing is not configured.")
           PY
 
       - name: Login to GitHub Container Registry

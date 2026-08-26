@@ -4,6 +4,7 @@ param(
     [string]$Configuration = "Release",
     [ValidatePattern("^\d+\.\d+\.\d+\.\d+$")]
     [string]$ExpectedVersion,
+    [string]$PackagePath,
     [switch]$LaunchSmoke,
     [switch]$InteractiveSmokeWorker,
     [string]$InteractiveSmokeResultPath,
@@ -109,14 +110,22 @@ function Invoke-LaunchSmokeCore {
     }
 
     $packageDirectory = Join-Path $root "out\$Configuration-x64"
-    $package = Get-ChildItem -LiteralPath $packageDirectory -File -Filter "*.msix" |
-        Sort-Object LastWriteTimeUtc |
-        Select-Object -Last 1
-    if ($null -eq $package) {
-        throw "The packaged launch smoke check requires an MSIX under $packageDirectory. Run Package-Client.ps1 first."
+    if (-not [string]::IsNullOrWhiteSpace($PackagePath)) {
+        $package = Get-Item -LiteralPath $PackagePath -ErrorAction Stop
+        if ($package.PSIsContainer -or $package.Extension -notin @(".msix", ".msixbundle")) {
+            throw "PackagePath must point to an .msix or .msixbundle file."
+        }
+    } else {
+        $package = Get-ChildItem -LiteralPath $packageDirectory -File |
+            Where-Object { $_.Extension -in @(".msix", ".msixbundle") } |
+            Sort-Object LastWriteTimeUtc |
+            Select-Object -Last 1
+        if ($null -eq $package) {
+            throw "The packaged launch smoke check requires an MSIX under $packageDirectory. Run Package-Client.ps1 first."
+        }
     }
 
-    $certificate = Get-ChildItem -LiteralPath $packageDirectory -File -Filter "*.cer" |
+    $certificate = Get-ChildItem -LiteralPath $package.Directory.FullName -File -Filter "*.cer" -ErrorAction SilentlyContinue |
         Sort-Object LastWriteTimeUtc |
         Select-Object -Last 1
     $importedCertificateThumbprint = $null
@@ -170,17 +179,31 @@ function Invoke-LaunchSmokeCore {
 }
 
 function Invoke-InteractiveLaunchSmoke {
-    Assert-Administrator
+    param(
+        [switch]$SkipTrust,
+        [switch]$SkipCleanup
+    )
+
+    if (-not $SkipTrust) {
+        Assert-Administrator
+    }
     $activeSessionId = Get-ActiveInteractiveSessionId
     $packageDirectory = Join-Path $root "out\$Configuration-x64"
-    $certificate = Get-ChildItem -LiteralPath $packageDirectory -File -Filter "*.cer" |
-        Sort-Object LastWriteTimeUtc |
-        Select-Object -Last 1
+    $certificate = $null
+    if (-not $SkipTrust) {
+        $certificateDirectory = $packageDirectory
+        if (-not [string]::IsNullOrWhiteSpace($PackagePath)) {
+            $certificateDirectory = (Get-Item -LiteralPath $PackagePath -ErrorAction Stop).Directory.FullName
+        }
+        $certificate = Get-ChildItem -LiteralPath $certificateDirectory -File -Filter "*.cer" -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTimeUtc |
+            Select-Object -Last 1
+    }
     $taskName = "zworkforce-client-smoke-$([Guid]::NewGuid().ToString('N'))"
     $resultPath = Join-Path $env:TEMP "$taskName.result"
     $temporaryCertificateThumbprint = $null
     try {
-        if ($null -ne $certificate) {
+        if ($null -ne $certificate -and -not $SkipTrust) {
             Write-Host "Trusting the temporary package certificate for the interactive smoke worker."
             $temporaryCertificateThumbprint = Import-TemporaryPackageCertificate $certificate.FullName
         }
@@ -196,6 +219,9 @@ function Invoke-InteractiveLaunchSmoke {
         )
         if (-not [string]::IsNullOrWhiteSpace($ExpectedVersion)) {
             $workerArguments += "-ExpectedVersion $(ConvertTo-PowerShellLiteral $ExpectedVersion)"
+        }
+        if (-not [string]::IsNullOrWhiteSpace($PackagePath)) {
+            $workerArguments += "-PackagePath $(ConvertTo-PowerShellLiteral $PackagePath)"
         }
         $workerCommand = "& $(ConvertTo-PowerShellLiteral $scriptPath) " + ($workerArguments -join " ")
         $encodedWorkerCommand = [Convert]::ToBase64String(
@@ -226,7 +252,7 @@ function Invoke-InteractiveLaunchSmoke {
         Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
         Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
         Remove-Item -LiteralPath $resultPath -Force -ErrorAction SilentlyContinue
-        if ($null -ne $temporaryCertificateThumbprint) {
+        if ($null -ne $temporaryCertificateThumbprint -and -not $SkipCleanup) {
             Remove-TemporaryPackageCertificate $temporaryCertificateThumbprint
         }
     }
@@ -250,8 +276,8 @@ if ($LaunchSmoke) {
             throw
         }
     } elseif ((Get-Process -Id $PID).SessionId -eq 0) {
-        Invoke-InteractiveLaunchSmoke
+        Invoke-InteractiveLaunchSmoke -SkipTrust:$SkipCertificateTrust -SkipCleanup:$SkipCertificateCleanup
     } else {
-        Invoke-LaunchSmokeCore
+        Invoke-LaunchSmokeCore -SkipTrust:$SkipCertificateTrust -SkipCleanup:$SkipCertificateCleanup
     }
 }

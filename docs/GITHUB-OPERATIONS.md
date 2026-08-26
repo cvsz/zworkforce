@@ -114,17 +114,23 @@ Use this workflow only when a container publication must be repaired or
 replayed independently of the normal tag-driven release; it is not a shortcut
 around the release evidence gate.
 
-The Windows MSIX release artifact is optional and requires trusted signing
-secrets:
+The Windows MSIX release artifact is optional and requires Azure Artifact
+Signing configured for GitHub Actions OIDC:
 
-- `WINDOWS_MSIX_PFX_BASE64`
-- `WINDOWS_MSIX_PFX_PASSWORD`
-- optional `WINDOWS_MSIX_PUBLISHER`
+- Secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID`;
+- Variables: `AZURE_ARTIFACT_SIGNING_ENDPOINT`,
+  `AZURE_ARTIFACT_SIGNING_ACCOUNT_NAME`,
+  `AZURE_ARTIFACT_SIGNING_PROFILE_NAME`, and `WINDOWS_MSIX_PUBLISHER`.
 
-If those secrets are absent, the Windows artifact job is skipped and the
+The Azure identity must be federated to this repository and granted the minimum
+signing permission on the verified certificate profile. The Windows job builds
+an unsigned package, signs it with `azure/artifact-signing-action@v2`, verifies
+the trusted signature/timestamp/publisher/hash, and only then uploads it. If
+the configuration is absent, the Windows artifact job is skipped and the
 release still publishes Python artifacts, checksums, SBOM, provenance, GHCR
-images, and release notes. Invalid signing secrets fail the release instead of
-publishing an untrusted package.
+images, and release notes. Partial or invalid configuration fails the release;
+self-signed and PFX credentials are development/test paths, not production
+release evidence.
 
 GHCR packages should be kept to immutable semantic tags and active operational
 tags. Remove obsolete experimental images only after confirming no deployment,

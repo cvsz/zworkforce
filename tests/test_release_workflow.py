@@ -14,6 +14,7 @@ HA_VERIFIER = ROOT / "scripts" / "release" / "verify-ha.sh"
 OBS_VERIFIER = ROOT / "scripts" / "release" / "verify-observability.sh"
 WINDOWS_PACKAGE_SCRIPT = ROOT / "ZWorkforceClient" / "build" / "windows" / "Package-Client.ps1"
 WINDOWS_TEST_SCRIPT = ROOT / "ZWorkforceClient" / "build" / "windows" / "Test-Client.ps1"
+WINDOWS_SIGNATURE_SCRIPT = ROOT / "ZWorkforceClient" / "build" / "windows" / "Verify-MSIXSignature.ps1"
 
 
 class ReleaseWorkflowTests(unittest.TestCase):
@@ -24,6 +25,61 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertGreaterEqual(workflow.count("mkdir -p windows-assets"), 2)
         self.assertIn("Windows release artifacts were skipped", workflow)
         self.assertIn("find dist windows-assets -type f -print", workflow)
+
+    def test_release_uses_azure_artifact_signing_with_oidc(self):
+        workflow = RELEASE_WORKFLOW.read_text(encoding="utf-8")
+
+        self.assertIn("id-token: write", workflow)
+        self.assertIn("uses: azure/login@v3", workflow)
+        self.assertIn("uses: azure/artifact-signing-action@v2", workflow)
+        self.assertIn("AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}", workflow)
+        self.assertIn("AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}", workflow)
+        self.assertIn("AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}", workflow)
+        self.assertIn("AZURE_ARTIFACT_SIGNING_ENDPOINT", workflow)
+        self.assertIn("AZURE_ARTIFACT_SIGNING_ACCOUNT_NAME", workflow)
+        self.assertIn("AZURE_ARTIFACT_SIGNING_PROFILE_NAME", workflow)
+        self.assertIn("Package-Client.ps1 -Configuration Release -Platform x64 -Unsigned", workflow)
+        self.assertIn("timestamp-rfc3161: http://timestamp.acs.microsoft.com", workflow)
+        self.assertIn("timestamp-digest: SHA256", workflow)
+        self.assertIn("file-digest: SHA256", workflow)
+        self.assertIn("enhanced-key-usage: 1.3.6.1.5.5.7.3.3", workflow)
+        self.assertNotIn("WINDOWS_MSIX_PFX_BASE64", workflow)
+        self.assertNotIn("Import-PfxCertificate", workflow)
+
+    def test_unsigned_windows_package_is_explicit_and_signature_verifier_is_required(self):
+        package_script = WINDOWS_PACKAGE_SCRIPT.read_text(encoding="utf-8")
+        signature_script = WINDOWS_SIGNATURE_SCRIPT.read_text(encoding="utf-8")
+
+        self.assertIn("[switch]$Unsigned", package_script)
+        self.assertIn("[string]$Publisher", package_script)
+        self.assertIn("AppxPackageSigningEnabled=false", package_script)
+        self.assertIn("Verify-MSIXSignature.ps1", signature_script)
+        self.assertIn("Get-AuthenticodeSignature -LiteralPath", signature_script)
+        self.assertIn('$signature.Status -ne "Valid"', signature_script)
+        self.assertIn("TimeStamperCertificate", signature_script)
+        self.assertIn("X509Chain", signature_script)
+        self.assertIn("AppxSignature.p7x", signature_script)
+        self.assertIn("AppxBlockMap.xml", signature_script)
+        self.assertIn("Code Signing", signature_script)
+        self.assertIn("ExpectedSha256", signature_script)
+
+    def test_external_stage_h_consumes_a_trusted_signed_artifact(self):
+        gates = EXTERNAL_GATES.read_text(encoding="utf-8")
+
+        self.assertIn("WINDOWS_MSIX_EXPECTED_SHA256", gates)
+        self.assertIn("trusted_signing_artifact_required", gates)
+        self.assertIn("Verify-MSIXSignature.ps1", gates)
+        self.assertIn("WINDOWS_MSIX_PUBLISHER", gates)
+        self.assertNotIn("WINDOWS_MSIX_PFX_PASSWORD", gates)
+        self.assertNotIn("WINDOWS_MSIX_SIGNING_PFX_PATH", gates)
+
+    def test_release_policy_requires_azure_artifact_signing(self):
+        policy = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+        self.assertIn("azure/artifact-signing-action@v2", policy)
+        self.assertIn("azure/login@v3", policy)
+        self.assertIn("Package-Client.ps1 -Unsigned", policy)
+        self.assertNotIn("WINDOWS_MSIX_PFX_BASE64", policy)
 
     def test_external_gates_bind_evidence_to_runtime_and_candidate(self):
         gates = EXTERNAL_GATES.read_text(encoding="utf-8")
@@ -156,22 +212,32 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("SessionId", test_script)
         self.assertIn("InteractiveSmokeWorker", test_script)
         self.assertIn("Start-ScheduledTask", test_script)
+        self.assertIn("[string]$PackagePath", test_script)
+        self.assertIn("Get-Item -LiteralPath $PackagePath", test_script)
+        self.assertIn("if (-not $SkipTrust) {\n        Assert-Administrator", test_script)
 
     def test_windows_gate_validates_msix_entries_and_production_certificate_chain(self):
         gates = EXTERNAL_GATES.read_text(encoding="utf-8")
+        signature = WINDOWS_SIGNATURE_SCRIPT.read_text(encoding="utf-8")
 
-        self.assertIn("X509Chain", gates)
-        self.assertIn("AppxSignature.p7x", gates)
-        self.assertIn("AppxBlockMap.xml", gates)
+        for needle in [
+            "X509Chain",
+            "AppxSignature.p7x",
+            "AppxBlockMap.xml",
+            "Get-AuthenticodeSignature -LiteralPath",
+            '$signature.Status -ne "Valid"',
+            "TimeStamperCertificate",
+            "Code Signing",
+            "ExpectedSha256",
+        ]:
+            self.assertIn(needle, signature)
         self.assertIn("expectedPublisher", gates)
         self.assertIn("publisher -ne $expectedPublisher", gates)
         self.assertIn("git status --porcelain", gates)
         self.assertIn("ZWorkforceClient/out/Release-x64", gates)
         self.assertIn("expectedPackageVersion", gates)
         self.assertIn('ps_expected_package_version="$(ps_single_quote "$release_version.0")"', gates)
-        self.assertIn("Get-FileHash -Algorithm SHA256 -LiteralPath $pkg.FullName", gates)
-        self.assertIn("self-signed", gates)
-        self.assertNotIn("Get-AuthenticodeSignature $pkg", gates)
+        self.assertNotIn("self-signed", gates)
 
     def test_windows_gate_reports_signing_blockers_without_powershell_error_prefix(self):
         gates = EXTERNAL_GATES.read_text(encoding="utf-8")
@@ -179,7 +245,8 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("(Get-Variable -Name _ -ValueOnly).Exception.Message", gates)
         self.assertNotIn("[string](Get-Variable -Name _ -ValueOnly)", gates)
         self.assertIn("GATE_FAILURE_STATUS=BLOCKED", gates)
-        self.assertIn("trusted_signing_certificate_required", gates)
+        self.assertIn("trusted_signing_artifact_required", gates)
+        self.assertNotIn("WINDOWS_MSIX_PFX_PASSWORD", gates)
 
 
 if __name__ == "__main__":

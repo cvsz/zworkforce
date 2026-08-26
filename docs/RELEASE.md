@@ -42,14 +42,18 @@ Do not move or reuse an existing release tag. Publish a new patch/minor/major ve
 - OCI provenance and SBOM from BuildKit;
 - GitHub Release with generated release notes and attached artifacts.
 
-The workflow stages the Python artifacts and trusted Windows MSIX in separate
-jobs, then publishes the GHCR image and GitHub Release after the Python release
-gate passes. Windows MSIX artifacts are attached only when trusted signing
-secrets are configured; if those secrets are absent, the release publishes the
-Python artifacts, SBOM, checksums, container image and release notes without
-Windows packages. The publish job creates an empty `windows-assets` staging
-directory when the optional Windows artifact download is skipped, so unsigned
-repositories can still publish the non-Windows release assets.
+The workflow stages the Python artifacts and the trusted Windows MSIX in
+separate jobs, then publishes the GHCR image and GitHub Release after the
+Python release gate passes. The Windows job builds an unsigned package and
+signs that exact file with Azure Artifact Signing through GitHub Actions OIDC;
+it verifies the signature, timestamp, publisher, package identity and hash
+before running the install smoke test. Windows MSIX artifacts are attached only
+when the Azure signing configuration is present; if it is absent, the release
+publishes the Python artifacts, SBOM, checksums, container image and release
+notes without Windows packages. Partial Azure configuration fails closed. The
+publish job creates an empty `windows-assets` staging directory when the
+optional Windows artifact download is skipped, so non-Windows release assets
+remain publishable.
 
 Production deployments should pin the semantic tag or image digest, never `latest`.
 
@@ -73,23 +77,42 @@ canonical release path.
 
 ## Trusted Windows signing
 
-The pull-request Windows workflow deliberately uses a short-lived self-signed
-certificate for package installation smoke tests. A release tag publishes
-Windows MSIX artifacts only when the repository or protected release
-environment provides:
+The pull-request Windows workflow deliberately uses a short-lived development
+certificate for package installation smoke tests. Production release signing
+is post-build and uses Azure Artifact Signing, so the private signing key stays
+inside the managed signing service and is never placed in the repository,
+GitHub Secrets, or the Windows checkout.
 
-- `WINDOWS_MSIX_PFX_BASE64`: base64-encoded organization-issued MSIX signing
-  PFX containing its private key;
-- `WINDOWS_MSIX_PFX_PASSWORD`: the PFX password; and optionally
-- `WINDOWS_MSIX_PUBLISHER`: the exact certificate subject to use as the MSIX
-  publisher (otherwise the package script derives it from the certificate).
+The protected release environment must provide these GitHub Secrets:
 
-The release workflow imports the PFX only on the ephemeral Windows runner,
-patches the package publisher to match the signing identity, and publishes
-only the public `.cer` beside the MSIX. Never commit the PFX, password, or a
-base64 value to the repository. Missing signing secrets skip Windows artifacts;
-invalid signing secrets still fail the Windows job instead of producing a
-package that users cannot trust.
+- `AZURE_CLIENT_ID`;
+- `AZURE_TENANT_ID`; and
+- `AZURE_SUBSCRIPTION_ID`.
+
+It must also provide these GitHub Actions variables:
+
+- `AZURE_ARTIFACT_SIGNING_ENDPOINT` (HTTPS);
+- `AZURE_ARTIFACT_SIGNING_ACCOUNT_NAME`;
+- `AZURE_ARTIFACT_SIGNING_PROFILE_NAME`; and
+- `WINDOWS_MSIX_PUBLISHER`, exactly matching the verified certificate subject.
+
+The Azure identity must have a federated credential for this repository and the
+minimum Artifact Signing permissions on the account/profile. The publisher
+identity verification and certificate profile are operator-owned Azure
+provisioning prerequisites; repository code cannot create or substitute them.
+The workflow builds with `Package-Client.ps1 -Unsigned`, signs with
+`azure/artifact-signing-action@v2` using SHA-256 and an RFC 3161 timestamp, then
+verifies the real package before upload. The uploaded `.cer` contains only the
+public signer certificate. PFX/self-signed paths remain development/test-only
+and are not accepted as production Stage H evidence.
+
+The manual external Stage H verifier additionally reads `WINDOWS_HOST`,
+`WINDOWS_REPO_DIR`, `WINDOWS_MSIX_PUBLISHER`,
+`WINDOWS_MSIX_EXPECTED_SHA256`, and `ZWORKFORCE_HTTPS_ENDPOINT` from the local
+operator environment. `WINDOWS_MSIX_PATH` may point to an explicitly staged
+signed package; otherwise the verifier requires exactly one matching package in
+`ZWorkforceClient/out/Release-x64`. Keep these values in the ignored
+`.env.release`, and populate the hash only from the final signed artifact.
 
 ## Release verification
 

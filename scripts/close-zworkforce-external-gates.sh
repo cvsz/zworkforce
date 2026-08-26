@@ -7,7 +7,7 @@ set -Eeuo pipefail
 #   F - Supabase S3-compatible storage verification (+ optional Qdrant)
 #   E - Multi-replica HA deployment/verification (remote hosts required for external evidence)
 #   G - Observability deployment/verification (OTel Collector + Prometheus + Alertmanager)
-#   H - Windows trusted-signing/build/install verification (remote Windows host supported)
+#   H - Windows trusted-artifact/signature/install verification (remote Windows host supported)
 #
 # IMPORTANT:
 # - This script does NOT tag/publish v3.0.4.
@@ -33,6 +33,9 @@ set -Eeuo pipefail
 #   HA_IMAGE_PULL_POLICY: `always` (default) pulls the exact image; `never`
 #     verifies an explicitly preloaded exact image and uses Compose --pull never
 #     for controlled/air-gapped deployments.
+#   WINDOWS_MSIX_PUBLISHER / WINDOWS_MSIX_EXPECTED_SHA256: expected values for
+#     the operator-provisioned Azure-signed artifact; WINDOWS_MSIX_PATH is an
+#     optional explicit path when the package is not under the release output.
 #
 # See generated .env.release.example.
 
@@ -634,7 +637,7 @@ YAML
 }
 
 # ---------------------------------------------------------------------------
-# Stage H — Windows trusted signing
+# Stage H — Windows trusted artifact verification
 # ---------------------------------------------------------------------------
 
 ps_single_quote(){
@@ -665,9 +668,9 @@ run_h_remote(){
   if [[ "$rc" -eq 255 ]]; then
     GATE_FAILURE_STATUS=FAIL
     GATE_FAILURE_DETAIL=windows_ssh_transport_failed
-  elif [[ "$failure_detail" == "trusted_signing_certificate_required" ]]; then
+  elif [[ "$failure_detail" == "trusted_signing_artifact_required" ]]; then
     GATE_FAILURE_STATUS=BLOCKED
-    GATE_FAILURE_DETAIL=trusted_signing_certificate_required
+    GATE_FAILURE_DETAIL=trusted_signing_artifact_required
   else
     GATE_FAILURE_STATUS=FAIL
     GATE_FAILURE_DETAIL="$failure_detail"
@@ -683,26 +686,33 @@ stage_h(){
 
   : "${WINDOWS_HOST:?set WINDOWS_HOST (OpenSSH-enabled Windows target)}"
   : "${WINDOWS_REPO_DIR:?set WINDOWS_REPO_DIR e.g. C:/src/zworkforce}"
-  : "${WINDOWS_MSIX_PFX_PATH:?set WINDOWS_MSIX_PFX_PATH on Windows host}"
-  : "${WINDOWS_MSIX_PFX_PASSWORD:?set WINDOWS_MSIX_PFX_PASSWORD in secure env}"
-  : "${WINDOWS_MSIX_PUBLISHER:?set WINDOWS_MSIX_PUBLISHER}"
   : "${ZWORKFORCE_HTTPS_ENDPOINT:?set ZWORKFORCE_HTTPS_ENDPOINT}"
+
+  if [[ -z "${WINDOWS_MSIX_PUBLISHER:-}" ||
+        -z "${WINDOWS_MSIX_EXPECTED_SHA256:-}" ||
+        ! "${WINDOWS_MSIX_EXPECTED_SHA256:-}" =~ ^[0-9A-Fa-f]{64}$ ]]; then
+    GATE_FAILURE_STATUS=BLOCKED
+    GATE_FAILURE_DETAIL=trusted_signing_artifact_required
+    die "set WINDOWS_MSIX_PUBLISHER and the SHA-256 of the externally trusted-signed MSIX in WINDOWS_MSIX_EXPECTED_SHA256"
+  fi
 
   local release_version
   release_version="$(PYTHONPATH="$REPO_DIR" python3 -c 'from zworkforce import __version__; print(__version__)')"
 
-  # Never copy/export PFX material from this script. It must already be securely
-  # provisioned on the Windows host.
   note "Stage H: verifying Windows host"
   run_h_remote windows_host_probe '$PSVersionTable.PSVersion.ToString()'
 
-  note "Stage H: build/test/sign package"
-  local ps_repo_dir ps_pfx_path ps_pfx_password ps_publisher ps_expected_package_version
+  note "Stage H: verifying externally signed MSIX artifact"
+  local ps_repo_dir ps_publisher ps_expected_sha ps_expected_package_version ps_configured_package_path
   ps_repo_dir="$(ps_single_quote "$WINDOWS_REPO_DIR")"
-  ps_pfx_path="$(ps_single_quote "$WINDOWS_MSIX_PFX_PATH")"
-  ps_pfx_password="$(ps_single_quote "$WINDOWS_MSIX_PFX_PASSWORD")"
   ps_publisher="$(ps_single_quote "$WINDOWS_MSIX_PUBLISHER")"
+  ps_expected_sha="$(ps_single_quote "${WINDOWS_MSIX_EXPECTED_SHA256^^}")"
   ps_expected_package_version="$(ps_single_quote "$release_version.0")"
+  if [[ -n "${WINDOWS_MSIX_PATH:-}" ]]; then
+    ps_configured_package_path="$(ps_single_quote "$WINDOWS_MSIX_PATH")"
+  else
+    ps_configured_package_path='$null'
+  fi
 
   local candidate_script ps_candidate
   ps_candidate="$(ps_single_quote "$FROZEN_CANDIDATE")"
@@ -716,102 +726,70 @@ stage_h(){
     'Write-Output ("WINDOWS_CANDIDATE=" + $sha)')"
   run_h_remote windows_candidate_verification_failed "$candidate_script"
 
-  local signing_validation_script
-  signing_validation_script="$(printf '%s\n' \
+  # This gate consumes a package signed by the external production signer. It
+  # never builds, exports, imports, or transports private signing material.
+  local artifact_presence_script
+  artifact_presence_script="$(printf '%s\n' \
     "Set-Location $ps_repo_dir" \
-    "\$env:ZWORKFORCE_MSIX_SIGNING_PFX_PATH = $ps_pfx_path" \
-    "\$env:ZWORKFORCE_MSIX_SIGNING_PFX_PASSWORD = $ps_pfx_password" \
-    "\$env:ZWORKFORCE_MSIX_SIGNING_PUBLISHER = $ps_publisher" \
-    "\$env:ZWORKFORCE_MSIX_REQUIRE_TRUSTED_SIGNING = 'true'" \
-    '$signingCertificate = $null' \
-    'try {' \
-    '  try {' \
-    '    $signingCertificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($env:ZWORKFORCE_MSIX_SIGNING_PFX_PATH, $env:ZWORKFORCE_MSIX_SIGNING_PFX_PASSWORD, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::EphemeralKeySet)' \
-    '    if (-not $signingCertificate.HasPrivateKey) { throw "Configured MSIX signing PFX does not contain a private key." }' \
-    '    if ($signingCertificate.NotAfter -le (Get-Date)) { throw "Configured MSIX signing certificate is expired." }' \
-    '    if ($signingCertificate.Subject -eq $signingCertificate.Issuer) { throw "Configured MSIX signing certificate is self-signed; production Stage H requires an enterprise-trusted CA certificate." }' \
-    '    if ($signingCertificate.Subject -ne $env:ZWORKFORCE_MSIX_SIGNING_PUBLISHER) { throw "Configured MSIX signing certificate subject does not match the configured package publisher." }' \
-    '    $ekuExtension = $signingCertificate.Extensions | Where-Object { $_.Oid.Value -eq "2.5.29.37" } | Select-Object -First 1' \
-    '    $hasCodeSigningEku = $false' \
-    '    if ($null -ne $ekuExtension) {' \
-    '      $typedEkuExtension = [System.Security.Cryptography.X509Certificates.X509EnhancedKeyUsageExtension]$ekuExtension' \
-    '      foreach ($oid in $typedEkuExtension.EnhancedKeyUsages) { if ($oid.Value -eq "1.3.6.1.5.5.7.3.3") { $hasCodeSigningEku = $true; break } }' \
-    '    }' \
-    '    if (-not $hasCodeSigningEku) { throw "Configured MSIX signing certificate does not contain the Code Signing EKU." }' \
-    '    $chain = [System.Security.Cryptography.X509Certificates.X509Chain]::new()' \
-    '    try {' \
-    '      $chain.ChainPolicy.RevocationMode = [System.Security.Cryptography.X509Certificates.X509RevocationMode]::Online' \
-    '      $chain.ChainPolicy.RevocationFlag = [System.Security.Cryptography.X509Certificates.X509RevocationFlag]::EntireChain' \
-    '      $chain.ChainPolicy.VerificationFlags = [System.Security.Cryptography.X509Certificates.X509VerificationFlags]::NoFlag' \
-    '      if (-not $chain.Build($signingCertificate)) {' \
-    '        $chainStatuses = @($chain.ChainStatus | ForEach-Object { $_.Status.ToString() }) -join ", "' \
-    '        throw "Configured MSIX signing certificate chain is not trusted: $chainStatuses"' \
-    '      }' \
-    '    } finally {' \
-    '      $chain.Dispose()' \
-    '    }' \
-    '    Write-Output "SIGNING_CERTIFICATE=trusted-code-signing-chain"' \
-    '  } catch {' \
-    '    [Console]::Error.WriteLine($_.Exception.Message)' \
-    '    exit 1' \
-    '  }' \
-    '} finally {' \
-    '  if ($null -ne $signingCertificate) { $signingCertificate.Dispose() }' \
-    '}')"
-  run_h_remote trusted_signing_certificate_required "$signing_validation_script"
+    "\$configuredPackagePath = $ps_configured_package_path" \
+    "\$expectedPackageVersion = $ps_expected_package_version" \
+    "\$packageRoot = Join-Path (Get-Location) 'ZWorkforceClient/out/Release-x64'" \
+    'if ($null -ne $configuredPackagePath) {' \
+    '  $package = Get-Item -LiteralPath $configuredPackagePath -ErrorAction Stop' \
+    '  if ($package.PSIsContainer -or $package.Extension -notin @(".msix", ".msixbundle")) { throw "Configured Windows artifact is not an MSIX package." }' \
+    '} else {' \
+    '  if (-not (Test-Path -LiteralPath $packageRoot -PathType Container)) { throw "Expected Windows package output directory not found." }' \
+    '  $packages = @(Get-ChildItem -LiteralPath $packageRoot -File | Where-Object { $_.Extension -in @(".msix", ".msixbundle") -and $_.Name -match ("_" + [regex]::Escape($expectedPackageVersion) + "_") })' \
+    '  if ($packages.Count -ne 1) { throw "Expected exactly one externally signed versioned MSIX artifact." }' \
+    '  $package = $packages[0]' \
+    '}' \
+    'Write-Output ("PACKAGE=" + $package.FullName)' \
+    'Write-Output ("PACKAGE_VERSION=" + $expectedPackageVersion)')"
+  run_h_remote trusted_signing_artifact_required "$artifact_presence_script"
 
-  local build_script
-  build_script="$(printf '%s\n' \
-    "Set-Location $ps_repo_dir" \
-    "\$env:ZWORKFORCE_MSIX_SIGNING_PFX_PATH = $ps_pfx_path" \
-    "\$env:ZWORKFORCE_MSIX_SIGNING_PFX_PASSWORD = $ps_pfx_password" \
-    "\$env:ZWORKFORCE_MSIX_SIGNING_PUBLISHER = $ps_publisher" \
-    "\$env:ZWORKFORCE_MSIX_REQUIRE_TRUSTED_SIGNING = 'true'" \
-    "& ./ZWorkforceClient/build/windows/Build-Client.ps1 -Configuration Release -Platform x64; if (-not \$?) { exit 1 }" \
-    "& ./ZWorkforceClient/build/windows/Test-Client.ps1 -Configuration Release; if (-not \$?) { exit 1 }" \
-    "& ./ZWorkforceClient/build/windows/Package-Client.ps1 -Configuration Release -Platform x64 -Version '$release_version'; if (-not \$?) { exit 1 }" \
-    "& ./ZWorkforceClient/build/windows/Test-Client.ps1 -Configuration Release -ExpectedVersion '$release_version.0' -LaunchSmoke; if (-not \$?) { exit 1 }")"
-  run_h_remote windows_build_or_test_failed "$build_script"
-
-  # Find newest MSIX/MSIXBundle and validate the package structure + hash.
-  # Add-AppxPackage in the preceding launch smoke is the Windows-side
-  # signature/trust verification; Authenticode is not the MSIX verification
-  # API and can report UnknownError for a valid package signature block.
-  local inspect_script
-  inspect_script="$(printf '%s\n' \
+  local signature_script
+  signature_script="$(printf '%s\n' \
     "Set-Location $ps_repo_dir" \
     "\$expectedPublisher = $ps_publisher" \
     "\$expectedPackageVersion = $ps_expected_package_version" \
+    "\$expectedSha256 = $ps_expected_sha" \
+    "\$configuredPackagePath = $ps_configured_package_path" \
     "\$packageRoot = Join-Path (Get-Location) 'ZWorkforceClient/out/Release-x64'" \
-    'if (-not (Test-Path -LiteralPath $packageRoot -PathType Container)) { [Console]::Error.WriteLine("Expected Windows package output directory not found"); exit 1 }' \
-    '$packages = @(Get-ChildItem -LiteralPath $packageRoot -Recurse -File | Where-Object { $_.Extension -in @(".msix", ".msixbundle") -and $_.Name -match ("_" + [regex]::Escape($expectedPackageVersion) + "_") } | Sort-Object LastWriteTime -Descending)' \
-    'if ($packages.Count -eq 0) { [Console]::Error.WriteLine("MSIX/MSIXBundle not found"); exit 1 }' \
-    '$pkg = $packages[0]' \
-    'Add-Type -AssemblyName System.IO.Compression.FileSystem' \
-    '$archive = [System.IO.Compression.ZipFile]::OpenRead($pkg.FullName)' \
-    'try {' \
-    '  $signatureEntry = $archive.GetEntry("AppxSignature.p7x")' \
-    '  $blockMapEntry = $archive.GetEntry("AppxBlockMap.xml")' \
-    '  $manifestEntry = $archive.GetEntry("AppxManifest.xml")' \
-    '  if ($null -eq $manifestEntry) { $manifestEntry = $archive.GetEntry("AppxBundleManifest.xml") }' \
-    '  if ($null -eq $signatureEntry) { throw "MSIX package is missing AppxSignature.p7x." }' \
-    '  if ($null -eq $blockMapEntry) { throw "MSIX package is missing AppxBlockMap.xml." }' \
-    '  if ($null -eq $manifestEntry) { throw "MSIX package is missing its manifest." }' \
-    '  $manifestReader = [System.IO.StreamReader]::new($manifestEntry.Open())' \
-    '  try { $manifestXml = [xml]$manifestReader.ReadToEnd() } finally { $manifestReader.Dispose() }' \
-    '  $publisher = [string]$manifestXml.Package.Identity.Publisher' \
-    '  if ([string]::IsNullOrWhiteSpace($publisher)) { $publisher = [string]$manifestXml.Bundle.Identity.Publisher }' \
-    '  if ([string]::IsNullOrWhiteSpace($publisher)) { throw "MSIX manifest does not contain a publisher." }' \
-    '} finally {' \
-    '  $archive.Dispose()' \
+    'if ($null -ne $configuredPackagePath) {' \
+    '  $package = Get-Item -LiteralPath $configuredPackagePath -ErrorAction Stop' \
+    '  if ($package.PSIsContainer -or $package.Extension -notin @(".msix", ".msixbundle")) { throw "Configured Windows artifact is not an MSIX package." }' \
+    '} else {' \
+    '  if (-not (Test-Path -LiteralPath $packageRoot -PathType Container)) { throw "Expected Windows package output directory not found." }' \
+    '  $packages = @(Get-ChildItem -LiteralPath $packageRoot -File | Where-Object { $_.Extension -in @(".msix", ".msixbundle") -and $_.Name -match ("_" + [regex]::Escape($expectedPackageVersion) + "_") })' \
+    '  if ($packages.Count -ne 1) { throw "Expected exactly one externally signed versioned MSIX artifact." }' \
+    '  $package = $packages[0]' \
     '}' \
-    'if ($publisher -ne $expectedPublisher) { throw "MSIX publisher does not match the trusted signing identity." }' \
-    '$hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $pkg.FullName).Hash' \
-    'Write-Output ("PACKAGE=" + $pkg.Name)' \
-    'Write-Output ("SHA256=" + $hash)' \
-    'Write-Output ("PUBLISHER=" + $publisher)' \
-    'Write-Output "SIGNATURE=MSIX_APPX_SIGNATURE_PRESENT"')"
-  run_h_remote windows_msix_validation_failed "$inspect_script"
+    "\$verification = @(& ./ZWorkforceClient/build/windows/Verify-MSIXSignature.ps1 -PackagePath \$package.FullName -ExpectedPublisher \$expectedPublisher -ExpectedVersion '$release_version.0' -ExpectedSha256 \$expectedSha256)" \
+    'if (-not $?) { exit 1 }' \
+    '$publisherLine = $verification | Where-Object { $_ -like "PUBLISHER=*" } | Select-Object -Last 1' \
+    'if ($null -eq $publisherLine) { throw "MSIX signature verifier did not return a publisher." }' \
+    '$publisher = $publisherLine.Substring("PUBLISHER=".Length)' \
+    'if ($publisher -ne $expectedPublisher) { throw "MSIX publisher does not match the expected trusted signing identity." }' \
+    '$verification | Write-Output')"
+  run_h_remote windows_msix_signature_invalid "$signature_script"
+
+  local smoke_script
+  smoke_script="$(printf '%s\n' \
+    "Set-Location $ps_repo_dir" \
+    "\$expectedPackageVersion = $ps_expected_package_version" \
+    "\$configuredPackagePath = $ps_configured_package_path" \
+    "\$packageRoot = Join-Path (Get-Location) 'ZWorkforceClient/out/Release-x64'" \
+    'if ($null -ne $configuredPackagePath) {' \
+    '  $package = Get-Item -LiteralPath $configuredPackagePath -ErrorAction Stop' \
+    '} else {' \
+    '  if (-not (Test-Path -LiteralPath $packageRoot -PathType Container)) { throw "Expected Windows package output directory not found." }' \
+    '  $packages = @(Get-ChildItem -LiteralPath $packageRoot -File | Where-Object { $_.Extension -in @(".msix", ".msixbundle") -and $_.Name -match ("_" + [regex]::Escape($expectedPackageVersion) + "_") })' \
+    '  if ($packages.Count -ne 1) { throw "Expected exactly one externally signed versioned MSIX artifact." }' \
+    '  $package = $packages[0]' \
+    '}' \
+    '& ./ZWorkforceClient/build/windows/Test-Client.ps1 -Configuration Release -PackagePath $package.FullName -ExpectedVersion $expectedPackageVersion -LaunchSmoke -SkipCertificateTrust' \
+    'if (-not $?) { exit 1 }')"
+  run_h_remote windows_msix_install_smoke_failed "$smoke_script"
 
   # Live HTTPS endpoint check from Windows host. The helper already returns a
   # complete PowerShell single-quoted literal; do not add a second quote pair.
@@ -832,7 +810,7 @@ stage_h(){
     fi
   fi
 
-  mark H PASS "trusted_windows_signing_verified"
+  mark H PASS "trusted_windows_artifact_verified"
   note "STAGE H VERDICT: PASS"
 }
 

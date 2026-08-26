@@ -204,7 +204,8 @@ OUTPUT CONTRACT:
 2. Run Python, Z.A.R.V.I.S., Windows, security, dependency and release gates.
 3. Verify SBOM, checksums, provenance and GHCR image tags.
 4. Publish an immutable tag only from a commit reachable from `main`.
-5. Attach Windows MSIX only when trusted signing secrets are configured.
+5. Attach Windows MSIX only when Azure Artifact Signing is configured through
+   GitHub Actions OIDC and the resulting package passes signature verification.
 
 ### Production incident workflow
 
