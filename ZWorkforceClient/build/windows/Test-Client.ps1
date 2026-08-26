@@ -4,63 +4,69 @@ param(
     [string]$Configuration = "Release",
     [ValidatePattern("^\d+\.\d+\.\d+\.\d+$")]
     [string]$ExpectedVersion,
-    [switch]$LaunchSmoke
+    [switch]$LaunchSmoke,
+    [switch]$InteractiveSmokeWorker,
+    [string]$InteractiveSmokeResultPath,
+    [switch]$SkipCoreTests,
+    [switch]$SkipCertificateTrust,
+    [switch]$SkipCertificateCleanup
 )
 
 $ErrorActionPreference = "Stop"
 $root = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
 $solution = Join-Path $root "ZWorkforceClient.sln"
 $appProject = Join-Path $root "src\ZWorkforceClient\ZWorkforceClient.csproj"
+$scriptPath = (Resolve-Path $PSCommandPath).Path
 
 function Remove-ClientPackage([string]$PackageFullName) {
     if ([string]::IsNullOrWhiteSpace($PackageFullName)) {
         return
     }
 
-    $removalJob = Start-Job -ScriptBlock {
-        param($FullName)
-        Remove-AppxPackage -Package $FullName -ForceApplicationShutdown -ErrorAction SilentlyContinue
-    } -ArgumentList $PackageFullName
     try {
-        if ($null -eq (Wait-Job -Job $removalJob -Timeout 30)) {
-            Write-Warning "Timed out removing packaged client $PackageFullName; the ephemeral runner will discard it."
-            Stop-Job -Job $removalJob -ErrorAction SilentlyContinue
-        } else {
-            Receive-Job -Job $removalJob -ErrorAction SilentlyContinue | Out-Null
-        }
-    } finally {
-        Remove-Job -Job $removalJob -Force -ErrorAction SilentlyContinue
+        Remove-AppxPackage -Package $PackageFullName -ForceApplicationShutdown -ErrorAction Stop
+    } catch {
+        Write-Warning "Could not remove packaged client ${PackageFullName}: $($_.Exception.Message)"
     }
 }
 
 function Find-ClientPackage {
-    $queryJob = Start-Job -ScriptBlock {
-        Get-AppxPackage -Name "cvsz.ZWorkforceClient" -ErrorAction SilentlyContinue |
-            Sort-Object Version -Descending |
-            Select-Object -First 1 PackageFullName, PackageFamilyName, Version
-    }
-    try {
-        if ($null -eq (Wait-Job -Job $queryJob -Timeout 30)) {
-            Write-Warning "Timed out querying the packaged client; continuing without a stale-package cleanup."
-            Stop-Job -Job $queryJob -ErrorAction SilentlyContinue
-            return $null
-        }
-        return Receive-Job -Job $queryJob -ErrorAction SilentlyContinue |
-            Select-Object -First 1
-    } finally {
-        Remove-Job -Job $queryJob -Force -ErrorAction SilentlyContinue
-    }
+    return Get-AppxPackage -Name "cvsz.ZWorkforceClient" -ErrorAction SilentlyContinue |
+        Sort-Object Version -Descending |
+        Select-Object -First 1 PackageFullName, PackageFamilyName, Version
 }
 
-function Invoke-Certutil([string[]]$Arguments) {
-    $process = Start-Process -FilePath "certutil.exe" -ArgumentList $Arguments -NoNewWindow -PassThru
-    if (-not $process.WaitForExit(60 * 1000)) {
-        $process.Kill()
-        throw "certutil.exe timed out while updating the machine certificate store."
+function Import-TemporaryPackageCertificate([string]$CertificatePath) {
+    if ([string]::IsNullOrWhiteSpace($CertificatePath)) {
+        return $null
     }
-    if ($process.ExitCode -ne 0) {
-        throw "certutil.exe failed with exit code $($process.ExitCode)."
+
+    $certificateDetails = Get-PfxCertificate -FilePath $CertificatePath
+    if ($null -eq $certificateDetails -or [string]::IsNullOrWhiteSpace($certificateDetails.Thumbprint)) {
+        throw "Could not read the package certificate thumbprint from $CertificatePath."
     }
+    $thumbprint = $certificateDetails.Thumbprint.Replace(' ', '').ToUpperInvariant()
+    $existing = @(Get-ChildItem -LiteralPath "Cert:\LocalMachine\TrustedPeople" -ErrorAction SilentlyContinue |
+        Where-Object { $_.Thumbprint.Replace(' ', '').ToUpperInvariant() -eq $thumbprint })
+    if ($existing.Count -eq 0) {
+        Import-Certificate -FilePath $CertificatePath -CertStoreLocation "Cert:\LocalMachine\TrustedPeople" | Out-Null
+        return $thumbprint
+    }
+    return $null
+}
+
+function Remove-TemporaryPackageCertificate([string]$Thumbprint) {
+    if ([string]::IsNullOrWhiteSpace($Thumbprint)) {
+        return
+    }
+
+    Remove-Item -LiteralPath "Cert:\LocalMachine\TrustedPeople\$Thumbprint" -Force -ErrorAction Stop
+    $remaining = @(Get-ChildItem -LiteralPath "Cert:\LocalMachine\TrustedPeople" -ErrorAction Stop |
+        Where-Object { $_.Thumbprint.Replace(' ', '').ToUpperInvariant() -eq $Thumbprint })
+    if ($remaining.Count -ne 0) {
+        throw "The temporary package certificate $Thumbprint is still present in the machine Trusted People store."
+    }
+    Write-Host "Removed the temporary package certificate from the machine Trusted People store."
 }
 
 function Assert-Administrator {
@@ -71,11 +77,37 @@ function Assert-Administrator {
     }
 }
 
-& dotnet test $solution --configuration $Configuration --property:Platform=x64 --no-restore
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+function ConvertTo-PowerShellLiteral([string]$Value) {
+    return "'" + $Value.Replace("'", "''") + "'"
+}
 
-if ($LaunchSmoke) {
-    Assert-Administrator
+function Get-ActiveInteractiveSessionId {
+    $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+    $explorers = @(Get-Process -Name "explorer" -IncludeUserName -ErrorAction SilentlyContinue |
+        Where-Object { $_.SessionId -gt 0 -and $_.UserName -eq $currentUser })
+    $sessionIds = @($explorers | Select-Object -ExpandProperty SessionId -Unique)
+    if ($sessionIds.Count -eq 0) {
+        throw "The packaged launch smoke check requires an active desktop session for $currentUser; SSH session 0 cannot deploy an AppX package."
+    }
+    if ($sessionIds.Count -ne 1) {
+        throw "The packaged launch smoke check found multiple active desktop sessions for $currentUser; use one unambiguous console session."
+    }
+    return [int]$sessionIds[0]
+}
+
+function Invoke-LaunchSmokeCore {
+    param(
+        [switch]$SkipTrust,
+        [switch]$SkipCleanup
+    )
+
+    if (-not $SkipTrust) {
+        Assert-Administrator
+    }
+    if ((Get-Process -Id $PID).SessionId -eq 0) {
+        throw "The packaged launch smoke worker is running in session 0; rerun it from the active Windows desktop session."
+    }
+
     $packageDirectory = Join-Path $root "out\$Configuration-x64"
     $package = Get-ChildItem -LiteralPath $packageDirectory -File -Filter "*.msix" |
         Sort-Object LastWriteTimeUtc |
@@ -96,31 +128,13 @@ if ($LaunchSmoke) {
             Remove-ClientPackage $previousPackage.PackageFullName
         }
 
-        if ($null -ne $certificate) {
+        if ($null -ne $certificate -and -not $SkipTrust) {
             Write-Host "Trusting the temporary package certificate for this smoke check."
-            $certificateDetails = Get-PfxCertificate -FilePath $certificate.FullName
-            if ($null -eq $certificateDetails -or [string]::IsNullOrWhiteSpace($certificateDetails.Thumbprint)) {
-                throw "Could not read the temporary package certificate thumbprint from $($certificate.FullName)."
-            }
-            $quotedCertificatePath = '"' + $certificate.FullName + '"'
-            Invoke-Certutil @("-f", "-addstore", "TrustedPeople", $quotedCertificatePath)
-            $importedCertificateThumbprint = $certificateDetails.Thumbprint.Replace(' ', '').ToUpperInvariant()
+            $importedCertificateThumbprint = Import-TemporaryPackageCertificate $certificate.FullName
         }
 
         Write-Host "Installing the packaged client."
-        $installationJob = Start-Job -ScriptBlock {
-            param($PackagePath)
-            Add-AppxPackage -Path $PackagePath -ForceApplicationShutdown -ErrorAction Stop
-        } -ArgumentList $package.FullName
-        try {
-            if ($null -eq (Wait-Job -Job $installationJob -Timeout 180)) {
-                Stop-Job -Job $installationJob -ErrorAction SilentlyContinue
-                throw "Timed out installing the packaged client MSIX."
-            }
-            Receive-Job -Job $installationJob -ErrorAction Stop | Out-Null
-        } finally {
-            Remove-Job -Job $installationJob -Force -ErrorAction SilentlyContinue
-        }
+        Add-AppxPackage -Path $package.FullName -ForceApplicationShutdown -ErrorAction Stop
 
         Write-Host "Resolving the installed package identity."
         $installedPackage = Find-ClientPackage
@@ -136,6 +150,7 @@ if ($LaunchSmoke) {
         Start-Process -FilePath "explorer.exe" -ArgumentList $appShellId | Out-Null
         Start-Sleep -Seconds 8
         $process = Get-Process -Name "ZWorkforceClient" -ErrorAction SilentlyContinue |
+            Where-Object { $_.SessionId -eq (Get-Process -Id $PID).SessionId } |
             Select-Object -First 1
         if ($null -eq $process) {
             throw "The packaged client did not remain running after launch."
@@ -143,22 +158,100 @@ if ($LaunchSmoke) {
         Write-Host "Windows client launch smoke check is alive (PID $($process.Id))."
     } finally {
         Get-Process -Name "ZWorkforceClient" -ErrorAction SilentlyContinue |
+            Where-Object { $_.SessionId -eq (Get-Process -Id $PID).SessionId } |
             Stop-Process -Force -ErrorAction SilentlyContinue
         if ($null -ne $installedPackage) {
             Remove-ClientPackage $installedPackage.PackageFullName
         }
-        if ($null -ne $importedCertificateThumbprint) {
-            try {
-                Invoke-Certutil @("-delstore", "TrustedPeople", $importedCertificateThumbprint)
-                $remainingCertificates = @(Get-ChildItem -Path "Cert:\LocalMachine\TrustedPeople" -ErrorAction Stop |
-                    Where-Object { $_.Thumbprint.Replace(' ', '').ToUpperInvariant() -eq $importedCertificateThumbprint })
-                if ($remainingCertificates.Count -ne 0) {
-                    throw "The temporary package certificate $importedCertificateThumbprint is still present in the machine Trusted People store."
-                }
-                Write-Host "Removed the temporary package certificate from the machine Trusted People store."
-            } catch {
-                throw "Could not remove the temporary package certificate: $($_.Exception.Message)"
-            }
+        if ($null -ne $importedCertificateThumbprint -and -not $SkipCleanup) {
+            Remove-TemporaryPackageCertificate $importedCertificateThumbprint
         }
+    }
+}
+
+function Invoke-InteractiveLaunchSmoke {
+    Assert-Administrator
+    $activeSessionId = Get-ActiveInteractiveSessionId
+    $packageDirectory = Join-Path $root "out\$Configuration-x64"
+    $certificate = Get-ChildItem -LiteralPath $packageDirectory -File -Filter "*.cer" |
+        Sort-Object LastWriteTimeUtc |
+        Select-Object -Last 1
+    $taskName = "zworkforce-client-smoke-$([Guid]::NewGuid().ToString('N'))"
+    $resultPath = Join-Path $env:TEMP "$taskName.result"
+    $temporaryCertificateThumbprint = $null
+    try {
+        if ($null -ne $certificate) {
+            Write-Host "Trusting the temporary package certificate for the interactive smoke worker."
+            $temporaryCertificateThumbprint = Import-TemporaryPackageCertificate $certificate.FullName
+        }
+
+        $workerArguments = @(
+            "-Configuration $(ConvertTo-PowerShellLiteral $Configuration)",
+            "-LaunchSmoke",
+            "-InteractiveSmokeWorker",
+            "-InteractiveSmokeResultPath $(ConvertTo-PowerShellLiteral $resultPath)",
+            "-SkipCoreTests",
+            "-SkipCertificateTrust",
+            "-SkipCertificateCleanup"
+        )
+        if (-not [string]::IsNullOrWhiteSpace($ExpectedVersion)) {
+            $workerArguments += "-ExpectedVersion $(ConvertTo-PowerShellLiteral $ExpectedVersion)"
+        }
+        $workerCommand = "& $(ConvertTo-PowerShellLiteral $scriptPath) " + ($workerArguments -join " ")
+        $encodedWorkerCommand = [Convert]::ToBase64String(
+            [Text.Encoding]::Unicode.GetBytes($workerCommand))
+        $pwsh = (Get-Command pwsh.exe -ErrorAction Stop).Source
+        $action = New-ScheduledTaskAction -Execute $pwsh -Argument "-NoProfile -NonInteractive -EncodedCommand $encodedWorkerCommand"
+        $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1)
+        $user = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+        $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
+        $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 10)
+        Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
+        Write-Host "Running interactive launch smoke worker in session $activeSessionId."
+        Start-ScheduledTask -TaskName $taskName
+
+        for ($i = 0; $i -lt 300 -and -not (Test-Path -LiteralPath $resultPath); $i++) {
+            Start-Sleep -Seconds 1
+        }
+        if (-not (Test-Path -LiteralPath $resultPath)) {
+            $taskInfo = Get-ScheduledTaskInfo -TaskName $taskName -ErrorAction SilentlyContinue
+            $lastResult = if ($null -eq $taskInfo) { "unknown" } else { $taskInfo.LastTaskResult }
+            throw "Interactive launch smoke worker did not finish; Task Scheduler result: $lastResult."
+        }
+        $result = (Get-Content -LiteralPath $resultPath -Raw).Trim()
+        if ($result -notlike "PASS*") {
+            throw "Interactive launch smoke worker failed: $result"
+        }
+    } finally {
+        Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $resultPath -Force -ErrorAction SilentlyContinue
+        if ($null -ne $temporaryCertificateThumbprint) {
+            Remove-TemporaryPackageCertificate $temporaryCertificateThumbprint
+        }
+    }
+}
+
+if (-not $SkipCoreTests) {
+    & dotnet test $solution --configuration $Configuration --property:Platform=x64 --no-restore
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+
+if ($LaunchSmoke) {
+    if ($InteractiveSmokeWorker) {
+        if ([string]::IsNullOrWhiteSpace($InteractiveSmokeResultPath)) {
+            throw "InteractiveSmokeResultPath is required for the interactive launch smoke worker."
+        }
+        try {
+            Invoke-LaunchSmokeCore -SkipTrust:$SkipCertificateTrust -SkipCleanup:$SkipCertificateCleanup
+            [IO.File]::WriteAllText($InteractiveSmokeResultPath, "PASS")
+        } catch {
+            [IO.File]::WriteAllText($InteractiveSmokeResultPath, "FAIL=$($_.Exception.Message)")
+            throw
+        }
+    } elseif ((Get-Process -Id $PID).SessionId -eq 0) {
+        Invoke-InteractiveLaunchSmoke
+    } else {
+        Invoke-LaunchSmokeCore
     }
 }

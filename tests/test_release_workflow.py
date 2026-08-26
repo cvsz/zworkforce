@@ -12,6 +12,8 @@ RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
 EXTERNAL_GATES = ROOT / "scripts" / "close-zworkforce-external-gates.sh"
 HA_VERIFIER = ROOT / "scripts" / "release" / "verify-ha.sh"
 OBS_VERIFIER = ROOT / "scripts" / "release" / "verify-observability.sh"
+WINDOWS_PACKAGE_SCRIPT = ROOT / "ZWorkforceClient" / "build" / "windows" / "Package-Client.ps1"
+WINDOWS_TEST_SCRIPT = ROOT / "ZWorkforceClient" / "build" / "windows" / "Test-Client.ps1"
 
 
 class ReleaseWorkflowTests(unittest.TestCase):
@@ -132,6 +134,24 @@ class ReleaseWorkflowTests(unittest.TestCase):
         gates = EXTERNAL_GATES.read_text(encoding="utf-8")
         self.assertIn('-H @-', gates)
         self.assertNotIn('curl -fsS -H "Authorization: Bearer $ZWORKFORCE_METRICS_BEARER"', gates)
+
+    def test_windows_external_pfx_is_available_to_msbuild_certificate_lookup(self):
+        package_script = WINDOWS_PACKAGE_SCRIPT.read_text(encoding="utf-8")
+
+        self.assertIn("Import-PfxCertificate", package_script)
+        self.assertIn("Cert:\\CurrentUser\\My", package_script)
+        self.assertIn("PackageCertificateThumbprint", package_script)
+        self.assertIn("Remove-Item -LiteralPath", package_script)
+
+    def test_windows_launch_smoke_handoffs_session_zero_to_active_user(self):
+        test_script = WINDOWS_TEST_SCRIPT.read_text(encoding="utf-8")
+
+        self.assertIn("Register-ScheduledTask", test_script)
+        self.assertIn("New-ScheduledTaskPrincipal", test_script)
+        self.assertIn("-LogonType Interactive", test_script)
+        self.assertIn("SessionId", test_script)
+        self.assertIn("InteractiveSmokeWorker", test_script)
+        self.assertIn("Start-ScheduledTask", test_script)
 
 
 if __name__ == "__main__":

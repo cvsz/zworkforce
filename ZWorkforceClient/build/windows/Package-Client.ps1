@@ -34,8 +34,10 @@ New-Item -ItemType Directory -Force -Path $output | Out-Null
 
 $certificate = $null
 $generatedSigningCertificate = $false
+$importedSigningCertificate = $false
 $certificatePassword = $null
 $pfxPath = $null
+$signingCertificateThumbprint = $null
 $originalManifestBytes = [IO.File]::ReadAllBytes($manifestPath)
 try {
     Get-ChildItem -LiteralPath $output -Force -ErrorAction SilentlyContinue |
@@ -78,6 +80,27 @@ try {
         if ($certificate.NotAfter -le (Get-Date)) {
             throw "The configured MSIX signing certificate is expired."
         }
+        $signingCertificateThumbprint = $certificate.Thumbprint.Replace(' ', '').ToUpperInvariant()
+        $existingSigningCertificate = Get-ChildItem -LiteralPath "Cert:\CurrentUser\My" -ErrorAction SilentlyContinue |
+            Where-Object { $_.Thumbprint.Replace(' ', '').ToUpperInvariant() -eq $signingCertificateThumbprint } |
+            Select-Object -First 1
+        if ($null -ne $existingSigningCertificate -and -not $existingSigningCertificate.HasPrivateKey) {
+            throw "The configured MSIX signing certificate already exists in the current user store without a private key; refusing to replace it automatically."
+        }
+        if ($null -eq $existingSigningCertificate) {
+            $securePfxPassword = ConvertTo-SecureString $signingPfxPassword -AsPlainText -Force
+            $importedStoreCertificates = @(Import-PfxCertificate `
+                -FilePath $signingPfxPath `
+                -Password $securePfxPassword `
+                -CertStoreLocation "Cert:\CurrentUser\My")
+            $importedStoreCertificate = $importedStoreCertificates |
+                Where-Object { $_.Thumbprint.Replace(' ', '').ToUpperInvariant() -eq $signingCertificateThumbprint } |
+                Select-Object -First 1
+            if ($null -eq $importedStoreCertificate) {
+                throw "The configured MSIX signing PFX did not import its signing certificate into the current user store."
+            }
+            $importedSigningCertificate = $true
+        }
         $pfxPath = $signingPfxPath
         $certificatePassword = $signingPfxPassword
         Export-Certificate -Cert $certificate -FilePath $cerPath -Force | Out-Null
@@ -90,6 +113,7 @@ try {
             -KeyExportPolicy Exportable `
             -NotAfter (Get-Date).AddDays(7)
         $generatedSigningCertificate = $true
+        $signingCertificateThumbprint = $certificate.Thumbprint.Replace(' ', '').ToUpperInvariant()
         $certificatePassword = [Guid]::NewGuid().ToString("N")
         $secureCertificatePassword = ConvertTo-SecureString $certificatePassword -AsPlainText -Force
         Export-PfxCertificate -Cert $certificate -FilePath $temporaryPfxPath -Password $secureCertificatePassword | Out-Null
@@ -140,6 +164,9 @@ try {
 }
 finally {
     [IO.File]::WriteAllBytes($manifestPath, $originalManifestBytes)
+    if ($importedSigningCertificate -and -not [string]::IsNullOrWhiteSpace($signingCertificateThumbprint)) {
+        Remove-Item -LiteralPath "Cert:\CurrentUser\My\$signingCertificateThumbprint" -Force -ErrorAction SilentlyContinue
+    }
     if ($generatedSigningCertificate -and $null -ne $certificate) {
         Remove-Item -LiteralPath "Cert:\CurrentUser\My\$($certificate.Thumbprint)" -Force -ErrorAction SilentlyContinue
     }
