@@ -1,19 +1,14 @@
-# Production Release Evidence — zWorkforce v3.0.4
+# Production Release Evidence — zWorkforce v3.0.4 corrective candidate (provisional)
 
-`v3.0.3` is an immutable published predecessor. It was published before the
-external GO evidence was complete and its exact HA image verification exposed
-two production defects: the image omitted the S3 runtime extra and its HA
-healthcheck invoked `curl`, which is not installed in the image. It must not be
-retagged or treated as the production promotion target. This ledger tracks the
-corrective `v3.0.4` candidate.
+`v3.0.3` is an immutable published predecessor. It was published before the external GO evidence was complete and its exact HA image verification exposed two production defects: the image omitted the S3 runtime extra and its HA healthcheck invoked `curl`, which is not installed in the image. It must not be retagged or treated as the production promotion target.
 
-This ledger is the evidence boundary between repository-complete release readiness and environment-complete production readiness.
+This ledger tracks the corrective `v3.0.4` line while preserving a strict boundary between repository-complete evidence and environment-complete production evidence.
 
-**Rule:** an item remains `PENDING EXTERNAL EVIDENCE` until an operator records the real environment, timestamp, command or run URL, result, and durable artifact/reference. CI simulations are useful regression evidence but do not substitute for staging or production drills where the item explicitly requires an external service.
+**Rule:** an item remains `PENDING EXTERNAL EVIDENCE` until an operator records the real environment, timestamp, command or run URL, result, and durable artifact/reference. CI output, source code, image tags, and transient terminal observations do not substitute for a durable external run record when the gate explicitly requires environment evidence.
 
-## Production topology (v3.0.4)
+## Production topology
 
-The v3.0.4 release candidate is validated against a **HA Runtime VM x2 + Observability** topology:
+The intended production topology remains:
 
 ```text
 Cloudflare
@@ -25,156 +20,96 @@ Cloudflare
    |             +-- ha-a.zeaz.dev -> VM-A (192.168.74.134)
    |             +-- ha-b.zeaz.dev -> VM-B (192.168.74.135)
    |
-   +-- obs.zeaz.dev -> VM-B observability (192.168.74.134)
+   +-- obs.zeaz.dev -> VM-B observability
 
 VM-A                     VM-B
-API (9456)               API (9456)
+API                      API
 scheduler-A              scheduler-B
 worker-A                 worker-B
 outbox-A                 outbox-B
-                         OTel agent
                          OTel Collector
-                         Prometheus (19090)
-                         Alertmanager (19093)
+                         Prometheus
+                         Alertmanager
        \                  /
         +---- Supabase ---+
              PostgreSQL
              Auth
              Storage
-
-Vercel
-   -> frontend/stateless web
 ```
 
-- **VM-A** and **VM-B** are independent zWorkforce runtimes (`deploy/ha/compose.vm-a.yaml`, `deploy/ha/compose.vm-b.yaml`).
-- **Supabase** (`qhprcfdgajhmdzvnsffb`) is the shared durable data plane — **not** an HTTP runtime replica.
-- **Observability** stack (`deploy/observability/compose.vm-b.yaml`) runs on VM-B.
-
-Private DNS records (`ha-a.zeaz.dev`, `ha-b.zeaz.dev`, `obs.zeaz.dev`) are declared as non-proxied A records in `infrastructure/terraform/cloudflare/main.tf` and `zworkforce.tf`.
+- VM-A and VM-B are independent zWorkforce runtime replicas.
+- Supabase project `qhprcfdgajhmdzvnsffb` is the intended shared durable data plane, not an HTTP runtime replica.
+- Observability runs on the VM-B side of the deployment topology.
+- Provider, database, signing, storage, Cloudflare, and observability credentials remain operator-owned external inputs and must not be committed to this ledger.
 
 ## Candidate identity
 
 | Field | Value |
 | --- | --- |
-| Candidate version | `3.0.4` |
-| Candidate branch | `fix/ha-verifier-sql-quoting` (PR #181; pending merge to `main`) |
-| Default-branch ruleset | `zWorkforce main release protection` applied server-side, ruleset ID `20988030` (verified 2026-08-25) |
-| Reconciliation baseline | `e15b7d60c58c58e75ee031ed8b9c6fc360257cbd` (merged PR #180; v3.0.4 production-image/HA fix line) |
-| Latest candidate head | `453c8195b7ebf5e4d86f380bff94572c2b4451` — signed PR #181 head; required `policedbc` review pending |
-| Final release candidate SHA | _pending merge and exact-candidate CI_ |
-| Post-candidate main drift | _record after the follow-up PR merges; external evidence must bind to that exact SHA_ |
-| Release tag | _create only after merge and all mandatory evidence_ |
-| OCI image digest | _record immutable GHCR digest after publication_ |
-| Python artifact checksums | _record from release workflow_ |
+| Candidate version | `3.0.4` corrective candidate (provisional) |
+| Governing release authority | `v3.0.3` remains authoritative in `ROADMAP.md`, `planning/exec-planning-zwf.md`, and `planning/RELEASE-SCOPE-STATUS.md`; this ledger does not authorize a v3.0.4 release |
+| Corrective code base | `f935a5f472b942f29cc83279f75ed14bae7c3761` — PR #181 merge commit containing the v3.0.4 production-image / HA verifier correction |
+| Current `main` after forward work | `9884b9b54047a2ac1c52912c50ceec9f2a7d6ae5` — PR #183 Enterprise Capability Platform merge; this is post-candidate drift and is not covered by the `f935a5f…` release evidence |
+| Final release candidate SHA | _PENDING — re-freeze an exact `main` SHA only after governing release authority explicitly transitions to v3.0.4_ |
+| Release tag | _NOT AUTHORIZED_ |
+| Corrective local image digest | `sha256:a6341d3c4e1a1fb502b5e60a64c38b094daaa7202da84e4221ba8c6cd1b39971` — local candidate metadata only; immutable GHCR publication pending |
+| Corrective image tar digest | `sha256:c664fb3410e0dd30c9de118b84d7dc4eb8229e9d6ae54643f63175e7c91284bf` — operator-reported transfer artifact metadata; not a durable verifier run record |
+| Python artifact checksums | _PENDING tag-driven release workflow_ |
 
-## Repository gates
+Any merge after `f935a5f…`, including this evidence update itself, creates post-candidate drift. Before any immutable `v3.0.4` promotion, the resulting exact `main` SHA must be frozen and all required repository and external gates must be evaluated against that exact candidate.
 
-The v3.0.3 repository gate results below are historical predecessor evidence.
-The v3.0.4 follow-up must repeat the required checks on its exact merged SHA;
-local validation of the corrective image fix is recorded in the follow-up PR.
+## Repository gates for corrective base `f935a5f…`
+
+These checks are evidence for the corrective base/tree only. They do not authorize a tag and do not cover later `main` drift.
 
 | Gate | Verified evidence | Status |
 | --- | --- | --- |
-| Python 3.12 / 3.13 / 3.14 | CI run `32892904620`: `test (3.12)`, `test (3.13)`, `test (3.14)` all completed successfully | PASS on exact candidate |
-| PostgreSQL integration | CI run `32892904620`: `postgres-integration` completed successfully, including PostgreSQL backup/restore regression drill | PASS on exact candidate; **not external PITR evidence** |
-| Documentation / ruleset contract | CI run `32892904620`: `documentation-contract` completed successfully | PASS on exact candidate |
-| Release integrity | CI run `32892904620`: `release-integrity` completed successfully | PASS on exact candidate |
-| Container build | CI run `32892904620`: `container` completed successfully | PASS on exact candidate |
-| Security invariants | CI run `32892904620`: `security-invariants` completed successfully; runtime `shell=True` and static provider-secret guards passed | PASS on exact candidate |
-| Dependency review | PR #178 run `32892220435` completed successfully on reviewed head `a4db916e…`; the workflow is pull-request scoped | PASS for merge review; exact-main rerun remains a release-process improvement |
-| CodeQL | CodeQL run `32892904633`: `Analyze (python)`, `Analyze (actions)`, and summary `CodeQL` all completed successfully | PASS on exact candidate |
-| Z.A.R.V.I.S. package gates | ZARVIS run `32892904642`: `node-workspace`, `migration-contract`, `zarvis-api`, and `zarvis-windows-linux-restore` all completed successfully | PASS on exact candidate |
-| Windows client | Windows client run `32892904646`: `build-test-package` completed successfully, including package, Z.A.R.V.I.S. Windows tests/build, packaged launch smoke and artifact upload | PASS on exact candidate; **not trusted production-signing/live-endpoint evidence** |
+| Python 3.12 / 3.13 / 3.14 | CI run `32915901873` | PASS on corrective base |
+| PostgreSQL integration | CI run `32915901873`, including PostgreSQL backup/restore regression | PASS on corrective base; not external PITR evidence |
+| Documentation contract | CI run `32915901873` | PASS on corrective base |
+| Release integrity | CI run `32915901873` | PASS on corrective base |
+| Container build | CI run `32915901873` | PASS on corrective base |
+| Security invariants | CI run `32915901873` | PASS on corrective base |
+| Dependency review | PR #181 run `32915171140` on the merged tree | PASS for PR review |
+| CodeQL | run `32915901862` | PASS on corrective base |
+| Windows client | PR #181 Windows run `32915171143`, tree-equivalent to the merge commit | PASS for repository build/test/package; not trusted production signing |
 
-Additional repository execution evidence recorded by PR #154: 241/241 Python tests PASS, 36/36 Z.A.R.V.I.S. tests PASS, `zworkforce doctor` HEALTHY, and 7/7 connector tests PASS. These are repository/test evidence only.
+The PR that updates this ledger must independently satisfy the current protected-branch checks and approval rules. A green evidence-document PR proves only that the repository accepts the documentation update; it does not retroactively validate a later final release candidate.
 
-## Latest external gate attempt for published v3.0.3 (2026-08-25)
-
-The operator reran the external gates against predecessor candidate
-`4ffdfa6e...`. None of these attempts authorizes a production GO. The exact
-published `ghcr.io/cvsz/zworkforce:3.0.3` image was subsequently inspected and
-failed runtime readiness because the S3 extra was absent and the HA healthcheck
-called missing `curl`; the corrected image is therefore being released as
-`v3.0.4`.
-
-| Gate | Result | Evidence / next action |
-| --- | --- | --- |
-| E | FAIL | Both hosts were reachable, but the published predecessor image failed readiness: its S3 backend dependency was absent and its HA healthcheck called unavailable `curl`. Rerun against the immutable `v3.0.4` image and corrected HA Compose files. |
-| F | FAIL | Supabase S3 `PutObject` returned HTTP 403. Regenerate/verify the S3 access key, secret, endpoint, and region from the Supabase S3 configuration, then rerun. |
-| G | FAIL | The first rerun used a generated single `zworkforce` job while the verifier required `zworkforce-vm-a` and `zworkforce-vm-b`; the gate generator is now corrected, but exact-candidate observability evidence must be rerun. |
-| H | FAIL | Windows checkout was `6f6fe3f...`, not the exact candidate `4ffdfa6e...`; sync the Windows checkout to the candidate before rebuilding/signing. |
-
-The Stage G generator now mounts both the metrics bearer and Alertmanager webhook as remote secret files rather than embedding them in generated YAML. The bearer used by the failed run was present in a generated remote configuration and must be rotated before the next observability run.
-
-## Corrective v3.0.4 candidate gate follow-up (2026-08-25 — 2026-08-26)
-
-The signed PR #181 head is `453c8195b7ebf5e4d86f380bff94572c2b4451`. The
-following evidence is intentionally separated from final-release evidence
-because the PR still requires `policedbc` approval and has not merged to
-`main`:
-
-| Gate | Result | Evidence / next action |
-| --- | --- | --- |
-| E | PARTIAL | Exact PR-head image `3.0.4-rc-local-453c819` (`sha256:649325577d99ec79a42edbea3698a3dae7f8e166b9982280c6795d24b92ba2af`, SBOM/provenance enabled) passed the direct HA lease/outbox verifier on both VMs, including distinct `vm-a`/`vm-b` identities, authenticated metrics, and live outbox ownership. The wrapper and final immutable published-image rerun remain pending because PR #181 is not merged and the image is local-only. |
-| F | FAIL | Supabase S3 `PutObject` still returns HTTP 403. The configured access key/secret, direct storage endpoint, and region must be corrected by the operator before rerun. |
-| G | PARTIAL/FAIL | After the secret-file and bounded-polling fixes, Prometheus targets and Alertmanager readiness passed, but the configured `httpbin.org` endpoint provided no queryable delivery receipt. A real receipt-capable operator endpoint is required before rerun. |
-| H | PARTIAL/FAIL | The clean Windows checkout at the PR #180 baseline passed PowerShell/.NET build and 27 core tests, but trusted packaging could not start because the approved PFX and secure directory are absent. Rerun on the merged final candidate after signing material is provisioned. |
-
-The public Cloudflare route still serves the predecessor service.
-A tunnel-token rotation was attempted with the available Cloudflare API token
-but the API rejected it with method-not-allowed for that authentication
-scheme. The exposed connector credentials remain an operator security action
-before production GO. No release tag has been created for v3.0.4.
-
-## Local compose stack drills (2026-08-18)
-
-The operator's local `compose.yaml` stack (api/worker/scheduler/outbox + PostgreSQL 17 on docker) was redeployed from a candidate built at exact `main` commit `8387041a56f938a7af7054fe7cca1c4ac07a3578` and exercised end-to-end. These drills use the production-mode configuration (`ZWORKFORCE_ENV=production`, PostgreSQL backend) but the **local docker host is not the external production environment**; every row below that requires a managed/external service or internet-facing endpoint remains `PENDING EXTERNAL EVIDENCE` for GO.
-
-| Drill | Evidence recorded | Status |
-| --- | --- | --- |
-| Candidate image build | `zworkforce:3.0.3-rc-main-8387041` built from `8387041a56f938a7af7054fe7cca1c4ac07a3578`; local digest `sha256:730da90a8c426c4298b3672b0658725ea1eb87b80cf114a79f6955ea8dc52140`; version `3.0.3`, `SCHEMA_VERSION` 8; image tar + CycloneDX SBOM (9 components) + checksums in `/tmp/opencode/stagea-artifacts/` | PASS (local build) |
-| Candidate deployment + schema upgrade | api/worker/scheduler redeployed on candidate image 2026-08-18; `schema_meta.schema_version` migrated 4 -> 8 on first start; `/health` 200, api container `zworkforce doctor` exit 0 (env=production, db=postgres, schema=8) | PASS (local deploy) |
-| Stage B backup/restore | pg_dump custom-format archive `zworkforce-20260818T140212Z.dump` + sha256 sidecar; catalog-validated; restored into isolated `zworkforce_recovery`; sentinel-before present, sentinel-after absent; audit chain 76 events intact; recovery target doctor-ready, schema 8. Observed RPO ≈ 2.1 s (backup duration, WAL 0/84095F8 -> 0/8412430), RTO ≈ 3.0 s pg_restore, 7.4 s to doctor-ready | PASS on local PG 17.11; **PITR/managed DB still pending** |
-| Stage C API-key lifecycle | create (`role=viewer`, `scopes=workforce:read`) -> positive auth on GET `/api/v1/tasks`; insufficient-scope denial HTTP 403; revoke POST `/api/v1/api-keys/<id>/revoke` -> `{"ok":true}`; post-revoke Bearer rejected HTTP 401; secrets only ever returned once in API response | PASS (local API); **OIDC/JWKS negative cases still pending** |
-| Stage D provider routing + circuit | Provider `primary` = NVIDIA NIM (`https://integrate.api.nvidia.com/v1`), models sol/terra/luna verified live; real task executed `succeeded` on `nvidia/nemotron-3-ultra-550b-a55b`. Failure injection (bad provider `drill-bad`): failures 1->2->3 recorded in `provider_health2`, circuit opened (`open_until` set, threshold 3); next task rejected `all configured providers are temporarily circuit-open`; queued task recovered after circuit via healthy `primary` provider, `succeeded` | PASS (local stack); **external failover/circuit metrics still pending** |
-| Stage E HA leases | Single `scheduler` lease holder (owner `scheduler-<host>`), heartbeat current; two probe replicas rejected while leader held lease; leader stopped -> takeover acquired at ≈ 28.2 s (lease 20 s + expiry slack + poll); restarted compose scheduler cleanly reacquired lease; only one outbox/scheduler owner at all times | PASS (local stack); **outbox dispatch/failover drill still pending** |
-| Stage G probes | `/health` 200 `{"status":"ok","version":"3.0.3"}`; `/ready` 200; `/metrics` without auth -> `auth_failed`; `/metrics` with API-key auth -> 200 Prometheus text (zworkforce_active_tasks, provider health, etc.); `/api/v1/api-keys` requires `admin`+`key:read`, returns key rows without secrets | PASS (local stack); **OTLP/metrics backend/alert routing pending** |
-
-Note: the local v3.0.3 drills above are historical and are not evidence for
-the corrective v3.0.4 production image. The published v3.0.3 artifact is
-retained for rollback/reference only and is not the promotion target.
-
-## External publication state (verified 2026-08-25)
-
-The current recheck confirms that the immutable v3.0.3 publication already
-exists. It is recorded here as a superseded predecessor; v3.0.4 remains
-unpublished until its exact candidate and mandatory external evidence permit
-GO:
+## Immutable predecessor publication state
 
 | Registry | State |
 | --- | --- |
-| GitHub Releases | `v3.0.3` published 2026-08-25T20:53:55Z from commit `4ffdfa6e...`; assets: `SHA256SUMS`, wheel, sdist, CycloneDX SBOM. It is superseded for production promotion because its exact image failed HA readiness. |
-| v3.0.3 Python artifact SHA-256 | wheel `89497635d30fdf1f9c2fac216ebe8a4d9e83090254aeeda8825cabf66db29252`; SBOM `ae0be576fcdb79fc3988f1b3d36744fdf525e43230a3bd4ed1f1f4a313830f46`; sdist `a21f8065949cda1bbb8411cdcad9e78a9865e147c47b74f30e937493a710ee01`; all matched `SHA256SUMS`. |
-| GHCR `ghcr.io/cvsz/zworkforce` | `3.0.3`/`v3.0.3` index digest `sha256:0df25cf8e6b298fa7b316ffb89f2f8d44f0b123e71a864c24caae724a05bf069`; retained as immutable rollback/reference only. |
-| Git tags | `v3.0.3` annotated signed tag -> `4ffdfa6e926153b70d97d59803e0ede77842599f`; `v3.0.2` -> `f56544ba58281e910dfa2132829f79992afa2a50`; `v3.0.1` -> `d5c0655c1ae343334e2ef2dc17f770e76461ee82`; `v3.0.0` -> `1425192f9f544683b37352032298138c8b36b519` |
-| v3.0.4 publication | _pending exact-candidate GO_ |
+| GitHub Releases | `v3.0.3` published 2026-08-25 from `4ffdfa6e926153b70d97d59803e0ede77842599f`; immutable predecessor / rollback reference only |
+| GHCR | `3.0.3` / `v3.0.3` index digest `sha256:0df25cf8e6b298fa7b316ffb89f2f8d44f0b123e71a864c24caae724a05bf069` |
+| v3.0.4 publication | PENDING exact-candidate GO |
 
-The v3.0.3 publication boundary was crossed early and is immutable; the
-v3.0.4 publication boundary remains closed until the evidence ledger records
-GO.
+The v3.0.3 publication boundary was crossed early and remains immutable. The v3.0.4 publication boundary remains closed.
+
+## Corrective external-gate attempt — 2026-08-25 to 2026-08-26
+
+The following observations are useful diagnostics but are not a production GO. Where no durable candidate-bound execution artifact was retained, the result is deliberately recorded as pending rather than promoted to final external evidence.
+
+| Gate | Current result | Evidence boundary / next action |
+| --- | --- | --- |
+| E — HA runtime | PARTIAL / PENDING DURABLE EVIDENCE | Operator observations reported that both VMs ran the local `f935a5f…` image, exposed distinct `vm-a` / `vm-b` identities, authenticated metrics, current scheduler lease ownership, and outbox claim rows. No durable verifier output/run artifact containing operator, exact timestamp, command/run reference, and captured result is attached to the repository. Scheduler action exclusivity and outbox dispatch exclusivity are therefore still PENDING. Preserve a candidate-bound log/evidence bundle and rerun against the final frozen SHA. |
+| F — external storage | BLOCKED | Latest Supabase S3 `PutObject` returned HTTP 403. The observed release configuration referenced `dryflnsxhjuaamnzfrtu.supabase.co/storage/v1/s3` while the intended release project is `qhprcfdgajhmdzvnsffb`. Operator must provide valid credentials, endpoint, and exact region for the intended project, then rerun. |
+| G — observability | PARTIAL / FAIL | Prometheus targets were observed UP and Alertmanager was ready, but the configured `httpbin.org` receiver produced no queryable delivery receipt. Exact-candidate trace correlation and alert receipt remain incomplete. Use an operator-owned receipt-capable endpoint and retain the resulting evidence bundle. |
+| H — Windows trusted package | BLOCKED | Clean checkout was synchronized to `f935a5f…`, but `C:/secure/zworkforce-signing.pfx` and its secure directory were absent. Provision approved signing material and rerun build/sign/install/live-endpoint smoke on the final frozen SHA. |
+
+The public Cloudflare route still serves the predecessor service. This ledger does not authorize changing that route. No `v3.0.4` tag has been created.
 
 ## Stage A — staging topology and secrets
 
-Status: **PARTIAL — local candidate deployed (see local drills); external cluster/ingress and immutable GHCR digest PENDING EXTERNAL EVIDENCE**
+Status: **PARTIAL — repository topology exists; exact final-candidate deployment, immutable GHCR digest, and environment evidence are PENDING EXTERNAL EVIDENCE.**
 
-Record:
-- staging cluster/account/region and ingress hostname;
+Required durable evidence:
+- staging / production account, region, and ingress hostname;
+- exact deployed OCI digest;
 - PostgreSQL endpoint class/topology without credentials;
-- secret-store implementation and secret reference names, not secret values;
-- allowed provider, IdP/JWKS, OTLP, S3/Qdrant, and webhook egress destinations;
-- deployed OCI digest, not only a mutable tag.
-
-Evidence:
+- secret-store implementation and secret references, never secret values;
+- allowed provider, IdP/JWKS, OTLP, S3/vector, and webhook egress destinations;
+- rollout command or run URL and captured result.
 
 ```text
 Environment:
@@ -188,20 +123,23 @@ Artifact/reference:
 
 ## Stage B — PostgreSQL durability, backup, restore, and PITR
 
-Status: **PARTIAL — local PG 17.11 backup/restore drill PASS (see local drills); managed/external PITR and RPO/RTO evidence PENDING**
+Status: **PARTIAL — repository PostgreSQL backup/restore regression passes; managed/external production-mode smoke, PITR, and measured RPO/RTO remain PENDING.**
 
-The repository CI performs a real PostgreSQL dump/restore regression drill, but production readiness additionally requires the managed/external database recovery path.
+Historical local PG 17.11 drills recorded a successful dump/restore, sentinel verification, audit continuity, and local recovery timing. Those drills are regression evidence only and do not replace managed-database recovery evidence for the final candidate.
 
-Minimum evidence:
-1. connect through the production-mode DSN and run `zworkforce doctor`;
-2. submit and complete a durable task with API and worker processes separated;
-3. capture backup/snapshot identifier and timestamp;
-4. restore into an isolated recovery target;
-5. verify a known sentinel record and audit continuity;
-6. where the database platform supports PITR, restore to a selected timestamp and record achieved RPO/RTO.
+Mandatory final-candidate evidence must:
+- connect through the production-mode DSN and run `zworkforce doctor` successfully against the target database;
+- submit and complete a durable task with API and worker processes separated, proving the restored/target database is usable by the deployed topology;
+- capture the managed backup/snapshot identifier and timestamp;
+- restore into an isolated recovery target;
+- verify a known sentinel record, schema state, and audit continuity after restore;
+- where supported, perform point-in-time recovery to a selected timestamp and record achieved RPO/RTO;
+- retain the exact candidate SHA/image digest, operator, UTC timestamps, commands/run URLs, captured outputs, and durable artifact references.
 
 ```text
 Database platform:
+Production-mode doctor result:
+Separated API/worker durable task ID and result:
 Backup/snapshot ID:
 Backup completed (UTC):
 Restore target:
@@ -216,123 +154,109 @@ Artifact/reference:
 
 ## Stage C — identity and credential lifecycle
 
-Status: **PARTIAL — API-key lifecycle PASS (see local drills); OIDC/JWKS positive and negative cases PENDING**
+Status: **PARTIAL — local API-key create/use/scope-deny/revoke/post-revoke rejection is verified; production OIDC/JWKS positive and negative cases remain PENDING.**
 
-Verify both native OIDC and API-key operational paths used by the target environment:
-- valid OIDC issuer/audience/JWKS authentication;
-- rejected invalid issuer, audience, expiration, and signature cases;
+Required final evidence:
+- valid issuer/audience/JWKS authentication;
+- invalid issuer, audience, expiry, and signature rejection;
 - tenant/role/scope mapping;
-- API-key creation, rotation, revoke, and post-revoke rejection;
-- no bearer tokens or provider credentials in browser/static assets or logs.
+- API-key rotation and revoke lifecycle;
+- confirmation that bearer tokens/provider credentials are absent from browser/static assets and logs.
+
+## Stage D — provider routing, failover, and bounded execution
+
+Status: **PARTIAL — real NVIDIA NIM routing succeeded for Luna/Terra/Sol and local circuit behavior was exercised; exact-candidate production routing, bounded-execution safety, and external failure/fallback telemetry remain PENDING.**
+
+Historical routing evidence used NVIDIA NIM and verified the configured Luna/Terra/Sol model mapping. A local `drill-bad` provider exercised bounded retries, circuit open, denial, and recovery through the healthy provider. Historical results are regression evidence only.
+
+Mandatory final-candidate evidence must:
+- verify Luna/Terra/Sol resolve to the intended production providers/models and complete successful requests in the frozen environment;
+- inject or otherwise control a primary-provider failure and capture the expected circuit/fallback/recovery path with external telemetry;
+- prove retry, timeout, iteration, and cost/token budgets remain bounded by the deployed configuration and do not permit unbounded execution;
+- verify mutating tools remain deny-by-default and execute only with the required explicit grant/policy/approval authority;
+- verify provider credentials remain server-side and are absent from browser/static assets, model-visible payloads where not required, logs, traces, and audit details;
+- retain candidate-bound provider health/circuit metrics, task/request/trace identifiers, exact candidate SHA/image digest, operator, UTC timestamps, and durable run artifacts.
 
 ```text
-IdP:
-OIDC test principal:
-API-key rotation test ID:
-Revocation timestamp (UTC):
-Negative-auth cases:
+Provider/model mapping:
+Successful tier requests:
+Failure injected:
+Fallback/recovery observed:
+Retry/timeout/iteration/cost bounds:
+Mutation deny-by-default / approved mutation evidence:
+Credential containment evidence:
+Task/request/trace IDs:
 Result:
 Artifact/reference:
 ```
 
-## Stage D — provider routing, failover, and bounded execution
-
-Status: **PARTIAL — Luna/Terra/Sol routing verified on real NVIDIA NIM provider; successful real requests for all tiers; circuit behavior validated locally with drill-bad provider; external failure injection/circuit metrics PENDING**
-
-Verify with configured external providers:
-- Luna/Terra/Sol routing resolves to intended models: **VERIFIED** — luna→`nvidia/nemotron-3-nano-30b-a3b`, terra→`nvidia/nemotron-3-ultra-550b-a55b`, sol→`nvidia/nemotron-3-super-120b-a12b` (all via NVIDIA NIM `primary` provider at `https://integrate.api.nvidia.com/v1`)
-- primary provider failure opens the expected circuit/fallback path: **LOCAL DRILL VERIFIED** — drill-bad provider (3 failures → circuit open → deny → recovery via healthy primary); **EXTERNAL FAILURE INJECTION PENDING** — requires secondary provider or controlled NVIDIA failure injection
-- retry and timeout budgets remain bounded: max_attempts=3 enforced; circuit threshold=3 failures; dead_letter after exhaustion
-- mutating tools remain deny-by-default unless explicit grant/approval exists: **VERIFIED** (local)
-- provider credentials remain server-side: **VERIFIED** — NVIDIA API key only in `.env`/container env, never in responses/logs
-
-```text
-Provider set: primary (NVIDIA NIM, live, 102 models) — verified 2026-08-18
-Failure injected: drill-bad (local PG shared circuit table, 3 failures → circuit open_until set, threshold 3)
-Fallback observed: recovery via healthy primary provider, task succeeded
-Circuit/metric evidence: provider_health2 rows (consecutive_failures, open_until, last_error); external NVIDIA failure injection PENDING
-Bounded timeout/retry evidence: max_attempts=3 → dead_letter; circuit threshold=3; local drill: 3 failures → open_until set → deny → recovery
-Result: All three tiers (luna/terra/sol) route to correct NVIDIA models and succeed; circuit behavior locally validated
-Artifact/reference: tasks 3afe7b4e (luna), 799c25be (terra), 1eea9e89 (sol); provider_health2 rows; local drill evidence in /tmp/opencode/
-```
-
 ## Stage E — scheduler, worker, outbox, and HA leases
 
-Status: **PARTIAL — corrected runtime verifier passed on a local v3.0.4 image, but the exact final candidate and immutable published image rerun remain pending review, merge, and external publication.**
+Status: **PARTIAL / PENDING DURABLE EVIDENCE — current external observations show two runtime identities, a current scheduler lease holder, and outbox claim presence, but they do not prove per-action scheduler exclusivity or per-event outbox dispatch exclusivity. No durable candidate-bound HA verifier output is attached.**
 
-With at least two eligible replicas where the deployment topology supports it:
-- prove only one scheduler lease holder performs each due action: **HISTORICAL EVIDENCE** — VM-A (`vm-a`) and VM-B (`vm-b`) each ran distinct scheduler instances; `ZWORKFORCE_INSTANCE_ID` differed; lease ownership was queryable per VM in shared Supabase `zworkforce.outbox` table
-- prove only one outbox lease holder dispatches each event: **HISTORICAL EVIDENCE** — outbox ownership per VM was confirmed via `scripts/release/verify-ha.sh` (2026-08-20); exact-current-candidate verification is pending
-- terminate the current leader and record failover time: **PENDING** — requires controlled leader kill + takeover measurement
-- verify task lease expiry/reclaim after worker interruption: **PENDING** — requires worker interrupt drill
-- verify webhook dedupe, HMAC signature, retry/backoff, and dead-letter behavior: **PENDING** — requires outbox event generation
+With at least two eligible replicas, final evidence must:
+- prove only one scheduler performs each due action: **PENDING** — `scripts/release/verify-ha.sh` reads the current `service_leases3` lease but does not create a due schedule or assert occurrence/deduplication counts; run a candidate-bound dual-replica due-action drill and assert exactly one action per occurrence;
+- prove outbox claim ownership: **OBSERVED, NOT FINAL EVIDENCE** — current rows were observed with a non-empty owner, but the retained repository sources do not include the external verifier output;
+- prove only one outbox holder dispatches each event: **PENDING** — current verifier does not assert owner uniqueness over the event lifecycle, active claim expiry, delivery state, or per-event dispatch counts;
+- terminate the current scheduler leader and measure takeover: **PENDING**;
+- interrupt a worker and verify task lease expiry/reclaim: **PENDING**;
+- generate webhook events and verify dedupe, HMAC, retry/backoff, and dead-letter behavior: **PENDING**;
+- retain a durable run artifact containing exact candidate SHA/image digest, VM identities, UTC timestamps, operator, command/run URL, captured verifier output, and checksums: **PENDING**.
 
 ```text
-Replica counts: 1 scheduler + 1 worker per VM (VM-A 192.168.74.134, VM-B 192.168.74.135)
-Leader identity: vm-a (primary), vm-b (secondary) — distinct INSTANCE_ID confirmed
-Failure time (UTC): N/A — requires controlled leader kill
-New leader time (UTC): N/A
-Observed failover: N/A
-Duplicate count: N/A
-Dead-letter/retry evidence: N/A
-Result: HISTORICAL — VM x2 runtime stack was reachable and lease/outbox ownership was confirmed for the older candidate; exact current-candidate evidence is pending
-Artifact/reference: scripts/release/verify-ha.sh; `.release-evidence-state/E.status` (candidate-bound state must match the current SHA)
+Replica counts: 1 scheduler + 1 worker per VM
+Current observed identities: vm-a, vm-b
+Failure time (UTC): PENDING controlled drill
+New leader time (UTC): PENDING
+Observed failover: PENDING
+Scheduler occurrence duplicate count: PENDING
+Outbox per-event dispatch count: PENDING
+Dead-letter/retry evidence: PENDING
+Result: PENDING final Stage E evidence
+Artifact/reference: source verifier and image digest are known; durable external run bundle is PENDING
 ```
 
 ## Stage F — artifacts, memory, and external storage
 
-Status: **FAIL — Supabase S3 `PutObject` returned HTTP 403 at 2026-08-25T20:55:13Z; corrected credentials/endpoint/region and a successful exact-candidate rerun are required.**
+Status: **BLOCKED — Supabase S3 `PutObject` returned HTTP 403; correct project/endpoint/credentials are required before an exact-candidate rerun.**
 
-When enabled in the target environment:
-- store and retrieve an S3-compatible content-addressed artifact and verify SHA-256: **HISTORICAL PASS 2026-08-19, SUPERSEDED BY FAILURE 2026-08-21** — the latest state record reports `PutObject` failure; rerun Stage F for the exact candidate before relying on storage evidence
-- search/reindex Qdrant-backed semantic memory: **NOT CONFIGURED** — `QDRANT_URL`/`QDRANT_API_KEY` unset in `.env.release`; vector evidence remains optional/pending per release config
-- rotate storage credentials/references without exposing secrets: **VERIFIED** — credentials loaded only from mode-`0600` `.env.release`, never printed or committed
-- verify tenant isolation for artifact and memory access: **VERIFIED** — tenant-a/tenant-b keys; nonexistent tenant-b object rejected HTTP 404 (Supabase returns empty `Code`/`Message` with status 404; script accepts status 404)
+Historical successful local/storage tests do not override the latest failed external write. Final evidence must include content-addressed write/read with SHA-256 verification and cross-tenant negative access on the intended production storage project.
 
 ```text
-Artifact backend: Supabase S3-compatible (project qhprcfdgajhmdzvnsffb, region ap-northeast-1)
-Vector backend: not configured (optional)
-Artifact SHA-256: f72dc4f29bea47327be317811770ab5ff428075b0384b0bda3d123b8e2634e3d
-Cross-tenant negative test: HTTP 404 on nonexistent tenant-b key
-Result: PENDING — latest state is `FAIL supabase_s3_putobject_failed` for the older candidate; exact current-candidate verification is required
-Artifact/reference: `.release-evidence-state/F.status`; `/home/cvsz/zworkforce/.release-evidence-logs/` (candidate-bound)
+Artifact backend: Supabase S3-compatible — intended project qhprcfdgajhmdzvnsffb
+Latest exact external write: BLOCKED / HTTP 403
+Vector backend: optional / not configured in current release environment
+Result: BLOCKED
+Artifact/reference: operator must retain rerun output without secrets
 ```
 
 ## Stage G — observability and SLO evidence
 
-Status: **PARTIAL/FAIL — corrected Prometheus target and secret-delivery checks passed, but the configured external receipt endpoint was not queryable; a real operator receipt endpoint and exact-candidate rerun are required.**
+Status: **PARTIAL / FAIL — current scrape targets and Alertmanager readiness were observed, but exact-candidate synthetic trace correlation and receipt-capable alert delivery are incomplete.**
 
-Verify:
-- `/health`, `/ready`, and authenticated `/metrics` from the deployed environment: **HISTORICAL predecessor evidence** — `https://zworkforce.zeaz.dev/health` returned 200 for v3.0.3; the v3.0.4 endpoint must be rechecked after promotion. Endpoint routed via Cloudflare Tunnel (DNS CNAME `zworkforce.zeaz.dev` → tunnel, proxied, created 2026-08-19 via `infrastructure/terraform/cloudflare`)
-- OTLP trace reaches the configured collector/backend: **VERIFIED (external)** — OTel Collector deployed on VM-B (192.168.74.134:4317/4318/8889); `deploy/observability/compose.vm-b.yaml`; trace pipeline configured in `deploy/observability/otel-collector.yaml`
-- queue depth, dead-letter, provider health, cost, outcome, and SLO metrics are visible: **VERIFIED (external)** — Prometheus v3.5.0 on VM-B:19090 scraping `zworkforce-vm-a` (192.168.74.134:9456) and `zworkforce-vm-b` (192.168.74.135:9456) with bearer auth; `deploy/observability/prometheus.vm-b.yaml`
-- one intentional failure can be correlated by request/task/trace identifiers: **PENDING** — requires synthetic trace generation + log correlation
-- alert routing reaches the intended operator channel: **VERIFIED (external)** — Alertmanager v0.28.1 on VM-B:19093 with webhook receiver; synthetic alert delivery attempted via `scripts/release/verify-observability.sh` (2026-08-20)
-
-```text
-Metrics backend: Prometheus v3.5.0 on VM-B (192.168.74.134:19090)
-Trace backend: OTel Collector 0.135.0 on VM-B (192.168.74.134:4317/4318/8889)
-Scrape targets: zworkforce-vm-a (192.168.74.134:9456), zworkforce-vm-b (192.168.74.135:9456), otel-collector (8889)
-Alert test: synthetic alert POSTed to Alertmanager webhook receiver (2026-08-20)
-Trace/request/task IDs: N/A — requires synthetic trace generation
-Result: HISTORICAL PARTIAL — OTel/Prometheus/Alertmanager were deployed and verified for the older candidate; trace correlation and exact-current-candidate verification are pending
-Dashboard/run URL: http://192.168.74.134:19090 (Prometheus), http://192.168.74.134:19093 (Alertmanager)
-Artifact/reference: scripts/release/verify-observability.sh; `.release-evidence-state/G.status` (candidate-bound state must match the current SHA)
-```
+Final evidence must include:
+- `/health`, `/ready`, and authenticated `/metrics` on the deployed final candidate;
+- OTLP trace receipt in the configured collector/backend;
+- queue, dead-letter, provider health, cost, outcome, and SLO metrics;
+- one intentional failure correlated by request/task/trace identifiers;
+- alert routing to an operator-owned endpoint with a queryable delivery receipt;
+- retained run output/checksums.
 
 ## Stage H — Windows operator client
 
-Status: **PARTIAL/FAIL — the clean Windows checkout at the PR #180 baseline built and passed its 27 core tests, but the approved trusted-signing PFX and secure directory are missing; rerun on the merged exact candidate after provisioning signing material.**
+Status: **BLOCKED — repository Windows CI passes build/test/package, but trusted production signing and live-endpoint installation/smoke require operator signing material.**
 
-Repository CI proves build/test/package and an ephemeral packaged launch smoke on the GitHub-hosted runner. Production readiness still requires the signed/approved Windows package against the deployed HTTPS endpoint:
+Final evidence must record:
+- exact candidate checkout;
+- trusted MSIX publisher/signature;
 - install/upgrade/uninstall path;
-- credential storage and tenant selection;
-- health/readiness/overview/task/agent/automation/governance operations;
-- invalid TLS or remote HTTP is rejected;
-- package publisher/signature trust is recorded when production signing is required.
+- secure credential storage and tenant selection;
+- health/readiness/overview/task/agent/automation/governance smoke against the deployed HTTPS endpoint;
+- rejection of invalid TLS / disallowed remote HTTP.
 
 ```text
-Windows build:
+Windows checkout: final frozen SHA PENDING
+Trusted PFX: operator-provisioned material PENDING
 MSIX artifact:
 Publisher/signature:
 Target endpoint:
@@ -346,11 +270,13 @@ Artifact/reference:
 Status: **PENDING EXTERNAL EVIDENCE**
 
 Before tag creation:
-- all required GitHub checks are green on the exact final candidate SHA;
-- review threads are resolved and required approval exists;
-- no open release-blocking CodeQL, secret-scanning, dependency-review, or known-critical dependency finding remains;
+- governing release authority explicitly names v3.0.4 and the exact frozen candidate SHA;
+- all required GitHub checks are green on that exact final candidate;
+- review threads are resolved and the protected branch has the required independent approval;
+- no open release-blocking CodeQL, dependency-review, secret, or known-critical dependency finding remains;
 - rollback target and database recovery procedure are identified;
-- all mandatory external stages above are either PASS or explicitly documented as not applicable with an approved rationale.
+- mandatory external Stages A-H are PASS or explicitly marked not applicable with approved rationale;
+- all external PASS claims have durable candidate-bound evidence, not only source-code references or transient observations.
 
 Decision:
 
@@ -358,10 +284,10 @@ Decision:
 Candidate SHA:
 Approved by:
 Approval timestamp (UTC):
-Mandatory evidence complete: YES/NO
-Release decision: GO/NO-GO
-Rollback target:
-Notes:
+Mandatory evidence complete: NO
+Release decision: NO-GO
+Rollback target: v3.0.3 immutable predecessor until a later approved target is recorded
+Notes: v3.0.4 remains provisional; do not create the tag from a moving main branch.
 ```
 
-A `GO` decision authorizes creating immutable tag `v3.0.4` from the approved commit, running the tag-driven release workflow, and recording release artifact checksums and GHCR digest back into this ledger or the release record. The repository candidate may already be merged to `main`; the GO decision is specifically the authorization boundary for immutable release promotion, not permission to fabricate or skip external evidence.
+A future `GO` authorizes creating immutable tag `v3.0.4` from the explicitly approved exact commit, running the tag-driven release workflow, and recording final artifact checksums and GHCR digest. Until that decision is recorded, merging documentation or forward-roadmap work does not authorize production promotion.
