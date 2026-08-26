@@ -67,7 +67,8 @@ def build():
     provider = wrap_provider_from_env(build_provider(settings, db))
     engine = PolicyEngine(settings, db, provider)
     oidc = build_oidc_from_env(settings.default_tenant)
-    auth = AuthManager(db, settings.bootstrap_keys, settings.trust_proxy_identity, settings.proxy_identity_secret, oidc=oidc)
+    auth = AuthManager(db, settings.bootstrap_keys, settings.trust_proxy_identity, settings.proxy_identity_secret,
+                       oidc=oidc, metrics_bearer=settings.metrics_bearer, metrics_tenant_id=settings.default_tenant)
     return settings, db, engine, auth, provider
 
 

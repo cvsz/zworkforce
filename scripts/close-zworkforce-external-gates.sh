@@ -366,6 +366,12 @@ stage_e(){
 write_observability_compose(){
   local out="$1"
   cat > "$out" <<'YAML'
+secrets:
+  metrics-bearer:
+    file: ./metrics-bearer
+  alertmanager-webhook-url:
+    file: ./alertmanager-webhook-url
+
 services:
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.135.0
@@ -384,7 +390,11 @@ services:
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
-      - ./metrics-bearer:/etc/prometheus/secrets/metrics-bearer:ro
+    secrets:
+      - source: metrics-bearer
+        target: metrics-bearer
+    group_add:
+      - "${OBS_SECRET_GID:?set OBS_SECRET_GID}"
     ports:
       - "9090:9090"
     restart: unless-stopped
@@ -394,7 +404,11 @@ services:
     command: ["--config.file=/etc/alertmanager/alertmanager.yml"]
     volumes:
       - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-      - ./alertmanager-webhook-url:/etc/alertmanager/secrets/webhook-url:ro
+    secrets:
+      - source: alertmanager-webhook-url
+        target: alertmanager-webhook-url
+    group_add:
+      - "${OBS_SECRET_GID:?set OBS_SECRET_GID}"
     ports:
       - "9093:9093"
     restart: unless-stopped
@@ -482,7 +496,7 @@ scrape_configs:
     scheme: "http"
     authorization:
       type: Bearer
-      credentials_file: "/etc/prometheus/secrets/metrics-bearer"
+      credentials_file: "/run/secrets/metrics-bearer"
     static_configs:
       - targets: ["$metrics_a"]
   - job_name: "zworkforce-vm-b"
@@ -490,7 +504,7 @@ scrape_configs:
     scheme: "http"
     authorization:
       type: Bearer
-      credentials_file: "/etc/prometheus/secrets/metrics-bearer"
+      credentials_file: "/run/secrets/metrics-bearer"
     static_configs:
       - targets: ["$metrics_b"]
   - job_name: "otel-collector"
@@ -517,28 +531,33 @@ route:
 receivers:
   - name: operator
     webhook_configs:
-      - url_file: "/etc/alertmanager/secrets/webhook-url"
+      - url_file: "/run/secrets/alertmanager-webhook-url"
         send_resolved: true
 YAML
 
   note "Stage G: copying observability config to $OBS_HOST"
   ssh "$OBS_HOST" "mkdir -p '$OBS_DEPLOY_DIR'"
   scp -q "$tmp/"* "$OBS_HOST:$OBS_DEPLOY_DIR/"
-  ssh "$OBS_HOST" "chmod 600 '$OBS_DEPLOY_DIR/metrics-bearer' '$OBS_DEPLOY_DIR/alertmanager-webhook-url'"
+  ssh "$OBS_HOST" "chmod 640 '$OBS_DEPLOY_DIR/metrics-bearer' '$OBS_DEPLOY_DIR/alertmanager-webhook-url'"
+
+  local secret_gid
+  secret_gid="$(ssh "$OBS_HOST" "stat -c '%g' '$OBS_DEPLOY_DIR/metrics-bearer'")"
+  [[ "$secret_gid" =~ ^[0-9]+$ ]] || die "observability secret group id is invalid"
 
   note "Stage G: deploying OTel/Prometheus/Alertmanager"
-  ssh "$OBS_HOST" "cd '$OBS_DEPLOY_DIR' && docker compose -f compose.yml up -d"
+  ssh "$OBS_HOST" "cd '$OBS_DEPLOY_DIR' && OBS_SECRET_GID='$secret_gid' docker compose -f compose.yml up -d"
   ssh "$OBS_HOST" "docker exec zworkforce-observability-prometheus-1 sh -c 'kill -HUP 1' || true"
 
   note "Stage G: health/readiness"
   curl -fsS "$ZWORKFORCE_HEALTH_URL" >/dev/null
   curl -fsS "$ZWORKFORCE_READY_URL" >/dev/null
 
-  # Metrics auth can use an existing locally exported token without printing it.
-  if [[ -n "${ZWORKFORCE_METRICS_BEARER:-}" ]]; then
-    curl -fsS -H "Authorization: Bearer $ZWORKFORCE_METRICS_BEARER" "$ZWORKFORCE_METRICS_URL" \
-      | grep -E 'zworkforce_|provider_|queue_' >/dev/null
-  else
+ # Metrics auth can use an existing locally exported token without printing it.
+ if [[ -n "${ZWORKFORCE_METRICS_BEARER:-}" ]]; then
+    printf '%s\n' "Authorization: Bearer $ZWORKFORCE_METRICS_BEARER" |
+      curl -fsS -H @- "$ZWORKFORCE_METRICS_URL" \
+     | grep -E 'zworkforce_|provider_|queue_' >/dev/null
+ else
     die "ZWORKFORCE_METRICS_BEARER required for authenticated metrics evidence"
   fi
 
@@ -548,9 +567,9 @@ YAML
 
   # Optional repository-specific trace/alert evidence drill.
   if [[ -x "$REPO_DIR/scripts/release/verify-observability.sh" ]]; then
-    OBS_COMPOSE_FILE=compose.yml "$REPO_DIR/scripts/release/verify-observability.sh"
+    ALERTMANAGER_PORT=9093 OBS_COMPOSE_FILE=compose.yml "$REPO_DIR/scripts/release/verify-observability.sh"
   elif [[ -x "$REPO_DIR/scripts/verify-observability.sh" ]]; then
-    OBS_COMPOSE_FILE=compose.yml "$REPO_DIR/scripts/verify-observability.sh"
+    ALERTMANAGER_PORT=9093 OBS_COMPOSE_FILE=compose.yml "$REPO_DIR/scripts/verify-observability.sh"
   else
     die "no repository observability verification script found; cannot prove trace + actual alert delivery"
   fi
@@ -642,8 +661,11 @@ stage_h(){
     'Write-Output ("SIGNATURE=" + $sig.Status)')"
   run_remote_pwsh "$inspect_script"
 
-  # Live HTTPS endpoint check from Windows host.
-  run_remote_pwsh "Invoke-WebRequest -UseBasicParsing '$(ps_single_quote "$ZWORKFORCE_HTTPS_ENDPOINT/health")' | Out-Null; if (-not \$?) { exit 1 }"
+  # Live HTTPS endpoint check from Windows host. The helper already returns a
+  # complete PowerShell single-quoted literal; do not add a second quote pair.
+  local ps_health_endpoint
+  ps_health_endpoint="$(ps_single_quote "$ZWORKFORCE_HTTPS_ENDPOINT/health")"
+  run_remote_pwsh "Invoke-WebRequest -UseBasicParsing $ps_health_endpoint | Out-Null; if (-not \$?) { exit 1 }"
 
   if [[ -x "$REPO_DIR/scripts/release/verify-windows-live.sh" ]]; then
     WINDOWS_HOST="$WINDOWS_HOST" \

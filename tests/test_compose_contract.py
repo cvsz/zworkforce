@@ -55,6 +55,14 @@ class ComposeHealthcheckContractTests(unittest.TestCase):
                 self.assertIn(expected, source)
                 self.assertNotIn('["CMD", "curl",', source)
 
+    def test_ha_non_http_roles_disable_inherited_api_healthcheck(self):
+        for path in HA_COMPOSES:
+            source = path.read_text(encoding="utf-8")
+            for role in ("worker", "scheduler", "outbox"):
+                with self.subTest(path=path.name, role=role):
+                    block = service_block(source, role)
+                    self.assertRegex(block, r"(?m)^    healthcheck:\n      disable: true$")
+
     def test_supabase_s3_example_uses_direct_storage_hostname(self):
         source = HA_ENV_EXAMPLE.read_text(encoding="utf-8")
         self.assertIn(".storage.supabase.co/storage/v1/s3", source)
