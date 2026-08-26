@@ -152,8 +152,12 @@ grep -Fq "outbox_claim_owners=" <<<"$db_evidence" || fail "outbox3 claim_owner e
 for pair in "A:$HA_HOST_A" "B:$HA_HOST_B"; do
   label="${pair%%:*}"
   host="${pair#*:}"
-  ssh "${ssh_opts[@]}" "$host" "curl -fsS -H 'Authorization: Bearer $ZWORKFORCE_METRICS_BEARER' http://127.0.0.1:9456/metrics | grep -E 'zworkforce_|provider_|queue_|task_' >/dev/null" || \
-    fail "host $label metrics endpoint missing expected series"
+  printf '%s\n' "$ZWORKFORCE_METRICS_BEARER" |
+    ssh "${ssh_opts[@]}" "$host" '
+      IFS= read -r metrics_bearer
+      curl -fsS -H "Authorization: Bearer ${metrics_bearer}" http://127.0.0.1:9456/metrics |
+        grep -E "zworkforce_|provider_|queue_|task_" >/dev/null
+    ' || fail "host $label metrics endpoint missing expected series"
 done
 
 note "HA verification complete: shared lease/outbox ownership and both runtimes verified"

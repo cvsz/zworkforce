@@ -91,6 +91,12 @@ class ReleaseWorkflowTests(unittest.TestCase):
             gates,
         )
 
+    def test_ha_metrics_bearer_is_streamed_over_ssh_stdin(self):
+        verifier = HA_VERIFIER.read_text(encoding="utf-8")
+        self.assertIn('IFS= read -r metrics_bearer', verifier)
+        self.assertIn('metrics_bearer', verifier)
+        self.assertNotIn('Authorization: Bearer $ZWORKFORCE_METRICS_BEARER', verifier)
+
 
 if __name__ == "__main__":
     unittest.main()
