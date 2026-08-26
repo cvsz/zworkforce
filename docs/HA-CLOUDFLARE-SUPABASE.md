@@ -151,7 +151,25 @@ accepts only a JSON receipt whose `evidence_id` matches exactly, whose
 are not valid evidence endpoints.
 
 The supplied `alert-receiver.service` uses systemd `StateDirectory` and creates
-the receipt directory before the `ProtectSystem=strict` sandbox is applied.
+the receipt directory before the `ProtectSystem=strict` sandbox is applied. It
+loads the observability host's private bind address from the required
+`/etc/zworkforce-observability/alert-receiver.env`; do not copy an HA node IP
+into the unit. Install the tracked example, set `ALERT_RECEIVER_BIND` to the
+actual private interface used by the operator-owned receipt URL, and keep the
+file root-owned before enabling the unit:
+
+```bash
+install -D -o root -g root -m 0644 \
+  deploy/observability/alert-receiver.env.example \
+  /etc/zworkforce-observability/alert-receiver.env
+# Edit ALERT_RECEIVER_BIND to the observability host's private address.
+systemctl daemon-reload
+systemctl enable --now alert-receiver.service
+```
+
+The verifier allows up to 60 seconds of bounded host-clock skew for
+`received_at` by default. Set `RECEIPT_MAX_CLOCK_SKEW_SECONDS` only when the
+deployment requires a different value, never above 300 seconds.
 
 ## Stage E verification
 

@@ -12,6 +12,7 @@ OBS_COMPOSE_FILE="${OBS_COMPOSE_FILE:-compose.vm-b.yaml}"
 ALERTMANAGER_PORT="${ALERTMANAGER_PORT:-19093}"
 ALERT_RECEIVER_TEST_URL="${ALERT_RECEIVER_TEST_URL:?set ALERT_RECEIVER_TEST_URL receipt endpoint}"
 ALERT_RECEIVER_TOKEN_FILE="${ALERT_RECEIVER_TOKEN_FILE:?set ALERT_RECEIVER_TOKEN_FILE for receipt authorization}"
+RECEIPT_MAX_CLOCK_SKEW_SECONDS="${RECEIPT_MAX_CLOCK_SKEW_SECONDS:-60}"
 
 [[ -r "$ALERT_RECEIVER_TOKEN_FILE" ]] || {
   echo "VERIFY-OBS: FAIL: alert receiver token file is not readable" >&2
@@ -25,6 +26,11 @@ receiver_token="$(<"$ALERT_RECEIVER_TOKEN_FILE")"
 
 fail(){ echo "VERIFY-OBS: FAIL: $*" >&2; exit 1; }
 note(){ echo "VERIFY-OBS: $*"; }
+
+if ! [[ "$RECEIPT_MAX_CLOCK_SKEW_SECONDS" =~ ^[0-9]+$ ]] ||
+   (( RECEIPT_MAX_CLOCK_SKEW_SECONDS > 300 )); then
+  fail "RECEIPT_MAX_CLOCK_SKEW_SECONDS must be an integer from 0 through 300"
+fi
 
 collector_logs(){
   ssh -o BatchMode=yes -o ConnectTimeout=10 "$OBS_HOST" \
@@ -111,13 +117,17 @@ import sys
 record = json.load(sys.stdin)
 expected_id = sys.argv[1]
 submitted_at = float(sys.argv[2])
+max_clock_skew = float(sys.argv[3])
 if not isinstance(record, dict) or record.get("evidence_id") != expected_id:
     raise SystemExit(1)
 received_at = record.get("received_at")
 if not isinstance(received_at, str):
     raise SystemExit(1)
 received = datetime.datetime.fromisoformat(received_at.replace("Z", "+00:00"))
-if received.tzinfo is None or received.timestamp() <= submitted_at:
+if (
+    received.tzinfo is None
+    or received.timestamp() < submitted_at - max_clock_skew
+):
     raise SystemExit(1)
 alert_count = record.get("alert_count")
 if isinstance(alert_count, bool) or not isinstance(alert_count, int) or alert_count < 1:
@@ -125,7 +135,7 @@ if isinstance(alert_count, bool) or not isinstance(alert_count, int) or alert_co
 payload_hash = record.get("payload_sha256")
 if not isinstance(payload_hash, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", payload_hash):
     raise SystemExit(1)
-' "$evidence_id" "$alert_submitted_at"; then
+' "$evidence_id" "$alert_submitted_at" "$RECEIPT_MAX_CLOCK_SKEW_SECONDS"; then
     receipt_ok=1
     break
   fi

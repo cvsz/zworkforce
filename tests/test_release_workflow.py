@@ -203,6 +203,10 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn('record.get("received_at")', verifier)
         self.assertIn('record.get("alert_count")', verifier)
         self.assertIn('record.get("payload_sha256")', verifier)
+        self.assertIn('RECEIPT_MAX_CLOCK_SKEW_SECONDS="${RECEIPT_MAX_CLOCK_SKEW_SECONDS:-60}"', verifier)
+        self.assertIn("received.timestamp() < submitted_at - max_clock_skew", verifier)
+        self.assertIn("RECEIPT_MAX_CLOCK_SKEW_SECONDS must be an integer from 0 through 300", verifier)
+        self.assertNotIn("received.timestamp() <= submitted_at", verifier)
         self.assertNotIn("otelcol_receiver_accepted_spans", verifier)
         self.assertIn("trace ID in collector logs", verifier)
         self.assertIn("verbosity: detailed", gates)
@@ -285,6 +289,9 @@ class ReleaseWorkflowTests(unittest.TestCase):
 
     def test_observability_receipt_service_prepares_writable_state_before_sandbox(self):
         service = ALERT_RECEIVER_SERVICE.read_text(encoding="utf-8")
+        self.assertIn("EnvironmentFile=-/etc/zworkforce-observability/alert-receiver.env", service)
+        self.assertIn("ExecStartPre=/usr/bin/test -n ${ALERT_RECEIVER_BIND}", service)
+        self.assertNotIn("Environment=ALERT_RECEIVER_BIND=192.168.74.134", service)
         self.assertIn("StateDirectory=zworkforce-observability", service)
         self.assertIn("StateDirectoryMode=0700", service)
         self.assertIn("ExecStartPre=/usr/bin/install -d -m 700", service)
