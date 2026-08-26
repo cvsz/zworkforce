@@ -6,6 +6,8 @@ import json
 import re
 from typing import Any
 
+from .capabilities import CapabilityError, is_enterprise_manifest, validate_capability_manifest
+
 SKILL_ID = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 
 
@@ -48,3 +50,9 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
     prompt = str(manifest.get("system_prompt_append", ""))
     if len(prompt) > 20_000:
         raise SkillError("system_prompt_append is too large")
+
+    if is_enterprise_manifest(manifest):
+        try:
+            validate_capability_manifest(manifest, expected_kind="Skill")
+        except CapabilityError as exc:
+            raise SkillError(str(exc)) from exc
