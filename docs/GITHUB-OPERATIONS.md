@@ -52,6 +52,7 @@ The repository uses these GitHub Actions as release and merge evidence:
 | `CI` | Python 3.12/3.13/3.14 tests, PostgreSQL integration, documentation/repository policy, release integrity, container build, security invariants. |
 | `ZARVIS` | Z.A.R.V.I.S. package migration contract, Node workspace tests, API tests/audit, Windows restore checks for affected paths. |
 | `Windows client` | Native client restore, build, core tests, MSIX package, launch smoke check, artifact upload. |
+| `Windows signed candidate` | Manually signs a full-SHA `main` candidate with Azure Artifact Signing for pre-tag Stage H evidence; never publishes a release or image. |
 | `CodeQL Advanced` | Static analysis for Actions and Python surfaces. |
 | `Dependency Review` | Blocks vulnerable or disallowed dependency changes in pull requests. |
 | `Automatic Dependency Submission` | Submits dependency graph data for NuGet and related ecosystems. |
@@ -114,17 +115,33 @@ Use this workflow only when a container publication must be repaired or
 replayed independently of the normal tag-driven release; it is not a shortcut
 around the release evidence gate.
 
-The Windows MSIX release artifact is optional and requires trusted signing
-secrets:
+The Windows MSIX release artifact is optional and requires Azure Artifact
+Signing configured for GitHub Actions OIDC:
 
-- `WINDOWS_MSIX_PFX_BASE64`
-- `WINDOWS_MSIX_PFX_PASSWORD`
-- optional `WINDOWS_MSIX_PUBLISHER`
+- Secrets: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, and `AZURE_SUBSCRIPTION_ID`;
+- Variables: `AZURE_ARTIFACT_SIGNING_ENDPOINT`,
+  `AZURE_ARTIFACT_SIGNING_ACCOUNT_NAME`,
+  `AZURE_ARTIFACT_SIGNING_PROFILE_NAME`, and `WINDOWS_MSIX_PUBLISHER`.
 
-If those secrets are absent, the Windows artifact job is skipped and the
+The Azure identity must be federated to this repository and granted the minimum
+signing permission on the verified certificate profile. The Windows job builds
+an unsigned package, signs it with `azure/artifact-signing-action@v2`, verifies
+the trusted signature/timestamp/publisher/hash, and only then uploads it. If
+the configuration is absent, the Windows artifact job is skipped and the
 release still publishes Python artifacts, checksums, SBOM, provenance, GHCR
-images, and release notes. Invalid signing secrets fail the release instead of
-publishing an untrusted package.
+images, and release notes. Partial or invalid configuration fails the release;
+self-signed and PFX credentials are development/test paths, not production
+release evidence.
+
+Before creating an immutable release tag, run the manual
+`windows-signed-candidate.yml` workflow with the full 40-character commit SHA
+that is already reachable from `main` and the release version. It uses the
+protected `production` environment, refuses branch names and unmerged commits,
+signs/verifies the exact package, runs install/launch smoke, and uploads
+candidate metadata, the public certificate, and SHA-256 record. This workflow
+does not create a tag, GitHub Release, container image, or mutable production
+state. Use its artifact and run URL as the pre-tag Stage H evidence; the
+tag-driven release workflow repeats signing for the immutable tag.
 
 GHCR packages should be kept to immutable semantic tags and active operational
 tags. Remove obsolete experimental images only after confirming no deployment,

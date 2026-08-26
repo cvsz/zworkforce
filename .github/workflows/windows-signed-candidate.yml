@@ -1,0 +1,215 @@
+name: Windows signed candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Full 40-character commit SHA already reachable from main
+        required: true
+        type: string
+      version:
+        description: Semantic version without a leading v
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: windows-signed-candidate-${{ inputs.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sign:
+    name: Sign Windows release candidate
+    runs-on: windows-latest
+    environment: production
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      NUGET_XMLDOC_MODE: skip
+      CANDIDATE_REF: ${{ inputs.ref }}
+      RELEASE_VERSION: ${{ inputs.version }}
+      WINDOWS_MSIX_PUBLISHER: ${{ vars.WINDOWS_MSIX_PUBLISHER }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AZURE_ARTIFACT_SIGNING_ENDPOINT: ${{ vars.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
+      AZURE_ARTIFACT_SIGNING_ACCOUNT_NAME: ${{ vars.AZURE_ARTIFACT_SIGNING_ACCOUNT_NAME }}
+      AZURE_ARTIFACT_SIGNING_PROFILE_NAME: ${{ vars.AZURE_ARTIFACT_SIGNING_PROFILE_NAME }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Verify immutable candidate and release metadata
+        id: candidate
+        run: |
+          if ($env:CANDIDATE_REF -notmatch "^[0-9a-fA-F]{40}$") {
+              throw "ref must be a full 40-character commit SHA; branch names are not accepted."
+          }
+          if ($env:RELEASE_VERSION -notmatch "^[0-9]+\.[0-9]+\.[0-9]+$") {
+              throw "version must be a stable semantic version without a leading v."
+          }
+          $candidateSha = (git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $candidateSha.ToLowerInvariant() -ne $env:CANDIDATE_REF.ToLowerInvariant()) {
+              throw "The checked out commit does not match the requested candidate SHA."
+          }
+          git fetch origin main --quiet
+          if ($LASTEXITCODE -ne 0) {
+              throw "Could not fetch origin/main for candidate ancestry verification."
+          }
+          git merge-base --is-ancestor $candidateSha origin/main
+          if ($LASTEXITCODE -ne 0) {
+              throw "The candidate must already be reachable from origin/main before production signing."
+          }
+          python scripts/verify_release.py --expected $env:RELEASE_VERSION
+          if ($LASTEXITCODE -ne 0) {
+              throw "Release metadata verification failed."
+          }
+          "sha=$candidateSha" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "CANDIDATE_SHA=$candidateSha" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Verify Azure Artifact Signing configuration
+        run: |
+          $required = @(
+              $env:AZURE_CLIENT_ID,
+              $env:AZURE_TENANT_ID,
+              $env:AZURE_SUBSCRIPTION_ID,
+              $env:AZURE_ARTIFACT_SIGNING_ENDPOINT,
+              $env:AZURE_ARTIFACT_SIGNING_ACCOUNT_NAME,
+              $env:AZURE_ARTIFACT_SIGNING_PROFILE_NAME,
+              $env:WINDOWS_MSIX_PUBLISHER
+          )
+          if (@($required | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -ne 0) {
+              throw "Azure Artifact Signing candidate configuration is incomplete."
+          }
+          if ($env:AZURE_ARTIFACT_SIGNING_ENDPOINT -notmatch '^https://') {
+              throw "AZURE_ARTIFACT_SIGNING_ENDPOINT must be an HTTPS endpoint."
+          }
+
+      - name: Audit Windows client environment
+        run: ./ZWorkforceClient/build/windows/Install-Prerequisites.ps1 -CheckOnly
+
+      - name: Restore
+        run: dotnet restore ZWorkforceClient/ZWorkforceClient.sln
+
+      - name: Build client
+        run: ./ZWorkforceClient/build/windows/Build-Client.ps1 -Configuration Release -Platform x64
+
+      - name: Run core tests
+        run: ./ZWorkforceClient/build/windows/Test-Client.ps1 -Configuration Release
+
+      - name: Package unsigned MSIX
+        run: ./ZWorkforceClient/build/windows/Package-Client.ps1 -Configuration Release -Platform x64 -Unsigned -Publisher "$env:WINDOWS_MSIX_PUBLISHER" -Version "$env:RELEASE_VERSION"
+
+      - name: Locate unsigned MSIX
+        id: package
+        run: |
+          $packageDirectory = Join-Path $PWD "ZWorkforceClient\out\Release-x64"
+          $expectedPackageVersion = "$($env:RELEASE_VERSION).0"
+          $packages = @(Get-ChildItem -LiteralPath $packageDirectory -File |
+              Where-Object {
+                  $_.Extension -in @(".msix", ".msixbundle") -and
+                  $_.Name -match ("_" + [regex]::Escape($expectedPackageVersion) + "_")
+              })
+          if ($packages.Count -ne 1) {
+              throw "Expected exactly one versioned unsigned MSIX artifact, found $($packages.Count)."
+          }
+          "path=$($packages[0].FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Login to Azure for Artifact Signing
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Sign MSIX with Azure Artifact Signing
+        uses: azure/artifact-signing-action@v2
+        with:
+          endpoint: ${{ vars.AZURE_ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.AZURE_ARTIFACT_SIGNING_ACCOUNT_NAME }}
+          certificate-profile-name: ${{ vars.AZURE_ARTIFACT_SIGNING_PROFILE_NAME }}
+          files: ${{ steps.package.outputs.path }}
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          enhanced-key-usage: 1.3.6.1.5.5.7.3.3
+          timeout: 600
+
+      - name: Verify signed MSIX
+        run: |
+          $packagePath = "${{ steps.package.outputs.path }}"
+          ./ZWorkforceClient/build/windows/Verify-MSIXSignature.ps1 -PackagePath $packagePath -ExpectedPublisher "$env:WINDOWS_MSIX_PUBLISHER" -ExpectedVersion "$($env:RELEASE_VERSION).0" -SignerCertificateOutputPath "$packagePath.cer"
+
+      - name: Install and launch smoke check
+        timeout-minutes: 8
+        run: ./ZWorkforceClient/build/windows/Test-Client.ps1 -Configuration Release -PackagePath "${{ steps.package.outputs.path }}" -ExpectedVersion "$($env:RELEASE_VERSION).0" -LaunchSmoke -SkipCertificateTrust
+
+      - name: Generate candidate evidence files
+        run: |
+          $packagePath = "${{ steps.package.outputs.path }}"
+          $package = Get-Item -LiteralPath $packagePath -ErrorAction Stop
+          $hash = (Get-FileHash -LiteralPath $package.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          [IO.File]::WriteAllText(
+              "$($package.FullName).sha256",
+              "$hash  $($package.Name)$([Environment]::NewLine)",
+              [Text.UTF8Encoding]::new($false)
+          )
+          $metadata = @(
+              "CANDIDATE_SHA=$env:CANDIDATE_SHA"
+              "VERSION=$($env:RELEASE_VERSION).0"
+              "PACKAGE=$($package.Name)"
+              "SHA256=$hash"
+          ) -join [Environment]::NewLine
+          [IO.File]::WriteAllText(
+              "$($package.FullName).candidate.txt",
+              "$metadata$([Environment]::NewLine)",
+              [Text.UTF8Encoding]::new($false)
+          )
+
+      - name: Upload signed candidate evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: zworkforce-windows-signed-candidate-${{ steps.candidate.outputs.sha }}
+          path: |
+            ZWorkforceClient/out/Release-x64/*.msix
+            ZWorkforceClient/out/Release-x64/*.msixbundle
+            ZWorkforceClient/out/Release-x64/*.cer
+            ZWorkforceClient/out/Release-x64/*.sha256
+            ZWorkforceClient/out/Release-x64/*.candidate.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: zworkforce-windows-signed-candidate-diagnostics-${{ github.run_number }}
+          path: |
+            ZWorkforceClient/src/**/bin/**
+            ZWorkforceClient/src/**/obj/**
+            ZWorkforceClient/out/**
+          if-no-files-found: warn
+          retention-days: 14

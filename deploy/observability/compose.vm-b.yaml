@@ -1,3 +1,7 @@
+secrets:
+  alert-receiver-auth:
+    file: ${ALERT_RECEIVER_TOKEN_FILE:?set ALERT_RECEIVER_TOKEN_FILE}
+
 services:
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.135.0
@@ -7,6 +11,7 @@ services:
     ports:
       - "4317:4317"
       - "4318:4318"
+      - "8888:8888"
       - "8889:8889"
     restart: unless-stopped
 
@@ -25,6 +30,9 @@ services:
     command: ["--config.file=/etc/alertmanager/alertmanager.yml"]
     volumes:
       - ./alertmanager.rendered.yml:/etc/alertmanager/alertmanager.yml:ro
+    secrets:
+      - source: alert-receiver-auth
+        target: alert-receiver-auth
     ports:
       - "19093:9093"
     restart: unless-stopped

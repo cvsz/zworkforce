@@ -63,6 +63,7 @@ tfplan.*
 .terraform/
 .env.openai
 .env.release
+.alert-receiver-token
 .env.supabase
 .release-evidence-logs/
 .release-evidence-state/

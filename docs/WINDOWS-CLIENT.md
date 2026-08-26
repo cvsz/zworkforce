@@ -158,15 +158,25 @@ diagnostics on failure.
 
 Require the **Windows client / build-test-package** check in branch protection
 alongside the existing Python CI, security, CodeQL, and dependency checks.
-Release automation builds and smoke-tests the versioned MSIX from the same
-protected version tag, generates SHA-256 checksums, and uploads the package,
-public sideload certificate, and checksum to the existing GitHub Release. The
+Release automation builds the versioned package from the same protected version
+tag, signs the exact unsigned MSIX with Azure Artifact Signing through GitHub
+Actions OIDC, verifies the signature and timestamp, runs the install smoke
+test against that exact file, generates a SHA-256 checksum, and uploads the
+package, public signer certificate, and checksum to the GitHub Release. The
 tag must be created only after the required Windows check is green.
 
 A production release should additionally record the exact Windows check URL,
 artifact name, trusted publisher/signature state, deployed HTTPS endpoint, and
 functional smoke result in `docs/PRODUCTION-EVIDENCE.md` or the immutable
 release record.
+
+Before tag creation, run the manual `Windows signed candidate` workflow with
+the full 40-character commit SHA already merged into `main`. It is the safe
+pre-tag signing path: it requires the protected `production` environment, refuses
+unmerged or moving refs, and uploads a candidate-bound signed package,
+certificate, checksum, metadata, and run record without publishing a release.
+Use those outputs to complete Stage H; the tag workflow signs the immutable
+release artifact again after GO.
 
 ## Package signing
 
@@ -177,10 +187,14 @@ the scripted smoke check installs that package for the current user, launches
 the registered app, verifies the real client process remains alive, and removes
 the package and temporary certificate afterward.
 
-The checked-in pull-request path uses a short-lived self-signed certificate
+The checked-in pull-request path uses a short-lived development certificate
 for test and sideload artifacts; the uploaded `.cer` is public and is not a
-production trust anchor. The release workflow is fail-closed and requires the
-organization's trusted PFX signing identity through the documented GitHub
-secrets before it can publish a release MSIX. Never commit a private
-certificate, password, API key, or signing token. The package output is under
-`ZWorkforceClient/out/` and is intentionally ignored by Git.
+production trust anchor. For production, call
+`Package-Client.ps1 -Unsigned -Publisher <publisher>`, then use
+`azure/login@v3` with OIDC and `azure/artifact-signing-action@v2` to sign the
+artifact with SHA-256 and an RFC 3161 timestamp. The release verifier requires
+an Authenticode-valid signature, trusted certificate chain, Code Signing EKU,
+expected publisher/version, timestamp, and MSIX signature entries before
+installation. Never commit a private certificate, PFX, password, API key, or
+signing token. The package output is under `ZWorkforceClient/out/` and is
+intentionally ignored by Git.

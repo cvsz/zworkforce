@@ -11,9 +11,31 @@ OBS_DEPLOY_DIR="${OBS_DEPLOY_DIR:-/opt/zworkforce-observability}"
 OBS_COMPOSE_FILE="${OBS_COMPOSE_FILE:-compose.vm-b.yaml}"
 ALERTMANAGER_PORT="${ALERTMANAGER_PORT:-19093}"
 ALERT_RECEIVER_TEST_URL="${ALERT_RECEIVER_TEST_URL:?set ALERT_RECEIVER_TEST_URL receipt endpoint}"
+ALERT_RECEIVER_TOKEN_FILE="${ALERT_RECEIVER_TOKEN_FILE:?set ALERT_RECEIVER_TOKEN_FILE for receipt authorization}"
+RECEIPT_MAX_CLOCK_SKEW_SECONDS="${RECEIPT_MAX_CLOCK_SKEW_SECONDS:-60}"
+
+[[ -r "$ALERT_RECEIVER_TOKEN_FILE" ]] || {
+  echo "VERIFY-OBS: FAIL: alert receiver token file is not readable" >&2
+  exit 1
+}
+receiver_token="$(<"$ALERT_RECEIVER_TOKEN_FILE")"
+[[ -n "$receiver_token" ]] || {
+  echo "VERIFY-OBS: FAIL: alert receiver token file is empty" >&2
+  exit 1
+}
 
 fail(){ echo "VERIFY-OBS: FAIL: $*" >&2; exit 1; }
 note(){ echo "VERIFY-OBS: $*"; }
+
+if ! [[ "$RECEIPT_MAX_CLOCK_SKEW_SECONDS" =~ ^[0-9]+$ ]] ||
+   (( RECEIPT_MAX_CLOCK_SKEW_SECONDS > 300 )); then
+  fail "RECEIPT_MAX_CLOCK_SKEW_SECONDS must be an integer from 0 through 300"
+fi
+
+collector_logs(){
+  ssh -o BatchMode=yes -o ConnectTimeout=10 "$OBS_HOST" \
+    "cd '$OBS_DEPLOY_DIR' && docker compose -f '$OBS_COMPOSE_FILE' logs --no-color --since 5m otel-collector 2>&1"
+}
 
 safe_host(){
   python3 - "$1" <<'PY'
@@ -76,6 +98,7 @@ PY
 )"
 
 note "submitting synthetic alert through Alertmanager API"
+alert_submitted_at="$(python3 -c 'import time; print(time.time())')"
 printf '%s' "$alert_json" | ssh -o BatchMode=yes "$OBS_HOST" \
   "curl -fsS -X POST -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:${ALERTMANAGER_PORT}/api/v2/alerts >/dev/null" || \
   fail "Alertmanager rejected synthetic alert"
@@ -84,8 +107,35 @@ receiver_host="$(safe_host "$ALERT_RECEIVER_TEST_URL")"
 note "waiting for external alert receipt from ${receiver_host} (URL redacted)"
 receipt_ok=0
 for _ in $(seq 1 12); do
-  receipt="$(curl -fsS --get "$ALERT_RECEIVER_TEST_URL" --data-urlencode "evidence_id=$evidence_id" 2>/dev/null || true)"
-  if grep -Fq "$evidence_id" <<<"$receipt"; then
+  receipt="$(printf 'Authorization: Bearer %s\n' "$receiver_token" | curl -fsS -H @- --get "$ALERT_RECEIVER_TEST_URL" --data-urlencode "evidence_id=$evidence_id" 2>/dev/null || true)"
+  if printf '%s' "$receipt" | python3 -c '
+import datetime
+import json
+import re
+import sys
+
+record = json.load(sys.stdin)
+expected_id = sys.argv[1]
+submitted_at = float(sys.argv[2])
+max_clock_skew = float(sys.argv[3])
+if not isinstance(record, dict) or record.get("evidence_id") != expected_id:
+    raise SystemExit(1)
+received_at = record.get("received_at")
+if not isinstance(received_at, str):
+    raise SystemExit(1)
+received = datetime.datetime.fromisoformat(received_at.replace("Z", "+00:00"))
+if (
+    received.tzinfo is None
+    or received.timestamp() < submitted_at - max_clock_skew
+):
+    raise SystemExit(1)
+alert_count = record.get("alert_count")
+if isinstance(alert_count, bool) or not isinstance(alert_count, int) or alert_count < 1:
+    raise SystemExit(1)
+payload_hash = record.get("payload_sha256")
+if not isinstance(payload_hash, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", payload_hash):
+    raise SystemExit(1)
+' "$evidence_id" "$alert_submitted_at" "$RECEIPT_MAX_CLOCK_SKEW_SECONDS"; then
     receipt_ok=1
     break
   fi
@@ -121,10 +171,16 @@ printf '%s' "$trace_json" | ssh -o BatchMode=yes "$OBS_HOST" \
   "curl -fsS -X POST -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:4318/v1/traces >/dev/null" || \
   fail "OTel Collector rejected synthetic trace"
 
-sleep 2
-trace_logs="$(ssh -o BatchMode=yes "$OBS_HOST" "cd '$OBS_DEPLOY_DIR' && docker compose -f '$OBS_COMPOSE_FILE' logs --since 2m otel-collector 2>/dev/null" || true)"
-grep -Fqi "$trace_id" <<<"$trace_logs" || fail "synthetic trace ID not observed in OTel Collector debug exporter logs"
-note "OTel trace arrival verified"
+trace_seen=0
+for _ in $(seq 1 12); do
+  if collector_logs 2>/dev/null | grep -F "$trace_id" >/dev/null; then
+    trace_seen=1
+    break
+  fi
+  sleep 1
+done
+[[ "$trace_seen" -eq 1 ]] || fail "OTel Collector logs did not contain the submitted synthetic trace ID"
+note "OTLP trace receipt verified by exact trace ID in collector logs"
 
 note "observability verification complete"
 echo "VERIFY-OBS: PASS"

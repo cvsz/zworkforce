@@ -1,0 +1,45 @@
+[Unit]
+Description=zWorkforce private Alertmanager receipt endpoint
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=cvsz
+Group=cvsz
+WorkingDirectory=/opt/zworkforce-observability
+# Host-specific and intentionally required: the observability interface varies
+# by deployment and must never be assumed to be an HA runtime address.
+# The explicit ExecStartPre below turns a missing/empty file into a hard
+# startup failure while keeping static unit validation usable on the repo host.
+EnvironmentFile=-/etc/zworkforce-observability/alert-receiver.env
+Environment=ALERT_RECEIVER_PORT=18080
+StateDirectory=zworkforce-observability
+StateDirectoryMode=0700
+Environment=ALERT_RECEIVER_DATA_DIR=/var/lib/zworkforce-observability/alert-receipts
+ExecStartPre=/usr/bin/test -n ${ALERT_RECEIVER_BIND}
+ExecStartPre=/usr/bin/test -r ${ALERT_RECEIVER_TOKEN_FILE}
+ExecStartPre=/usr/bin/install -d -m 700 /var/lib/zworkforce-observability/alert-receipts
+ExecStart=/usr/bin/python3 /opt/zworkforce-observability/alert_receiver.py
+Restart=on-failure
+RestartSec=5s
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadWritePaths=/var/lib/zworkforce-observability
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target

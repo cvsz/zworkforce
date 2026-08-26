@@ -7,7 +7,7 @@ set -Eeuo pipefail
 #   F - Supabase S3-compatible storage verification (+ optional Qdrant)
 #   E - Multi-replica HA deployment/verification (remote hosts required for external evidence)
 #   G - Observability deployment/verification (OTel Collector + Prometheus + Alertmanager)
-#   H - Windows trusted-signing/build/install verification (remote Windows host supported)
+#   H - Windows trusted-artifact/signature/install verification (remote Windows host supported)
 #
 # IMPORTANT:
 # - This script does NOT tag/publish v3.0.4.
@@ -30,6 +30,13 @@ set -Eeuo pipefail
 #   /home/cvsz/zworkforce/.env.release
 #   HA_COMPOSE_FILE_A / HA_COMPOSE_FILE_B: remote Compose filenames
 #   HA_EXPECTED_IMAGE / HA_EXPECTED_IMAGE_DIGEST: exact candidate image and OCI digest
+#   HA_IMAGE_PULL_POLICY: `always` (default) pulls the exact image; `never`
+#     verifies an explicitly preloaded exact image and uses Compose --pull never
+#     for controlled/air-gapped deployments. In `never` mode, also set
+#     HA_EXPECTED_IMAGE_PROVENANCE_SHA256 for the pinned remote provenance file.
+#   WINDOWS_MSIX_PUBLISHER / WINDOWS_MSIX_EXPECTED_SHA256: expected values for
+#     the operator-provisioned Azure-signed artifact; WINDOWS_MSIX_PATH is an
+#     optional explicit path when the package is not under the release output.
 #
 # See generated .env.release.example.
 
@@ -108,7 +115,16 @@ mark(){
 }
 
 CURRENT_GATE=""
-trap 'rc=$?; if [[ $rc -ne 0 && -n "$CURRENT_GATE" ]]; then mark "$CURRENT_GATE" FAIL gate_execution_failed; fi' EXIT
+GATE_FAILURE_STATUS=FAIL
+GATE_FAILURE_DETAIL=gate_execution_failed
+
+begin_gate(){
+  CURRENT_GATE="$1"
+  GATE_FAILURE_STATUS=FAIL
+  GATE_FAILURE_DETAIL=gate_execution_failed
+}
+
+trap 'rc=$?; if [[ $rc -ne 0 && -n "$CURRENT_GATE" ]]; then mark "$CURRENT_GATE" "$GATE_FAILURE_STATUS" "$GATE_FAILURE_DETAIL"; fi' EXIT
 
 # ---------------------------------------------------------------------------
 # Stage F — Supabase Storage / optional Qdrant
@@ -321,8 +337,18 @@ stage_e(){
 
   local compose_a="${HA_COMPOSE_FILE_A:-compose.vm-a.yaml}"
   local compose_b="${HA_COMPOSE_FILE_B:-compose.vm-b.yaml}"
+  local image_pull_policy="${HA_IMAGE_PULL_POLICY:-always}"
 
   [[ "$HA_HOST_A" != "$HA_HOST_B" ]] || die "HA_HOST_A and HA_HOST_B must differ"
+  case "$image_pull_policy" in
+    always|never) ;;
+    *) die "HA_IMAGE_PULL_POLICY must be always or never" ;;
+  esac
+  if [[ "$image_pull_policy" == "never" ]]; then
+    : "${HA_EXPECTED_IMAGE_PROVENANCE_SHA256:?set HA_EXPECTED_IMAGE_PROVENANCE_SHA256 for the pinned preloaded image provenance file}"
+    [[ "$HA_EXPECTED_IMAGE_PROVENANCE_SHA256" =~ ^[0-9A-Fa-f]{64}$ ]] || \
+      die "HA_EXPECTED_IMAGE_PROVENANCE_SHA256 must be a 64-character SHA-256"
+  fi
 
   note "Stage E: verifying two distinct external hosts are reachable"
   ssh -o BatchMode=yes -o ConnectTimeout=10 "$HA_HOST_A" 'hostname && uptime'
@@ -331,10 +357,18 @@ stage_e(){
   # We intentionally do NOT inject DB secrets via shell.
   # Each host must already have its external secret/config material provisioned.
   note "Stage E: deploying/starting zworkforce HA services on host A"
-  ssh "$HA_HOST_A" "cd '$HA_DEPLOY_DIR' && test -f '$compose_a' && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' ZWORKFORCE_INSTANCE_ID=vm-a docker compose -f '$compose_a' pull && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' ZWORKFORCE_INSTANCE_ID=vm-a docker compose -f '$compose_a' up -d"
+  if [[ "$image_pull_policy" == "always" ]]; then
+    ssh "$HA_HOST_A" "cd '$HA_DEPLOY_DIR' && test -f '$compose_a' && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' ZWORKFORCE_INSTANCE_ID=vm-a docker compose -f '$compose_a' pull && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' ZWORKFORCE_INSTANCE_ID=vm-a docker compose -f '$compose_a' up -d"
+  else
+    ssh "$HA_HOST_A" "cd '$HA_DEPLOY_DIR' && test -f '$compose_a' && docker image inspect '$HA_EXPECTED_IMAGE' >/dev/null && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' ZWORKFORCE_INSTANCE_ID=vm-a docker compose -f '$compose_a' up -d --pull never"
+  fi
 
   note "Stage E: deploying/starting zworkforce HA services on host B"
-  ssh "$HA_HOST_B" "cd '$HA_DEPLOY_DIR' && test -f '$compose_b' && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' ZWORKFORCE_INSTANCE_ID=vm-b docker compose -f '$compose_b' pull && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' ZWORKFORCE_INSTANCE_ID=vm-b docker compose -f '$compose_b' up -d"
+  if [[ "$image_pull_policy" == "always" ]]; then
+    ssh "$HA_HOST_B" "cd '$HA_DEPLOY_DIR' && test -f '$compose_b' && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' ZWORKFORCE_INSTANCE_ID=vm-b docker compose -f '$compose_b' pull && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' ZWORKFORCE_INSTANCE_ID=vm-b docker compose -f '$compose_b' up -d"
+  else
+    ssh "$HA_HOST_B" "cd '$HA_DEPLOY_DIR' && test -f '$compose_b' && docker image inspect '$HA_EXPECTED_IMAGE' >/dev/null && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' ZWORKFORCE_INSTANCE_ID=vm-b docker compose -f '$compose_b' up -d --pull never"
+  fi
 
   note "Stage E: capturing replica identities"
   local a_ids b_ids
@@ -347,11 +381,17 @@ stage_e(){
   if [[ -x "$REPO_DIR/scripts/release/verify-ha.sh" ]]; then
     HA_HOST_A="$HA_HOST_A" HA_HOST_B="$HA_HOST_B" HA_DEPLOY_DIR="$HA_DEPLOY_DIR" \
       HA_COMPOSE_FILE_A="$compose_a" HA_COMPOSE_FILE_B="$compose_b" \
+      HA_IMAGE_PULL_POLICY="$image_pull_policy" \
+      HA_IMAGE_PROVENANCE_FILE="${HA_IMAGE_PROVENANCE_FILE:-candidate-image-provenance.env}" \
+      HA_EXPECTED_IMAGE_PROVENANCE_SHA256="${HA_EXPECTED_IMAGE_PROVENANCE_SHA256:-}" \
       HA_EXPECTED_IMAGE="$HA_EXPECTED_IMAGE" HA_EXPECTED_IMAGE_DIGEST="$HA_EXPECTED_IMAGE_DIGEST" \
       "$REPO_DIR/scripts/release/verify-ha.sh"
   elif [[ -x "$REPO_DIR/scripts/verify-ha.sh" ]]; then
     HA_HOST_A="$HA_HOST_A" HA_HOST_B="$HA_HOST_B" HA_DEPLOY_DIR="$HA_DEPLOY_DIR" \
       HA_COMPOSE_FILE_A="$compose_a" HA_COMPOSE_FILE_B="$compose_b" \
+      HA_IMAGE_PULL_POLICY="$image_pull_policy" \
+      HA_IMAGE_PROVENANCE_FILE="${HA_IMAGE_PROVENANCE_FILE:-candidate-image-provenance.env}" \
+      HA_EXPECTED_IMAGE_PROVENANCE_SHA256="${HA_EXPECTED_IMAGE_PROVENANCE_SHA256:-}" \
       HA_EXPECTED_IMAGE="$HA_EXPECTED_IMAGE" HA_EXPECTED_IMAGE_DIGEST="$HA_EXPECTED_IMAGE_DIGEST" \
       "$REPO_DIR/scripts/verify-ha.sh"
   else
@@ -374,6 +414,8 @@ secrets:
     file: ./metrics-bearer
   alertmanager-webhook-url:
     file: ./alertmanager-webhook-url
+  alert-receiver-auth:
+    file: ./alert-receiver-auth
 
 services:
   otel-collector:
@@ -384,6 +426,7 @@ services:
     ports:
       - "4317:4317"
       - "4318:4318"
+      - "8888:8888"
       - "8889:8889"
     restart: unless-stopped
 
@@ -410,6 +453,8 @@ services:
     secrets:
       - source: alertmanager-webhook-url
         target: alertmanager-webhook-url
+      - source: alert-receiver-auth
+        target: alert-receiver-auth
     group_add:
       - "${OBS_SECRET_GID:?set OBS_SECRET_GID}"
     ports:
@@ -448,7 +493,9 @@ stage_g(){
   : "${ZWORKFORCE_READY_URL:?set ZWORKFORCE_READY_URL}"
   : "${ALERT_RECEIVER_TEST_URL:?set ALERT_RECEIVER_TEST_URL or external receipt endpoint}"
   : "${ALERTMANAGER_WEBHOOK_URL:?set ALERTMANAGER_WEBHOOK_URL}"
+  : "${ALERT_RECEIVER_TOKEN_FILE:?set ALERT_RECEIVER_TOKEN_FILE for receipt authorization}"
   : "${ZWORKFORCE_METRICS_BEARER:?set ZWORKFORCE_METRICS_BEARER}"
+  [[ -r "$ALERT_RECEIVER_TOKEN_FILE" ]] || die "ALERT_RECEIVER_TOKEN_FILE is not readable"
 
   local metrics_a metrics_b
   metrics_a="$(metrics_hostport_for "${ZWORKFORCE_METRICS_HOSTPORT_A:-${ZWORKFORCE_METRICS_HOSTPORT:-}}" "$HA_HOST_A")"
@@ -460,6 +507,7 @@ stage_g(){
   write_observability_compose "$tmp/compose.yml"
   printf '%s' "$ZWORKFORCE_METRICS_BEARER" > "$tmp/metrics-bearer"
   printf '%s' "$ALERTMANAGER_WEBHOOK_URL" > "$tmp/alertmanager-webhook-url"
+  install -m 600 "$ALERT_RECEIVER_TOKEN_FILE" "$tmp/alert-receiver-auth"
 
   cat > "$tmp/otel-collector.yaml" <<'YAML'
 receivers:
@@ -471,10 +519,21 @@ receivers:
         endpoint: 0.0.0.0:4318
 exporters:
   debug:
-    verbosity: basic
+    # Detailed output includes the trace ID so the verifier can correlate the
+    # submitted synthetic span instead of trusting a global counter.
+    verbosity: detailed
   prometheus:
     endpoint: 0.0.0.0:8889
 service:
+  telemetry:
+    metrics:
+      level: detailed
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
   pipelines:
     traces:
       receivers: [otlp]
@@ -530,18 +589,26 @@ YAML
 
   cat > "$tmp/alertmanager.yml" <<YAML
 route:
+  group_by: ["alertname", "evidence_id"]
+  group_wait: 1s
+  group_interval: 10s
+  repeat_interval: 1h
   receiver: operator
 receivers:
   - name: operator
     webhook_configs:
       - url_file: "/run/secrets/alertmanager-webhook-url"
+        http_config:
+          authorization:
+            type: Bearer
+            credentials_file: "/run/secrets/alert-receiver-auth"
         send_resolved: true
 YAML
 
   note "Stage G: copying observability config to $OBS_HOST"
   ssh "$OBS_HOST" "mkdir -p '$OBS_DEPLOY_DIR'"
   scp -q "$tmp/"* "$OBS_HOST:$OBS_DEPLOY_DIR/"
-  ssh "$OBS_HOST" "chmod 640 '$OBS_DEPLOY_DIR/metrics-bearer' '$OBS_DEPLOY_DIR/alertmanager-webhook-url'"
+  ssh "$OBS_HOST" "chmod 640 '$OBS_DEPLOY_DIR/metrics-bearer' '$OBS_DEPLOY_DIR/alertmanager-webhook-url' '$OBS_DEPLOY_DIR/alert-receiver-auth'"
 
   local secret_gid
   secret_gid="$(ssh "$OBS_HOST" "stat -c '%g' '$OBS_DEPLOY_DIR/metrics-bearer'")"
@@ -549,7 +616,9 @@ YAML
 
   note "Stage G: deploying OTel/Prometheus/Alertmanager"
   ssh "$OBS_HOST" "cd '$OBS_DEPLOY_DIR' && OBS_SECRET_GID='$secret_gid' docker compose -f compose.yml up -d"
+  ssh "$OBS_HOST" "cd '$OBS_DEPLOY_DIR' && OBS_SECRET_GID='$secret_gid' docker compose -f compose.yml up -d --force-recreate otel-collector"
   ssh "$OBS_HOST" "docker exec zworkforce-observability-prometheus-1 sh -c 'kill -HUP 1' || true"
+  ssh "$OBS_HOST" "docker exec zworkforce-observability-alertmanager-1 sh -c 'kill -HUP 1' || true"
 
   note "Stage G: health/readiness"
   curl -fsS "$ZWORKFORCE_HEALTH_URL" >/dev/null
@@ -582,7 +651,7 @@ YAML
 }
 
 # ---------------------------------------------------------------------------
-# Stage H — Windows trusted signing
+# Stage H — Windows trusted artifact verification
 # ---------------------------------------------------------------------------
 
 ps_single_quote(){
@@ -593,8 +662,34 @@ ps_single_quote(){
 
 run_remote_pwsh(){
   local script="$1"
-  printf '%s\n' '$ErrorActionPreference = "Stop"' "$script" | \
-    ssh "$WINDOWS_HOST" 'pwsh -NoProfile -NonInteractive -Command -'
+  # Read the payload as one scriptblock so terminating errors cannot be
+  # mistaken for successful interactive input. Preserve the exception message
+  # without stringifying the whole ErrorRecord (which adds a misleading
+  # boolean prefix on some PowerShell versions). Use Get-Variable here because
+  # the SSH Windows shell can expand `$_` before pwsh sees the command.
+  printf '%s\n' "$script" | \
+    ssh "$WINDOWS_HOST" 'pwsh -NoProfile -NonInteractive -Command "Set-Variable -Name ErrorActionPreference -Value Stop; try { & ([scriptblock]::Create([Console]::In.ReadToEnd())) } catch { [Console]::Error.WriteLine((Get-Variable -Name _ -ValueOnly).Exception.Message); exit 1 }"'
+}
+
+run_h_remote(){
+  local failure_detail="$1" script="$2" rc
+  if run_remote_pwsh "$script"; then
+    return 0
+  else
+    rc=$?
+  fi
+
+  if [[ "$rc" -eq 255 ]]; then
+    GATE_FAILURE_STATUS=FAIL
+    GATE_FAILURE_DETAIL=windows_ssh_transport_failed
+  elif [[ "$failure_detail" == "trusted_signing_artifact_required" ]]; then
+    GATE_FAILURE_STATUS=BLOCKED
+    GATE_FAILURE_DETAIL=trusted_signing_artifact_required
+  else
+    GATE_FAILURE_STATUS=FAIL
+    GATE_FAILURE_DETAIL="$failure_detail"
+  fi
+  return "$rc"
 }
 
 stage_h(){
@@ -605,25 +700,33 @@ stage_h(){
 
   : "${WINDOWS_HOST:?set WINDOWS_HOST (OpenSSH-enabled Windows target)}"
   : "${WINDOWS_REPO_DIR:?set WINDOWS_REPO_DIR e.g. C:/src/zworkforce}"
-  : "${WINDOWS_MSIX_PFX_PATH:?set WINDOWS_MSIX_PFX_PATH on Windows host}"
-  : "${WINDOWS_MSIX_PFX_PASSWORD:?set WINDOWS_MSIX_PFX_PASSWORD in secure env}"
-  : "${WINDOWS_MSIX_PUBLISHER:?set WINDOWS_MSIX_PUBLISHER}"
   : "${ZWORKFORCE_HTTPS_ENDPOINT:?set ZWORKFORCE_HTTPS_ENDPOINT}"
+
+  if [[ -z "${WINDOWS_MSIX_PUBLISHER:-}" ||
+        -z "${WINDOWS_MSIX_EXPECTED_SHA256:-}" ||
+        ! "${WINDOWS_MSIX_EXPECTED_SHA256:-}" =~ ^[0-9A-Fa-f]{64}$ ]]; then
+    GATE_FAILURE_STATUS=BLOCKED
+    GATE_FAILURE_DETAIL=trusted_signing_artifact_required
+    die "set WINDOWS_MSIX_PUBLISHER and the SHA-256 of the externally trusted-signed MSIX in WINDOWS_MSIX_EXPECTED_SHA256"
+  fi
 
   local release_version
   release_version="$(PYTHONPATH="$REPO_DIR" python3 -c 'from zworkforce import __version__; print(__version__)')"
 
-  # Never copy/export PFX material from this script. It must already be securely
-  # provisioned on the Windows host.
   note "Stage H: verifying Windows host"
-  run_remote_pwsh '$PSVersionTable.PSVersion.ToString()'
+  run_h_remote windows_host_probe '$PSVersionTable.PSVersion.ToString()'
 
-  note "Stage H: build/test/sign package"
-  local ps_repo_dir ps_pfx_path ps_pfx_password ps_publisher
+  note "Stage H: verifying externally signed MSIX artifact"
+  local ps_repo_dir ps_publisher ps_expected_sha ps_expected_package_version ps_configured_package_path
   ps_repo_dir="$(ps_single_quote "$WINDOWS_REPO_DIR")"
-  ps_pfx_path="$(ps_single_quote "$WINDOWS_MSIX_PFX_PATH")"
-  ps_pfx_password="$(ps_single_quote "$WINDOWS_MSIX_PFX_PASSWORD")"
   ps_publisher="$(ps_single_quote "$WINDOWS_MSIX_PUBLISHER")"
+  ps_expected_sha="$(ps_single_quote "${WINDOWS_MSIX_EXPECTED_SHA256^^}")"
+  ps_expected_package_version="$(ps_single_quote "$release_version.0")"
+  if [[ -n "${WINDOWS_MSIX_PATH:-}" ]]; then
+    ps_configured_package_path="$(ps_single_quote "$WINDOWS_MSIX_PATH")"
+  else
+    ps_configured_package_path='$null'
+  fi
 
   local candidate_script ps_candidate
   ps_candidate="$(ps_single_quote "$FROZEN_CANDIDATE")"
@@ -631,52 +734,129 @@ stage_h(){
     "Set-Location $ps_repo_dir" \
     '$sha = (git rev-parse HEAD).Trim()' \
     "if (\$sha -ne $ps_candidate) { [Console]::Error.WriteLine(\"Windows checkout does not match candidate $FROZEN_CANDIDATE\"); exit 1 }" \
+    '$worktreeStatus = @(git status --porcelain=v1)' \
+    'if ($LASTEXITCODE -ne 0) { [Console]::Error.WriteLine("Unable to inspect Windows checkout status"); exit 1 }' \
+    'if ($worktreeStatus.Count -ne 0) { [Console]::Error.WriteLine("Windows checkout is not clean; refusing release evidence collection"); exit 1 }' \
     'Write-Output ("WINDOWS_CANDIDATE=" + $sha)')"
-  run_remote_pwsh "$candidate_script"
+  run_h_remote windows_candidate_verification_failed "$candidate_script"
 
-  local build_script
-  build_script="$(printf '%s\n' \
+  # This gate consumes a package signed by the external production signer. It
+  # never builds, exports, imports, or transports private signing material.
+  local artifact_presence_script
+  artifact_presence_script="$(printf '%s\n' \
     "Set-Location $ps_repo_dir" \
-    "\$env:ZWORKFORCE_MSIX_SIGNING_PFX_PATH = $ps_pfx_path" \
-    "\$env:ZWORKFORCE_MSIX_SIGNING_PFX_PASSWORD = $ps_pfx_password" \
-    "\$env:ZWORKFORCE_MSIX_SIGNING_PUBLISHER = $ps_publisher" \
-    "\$env:ZWORKFORCE_MSIX_REQUIRE_TRUSTED_SIGNING = 'true'" \
-    "& ./ZWorkforceClient/build/windows/Build-Client.ps1 -Configuration Release -Platform x64; if (-not \$?) { exit 1 }" \
-    "& ./ZWorkforceClient/build/windows/Test-Client.ps1 -Configuration Release; if (-not \$?) { exit 1 }" \
-    "& ./ZWorkforceClient/build/windows/Package-Client.ps1 -Configuration Release -Platform x64 -Version '$release_version'; if (-not \$?) { exit 1 }" \
-    "& ./ZWorkforceClient/build/windows/Test-Client.ps1 -Configuration Release -ExpectedVersion '$release_version.0' -LaunchSmoke; if (-not \$?) { exit 1 }")"
-  run_remote_pwsh "$build_script"
+    "\$configuredPackagePath = $ps_configured_package_path" \
+    "\$expectedPackageVersion = $ps_expected_package_version" \
+    "\$packageRoot = Join-Path (Get-Location) 'ZWorkforceClient/out/Release-x64'" \
+    'if ($null -ne $configuredPackagePath) {' \
+    '  $package = Get-Item -LiteralPath $configuredPackagePath -ErrorAction Stop' \
+    '  if ($package.PSIsContainer -or $package.Extension -notin @(".msix", ".msixbundle")) { throw "Configured Windows artifact is not an MSIX package." }' \
+    '} else {' \
+    '  if (-not (Test-Path -LiteralPath $packageRoot -PathType Container)) { throw "Expected Windows package output directory not found." }' \
+    '  $packages = @(Get-ChildItem -LiteralPath $packageRoot -File | Where-Object { $_.Extension -in @(".msix", ".msixbundle") -and $_.Name -match ("_" + [regex]::Escape($expectedPackageVersion) + "_") })' \
+    '  if ($packages.Count -ne 1) { throw "Expected exactly one externally signed versioned MSIX artifact." }' \
+    '  $package = $packages[0]' \
+    '}' \
+    'Write-Output ("PACKAGE=" + $package.FullName)' \
+    'Write-Output ("PACKAGE_VERSION=" + $expectedPackageVersion)')"
+  run_h_remote trusted_signing_artifact_required "$artifact_presence_script"
 
-  # Find newest MSIX/MSIXBundle and validate Authenticode + hash without
-  # printing signing secrets.
-  local inspect_script
-  inspect_script="$(printf '%s\n' \
+  local signature_script
+  signature_script="$(printf '%s\n' \
     "Set-Location $ps_repo_dir" \
-    '$packages = @(Get-ChildItem -Recurse -File | Where-Object { $_.Extension -in @(".msix", ".msixbundle") } | Sort-Object LastWriteTime -Descending)' \
-    'if ($packages.Count -eq 0) { [Console]::Error.WriteLine("MSIX/MSIXBundle not found"); exit 1 }' \
-    '$pkg = $packages[0]' \
-    '$sig = Get-AuthenticodeSignature $pkg.FullName' \
-    'if ($sig.Status -ne "Valid") { [Console]::Error.WriteLine("Signature invalid: " + $sig.Status); exit 1 }' \
-    '$hash = (Get-FileHash -Algorithm SHA256 $pkg.FullName).Hash' \
-    'Write-Output ("PACKAGE=" + $pkg.Name)' \
-    'Write-Output ("SHA256=" + $hash)' \
-    'Write-Output ("PUBLISHER=" + $sig.SignerCertificate.Subject)' \
-    'Write-Output ("SIGNATURE=" + $sig.Status)')"
-  run_remote_pwsh "$inspect_script"
+    "\$expectedPublisher = $ps_publisher" \
+    "\$expectedPackageVersion = $ps_expected_package_version" \
+    "\$expectedSha256 = $ps_expected_sha" \
+    "\$expectedCandidateSha = $ps_candidate" \
+    "\$configuredPackagePath = $ps_configured_package_path" \
+    "\$packageRoot = Join-Path (Get-Location) 'ZWorkforceClient/out/Release-x64'" \
+    'if ($null -ne $configuredPackagePath) {' \
+    '  $package = Get-Item -LiteralPath $configuredPackagePath -ErrorAction Stop' \
+    '  if ($package.PSIsContainer -or $package.Extension -notin @(".msix", ".msixbundle")) { throw "Configured Windows artifact is not an MSIX package." }' \
+    '} else {' \
+    '  if (-not (Test-Path -LiteralPath $packageRoot -PathType Container)) { throw "Expected Windows package output directory not found." }' \
+    '  $packages = @(Get-ChildItem -LiteralPath $packageRoot -File | Where-Object { $_.Extension -in @(".msix", ".msixbundle") -and $_.Name -match ("_" + [regex]::Escape($expectedPackageVersion) + "_") })' \
+    '  if ($packages.Count -ne 1) { throw "Expected exactly one externally signed versioned MSIX artifact." }' \
+    '  $package = $packages[0]' \
+    '}' \
+    '$candidateMetadataPath = "$($package.FullName).candidate.txt"' \
+    'if (-not (Test-Path -LiteralPath $candidateMetadataPath -PathType Leaf)) {' \
+    '  throw "Candidate metadata sidecar is missing next to the signed MSIX: $candidateMetadataPath"' \
+    '}' \
+    '$candidateMetadata = @{}' \
+    'foreach ($metadataLine in Get-Content -LiteralPath $candidateMetadataPath -ErrorAction Stop) {' \
+    '  if ([string]::IsNullOrWhiteSpace($metadataLine)) { continue }' \
+    '  $metadataParts = $metadataLine -split "=", 2' \
+    '  if ($metadataParts.Count -ne 2 -or [string]::IsNullOrWhiteSpace($metadataParts[0]) -or $candidateMetadata.ContainsKey($metadataParts[0])) {' \
+    '    throw "Candidate metadata sidecar has an invalid or duplicate field."' \
+    '  }' \
+    '  $candidateMetadata[$metadataParts[0]] = $metadataParts[1]' \
+    '}' \
+    'foreach ($requiredMetadataField in @("CANDIDATE_SHA", "VERSION", "PACKAGE", "SHA256")) {' \
+    '  if (-not $candidateMetadata.ContainsKey($requiredMetadataField) -or [string]::IsNullOrWhiteSpace($candidateMetadata[$requiredMetadataField])) {' \
+    '    throw "Candidate metadata sidecar is missing $requiredMetadataField."' \
+    '  }' \
+    '}' \
+    'if ($candidateMetadata["CANDIDATE_SHA"].ToLowerInvariant() -ne $expectedCandidateSha.ToLowerInvariant()) {' \
+    '  throw "Signed MSIX candidate metadata does not match the frozen candidate SHA."' \
+    '}' \
+    'if ($candidateMetadata["VERSION"] -ne $expectedPackageVersion) {' \
+    '  throw "Signed MSIX candidate metadata version does not match the release version."' \
+    '}' \
+    'if ($candidateMetadata["PACKAGE"] -ne $package.Name) {' \
+    '  throw "Signed MSIX candidate metadata package name does not match the staged artifact."' \
+    '}' \
+    'if ($candidateMetadata["SHA256"] -notmatch "^[0-9a-fA-F]{64}$" -or $candidateMetadata["SHA256"].ToUpperInvariant() -ne $expectedSha256.ToUpperInvariant()) {' \
+    '  throw "Signed MSIX candidate metadata SHA-256 does not match the expected artifact hash."' \
+    '}' \
+    'Write-Output ("CANDIDATE_METADATA=" + $candidateMetadataPath)' \
+    "\$verification = @(& ./ZWorkforceClient/build/windows/Verify-MSIXSignature.ps1 -PackagePath \$package.FullName -ExpectedPublisher \$expectedPublisher -ExpectedVersion '$release_version.0' -ExpectedSha256 \$expectedSha256)" \
+    'if (-not $?) { exit 1 }' \
+    '$publisherLine = $verification | Where-Object { $_ -like "PUBLISHER=*" } | Select-Object -Last 1' \
+    'if ($null -eq $publisherLine) { throw "MSIX signature verifier did not return a publisher." }' \
+    '$publisher = $publisherLine.Substring("PUBLISHER=".Length)' \
+    'if ($publisher -ne $expectedPublisher) { throw "MSIX publisher does not match the expected trusted signing identity." }' \
+    '$verification | Write-Output')"
+  run_h_remote windows_msix_signature_invalid "$signature_script"
+
+  local smoke_script
+  smoke_script="$(printf '%s\n' \
+    "Set-Location $ps_repo_dir" \
+    "\$expectedPackageVersion = $ps_expected_package_version" \
+    "\$configuredPackagePath = $ps_configured_package_path" \
+    "\$packageRoot = Join-Path (Get-Location) 'ZWorkforceClient/out/Release-x64'" \
+    'if ($null -ne $configuredPackagePath) {' \
+    '  $package = Get-Item -LiteralPath $configuredPackagePath -ErrorAction Stop' \
+    '} else {' \
+    '  if (-not (Test-Path -LiteralPath $packageRoot -PathType Container)) { throw "Expected Windows package output directory not found." }' \
+    '  $packages = @(Get-ChildItem -LiteralPath $packageRoot -File | Where-Object { $_.Extension -in @(".msix", ".msixbundle") -and $_.Name -match ("_" + [regex]::Escape($expectedPackageVersion) + "_") })' \
+    '  if ($packages.Count -ne 1) { throw "Expected exactly one externally signed versioned MSIX artifact." }' \
+    '  $package = $packages[0]' \
+    '}' \
+    '& ./ZWorkforceClient/build/windows/Test-Client.ps1 -Configuration Release -PackagePath $package.FullName -ExpectedVersion $expectedPackageVersion -LaunchSmoke -SkipCertificateTrust' \
+    'if (-not $?) { exit 1 }')"
+  run_h_remote windows_msix_install_smoke_failed "$smoke_script"
 
   # Live HTTPS endpoint check from Windows host. The helper already returns a
   # complete PowerShell single-quoted literal; do not add a second quote pair.
   local ps_health_endpoint
   ps_health_endpoint="$(ps_single_quote "$ZWORKFORCE_HTTPS_ENDPOINT/health")"
-  run_remote_pwsh "Invoke-WebRequest -UseBasicParsing $ps_health_endpoint | Out-Null; if (-not \$?) { exit 1 }"
+  run_h_remote windows_live_endpoint_failed "Invoke-WebRequest -UseBasicParsing $ps_health_endpoint | Out-Null; if (-not \$?) { exit 1 }"
 
   if [[ -x "$REPO_DIR/scripts/release/verify-windows-live.sh" ]]; then
-    WINDOWS_HOST="$WINDOWS_HOST" \
+    if WINDOWS_HOST="$WINDOWS_HOST" \
       ZWORKFORCE_HTTPS_ENDPOINT="$ZWORKFORCE_HTTPS_ENDPOINT" \
-      "$REPO_DIR/scripts/release/verify-windows-live.sh"
+      "$REPO_DIR/scripts/release/verify-windows-live.sh"; then
+      :
+    else
+      local live_verify_rc=$?
+      GATE_FAILURE_STATUS=FAIL
+      GATE_FAILURE_DETAIL=windows_live_evidence_failed
+      return "$live_verify_rc"
+    fi
   fi
 
-  mark H PASS "trusted_windows_signing_verified"
+  mark H PASS "trusted_windows_artifact_verified"
   note "STAGE H VERDICT: PASS"
 }
 
@@ -707,33 +887,33 @@ case "${1:-}" in
     status
     ;;
   F)
-    CURRENT_GATE=F
+    begin_gate F
     stage_f
     CURRENT_GATE=
     ;;
   E)
-    CURRENT_GATE=E
+    begin_gate E
     stage_e
     CURRENT_GATE=
     ;;
   G)
-    CURRENT_GATE=G
+    begin_gate G
     stage_g
     CURRENT_GATE=
     ;;
   H)
-    CURRENT_GATE=H
+    begin_gate H
     stage_h
     CURRENT_GATE=
     ;;
   all)
-    CURRENT_GATE=F
+    begin_gate F
     stage_f
-    CURRENT_GATE=E
+    begin_gate E
     stage_e
-    CURRENT_GATE=G
+    begin_gate G
     stage_g
-    CURRENT_GATE=H
+    begin_gate H
     stage_h
     CURRENT_GATE=
     ;;

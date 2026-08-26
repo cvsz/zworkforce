@@ -5,7 +5,9 @@ param(
     [ValidateSet("x64", "ARM64")]
     [string]$Platform = "x64",
     [ValidatePattern("^v?\d+\.\d+\.\d+(\.\d+)?$")]
-    [string]$Version = "1.0.0"
+    [string]$Version = "1.0.0",
+    [string]$Publisher,
+    [switch]$Unsigned
 )
 
 $ErrorActionPreference = "Stop"
@@ -19,6 +21,11 @@ $normalizedVersion = $Version.TrimStart("v")
 $signingPfxPath = $env:ZWORKFORCE_MSIX_SIGNING_PFX_PATH
 $signingPfxPassword = $env:ZWORKFORCE_MSIX_SIGNING_PFX_PASSWORD
 $signingPublisher = $env:ZWORKFORCE_MSIX_SIGNING_PUBLISHER
+$requestedPublisher = if (-not [string]::IsNullOrWhiteSpace($Publisher)) {
+    $Publisher.Trim()
+} else {
+    $signingPublisher
+}
 $requireTrustedSigning = $env:ZWORKFORCE_MSIX_REQUIRE_TRUSTED_SIGNING -in @("1", "true", "TRUE", "True")
 $packageVersion = if ($normalizedVersion.Split(".").Count -eq 3) {
     "$normalizedVersion.0"
@@ -34,8 +41,10 @@ New-Item -ItemType Directory -Force -Path $output | Out-Null
 
 $certificate = $null
 $generatedSigningCertificate = $false
+$importedSigningCertificateThumbprints = @()
 $certificatePassword = $null
 $pfxPath = $null
+$signingCertificateThumbprint = $null
 $originalManifestBytes = [IO.File]::ReadAllBytes($manifestPath)
 try {
     Get-ChildItem -LiteralPath $output -Force -ErrorAction SilentlyContinue |
@@ -44,11 +53,17 @@ try {
     $manifestText = [Text.Encoding]::UTF8.GetString($originalManifestBytes)
     $hasSigningPfxPath = -not [string]::IsNullOrWhiteSpace($signingPfxPath)
     $hasSigningPfxPassword = -not [string]::IsNullOrWhiteSpace($signingPfxPassword)
-    if ($hasSigningPfxPath -xor $hasSigningPfxPassword) {
+    if ($Unsigned -and ($hasSigningPfxPath -or $hasSigningPfxPassword)) {
+        throw "Unsigned packaging cannot receive a private MSIX signing PFX; sign the produced artifact with the external trusted signing service."
+    }
+    if (-not $Unsigned -and ($hasSigningPfxPath -xor $hasSigningPfxPassword)) {
         throw "Both ZWORKFORCE_MSIX_SIGNING_PFX_PATH and ZWORKFORCE_MSIX_SIGNING_PFX_PASSWORD are required for an external MSIX signing identity."
     }
-    if ($requireTrustedSigning -and -not $hasSigningPfxPath) {
+    if (-not $Unsigned -and $requireTrustedSigning -and -not $hasSigningPfxPath) {
         throw "Trusted MSIX signing is required for this build, but no signing PFX was supplied. Configure the release signing secrets."
+    }
+    if ($Unsigned -and [string]::IsNullOrWhiteSpace($requestedPublisher)) {
+        throw "Unsigned packaging requires -Publisher or ZWORKFORCE_MSIX_SIGNING_PUBLISHER so the external signer can preserve the intended package identity."
     }
     $identityPattern = '(<Identity\b[^>]*\bVersion=")[^"]+(")'
     if (-not [regex]::Match($manifestText, $identityPattern).Success) {
@@ -60,7 +75,9 @@ try {
         ('${1}' + $packageVersion + '${2}'),
         1
     )
-    if ($hasSigningPfxPath) {
+    if ($Unsigned) {
+        Write-Host "Building an unsigned MSIX; signing is deferred to the configured external trusted signing service."
+    } elseif ($hasSigningPfxPath) {
         if (-not (Test-Path -LiteralPath $signingPfxPath -PathType Leaf)) {
             throw "The configured MSIX signing PFX was not found at $signingPfxPath."
         }
@@ -78,6 +95,32 @@ try {
         if ($certificate.NotAfter -le (Get-Date)) {
             throw "The configured MSIX signing certificate is expired."
         }
+        $signingCertificateThumbprint = $certificate.Thumbprint.Replace(' ', '').ToUpperInvariant()
+        $existingSigningCertificate = Get-ChildItem -LiteralPath "Cert:\CurrentUser\My" -ErrorAction SilentlyContinue |
+            Where-Object { $_.Thumbprint.Replace(' ', '').ToUpperInvariant() -eq $signingCertificateThumbprint } |
+            Select-Object -First 1
+        if ($null -ne $existingSigningCertificate -and -not $existingSigningCertificate.HasPrivateKey) {
+            throw "The configured MSIX signing certificate already exists in the current user store without a private key; refusing to replace it automatically."
+        }
+        if ($null -eq $existingSigningCertificate) {
+            $securePfxPassword = ConvertTo-SecureString $signingPfxPassword -AsPlainText -Force
+            $importedStoreCertificates = @(Import-PfxCertificate `
+                -FilePath $signingPfxPath `
+                -Password $securePfxPassword `
+                -CertStoreLocation "Cert:\CurrentUser\My")
+            $importedSigningCertificateThumbprints = @(
+                $importedStoreCertificates |
+                    ForEach-Object { $_.Thumbprint.Replace(' ', '').ToUpperInvariant() } |
+                    Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+                    Select-Object -Unique
+            )
+            $importedStoreCertificate = $importedStoreCertificates |
+                Where-Object { $_.Thumbprint.Replace(' ', '').ToUpperInvariant() -eq $signingCertificateThumbprint } |
+                Select-Object -First 1
+            if ($null -eq $importedStoreCertificate) {
+                throw "The configured MSIX signing PFX did not import its signing certificate into the current user store."
+            }
+        }
         $pfxPath = $signingPfxPath
         $certificatePassword = $signingPfxPassword
         Export-Certificate -Cert $certificate -FilePath $cerPath -Force | Out-Null
@@ -90,6 +133,7 @@ try {
             -KeyExportPolicy Exportable `
             -NotAfter (Get-Date).AddDays(7)
         $generatedSigningCertificate = $true
+        $signingCertificateThumbprint = $certificate.Thumbprint.Replace(' ', '').ToUpperInvariant()
         $certificatePassword = [Guid]::NewGuid().ToString("N")
         $secureCertificatePassword = ConvertTo-SecureString $certificatePassword -AsPlainText -Force
         Export-PfxCertificate -Cert $certificate -FilePath $temporaryPfxPath -Password $secureCertificatePassword | Out-Null
@@ -97,13 +141,15 @@ try {
         $pfxPath = $temporaryPfxPath
     }
 
-    $publisher = if ([string]::IsNullOrWhiteSpace($signingPublisher)) {
+    $publisher = if (-not [string]::IsNullOrWhiteSpace($requestedPublisher)) {
+        $requestedPublisher
+    } elseif ($null -ne $certificate) {
         $certificate.Subject
     } else {
-        $signingPublisher.Trim()
+        ""
     }
     if ([string]::IsNullOrWhiteSpace($publisher)) {
-        throw "The MSIX signing certificate does not provide a publisher subject."
+        throw "The MSIX package does not provide a publisher subject."
     }
     $identityPublisherPattern = '(<Identity\b[^>]*\bPublisher=")[^"]+(")'
     if (-not [regex]::Match($versionedManifest, $identityPublisherPattern).Success) {
@@ -127,19 +173,28 @@ try {
         "--property:ApplicationDisplayVersion=$normalizedVersion",
         "--property:AppxPackageVersion=$packageVersion",
         "--property:GenerateAppxPackageOnBuild=true",
-        "--property:AppxPackageSigningEnabled=true",
-        "--property:PackageCertificateKeyFile=$pfxPath",
-        "--property:PackageCertificatePassword=$certificatePassword",
-        "--property:PackageCertificateThumbprint=$($certificate.Thumbprint)",
         "--property:AppxBundle=Never",
         "--property:AppxPackageDir=$output\",
         "--no-restore"
     )
+    if ($Unsigned) {
+        $publishArguments += "--property:AppxPackageSigningEnabled=false"
+    } else {
+        $publishArguments += @(
+            "--property:AppxPackageSigningEnabled=true",
+            "--property:PackageCertificateKeyFile=$pfxPath",
+            "--property:PackageCertificatePassword=$certificatePassword",
+            "--property:PackageCertificateThumbprint=$($certificate.Thumbprint)"
+        )
+    }
     & dotnet @publishArguments
     if ($LASTEXITCODE -ne 0) { throw "The packaged client publish failed with exit code $LASTEXITCODE." }
 }
 finally {
     [IO.File]::WriteAllBytes($manifestPath, $originalManifestBytes)
+    foreach ($thumbprint in $importedSigningCertificateThumbprints) {
+        Remove-Item -LiteralPath "Cert:\CurrentUser\My\$thumbprint" -Force -ErrorAction SilentlyContinue
+    }
     if ($generatedSigningCertificate -and $null -ne $certificate) {
         Remove-Item -LiteralPath "Cert:\CurrentUser\My\$($certificate.Thumbprint)" -Force -ErrorAction SilentlyContinue
     }
@@ -160,23 +215,28 @@ if ($null -eq $package) {
     throw "The publish completed without producing an MSIX artifact for version $packageVersion."
 }
 
-$certificateSource = Get-ChildItem -LiteralPath $package.Directory.FullName -File -Filter "*.cer" -ErrorAction SilentlyContinue |
-    Where-Object BaseName -eq $package.BaseName |
-    Select-Object -First 1
-if ($null -eq $certificateSource) {
-    $certificateSource = Get-Item -LiteralPath $cerPath
+$certificateSource = $null
+if (-not $Unsigned) {
+    $certificateSource = Get-ChildItem -LiteralPath $package.Directory.FullName -File -Filter "*.cer" -ErrorAction SilentlyContinue |
+        Where-Object BaseName -eq $package.BaseName |
+        Select-Object -First 1
+    if ($null -eq $certificateSource) {
+        $certificateSource = Get-Item -LiteralPath $cerPath
+    }
 }
 
 $packageDestination = Join-Path $output $package.Name
 if ([IO.Path]::GetFullPath($package.FullName) -ne [IO.Path]::GetFullPath($packageDestination)) {
     Copy-Item -LiteralPath $package.FullName -Destination $packageDestination -Force
 }
-$certificateDestination = Join-Path $output $certificateSource.Name
-if ([IO.Path]::GetFullPath($certificateSource.FullName) -ne [IO.Path]::GetFullPath($certificateDestination)) {
-    Copy-Item -LiteralPath $certificateSource.FullName -Destination $certificateDestination -Force
-}
-if ([IO.Path]::GetFullPath($certificateSource.FullName) -ne [IO.Path]::GetFullPath($cerPath)) {
-    Remove-Item -LiteralPath $cerPath -Force -ErrorAction SilentlyContinue
+if ($null -ne $certificateSource) {
+    $certificateDestination = Join-Path $output $certificateSource.Name
+    if ([IO.Path]::GetFullPath($certificateSource.FullName) -ne [IO.Path]::GetFullPath($certificateDestination)) {
+        Copy-Item -LiteralPath $certificateSource.FullName -Destination $certificateDestination -Force
+    }
+    if ([IO.Path]::GetFullPath($certificateSource.FullName) -ne [IO.Path]::GetFullPath($cerPath)) {
+        Remove-Item -LiteralPath $cerPath -Force -ErrorAction SilentlyContinue
+    }
 }
 
 Write-Host "Windows client package artifacts:"

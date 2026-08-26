@@ -95,7 +95,7 @@ The following observations are useful diagnostics but are not a production GO. W
 | E — HA runtime | PARTIAL / PENDING DURABLE EVIDENCE | Operator observations reported that both VMs ran the local `f935a5f…` image, exposed distinct `vm-a` / `vm-b` identities, authenticated metrics, current scheduler lease ownership, and outbox claim rows. No durable verifier output/run artifact containing operator, exact timestamp, command/run reference, and captured result is attached to the repository. Scheduler action exclusivity and outbox dispatch exclusivity are therefore still PENDING. Preserve a candidate-bound log/evidence bundle and rerun against the final frozen SHA. |
 | F — external storage | BLOCKED | Latest Supabase S3 `PutObject` returned HTTP 403. The observed release configuration referenced `dryflnsxhjuaamnzfrtu.supabase.co/storage/v1/s3` while the intended release project is `qhprcfdgajhmdzvnsffb`. Operator must provide valid credentials, endpoint, and exact region for the intended project, then rerun. |
 | G — observability | PARTIAL / FAIL | Prometheus targets were observed UP and Alertmanager was ready, but the configured `httpbin.org` receiver produced no queryable delivery receipt. Exact-candidate trace correlation and alert receipt remain incomplete. Use an operator-owned receipt-capable endpoint and retain the resulting evidence bundle. |
-| H — Windows trusted package | BLOCKED | Clean checkout was synchronized to `f935a5f…`, but `C:/secure/zworkforce-signing.pfx` and its secure directory were absent. Provision approved signing material and rerun build/sign/install/live-endpoint smoke on the final frozen SHA. |
+| H — Windows trusted package | BLOCKED | Clean checkout was synchronized to `f935a5f…`, but the Azure Artifact Signing account/profile/verified publisher and a matching signed MSIX evidence set are not provisioned. Provision the operator-owned signer, then rerun signature/install/live-endpoint smoke on the final frozen SHA. |
 
 The public Cloudflare route still serves the predecessor service. This ledger does not authorize changing that route. No `v3.0.4` tag has been created.
 
@@ -244,7 +244,7 @@ Final evidence must include:
 
 ## Stage H — Windows operator client
 
-Status: **BLOCKED — repository Windows CI passes build/test/package, but trusted production signing and live-endpoint installation/smoke require operator signing material.**
+Status: **BLOCKED — repository Windows CI passes build/test/package, but Azure Artifact Signing provisioning and live-endpoint installation/smoke evidence remain operator-owned prerequisites.**
 
 Final evidence must record:
 - exact candidate checkout;
@@ -256,9 +256,12 @@ Final evidence must record:
 
 ```text
 Windows checkout: final frozen SHA PENDING
-Trusted PFX: operator-provisioned material PENDING
+Azure Artifact Signing account/profile/verified publisher: operator provisioning PENDING
+Pre-tag candidate signing workflow/run: PENDING
 MSIX artifact:
 Publisher/signature:
+Timestamp:
+SHA-256:
 Target endpoint:
 Install/launch result:
 Functional smoke result:

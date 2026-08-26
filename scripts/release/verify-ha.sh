@@ -16,7 +16,19 @@ note(){ echo "VERIFY-HA: $*"; }
 : "${HA_COMPOSE_FILE_B:?set HA_COMPOSE_FILE_B on VM-B (for example compose.vm-b.yaml)}"
 : "${HA_EXPECTED_IMAGE:?set HA_EXPECTED_IMAGE to the exact candidate image reference}"
 : "${HA_EXPECTED_IMAGE_DIGEST:?set HA_EXPECTED_IMAGE_DIGEST to the exact candidate OCI digest}"
+HA_IMAGE_PULL_POLICY="${HA_IMAGE_PULL_POLICY:-always}"
+HA_IMAGE_PROVENANCE_FILE="${HA_IMAGE_PROVENANCE_FILE:-candidate-image-provenance.env}"
+HA_EXPECTED_IMAGE_PROVENANCE_SHA256="${HA_EXPECTED_IMAGE_PROVENANCE_SHA256:-}"
 [[ "$HA_HOST_A" != "$HA_HOST_B" ]] || fail "HA_HOST_A and HA_HOST_B must differ"
+[[ "$HA_EXPECTED_IMAGE_DIGEST" =~ ^sha256:[0-9a-fA-F]{64}$ ]] || fail "HA_EXPECTED_IMAGE_DIGEST must be a sha256 OCI digest"
+case "$HA_IMAGE_PULL_POLICY" in
+  always) ;;
+  never)
+    [[ "$HA_EXPECTED_IMAGE_PROVENANCE_SHA256" =~ ^[0-9a-fA-F]{64}$ ]] || \
+      fail "HA_EXPECTED_IMAGE_PROVENANCE_SHA256 is required for preloaded images"
+    ;;
+  *) fail "HA_IMAGE_PULL_POLICY must be always or never" ;;
+esac
 
 ssh_opts=(-o BatchMode=yes -o ConnectTimeout=10)
 
@@ -67,10 +79,41 @@ verify_host(){
   image_id="$(ssh "${ssh_opts[@]}" "$host" "cd '$HA_DEPLOY_DIR' && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' docker compose -f '$compose_file' images -q serve")" || \
     fail "host $label candidate image is not available"
   [[ -n "$image_id" ]] || fail "host $label serve image ID is empty"
-  image_digests="$(ssh "${ssh_opts[@]}" "$host" "docker image inspect '$image_id' --format '{{join .RepoDigests \"\\n\"}}'")" || \
-    fail "host $label image inspection failed"
-  grep -Fq "$HA_EXPECTED_IMAGE_DIGEST" <<<"$image_digests" || \
-    fail "host $label image digest does not match exact candidate"
+  if [[ "$HA_IMAGE_PULL_POLICY" == "never" ]]; then
+    # docker load intentionally leaves RepoDigests empty. The provenance file
+    # is captured from the registry-backed image before docker save, copied
+    # with the archive, and pinned by its own SHA-256 in the release env. The
+    # loaded image ID must still match that pinned record.
+    local provenance_sha provenance provenance_image provenance_digest provenance_image_id
+    provenance_sha="$(ssh "${ssh_opts[@]}" "$host" "cd '$HA_DEPLOY_DIR' && sha256sum '$HA_IMAGE_PROVENANCE_FILE' | awk '{print \$1}'")" || \
+      fail "host $label preloaded image provenance file is unavailable"
+    [[ "${provenance_sha,,}" == "${HA_EXPECTED_IMAGE_PROVENANCE_SHA256,,}" ]] || \
+      fail "host $label preloaded image provenance hash does not match the release record"
+    provenance="$(ssh "${ssh_opts[@]}" "$host" "cd '$HA_DEPLOY_DIR' && cat '$HA_IMAGE_PROVENANCE_FILE'")" || \
+      fail "host $label preloaded image provenance cannot be read"
+    for field in IMAGE DIGEST IMAGE_ID; do
+      [[ "$(grep -c "^${field}=" <<<"$provenance")" -eq 1 ]] || \
+        fail "host $label preloaded image provenance must contain exactly one $field field"
+    done
+    if grep -Ev '^(IMAGE|DIGEST|IMAGE_ID)=' <<<"$provenance" | grep -q .; then
+      fail "host $label preloaded image provenance contains an unexpected field"
+    fi
+    provenance_image="$(awk -F= '$1 == "IMAGE" {print substr($0, index($0, "=") + 1)}' <<<"$provenance")"
+    provenance_digest="$(awk -F= '$1 == "DIGEST" {print substr($0, index($0, "=") + 1)}' <<<"$provenance")"
+    provenance_image_id="$(awk -F= '$1 == "IMAGE_ID" {print substr($0, index($0, "=") + 1)}' <<<"$provenance")"
+    [[ "$provenance_image" == "$HA_EXPECTED_IMAGE" ]] || \
+      fail "host $label preloaded image provenance reference does not match exact candidate"
+    [[ "$provenance_digest" == "$HA_EXPECTED_IMAGE_DIGEST" ]] || \
+      fail "host $label preloaded image provenance digest does not match exact candidate"
+    [[ "$provenance_image_id" == "$image_id" ]] || \
+      fail "host $label loaded image ID does not match pinned provenance"
+    note "host $label preloaded image ID and pinned candidate digest verified"
+  else
+    image_digests="$(ssh "${ssh_opts[@]}" "$host" "docker image inspect '$image_id' --format '{{join .RepoDigests \"\\n\"}}'")" || \
+      fail "host $label image inspection failed"
+    grep -Fq "$HA_EXPECTED_IMAGE_DIGEST" <<<"$image_digests" || \
+      fail "host $label image digest does not match exact candidate"
+  fi
 }
 
 verify_host A "$HA_HOST_A" "$HA_COMPOSE_FILE_A"
