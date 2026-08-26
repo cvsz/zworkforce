@@ -636,8 +636,11 @@ ps_single_quote(){
 
 run_remote_pwsh(){
   local script="$1"
-  printf '%s\n' '$ErrorActionPreference = "Stop"' "$script" | \
-    ssh "$WINDOWS_HOST" 'pwsh -NoProfile -NonInteractive -Command -'
+  # `pwsh -Command -` processes stdin as an interactive command stream and
+  # may return zero after a terminating error. Read the payload as one
+  # scriptblock and convert every exception into a non-zero SSH status.
+  printf '%s\n' "$script" | \
+    ssh "$WINDOWS_HOST" 'pwsh -NoProfile -NonInteractive -Command "Set-Variable -Name ErrorActionPreference -Value Stop; try { & ([scriptblock]::Create([Console]::In.ReadToEnd())) } catch { [Console]::Error.WriteLine([string](Get-Variable -Name _ -ValueOnly)); exit 1 }"'
 }
 
 stage_h(){
@@ -684,27 +687,76 @@ stage_h(){
     "\$env:ZWORKFORCE_MSIX_SIGNING_PFX_PASSWORD = $ps_pfx_password" \
     "\$env:ZWORKFORCE_MSIX_SIGNING_PUBLISHER = $ps_publisher" \
     "\$env:ZWORKFORCE_MSIX_REQUIRE_TRUSTED_SIGNING = 'true'" \
+    '$signingCertificate = $null' \
+    'try {' \
+    '  $signingCertificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($env:ZWORKFORCE_MSIX_SIGNING_PFX_PATH, $env:ZWORKFORCE_MSIX_SIGNING_PFX_PASSWORD, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::EphemeralKeySet)' \
+    '  if (-not $signingCertificate.HasPrivateKey) { throw "Configured MSIX signing PFX does not contain a private key." }' \
+    '  if ($signingCertificate.NotAfter -le (Get-Date)) { throw "Configured MSIX signing certificate is expired." }' \
+    '  if ($signingCertificate.Subject -eq $signingCertificate.Issuer) { throw "Configured MSIX signing certificate is self-signed; production Stage H requires an enterprise-trusted CA certificate." }' \
+    '  if ($signingCertificate.Subject -ne $env:ZWORKFORCE_MSIX_SIGNING_PUBLISHER) { throw "Configured MSIX signing certificate subject does not match the configured package publisher." }' \
+    '  $ekuExtension = $signingCertificate.Extensions | Where-Object { $_.Oid.Value -eq "2.5.29.37" } | Select-Object -First 1' \
+    '  $hasCodeSigningEku = $false' \
+    '  if ($null -ne $ekuExtension) {' \
+    '    $typedEkuExtension = [System.Security.Cryptography.X509Certificates.X509EnhancedKeyUsageExtension]$ekuExtension' \
+    '    foreach ($oid in $typedEkuExtension.EnhancedKeyUsages) { if ($oid.Value -eq "1.3.6.1.5.5.7.3.3") { $hasCodeSigningEku = $true; break } }' \
+    '  }' \
+    '  if (-not $hasCodeSigningEku) { throw "Configured MSIX signing certificate does not contain the Code Signing EKU." }' \
+    '  $chain = [System.Security.Cryptography.X509Certificates.X509Chain]::new()' \
+    '  try {' \
+    '    $chain.ChainPolicy.RevocationMode = [System.Security.Cryptography.X509Certificates.X509RevocationMode]::Online' \
+    '    $chain.ChainPolicy.RevocationFlag = [System.Security.Cryptography.X509Certificates.X509RevocationFlag]::EntireChain' \
+    '    $chain.ChainPolicy.VerificationFlags = [System.Security.Cryptography.X509Certificates.X509VerificationFlags]::NoFlag' \
+    '    if (-not $chain.Build($signingCertificate)) {' \
+    '      $chainStatuses = @($chain.ChainStatus | ForEach-Object { $_.Status.ToString() }) -join ", "' \
+    '      throw "Configured MSIX signing certificate chain is not trusted: $chainStatuses"' \
+    '    }' \
+    '  } finally {' \
+    '    $chain.Dispose()' \
+    '  }' \
+    '  Write-Output "SIGNING_CERTIFICATE=trusted-code-signing-chain"' \
+    '} finally {' \
+    '  if ($null -ne $signingCertificate) { $signingCertificate.Dispose() }' \
+    '}' \
     "& ./ZWorkforceClient/build/windows/Build-Client.ps1 -Configuration Release -Platform x64; if (-not \$?) { exit 1 }" \
     "& ./ZWorkforceClient/build/windows/Test-Client.ps1 -Configuration Release; if (-not \$?) { exit 1 }" \
     "& ./ZWorkforceClient/build/windows/Package-Client.ps1 -Configuration Release -Platform x64 -Version '$release_version'; if (-not \$?) { exit 1 }" \
     "& ./ZWorkforceClient/build/windows/Test-Client.ps1 -Configuration Release -ExpectedVersion '$release_version.0' -LaunchSmoke; if (-not \$?) { exit 1 }")"
   run_remote_pwsh "$build_script"
 
-  # Find newest MSIX/MSIXBundle and validate Authenticode + hash without
-  # printing signing secrets.
+  # Find newest MSIX/MSIXBundle and validate the package structure + hash.
+  # Add-AppxPackage in the preceding launch smoke is the Windows-side
+  # signature/trust verification; Authenticode is not the MSIX verification
+  # API and can report UnknownError for a valid package signature block.
   local inspect_script
   inspect_script="$(printf '%s\n' \
     "Set-Location $ps_repo_dir" \
     '$packages = @(Get-ChildItem -Recurse -File | Where-Object { $_.Extension -in @(".msix", ".msixbundle") } | Sort-Object LastWriteTime -Descending)' \
     'if ($packages.Count -eq 0) { [Console]::Error.WriteLine("MSIX/MSIXBundle not found"); exit 1 }' \
     '$pkg = $packages[0]' \
-    '$sig = Get-AuthenticodeSignature $pkg.FullName' \
-    'if ($sig.Status -ne "Valid") { [Console]::Error.WriteLine("Signature invalid: " + $sig.Status); exit 1 }' \
+    'Add-Type -AssemblyName System.IO.Compression.FileSystem' \
+    '$archive = [System.IO.Compression.ZipFile]::OpenRead($pkg.FullName)' \
+    'try {' \
+    '  $signatureEntry = $archive.GetEntry("AppxSignature.p7x")' \
+    '  $blockMapEntry = $archive.GetEntry("AppxBlockMap.xml")' \
+    '  $manifestEntry = $archive.GetEntry("AppxManifest.xml")' \
+    '  if ($null -eq $manifestEntry) { $manifestEntry = $archive.GetEntry("AppxBundleManifest.xml") }' \
+    '  if ($null -eq $signatureEntry) { throw "MSIX package is missing AppxSignature.p7x." }' \
+    '  if ($null -eq $blockMapEntry) { throw "MSIX package is missing AppxBlockMap.xml." }' \
+    '  if ($null -eq $manifestEntry) { throw "MSIX package is missing its manifest." }' \
+    '  $manifestReader = [System.IO.StreamReader]::new($manifestEntry.Open())' \
+    '  try { $manifestXml = [xml]$manifestReader.ReadToEnd() } finally { $manifestReader.Dispose() }' \
+    '  $publisher = [string]$manifestXml.Package.Identity.Publisher' \
+    '  if ([string]::IsNullOrWhiteSpace($publisher)) { $publisher = [string]$manifestXml.Bundle.Identity.Publisher }' \
+    '  if ([string]::IsNullOrWhiteSpace($publisher)) { throw "MSIX manifest does not contain a publisher." }' \
+    '} finally {' \
+    '  $archive.Dispose()' \
+    '}' \
+    'if ($publisher -ne $env:ZWORKFORCE_MSIX_SIGNING_PUBLISHER) { throw "MSIX publisher does not match the trusted signing identity." }' \
     '$hash = (Get-FileHash -Algorithm SHA256 $pkg.FullName).Hash' \
     'Write-Output ("PACKAGE=" + $pkg.Name)' \
     'Write-Output ("SHA256=" + $hash)' \
-    'Write-Output ("PUBLISHER=" + $sig.SignerCertificate.Subject)' \
-    'Write-Output ("SIGNATURE=" + $sig.Status)')"
+    'Write-Output ("PUBLISHER=" + $publisher)' \
+    'Write-Output "SIGNATURE=MSIX_APPX_SIGNATURE_PRESENT"')"
   run_remote_pwsh "$inspect_script"
 
   # Live HTTPS endpoint check from Windows host. The helper already returns a

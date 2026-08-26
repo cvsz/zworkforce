@@ -68,6 +68,8 @@ class ReleaseWorkflowTests(unittest.TestCase):
         gates = EXTERNAL_GATES.read_text(encoding="utf-8")
         observability = OBS_VERIFIER.read_text(encoding="utf-8")
         self.assertIn("-Command -", gates)
+        self.assertIn("[scriptblock]::Create([Console]::In.ReadToEnd())", gates)
+        self.assertIn("Get-Variable -Name _ -ValueOnly", gates)
         self.assertIn("$PSVersionTable.PSVersion.ToString()", gates)
         self.assertIn("-ExpectedVersion '$release_version.0'", gates)
         self.assertIn("s3={\"addressing_style\": \"path\"}", gates)
@@ -141,6 +143,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("Import-PfxCertificate", package_script)
         self.assertIn("Cert:\\CurrentUser\\My", package_script)
         self.assertIn("PackageCertificateThumbprint", package_script)
+        self.assertIn("importedSigningCertificateThumbprints", package_script)
         self.assertIn("Remove-Item -LiteralPath", package_script)
 
     def test_windows_launch_smoke_handoffs_session_zero_to_active_user(self):
@@ -152,6 +155,15 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("SessionId", test_script)
         self.assertIn("InteractiveSmokeWorker", test_script)
         self.assertIn("Start-ScheduledTask", test_script)
+
+    def test_windows_gate_validates_msix_entries_and_production_certificate_chain(self):
+        gates = EXTERNAL_GATES.read_text(encoding="utf-8")
+
+        self.assertIn("X509Chain", gates)
+        self.assertIn("AppxSignature.p7x", gates)
+        self.assertIn("AppxBlockMap.xml", gates)
+        self.assertIn("self-signed", gates)
+        self.assertNotIn("Get-AuthenticodeSignature $pkg", gates)
 
 
 if __name__ == "__main__":

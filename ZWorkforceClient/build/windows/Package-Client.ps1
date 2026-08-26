@@ -34,7 +34,7 @@ New-Item -ItemType Directory -Force -Path $output | Out-Null
 
 $certificate = $null
 $generatedSigningCertificate = $false
-$importedSigningCertificate = $false
+$importedSigningCertificateThumbprints = @()
 $certificatePassword = $null
 $pfxPath = $null
 $signingCertificateThumbprint = $null
@@ -93,13 +93,18 @@ try {
                 -FilePath $signingPfxPath `
                 -Password $securePfxPassword `
                 -CertStoreLocation "Cert:\CurrentUser\My")
+            $importedSigningCertificateThumbprints = @(
+                $importedStoreCertificates |
+                    ForEach-Object { $_.Thumbprint.Replace(' ', '').ToUpperInvariant() } |
+                    Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+                    Select-Object -Unique
+            )
             $importedStoreCertificate = $importedStoreCertificates |
                 Where-Object { $_.Thumbprint.Replace(' ', '').ToUpperInvariant() -eq $signingCertificateThumbprint } |
                 Select-Object -First 1
             if ($null -eq $importedStoreCertificate) {
                 throw "The configured MSIX signing PFX did not import its signing certificate into the current user store."
             }
-            $importedSigningCertificate = $true
         }
         $pfxPath = $signingPfxPath
         $certificatePassword = $signingPfxPassword
@@ -164,8 +169,8 @@ try {
 }
 finally {
     [IO.File]::WriteAllBytes($manifestPath, $originalManifestBytes)
-    if ($importedSigningCertificate -and -not [string]::IsNullOrWhiteSpace($signingCertificateThumbprint)) {
-        Remove-Item -LiteralPath "Cert:\CurrentUser\My\$signingCertificateThumbprint" -Force -ErrorAction SilentlyContinue
+    foreach ($thumbprint in $importedSigningCertificateThumbprints) {
+        Remove-Item -LiteralPath "Cert:\CurrentUser\My\$thumbprint" -Force -ErrorAction SilentlyContinue
     }
     if ($generatedSigningCertificate -and $null -ne $certificate) {
         Remove-Item -LiteralPath "Cert:\CurrentUser\My\$($certificate.Thumbprint)" -Force -ErrorAction SilentlyContinue
