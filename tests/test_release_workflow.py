@@ -54,7 +54,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("CANDIDATE_REF", workflow)
         self.assertIn("ref must be a full 40-character commit SHA", workflow)
         self.assertIn("git merge-base --is-ancestor", workflow)
-        self.assertIn("environment: release", workflow)
+        self.assertIn("environment: production", workflow)
         self.assertIn("id-token: write", workflow)
         self.assertIn("uses: azure/login@v3", workflow)
         self.assertIn("uses: azure/artifact-signing-action@v2", workflow)

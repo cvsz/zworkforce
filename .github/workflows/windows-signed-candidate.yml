@@ -24,7 +24,7 @@ jobs:
   sign:
     name: Sign Windows release candidate
     runs-on: windows-latest
-    environment: release
+    environment: production
     timeout-minutes: 45
     permissions:
       contents: read

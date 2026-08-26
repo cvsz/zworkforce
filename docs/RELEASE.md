@@ -61,7 +61,7 @@ The tag-driven workflow is not the pre-tag evidence path because it publishes
 the release after signing. Use the manual
 `.github/workflows/windows-signed-candidate.yml` workflow after the exact
 candidate is on `main`. It accepts only a full commit SHA already reachable
-from `origin/main`, requires the protected `release` environment, signs and
+from `origin/main`, requires the protected `production` environment, signs and
 verifies the candidate, runs the exact-file install smoke check, and uploads a
 candidate-bound MSIX, public certificate, checksum, metadata file, and run
 record without creating a tag, GitHub Release, or container image. Stage H can
@@ -95,7 +95,7 @@ is post-build and uses Azure Artifact Signing, so the private signing key stays
 inside the managed signing service and is never placed in the repository,
 GitHub Secrets, or the Windows checkout.
 
-The protected release environment must provide these GitHub Secrets:
+The protected `production` environment must provide these GitHub Secrets:
 
 - `AZURE_CLIENT_ID`;
 - `AZURE_TENANT_ID`; and

@@ -172,7 +172,7 @@ release record.
 
 Before tag creation, run the manual `Windows signed candidate` workflow with
 the full 40-character commit SHA already merged into `main`. It is the safe
-pre-tag signing path: it requires the protected release environment, refuses
+pre-tag signing path: it requires the protected `production` environment, refuses
 unmerged or moving refs, and uploads a candidate-bound signed package,
 certificate, checksum, metadata, and run record without publishing a release.
 Use those outputs to complete Stage H; the tag workflow signs the immutable

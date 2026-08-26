@@ -136,7 +136,7 @@ release evidence.
 Before creating an immutable release tag, run the manual
 `windows-signed-candidate.yml` workflow with the full 40-character commit SHA
 that is already reachable from `main` and the release version. It uses the
-protected `release` environment, refuses branch names and unmerged commits,
+protected `production` environment, refuses branch names and unmerged commits,
 signs/verifies the exact package, runs install/launch smoke, and uploads
 candidate metadata, the public certificate, and SHA-256 record. This workflow
 does not create a tag, GitHub Release, container image, or mutable production

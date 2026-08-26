@@ -76,6 +76,7 @@ jobs:
     name: Windows client release
     needs: prepare-release
     runs-on: windows-latest
+    environment: production
     timeout-minutes: 35
     permissions:
       contents: read
