@@ -49,6 +49,10 @@ scrape_configs:
 '''
 
 alert = f'''route:
+  group_by: ["alertname", "evidence_id"]
+  group_wait: 1s
+  group_interval: 10s
+  repeat_interval: 1h
   receiver: operator
 receivers:
   - name: operator

@@ -390,6 +390,8 @@ secrets:
     file: ./metrics-bearer
   alertmanager-webhook-url:
     file: ./alertmanager-webhook-url
+  alert-receiver-auth:
+    file: ./alert-receiver-auth
 
 services:
   otel-collector:
@@ -400,6 +402,7 @@ services:
     ports:
       - "4317:4317"
       - "4318:4318"
+      - "8888:8888"
       - "8889:8889"
     restart: unless-stopped
 
@@ -426,6 +429,8 @@ services:
     secrets:
       - source: alertmanager-webhook-url
         target: alertmanager-webhook-url
+      - source: alert-receiver-auth
+        target: alert-receiver-auth
     group_add:
       - "${OBS_SECRET_GID:?set OBS_SECRET_GID}"
     ports:
@@ -464,7 +469,9 @@ stage_g(){
   : "${ZWORKFORCE_READY_URL:?set ZWORKFORCE_READY_URL}"
   : "${ALERT_RECEIVER_TEST_URL:?set ALERT_RECEIVER_TEST_URL or external receipt endpoint}"
   : "${ALERTMANAGER_WEBHOOK_URL:?set ALERTMANAGER_WEBHOOK_URL}"
+  : "${ALERT_RECEIVER_TOKEN_FILE:?set ALERT_RECEIVER_TOKEN_FILE for receipt authorization}"
   : "${ZWORKFORCE_METRICS_BEARER:?set ZWORKFORCE_METRICS_BEARER}"
+  [[ -r "$ALERT_RECEIVER_TOKEN_FILE" ]] || die "ALERT_RECEIVER_TOKEN_FILE is not readable"
 
   local metrics_a metrics_b
   metrics_a="$(metrics_hostport_for "${ZWORKFORCE_METRICS_HOSTPORT_A:-${ZWORKFORCE_METRICS_HOSTPORT:-}}" "$HA_HOST_A")"
@@ -476,6 +483,7 @@ stage_g(){
   write_observability_compose "$tmp/compose.yml"
   printf '%s' "$ZWORKFORCE_METRICS_BEARER" > "$tmp/metrics-bearer"
   printf '%s' "$ALERTMANAGER_WEBHOOK_URL" > "$tmp/alertmanager-webhook-url"
+  install -m 600 "$ALERT_RECEIVER_TOKEN_FILE" "$tmp/alert-receiver-auth"
 
   cat > "$tmp/otel-collector.yaml" <<'YAML'
 receivers:
@@ -491,6 +499,15 @@ exporters:
   prometheus:
     endpoint: 0.0.0.0:8889
 service:
+  telemetry:
+    metrics:
+      level: detailed
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888
   pipelines:
     traces:
       receivers: [otlp]
@@ -546,18 +563,26 @@ YAML
 
   cat > "$tmp/alertmanager.yml" <<YAML
 route:
+  group_by: ["alertname", "evidence_id"]
+  group_wait: 1s
+  group_interval: 10s
+  repeat_interval: 1h
   receiver: operator
 receivers:
   - name: operator
     webhook_configs:
       - url_file: "/run/secrets/alertmanager-webhook-url"
+        http_config:
+          authorization:
+            type: Bearer
+            credentials_file: "/run/secrets/alert-receiver-auth"
         send_resolved: true
 YAML
 
   note "Stage G: copying observability config to $OBS_HOST"
   ssh "$OBS_HOST" "mkdir -p '$OBS_DEPLOY_DIR'"
   scp -q "$tmp/"* "$OBS_HOST:$OBS_DEPLOY_DIR/"
-  ssh "$OBS_HOST" "chmod 640 '$OBS_DEPLOY_DIR/metrics-bearer' '$OBS_DEPLOY_DIR/alertmanager-webhook-url'"
+  ssh "$OBS_HOST" "chmod 640 '$OBS_DEPLOY_DIR/metrics-bearer' '$OBS_DEPLOY_DIR/alertmanager-webhook-url' '$OBS_DEPLOY_DIR/alert-receiver-auth'"
 
   local secret_gid
   secret_gid="$(ssh "$OBS_HOST" "stat -c '%g' '$OBS_DEPLOY_DIR/metrics-bearer'")"
@@ -565,7 +590,9 @@ YAML
 
   note "Stage G: deploying OTel/Prometheus/Alertmanager"
   ssh "$OBS_HOST" "cd '$OBS_DEPLOY_DIR' && OBS_SECRET_GID='$secret_gid' docker compose -f compose.yml up -d"
+  ssh "$OBS_HOST" "cd '$OBS_DEPLOY_DIR' && OBS_SECRET_GID='$secret_gid' docker compose -f compose.yml up -d --force-recreate otel-collector"
   ssh "$OBS_HOST" "docker exec zworkforce-observability-prometheus-1 sh -c 'kill -HUP 1' || true"
+  ssh "$OBS_HOST" "docker exec zworkforce-observability-alertmanager-1 sh -c 'kill -HUP 1' || true"
 
   note "Stage G: health/readiness"
   curl -fsS "$ZWORKFORCE_HEALTH_URL" >/dev/null

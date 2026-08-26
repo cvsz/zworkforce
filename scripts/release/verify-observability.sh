@@ -10,10 +10,36 @@ OBS_HOST="${OBS_HOST:?set OBS_HOST (ssh target hosting observability stack)}"
 OBS_DEPLOY_DIR="${OBS_DEPLOY_DIR:-/opt/zworkforce-observability}"
 OBS_COMPOSE_FILE="${OBS_COMPOSE_FILE:-compose.vm-b.yaml}"
 ALERTMANAGER_PORT="${ALERTMANAGER_PORT:-19093}"
+OTEL_METRICS_PORT="${OTEL_METRICS_PORT:-8888}"
 ALERT_RECEIVER_TEST_URL="${ALERT_RECEIVER_TEST_URL:?set ALERT_RECEIVER_TEST_URL receipt endpoint}"
+ALERT_RECEIVER_TOKEN_FILE="${ALERT_RECEIVER_TOKEN_FILE:?set ALERT_RECEIVER_TOKEN_FILE for receipt authorization}"
+
+[[ -r "$ALERT_RECEIVER_TOKEN_FILE" ]] || {
+  echo "VERIFY-OBS: FAIL: alert receiver token file is not readable" >&2
+  exit 1
+}
+receiver_token="$(<"$ALERT_RECEIVER_TOKEN_FILE")"
+[[ -n "$receiver_token" ]] || {
+  echo "VERIFY-OBS: FAIL: alert receiver token file is empty" >&2
+  exit 1
+}
 
 fail(){ echo "VERIFY-OBS: FAIL: $*" >&2; exit 1; }
 note(){ echo "VERIFY-OBS: $*"; }
+
+collector_accepted_spans(){
+  ssh -o BatchMode=yes -o ConnectTimeout=10 "$OBS_HOST" \
+    "curl -fsS http://127.0.0.1:${OTEL_METRICS_PORT}/metrics" |
+    python3 -c '
+import sys
+for line in sys.stdin:
+    if line.startswith("otelcol_receiver_accepted_spans") and "receiver=\"otlp\"" in line and "transport=\"http\"" in line:
+        print(float(line.rsplit(None, 1)[1]))
+        break
+else:
+    raise SystemExit(1)
+'
+}
 
 safe_host(){
   python3 - "$1" <<'PY'
@@ -84,7 +110,7 @@ receiver_host="$(safe_host "$ALERT_RECEIVER_TEST_URL")"
 note "waiting for external alert receipt from ${receiver_host} (URL redacted)"
 receipt_ok=0
 for _ in $(seq 1 12); do
-  receipt="$(curl -fsS --get "$ALERT_RECEIVER_TEST_URL" --data-urlencode "evidence_id=$evidence_id" 2>/dev/null || true)"
+  receipt="$(printf 'Authorization: Bearer %s\n' "$receiver_token" | curl -fsS -H @- --get "$ALERT_RECEIVER_TEST_URL" --data-urlencode "evidence_id=$evidence_id" 2>/dev/null || true)"
   if grep -Fq "$evidence_id" <<<"$receipt"; then
     receipt_ok=1
     break
@@ -117,14 +143,31 @@ PY
 )"
 
 note "submitting synthetic OTLP trace"
+trace_accepted_before="$(collector_accepted_spans 2>/dev/null || printf '0\n')"
+[[ "$trace_accepted_before" =~ ^[0-9]+([.][0-9]+)?$ ]] || fail "OTel Collector accepted-spans metric is unavailable"
+note "OTel accepted-spans baseline=${trace_accepted_before}"
+
 printf '%s' "$trace_json" | ssh -o BatchMode=yes "$OBS_HOST" \
   "curl -fsS -X POST -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:4318/v1/traces >/dev/null" || \
   fail "OTel Collector rejected synthetic trace"
 
-sleep 2
-trace_logs="$(ssh -o BatchMode=yes "$OBS_HOST" "cd '$OBS_DEPLOY_DIR' && docker compose -f '$OBS_COMPOSE_FILE' logs --since 2m otel-collector 2>/dev/null" || true)"
-grep -Fqi "$trace_id" <<<"$trace_logs" || fail "synthetic trace ID not observed in OTel Collector debug exporter logs"
-note "OTel trace arrival verified"
+trace_accepted_after=""
+for _ in $(seq 1 12); do
+  trace_accepted_after="$(collector_accepted_spans 2>/dev/null || true)"
+  if [[ "$trace_accepted_after" =~ ^[0-9]+([.][0-9]+)?$ ]] &&
+     awk -v before="$trace_accepted_before" -v after="$trace_accepted_after" 'BEGIN { exit !(after > before) }'
+  then
+    break
+  fi
+  sleep 1
+done
+note "OTel accepted-spans after=${trace_accepted_after:-unavailable}"
+if ! [[ "$trace_accepted_after" =~ ^[0-9]+([.][0-9]+)?$ ]] ||
+   ! awk -v before="$trace_accepted_before" -v after="$trace_accepted_after" 'BEGIN { exit !(after > before) }'
+then
+  fail "OTel Collector accepted-spans metric did not increase after synthetic trace"
+fi
+note "OTLP trace receipt verified by collector accepted-spans metric"
 
 note "observability verification complete"
 echo "VERIFY-OBS: PASS"
