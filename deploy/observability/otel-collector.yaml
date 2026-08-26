@@ -7,7 +7,8 @@ receivers:
         endpoint: 0.0.0.0:4318
 exporters:
   debug:
-    verbosity: basic
+    # Keep trace IDs in the collector log for candidate-correlated smoke tests.
+    verbosity: detailed
   prometheus:
     endpoint: 0.0.0.0:8889
 service:

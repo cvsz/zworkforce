@@ -13,6 +13,7 @@ WINDOWS_SIGNED_CANDIDATE_WORKFLOW = ROOT / ".github" / "workflows" / "windows-si
 EXTERNAL_GATES = ROOT / "scripts" / "close-zworkforce-external-gates.sh"
 HA_VERIFIER = ROOT / "scripts" / "release" / "verify-ha.sh"
 OBS_VERIFIER = ROOT / "scripts" / "release" / "verify-observability.sh"
+ALERT_RECEIVER_SERVICE = ROOT / "deploy" / "observability" / "alert-receiver.service"
 WINDOWS_PACKAGE_SCRIPT = ROOT / "ZWorkforceClient" / "build" / "windows" / "Package-Client.ps1"
 WINDOWS_TEST_SCRIPT = ROOT / "ZWorkforceClient" / "build" / "windows" / "Test-Client.ps1"
 WINDOWS_SIGNATURE_SCRIPT = ROOT / "ZWorkforceClient" / "build" / "windows" / "Verify-MSIXSignature.ps1"
@@ -31,6 +32,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
         workflow = RELEASE_WORKFLOW.read_text(encoding="utf-8")
 
         self.assertIn("id-token: write", workflow)
+        self.assertIn("environment: production", workflow)
         self.assertIn("uses: azure/login@v3", workflow)
         self.assertIn("uses: azure/artifact-signing-action@v2", workflow)
         self.assertIn("AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}", workflow)
@@ -61,6 +63,10 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("Package-Client.ps1 -Configuration Release -Platform x64 -Unsigned", workflow)
         self.assertIn('ExpectedVersion "$($env:RELEASE_VERSION).0"', workflow)
         self.assertIn("Upload signed candidate evidence", workflow)
+        self.assertIn("CANDIDATE_SHA=$env:CANDIDATE_SHA", workflow)
+        self.assertIn("VERSION=$($env:RELEASE_VERSION).0", workflow)
+        self.assertIn("PACKAGE=$($package.Name)", workflow)
+        self.assertIn("SHA256=$hash", workflow)
         self.assertNotIn("gh release create", workflow)
         self.assertNotIn("docker/build-push-action", workflow)
         self.assertNotIn("WINDOWS_MSIX_PFX_BASE64", workflow)
@@ -91,6 +97,10 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("trusted_signing_artifact_required", gates)
         self.assertIn("Verify-MSIXSignature.ps1", gates)
         self.assertIn("WINDOWS_MSIX_PUBLISHER", gates)
+        self.assertIn("candidateMetadataPath", gates)
+        self.assertIn("expectedCandidateSha", gates)
+        self.assertIn('"CANDIDATE_SHA", "VERSION", "PACKAGE", "SHA256"', gates)
+        self.assertIn("candidate metadata does not match the frozen candidate SHA", gates)
         self.assertNotIn("WINDOWS_MSIX_PFX_PASSWORD", gates)
         self.assertNotIn("WINDOWS_MSIX_SIGNING_PFX_PATH", gates)
 
@@ -119,6 +129,9 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn('HA_EXPECTED_IMAGE="$HA_EXPECTED_IMAGE"', gates)
         self.assertIn('HA_EXPECTED_IMAGE_DIGEST="$HA_EXPECTED_IMAGE_DIGEST"', gates)
         self.assertIn('HA_IMAGE_PULL_POLICY', gates)
+        self.assertIn('HA_EXPECTED_IMAGE_PROVENANCE_SHA256', gates)
+        self.assertIn('HA_IMAGE_PROVENANCE_FILE', ha)
+        self.assertIn('preloaded image provenance hash', ha)
         self.assertIn('docker compose -f \'$compose_a\' up -d --pull never', gates)
         self.assertIn('docker compose -f \'$compose_b\' up -d --pull never', gates)
         self.assertIn("exact candidate image", ha)
@@ -185,7 +198,14 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn('ALERTMANAGER_PORT="${ALERTMANAGER_PORT:-19093}"', verifier)
         self.assertIn('ALERT_RECEIVER_TOKEN_FILE="${ALERT_RECEIVER_TOKEN_FILE:', verifier)
         self.assertIn("Authorization: Bearer %s", verifier)
-        self.assertIn("otelcol_receiver_accepted_spans", verifier)
+        self.assertIn("json.load(sys.stdin)", verifier)
+        self.assertIn('record.get("evidence_id")', verifier)
+        self.assertIn('record.get("received_at")', verifier)
+        self.assertIn('record.get("alert_count")', verifier)
+        self.assertIn('record.get("payload_sha256")', verifier)
+        self.assertNotIn("otelcol_receiver_accepted_spans", verifier)
+        self.assertIn("trace ID in collector logs", verifier)
+        self.assertIn("verbosity: detailed", gates)
         self.assertIn('port: 8888', gates)
         self.assertIn("up -d --force-recreate otel-collector", gates)
         self.assertIn("docker exec zworkforce-observability-alertmanager-1", gates)
@@ -236,6 +256,9 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("[string]$PackagePath", test_script)
         self.assertIn("Get-Item -LiteralPath $PackagePath", test_script)
         self.assertIn("if (-not $SkipTrust) {\n        Assert-Administrator", test_script)
+        self.assertIn("Start-Job -ScriptBlock", test_script)
+        self.assertIn("Wait-Job -Job $installJob -Timeout 180", test_script)
+        self.assertIn("Stop-Job -Job $installJob", test_script)
 
     def test_windows_gate_validates_msix_entries_and_production_certificate_chain(self):
         gates = EXTERNAL_GATES.read_text(encoding="utf-8")
@@ -259,6 +282,14 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("expectedPackageVersion", gates)
         self.assertIn('ps_expected_package_version="$(ps_single_quote "$release_version.0")"', gates)
         self.assertNotIn("self-signed", gates)
+
+    def test_observability_receipt_service_prepares_writable_state_before_sandbox(self):
+        service = ALERT_RECEIVER_SERVICE.read_text(encoding="utf-8")
+        self.assertIn("StateDirectory=zworkforce-observability", service)
+        self.assertIn("StateDirectoryMode=0700", service)
+        self.assertIn("ExecStartPre=/usr/bin/install -d -m 700", service)
+        self.assertIn("ProtectSystem=strict", service)
+        self.assertIn("/var/lib/zworkforce-observability/alert-receipts", service)
 
     def test_windows_gate_reports_signing_blockers_without_powershell_error_prefix(self):
         gates = EXTERNAL_GATES.read_text(encoding="utf-8")

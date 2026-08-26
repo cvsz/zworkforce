@@ -116,13 +116,17 @@ jobs:
               $env:AZURE_ARTIFACT_SIGNING_ACCOUNT_NAME,
               $env:AZURE_ARTIFACT_SIGNING_PROFILE_NAME
           )
-          $present = @($azureValues | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+          # Publisher is part of the signing configuration boundary. A
+          # publisher-only environment must fail closed instead of being
+          # mistaken for an intentionally unconfigured Windows release.
+          $signingValues = @($azureValues + $env:WINDOWS_MSIX_PUBLISHER)
+          $present = @($signingValues | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
           if ($present.Count -eq 0) {
               "has_signing=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
               "Azure Artifact Signing is not configured; skipping Windows MSIX release artifacts."
               exit 0
           }
-          if ($present.Count -ne $azureValues.Count -or [string]::IsNullOrWhiteSpace($env:WINDOWS_MSIX_PUBLISHER)) {
+          if ($present.Count -ne $signingValues.Count) {
               throw "Azure Artifact Signing configuration is incomplete; configure the identity, account, profile, endpoint, and publisher together."
           }
           if ($env:AZURE_ARTIFACT_SIGNING_ENDPOINT -notmatch '^https://') {

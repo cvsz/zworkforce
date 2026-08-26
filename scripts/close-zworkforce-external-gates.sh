@@ -32,7 +32,8 @@ set -Eeuo pipefail
 #   HA_EXPECTED_IMAGE / HA_EXPECTED_IMAGE_DIGEST: exact candidate image and OCI digest
 #   HA_IMAGE_PULL_POLICY: `always` (default) pulls the exact image; `never`
 #     verifies an explicitly preloaded exact image and uses Compose --pull never
-#     for controlled/air-gapped deployments.
+#     for controlled/air-gapped deployments. In `never` mode, also set
+#     HA_EXPECTED_IMAGE_PROVENANCE_SHA256 for the pinned remote provenance file.
 #   WINDOWS_MSIX_PUBLISHER / WINDOWS_MSIX_EXPECTED_SHA256: expected values for
 #     the operator-provisioned Azure-signed artifact; WINDOWS_MSIX_PATH is an
 #     optional explicit path when the package is not under the release output.
@@ -343,6 +344,11 @@ stage_e(){
     always|never) ;;
     *) die "HA_IMAGE_PULL_POLICY must be always or never" ;;
   esac
+  if [[ "$image_pull_policy" == "never" ]]; then
+    : "${HA_EXPECTED_IMAGE_PROVENANCE_SHA256:?set HA_EXPECTED_IMAGE_PROVENANCE_SHA256 for the pinned preloaded image provenance file}"
+    [[ "$HA_EXPECTED_IMAGE_PROVENANCE_SHA256" =~ ^[0-9A-Fa-f]{64}$ ]] || \
+      die "HA_EXPECTED_IMAGE_PROVENANCE_SHA256 must be a 64-character SHA-256"
+  fi
 
   note "Stage E: verifying two distinct external hosts are reachable"
   ssh -o BatchMode=yes -o ConnectTimeout=10 "$HA_HOST_A" 'hostname && uptime'
@@ -375,11 +381,17 @@ stage_e(){
   if [[ -x "$REPO_DIR/scripts/release/verify-ha.sh" ]]; then
     HA_HOST_A="$HA_HOST_A" HA_HOST_B="$HA_HOST_B" HA_DEPLOY_DIR="$HA_DEPLOY_DIR" \
       HA_COMPOSE_FILE_A="$compose_a" HA_COMPOSE_FILE_B="$compose_b" \
+      HA_IMAGE_PULL_POLICY="$image_pull_policy" \
+      HA_IMAGE_PROVENANCE_FILE="${HA_IMAGE_PROVENANCE_FILE:-candidate-image-provenance.env}" \
+      HA_EXPECTED_IMAGE_PROVENANCE_SHA256="${HA_EXPECTED_IMAGE_PROVENANCE_SHA256:-}" \
       HA_EXPECTED_IMAGE="$HA_EXPECTED_IMAGE" HA_EXPECTED_IMAGE_DIGEST="$HA_EXPECTED_IMAGE_DIGEST" \
       "$REPO_DIR/scripts/release/verify-ha.sh"
   elif [[ -x "$REPO_DIR/scripts/verify-ha.sh" ]]; then
     HA_HOST_A="$HA_HOST_A" HA_HOST_B="$HA_HOST_B" HA_DEPLOY_DIR="$HA_DEPLOY_DIR" \
       HA_COMPOSE_FILE_A="$compose_a" HA_COMPOSE_FILE_B="$compose_b" \
+      HA_IMAGE_PULL_POLICY="$image_pull_policy" \
+      HA_IMAGE_PROVENANCE_FILE="${HA_IMAGE_PROVENANCE_FILE:-candidate-image-provenance.env}" \
+      HA_EXPECTED_IMAGE_PROVENANCE_SHA256="${HA_EXPECTED_IMAGE_PROVENANCE_SHA256:-}" \
       HA_EXPECTED_IMAGE="$HA_EXPECTED_IMAGE" HA_EXPECTED_IMAGE_DIGEST="$HA_EXPECTED_IMAGE_DIGEST" \
       "$REPO_DIR/scripts/verify-ha.sh"
   else
@@ -507,7 +519,9 @@ receivers:
         endpoint: 0.0.0.0:4318
 exporters:
   debug:
-    verbosity: basic
+    # Detailed output includes the trace ID so the verifier can correlate the
+    # submitted synthetic span instead of trusting a global counter.
+    verbosity: detailed
   prometheus:
     endpoint: 0.0.0.0:8889
 service:
@@ -753,6 +767,7 @@ stage_h(){
     "\$expectedPublisher = $ps_publisher" \
     "\$expectedPackageVersion = $ps_expected_package_version" \
     "\$expectedSha256 = $ps_expected_sha" \
+    "\$expectedCandidateSha = $ps_candidate" \
     "\$configuredPackagePath = $ps_configured_package_path" \
     "\$packageRoot = Join-Path (Get-Location) 'ZWorkforceClient/out/Release-x64'" \
     'if ($null -ne $configuredPackagePath) {' \
@@ -764,6 +779,37 @@ stage_h(){
     '  if ($packages.Count -ne 1) { throw "Expected exactly one externally signed versioned MSIX artifact." }' \
     '  $package = $packages[0]' \
     '}' \
+    '$candidateMetadataPath = "$($package.FullName).candidate.txt"' \
+    'if (-not (Test-Path -LiteralPath $candidateMetadataPath -PathType Leaf)) {' \
+    '  throw "Candidate metadata sidecar is missing next to the signed MSIX: $candidateMetadataPath"' \
+    '}' \
+    '$candidateMetadata = @{}' \
+    'foreach ($metadataLine in Get-Content -LiteralPath $candidateMetadataPath -ErrorAction Stop) {' \
+    '  if ([string]::IsNullOrWhiteSpace($metadataLine)) { continue }' \
+    '  $metadataParts = $metadataLine -split "=", 2' \
+    '  if ($metadataParts.Count -ne 2 -or [string]::IsNullOrWhiteSpace($metadataParts[0]) -or $candidateMetadata.ContainsKey($metadataParts[0])) {' \
+    '    throw "Candidate metadata sidecar has an invalid or duplicate field."' \
+    '  }' \
+    '  $candidateMetadata[$metadataParts[0]] = $metadataParts[1]' \
+    '}' \
+    'foreach ($requiredMetadataField in @("CANDIDATE_SHA", "VERSION", "PACKAGE", "SHA256")) {' \
+    '  if (-not $candidateMetadata.ContainsKey($requiredMetadataField) -or [string]::IsNullOrWhiteSpace($candidateMetadata[$requiredMetadataField])) {' \
+    '    throw "Candidate metadata sidecar is missing $requiredMetadataField."' \
+    '  }' \
+    '}' \
+    'if ($candidateMetadata["CANDIDATE_SHA"].ToLowerInvariant() -ne $expectedCandidateSha.ToLowerInvariant()) {' \
+    '  throw "Signed MSIX candidate metadata does not match the frozen candidate SHA."' \
+    '}' \
+    'if ($candidateMetadata["VERSION"] -ne $expectedPackageVersion) {' \
+    '  throw "Signed MSIX candidate metadata version does not match the release version."' \
+    '}' \
+    'if ($candidateMetadata["PACKAGE"] -ne $package.Name) {' \
+    '  throw "Signed MSIX candidate metadata package name does not match the staged artifact."' \
+    '}' \
+    'if ($candidateMetadata["SHA256"] -notmatch "^[0-9a-fA-F]{64}$" -or $candidateMetadata["SHA256"].ToUpperInvariant() -ne $expectedSha256.ToUpperInvariant()) {' \
+    '  throw "Signed MSIX candidate metadata SHA-256 does not match the expected artifact hash."' \
+    '}' \
+    'Write-Output ("CANDIDATE_METADATA=" + $candidateMetadataPath)' \
     "\$verification = @(& ./ZWorkforceClient/build/windows/Verify-MSIXSignature.ps1 -PackagePath \$package.FullName -ExpectedPublisher \$expectedPublisher -ExpectedVersion '$release_version.0' -ExpectedSha256 \$expectedSha256)" \
     'if (-not $?) { exit 1 }' \
     '$publisherLine = $verification | Where-Object { $_ -like "PUBLISHER=*" } | Select-Object -Last 1' \

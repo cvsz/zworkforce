@@ -124,7 +124,12 @@ The manual external Stage H verifier additionally reads `WINDOWS_HOST`,
 operator environment. `WINDOWS_MSIX_PATH` may point to an explicitly staged
 signed package; otherwise the verifier requires exactly one matching package in
 `ZWorkforceClient/out/Release-x64`. Keep these values in the ignored
-`.env.release`, and populate the hash only from the final signed artifact.
+`.env.release`, and populate the hash only from the final signed artifact. The
+pre-tag `Windows signed candidate` workflow emits a mandatory adjacent
+`<package>.candidate.txt` sidecar containing `CANDIDATE_SHA`, `VERSION`,
+`PACKAGE`, and `SHA256`; stage it together with the MSIX. Stage H verifies all
+four fields against the frozen candidate and refuses a package from another
+commit, even when its version and hash are manually supplied.
 
 ## Release verification
 

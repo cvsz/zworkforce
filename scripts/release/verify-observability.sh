@@ -10,7 +10,6 @@ OBS_HOST="${OBS_HOST:?set OBS_HOST (ssh target hosting observability stack)}"
 OBS_DEPLOY_DIR="${OBS_DEPLOY_DIR:-/opt/zworkforce-observability}"
 OBS_COMPOSE_FILE="${OBS_COMPOSE_FILE:-compose.vm-b.yaml}"
 ALERTMANAGER_PORT="${ALERTMANAGER_PORT:-19093}"
-OTEL_METRICS_PORT="${OTEL_METRICS_PORT:-8888}"
 ALERT_RECEIVER_TEST_URL="${ALERT_RECEIVER_TEST_URL:?set ALERT_RECEIVER_TEST_URL receipt endpoint}"
 ALERT_RECEIVER_TOKEN_FILE="${ALERT_RECEIVER_TOKEN_FILE:?set ALERT_RECEIVER_TOKEN_FILE for receipt authorization}"
 
@@ -27,18 +26,9 @@ receiver_token="$(<"$ALERT_RECEIVER_TOKEN_FILE")"
 fail(){ echo "VERIFY-OBS: FAIL: $*" >&2; exit 1; }
 note(){ echo "VERIFY-OBS: $*"; }
 
-collector_accepted_spans(){
+collector_logs(){
   ssh -o BatchMode=yes -o ConnectTimeout=10 "$OBS_HOST" \
-    "curl -fsS http://127.0.0.1:${OTEL_METRICS_PORT}/metrics" |
-    python3 -c '
-import sys
-for line in sys.stdin:
-    if line.startswith("otelcol_receiver_accepted_spans") and "receiver=\"otlp\"" in line and "transport=\"http\"" in line:
-        print(float(line.rsplit(None, 1)[1]))
-        break
-else:
-    raise SystemExit(1)
-'
+    "cd '$OBS_DEPLOY_DIR' && docker compose -f '$OBS_COMPOSE_FILE' logs --no-color --since 5m otel-collector 2>&1"
 }
 
 safe_host(){
@@ -102,6 +92,7 @@ PY
 )"
 
 note "submitting synthetic alert through Alertmanager API"
+alert_submitted_at="$(python3 -c 'import time; print(time.time())')"
 printf '%s' "$alert_json" | ssh -o BatchMode=yes "$OBS_HOST" \
   "curl -fsS -X POST -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:${ALERTMANAGER_PORT}/api/v2/alerts >/dev/null" || \
   fail "Alertmanager rejected synthetic alert"
@@ -111,7 +102,30 @@ note "waiting for external alert receipt from ${receiver_host} (URL redacted)"
 receipt_ok=0
 for _ in $(seq 1 12); do
   receipt="$(printf 'Authorization: Bearer %s\n' "$receiver_token" | curl -fsS -H @- --get "$ALERT_RECEIVER_TEST_URL" --data-urlencode "evidence_id=$evidence_id" 2>/dev/null || true)"
-  if grep -Fq "$evidence_id" <<<"$receipt"; then
+  if printf '%s' "$receipt" | python3 -c '
+import datetime
+import json
+import re
+import sys
+
+record = json.load(sys.stdin)
+expected_id = sys.argv[1]
+submitted_at = float(sys.argv[2])
+if not isinstance(record, dict) or record.get("evidence_id") != expected_id:
+    raise SystemExit(1)
+received_at = record.get("received_at")
+if not isinstance(received_at, str):
+    raise SystemExit(1)
+received = datetime.datetime.fromisoformat(received_at.replace("Z", "+00:00"))
+if received.tzinfo is None or received.timestamp() <= submitted_at:
+    raise SystemExit(1)
+alert_count = record.get("alert_count")
+if isinstance(alert_count, bool) or not isinstance(alert_count, int) or alert_count < 1:
+    raise SystemExit(1)
+payload_hash = record.get("payload_sha256")
+if not isinstance(payload_hash, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", payload_hash):
+    raise SystemExit(1)
+' "$evidence_id" "$alert_submitted_at"; then
     receipt_ok=1
     break
   fi
@@ -143,31 +157,20 @@ PY
 )"
 
 note "submitting synthetic OTLP trace"
-trace_accepted_before="$(collector_accepted_spans 2>/dev/null || printf '0\n')"
-[[ "$trace_accepted_before" =~ ^[0-9]+([.][0-9]+)?$ ]] || fail "OTel Collector accepted-spans metric is unavailable"
-note "OTel accepted-spans baseline=${trace_accepted_before}"
-
 printf '%s' "$trace_json" | ssh -o BatchMode=yes "$OBS_HOST" \
   "curl -fsS -X POST -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:4318/v1/traces >/dev/null" || \
   fail "OTel Collector rejected synthetic trace"
 
-trace_accepted_after=""
+trace_seen=0
 for _ in $(seq 1 12); do
-  trace_accepted_after="$(collector_accepted_spans 2>/dev/null || true)"
-  if [[ "$trace_accepted_after" =~ ^[0-9]+([.][0-9]+)?$ ]] &&
-     awk -v before="$trace_accepted_before" -v after="$trace_accepted_after" 'BEGIN { exit !(after > before) }'
-  then
+  if collector_logs 2>/dev/null | grep -F "$trace_id" >/dev/null; then
+    trace_seen=1
     break
   fi
   sleep 1
 done
-note "OTel accepted-spans after=${trace_accepted_after:-unavailable}"
-if ! [[ "$trace_accepted_after" =~ ^[0-9]+([.][0-9]+)?$ ]] ||
-   ! awk -v before="$trace_accepted_before" -v after="$trace_accepted_after" 'BEGIN { exit !(after > before) }'
-then
-  fail "OTel Collector accepted-spans metric did not increase after synthetic trace"
-fi
-note "OTLP trace receipt verified by collector accepted-spans metric"
+[[ "$trace_seen" -eq 1 ]] || fail "OTel Collector logs did not contain the submitted synthetic trace ID"
+note "OTLP trace receipt verified by exact trace ID in collector logs"
 
 note "observability verification complete"
 echo "VERIFY-OBS: PASS"

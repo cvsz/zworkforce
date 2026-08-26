@@ -243,7 +243,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--data-dir",
         type=Path,
-        default=Path(os.getenv("ALERT_RECEIVER_DATA_DIR", "/opt/zworkforce-observability/alert-receipts")),
+        default=Path(os.getenv("ALERT_RECEIVER_DATA_DIR", "/var/lib/zworkforce-observability/alert-receipts")),
     )
     return parser.parse_args()
 

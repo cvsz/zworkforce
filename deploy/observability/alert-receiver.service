@@ -11,7 +11,10 @@ WorkingDirectory=/opt/zworkforce-observability
 Environment=ALERT_RECEIVER_BIND=192.168.74.134
 Environment=ALERT_RECEIVER_PORT=18080
 Environment=ALERT_RECEIVER_TOKEN_FILE=/opt/zworkforce-observability/alert-receiver-token
-Environment=ALERT_RECEIVER_DATA_DIR=/opt/zworkforce-observability/alert-receipts
+StateDirectory=zworkforce-observability
+StateDirectoryMode=0700
+Environment=ALERT_RECEIVER_DATA_DIR=/var/lib/zworkforce-observability/alert-receipts
+ExecStartPre=/usr/bin/install -d -m 700 /var/lib/zworkforce-observability/alert-receipts
 ExecStart=/usr/bin/python3 /opt/zworkforce-observability/alert_receiver.py
 Restart=on-failure
 RestartSec=5s
@@ -30,7 +33,7 @@ RestrictRealtime=true
 CapabilityBoundingSet=
 AmbientCapabilities=
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
-ReadWritePaths=/opt/zworkforce-observability/alert-receipts
+ReadWritePaths=/var/lib/zworkforce-observability
 LimitNOFILE=4096
 
 [Install]

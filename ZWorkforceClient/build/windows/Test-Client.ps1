@@ -96,6 +96,42 @@ function Get-ActiveInteractiveSessionId {
     return [int]$sessionIds[0]
 }
 
+function Install-PackagedClientWithTimeout([string]$Path) {
+    $installJob = $null
+    try {
+        # AppX deployment can wait indefinitely on a wedged deployment service.
+        # Keep the install in the same user context while bounding the smoke
+        # check so a release gate cannot hang forever.
+        $installJob = Start-Job -ScriptBlock {
+            param([string]$PackagePath)
+            $ErrorActionPreference = "Stop"
+            Add-AppxPackage -Path $PackagePath -ForceApplicationShutdown -ErrorAction Stop
+        } -ArgumentList $Path
+
+        $completedJob = Wait-Job -Job $installJob -Timeout 180
+        if ($null -eq $completedJob) {
+            Stop-Job -Job $installJob -ErrorAction SilentlyContinue
+            throw "Add-AppxPackage did not finish within 180 seconds."
+        }
+        if ($installJob.State -ne "Completed") {
+            $failureReason = $installJob.ChildJobs |
+                Where-Object { $null -ne $_.JobStateInfo.Reason } |
+                Select-Object -First 1 -ExpandProperty JobStateInfo
+            $failureMessage = if ($null -eq $failureReason.Reason) {
+                "job state $($installJob.State)"
+            } else {
+                $failureReason.Reason.Exception.Message
+            }
+            throw "Add-AppxPackage failed: $failureMessage"
+        }
+        Receive-Job -Job $installJob -ErrorAction Stop | Out-Null
+    } finally {
+        if ($null -ne $installJob) {
+            Remove-Job -Job $installJob -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 function Invoke-LaunchSmokeCore {
     param(
         [switch]$SkipTrust,
@@ -143,7 +179,7 @@ function Invoke-LaunchSmokeCore {
         }
 
         Write-Host "Installing the packaged client."
-        Add-AppxPackage -Path $package.FullName -ForceApplicationShutdown -ErrorAction Stop
+        Install-PackagedClientWithTimeout $package.FullName
 
         Write-Host "Resolving the installed package identity."
         $installedPackage = Find-ClientPackage
