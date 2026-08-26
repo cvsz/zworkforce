@@ -213,8 +213,13 @@ assert obj.get("ContentType") == "text/plain"
 try:
     s3.get_object(Bucket=bucket, Key=key_b)
 except ClientError as e:
-    code=str(e.response.get("Error",{}).get("Code",""))
-    if code not in ("NoSuchKey","404","AccessDenied"):
+    response=e.response or {}
+    code=str((response.get("Error") or {}).get("Code", ""))
+    # Supabase can return a status-only error for a missing object, with an
+    # empty S3 error code. Accept the documented missing/denied status while
+    # still rejecting unrelated errors.
+    missing_object_status=(response.get("ResponseMetadata") or {}).get("HTTPStatusCode")
+    if code not in ("NoSuchKey", "404", "AccessDenied") and missing_object_status not in (403, 404):
         raise
 else:
     raise AssertionError("tenant-b/nonexistent object unexpectedly readable")

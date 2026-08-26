@@ -36,6 +36,11 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("exact candidate image", ha)
         self.assertIn("S3 operation=PutObject failed", gates)
 
+    def test_supabase_missing_object_accepts_status_when_error_code_is_empty(self):
+        gates = EXTERNAL_GATES.read_text(encoding="utf-8")
+        self.assertIn("missing_object_status", gates)
+        self.assertIn("missing_object_status not in (403, 404)", gates)
+
     def test_external_gate_shell_boundaries_are_quoted_and_versioned(self):
         gates = EXTERNAL_GATES.read_text(encoding="utf-8")
         observability = OBS_VERIFIER.read_text(encoding="utf-8")
