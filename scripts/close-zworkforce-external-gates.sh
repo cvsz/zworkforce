@@ -30,6 +30,9 @@ set -Eeuo pipefail
 #   /home/cvsz/zworkforce/.env.release
 #   HA_COMPOSE_FILE_A / HA_COMPOSE_FILE_B: remote Compose filenames
 #   HA_EXPECTED_IMAGE / HA_EXPECTED_IMAGE_DIGEST: exact candidate image and OCI digest
+#   HA_IMAGE_PULL_POLICY: `always` (default) pulls the exact image; `never`
+#     verifies an explicitly preloaded exact image and uses Compose --pull never
+#     for controlled/air-gapped deployments.
 #
 # See generated .env.release.example.
 
@@ -321,8 +324,13 @@ stage_e(){
 
   local compose_a="${HA_COMPOSE_FILE_A:-compose.vm-a.yaml}"
   local compose_b="${HA_COMPOSE_FILE_B:-compose.vm-b.yaml}"
+  local image_pull_policy="${HA_IMAGE_PULL_POLICY:-always}"
 
   [[ "$HA_HOST_A" != "$HA_HOST_B" ]] || die "HA_HOST_A and HA_HOST_B must differ"
+  case "$image_pull_policy" in
+    always|never) ;;
+    *) die "HA_IMAGE_PULL_POLICY must be always or never" ;;
+  esac
 
   note "Stage E: verifying two distinct external hosts are reachable"
   ssh -o BatchMode=yes -o ConnectTimeout=10 "$HA_HOST_A" 'hostname && uptime'
@@ -331,10 +339,18 @@ stage_e(){
   # We intentionally do NOT inject DB secrets via shell.
   # Each host must already have its external secret/config material provisioned.
   note "Stage E: deploying/starting zworkforce HA services on host A"
-  ssh "$HA_HOST_A" "cd '$HA_DEPLOY_DIR' && test -f '$compose_a' && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' ZWORKFORCE_INSTANCE_ID=vm-a docker compose -f '$compose_a' pull && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' ZWORKFORCE_INSTANCE_ID=vm-a docker compose -f '$compose_a' up -d"
+  if [[ "$image_pull_policy" == "always" ]]; then
+    ssh "$HA_HOST_A" "cd '$HA_DEPLOY_DIR' && test -f '$compose_a' && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' ZWORKFORCE_INSTANCE_ID=vm-a docker compose -f '$compose_a' pull && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' ZWORKFORCE_INSTANCE_ID=vm-a docker compose -f '$compose_a' up -d"
+  else
+    ssh "$HA_HOST_A" "cd '$HA_DEPLOY_DIR' && test -f '$compose_a' && docker image inspect '$HA_EXPECTED_IMAGE' >/dev/null && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' ZWORKFORCE_INSTANCE_ID=vm-a docker compose -f '$compose_a' up -d --pull never"
+  fi
 
   note "Stage E: deploying/starting zworkforce HA services on host B"
-  ssh "$HA_HOST_B" "cd '$HA_DEPLOY_DIR' && test -f '$compose_b' && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' ZWORKFORCE_INSTANCE_ID=vm-b docker compose -f '$compose_b' pull && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' ZWORKFORCE_INSTANCE_ID=vm-b docker compose -f '$compose_b' up -d"
+  if [[ "$image_pull_policy" == "always" ]]; then
+    ssh "$HA_HOST_B" "cd '$HA_DEPLOY_DIR' && test -f '$compose_b' && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' ZWORKFORCE_INSTANCE_ID=vm-b docker compose -f '$compose_b' pull && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' ZWORKFORCE_INSTANCE_ID=vm-b docker compose -f '$compose_b' up -d"
+  else
+    ssh "$HA_HOST_B" "cd '$HA_DEPLOY_DIR' && test -f '$compose_b' && docker image inspect '$HA_EXPECTED_IMAGE' >/dev/null && ZWORKFORCE_IMAGE='$HA_EXPECTED_IMAGE' ZWORKFORCE_INSTANCE_ID=vm-b docker compose -f '$compose_b' up -d --pull never"
+  fi
 
   note "Stage E: capturing replica identities"
   local a_ids b_ids

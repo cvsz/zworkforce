@@ -37,6 +37,9 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("HA_COMPOSE_FILE_B", ha)
         self.assertIn('HA_EXPECTED_IMAGE="$HA_EXPECTED_IMAGE"', gates)
         self.assertIn('HA_EXPECTED_IMAGE_DIGEST="$HA_EXPECTED_IMAGE_DIGEST"', gates)
+        self.assertIn('HA_IMAGE_PULL_POLICY', gates)
+        self.assertIn('docker compose -f \'$compose_a\' up -d --pull never', gates)
+        self.assertIn('docker compose -f \'$compose_b\' up -d --pull never', gates)
         self.assertIn("exact candidate image", ha)
         self.assertIn("S3 operation=PutObject failed", gates)
 
