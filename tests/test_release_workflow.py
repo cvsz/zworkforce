@@ -67,9 +67,10 @@ class ReleaseWorkflowTests(unittest.TestCase):
     def test_external_gate_shell_boundaries_are_quoted_and_versioned(self):
         gates = EXTERNAL_GATES.read_text(encoding="utf-8")
         observability = OBS_VERIFIER.read_text(encoding="utf-8")
-        self.assertIn("-Command -", gates)
+        self.assertIn('-Command "Set-Variable -Name ErrorActionPreference', gates)
+        self.assertNotIn("pwsh -NoProfile -NonInteractive -Command -", gates)
         self.assertIn("[scriptblock]::Create([Console]::In.ReadToEnd())", gates)
-        self.assertIn("Get-Variable -Name _ -ValueOnly", gates)
+        self.assertIn("(Get-Variable -Name _ -ValueOnly).Exception.Message", gates)
         self.assertIn("$PSVersionTable.PSVersion.ToString()", gates)
         self.assertIn("-ExpectedVersion '$release_version.0'", gates)
         self.assertIn("s3={\"addressing_style\": \"path\"}", gates)
@@ -120,7 +121,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
             gates,
         )
         self.assertIn(
-            'run_remote_pwsh "Invoke-WebRequest -UseBasicParsing $ps_health_endpoint',
+            'run_h_remote windows_live_endpoint_failed "Invoke-WebRequest -UseBasicParsing $ps_health_endpoint',
             gates,
         )
         self.assertNotIn(
@@ -162,8 +163,23 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("X509Chain", gates)
         self.assertIn("AppxSignature.p7x", gates)
         self.assertIn("AppxBlockMap.xml", gates)
+        self.assertIn("expectedPublisher", gates)
+        self.assertIn("publisher -ne $expectedPublisher", gates)
+        self.assertIn("git status --porcelain", gates)
+        self.assertIn("ZWorkforceClient/out/Release-x64", gates)
+        self.assertIn("expectedPackageVersion", gates)
+        self.assertIn('ps_expected_package_version="$(ps_single_quote "$release_version.0")"', gates)
+        self.assertIn("Get-FileHash -Algorithm SHA256 -LiteralPath $pkg.FullName", gates)
         self.assertIn("self-signed", gates)
         self.assertNotIn("Get-AuthenticodeSignature $pkg", gates)
+
+    def test_windows_gate_reports_signing_blockers_without_powershell_error_prefix(self):
+        gates = EXTERNAL_GATES.read_text(encoding="utf-8")
+
+        self.assertIn("(Get-Variable -Name _ -ValueOnly).Exception.Message", gates)
+        self.assertNotIn("[string](Get-Variable -Name _ -ValueOnly)", gates)
+        self.assertIn("GATE_FAILURE_STATUS=BLOCKED", gates)
+        self.assertIn("trusted_signing_certificate_required", gates)
 
 
 if __name__ == "__main__":

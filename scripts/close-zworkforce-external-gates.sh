@@ -111,7 +111,16 @@ mark(){
 }
 
 CURRENT_GATE=""
-trap 'rc=$?; if [[ $rc -ne 0 && -n "$CURRENT_GATE" ]]; then mark "$CURRENT_GATE" FAIL gate_execution_failed; fi' EXIT
+GATE_FAILURE_STATUS=FAIL
+GATE_FAILURE_DETAIL=gate_execution_failed
+
+begin_gate(){
+  CURRENT_GATE="$1"
+  GATE_FAILURE_STATUS=FAIL
+  GATE_FAILURE_DETAIL=gate_execution_failed
+}
+
+trap 'rc=$?; if [[ $rc -ne 0 && -n "$CURRENT_GATE" ]]; then mark "$CURRENT_GATE" "$GATE_FAILURE_STATUS" "$GATE_FAILURE_DETAIL"; fi' EXIT
 
 # ---------------------------------------------------------------------------
 # Stage F — Supabase Storage / optional Qdrant
@@ -636,11 +645,34 @@ ps_single_quote(){
 
 run_remote_pwsh(){
   local script="$1"
-  # `pwsh -Command -` processes stdin as an interactive command stream and
-  # may return zero after a terminating error. Read the payload as one
-  # scriptblock and convert every exception into a non-zero SSH status.
+  # Read the payload as one scriptblock so terminating errors cannot be
+  # mistaken for successful interactive input. Preserve the exception message
+  # without stringifying the whole ErrorRecord (which adds a misleading
+  # boolean prefix on some PowerShell versions). Use Get-Variable here because
+  # the SSH Windows shell can expand `$_` before pwsh sees the command.
   printf '%s\n' "$script" | \
-    ssh "$WINDOWS_HOST" 'pwsh -NoProfile -NonInteractive -Command "Set-Variable -Name ErrorActionPreference -Value Stop; try { & ([scriptblock]::Create([Console]::In.ReadToEnd())) } catch { [Console]::Error.WriteLine([string](Get-Variable -Name _ -ValueOnly)); exit 1 }"'
+    ssh "$WINDOWS_HOST" 'pwsh -NoProfile -NonInteractive -Command "Set-Variable -Name ErrorActionPreference -Value Stop; try { & ([scriptblock]::Create([Console]::In.ReadToEnd())) } catch { [Console]::Error.WriteLine((Get-Variable -Name _ -ValueOnly).Exception.Message); exit 1 }"'
+}
+
+run_h_remote(){
+  local failure_detail="$1" script="$2" rc
+  if run_remote_pwsh "$script"; then
+    return 0
+  else
+    rc=$?
+  fi
+
+  if [[ "$rc" -eq 255 ]]; then
+    GATE_FAILURE_STATUS=FAIL
+    GATE_FAILURE_DETAIL=windows_ssh_transport_failed
+  elif [[ "$failure_detail" == "trusted_signing_certificate_required" ]]; then
+    GATE_FAILURE_STATUS=BLOCKED
+    GATE_FAILURE_DETAIL=trusted_signing_certificate_required
+  else
+    GATE_FAILURE_STATUS=FAIL
+    GATE_FAILURE_DETAIL="$failure_detail"
+  fi
+  return "$rc"
 }
 
 stage_h(){
@@ -662,14 +694,15 @@ stage_h(){
   # Never copy/export PFX material from this script. It must already be securely
   # provisioned on the Windows host.
   note "Stage H: verifying Windows host"
-  run_remote_pwsh '$PSVersionTable.PSVersion.ToString()'
+  run_h_remote windows_host_probe '$PSVersionTable.PSVersion.ToString()'
 
   note "Stage H: build/test/sign package"
-  local ps_repo_dir ps_pfx_path ps_pfx_password ps_publisher
+  local ps_repo_dir ps_pfx_path ps_pfx_password ps_publisher ps_expected_package_version
   ps_repo_dir="$(ps_single_quote "$WINDOWS_REPO_DIR")"
   ps_pfx_path="$(ps_single_quote "$WINDOWS_MSIX_PFX_PATH")"
   ps_pfx_password="$(ps_single_quote "$WINDOWS_MSIX_PFX_PASSWORD")"
   ps_publisher="$(ps_single_quote "$WINDOWS_MSIX_PUBLISHER")"
+  ps_expected_package_version="$(ps_single_quote "$release_version.0")"
 
   local candidate_script ps_candidate
   ps_candidate="$(ps_single_quote "$FROZEN_CANDIDATE")"
@@ -677,8 +710,55 @@ stage_h(){
     "Set-Location $ps_repo_dir" \
     '$sha = (git rev-parse HEAD).Trim()' \
     "if (\$sha -ne $ps_candidate) { [Console]::Error.WriteLine(\"Windows checkout does not match candidate $FROZEN_CANDIDATE\"); exit 1 }" \
+    '$worktreeStatus = @(git status --porcelain=v1)' \
+    'if ($LASTEXITCODE -ne 0) { [Console]::Error.WriteLine("Unable to inspect Windows checkout status"); exit 1 }' \
+    'if ($worktreeStatus.Count -ne 0) { [Console]::Error.WriteLine("Windows checkout is not clean; refusing release evidence collection"); exit 1 }' \
     'Write-Output ("WINDOWS_CANDIDATE=" + $sha)')"
-  run_remote_pwsh "$candidate_script"
+  run_h_remote windows_candidate_verification_failed "$candidate_script"
+
+  local signing_validation_script
+  signing_validation_script="$(printf '%s\n' \
+    "Set-Location $ps_repo_dir" \
+    "\$env:ZWORKFORCE_MSIX_SIGNING_PFX_PATH = $ps_pfx_path" \
+    "\$env:ZWORKFORCE_MSIX_SIGNING_PFX_PASSWORD = $ps_pfx_password" \
+    "\$env:ZWORKFORCE_MSIX_SIGNING_PUBLISHER = $ps_publisher" \
+    "\$env:ZWORKFORCE_MSIX_REQUIRE_TRUSTED_SIGNING = 'true'" \
+    '$signingCertificate = $null' \
+    'try {' \
+    '  try {' \
+    '    $signingCertificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($env:ZWORKFORCE_MSIX_SIGNING_PFX_PATH, $env:ZWORKFORCE_MSIX_SIGNING_PFX_PASSWORD, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::EphemeralKeySet)' \
+    '    if (-not $signingCertificate.HasPrivateKey) { throw "Configured MSIX signing PFX does not contain a private key." }' \
+    '    if ($signingCertificate.NotAfter -le (Get-Date)) { throw "Configured MSIX signing certificate is expired." }' \
+    '    if ($signingCertificate.Subject -eq $signingCertificate.Issuer) { throw "Configured MSIX signing certificate is self-signed; production Stage H requires an enterprise-trusted CA certificate." }' \
+    '    if ($signingCertificate.Subject -ne $env:ZWORKFORCE_MSIX_SIGNING_PUBLISHER) { throw "Configured MSIX signing certificate subject does not match the configured package publisher." }' \
+    '    $ekuExtension = $signingCertificate.Extensions | Where-Object { $_.Oid.Value -eq "2.5.29.37" } | Select-Object -First 1' \
+    '    $hasCodeSigningEku = $false' \
+    '    if ($null -ne $ekuExtension) {' \
+    '      $typedEkuExtension = [System.Security.Cryptography.X509Certificates.X509EnhancedKeyUsageExtension]$ekuExtension' \
+    '      foreach ($oid in $typedEkuExtension.EnhancedKeyUsages) { if ($oid.Value -eq "1.3.6.1.5.5.7.3.3") { $hasCodeSigningEku = $true; break } }' \
+    '    }' \
+    '    if (-not $hasCodeSigningEku) { throw "Configured MSIX signing certificate does not contain the Code Signing EKU." }' \
+    '    $chain = [System.Security.Cryptography.X509Certificates.X509Chain]::new()' \
+    '    try {' \
+    '      $chain.ChainPolicy.RevocationMode = [System.Security.Cryptography.X509Certificates.X509RevocationMode]::Online' \
+    '      $chain.ChainPolicy.RevocationFlag = [System.Security.Cryptography.X509Certificates.X509RevocationFlag]::EntireChain' \
+    '      $chain.ChainPolicy.VerificationFlags = [System.Security.Cryptography.X509Certificates.X509VerificationFlags]::NoFlag' \
+    '      if (-not $chain.Build($signingCertificate)) {' \
+    '        $chainStatuses = @($chain.ChainStatus | ForEach-Object { $_.Status.ToString() }) -join ", "' \
+    '        throw "Configured MSIX signing certificate chain is not trusted: $chainStatuses"' \
+    '      }' \
+    '    } finally {' \
+    '      $chain.Dispose()' \
+    '    }' \
+    '    Write-Output "SIGNING_CERTIFICATE=trusted-code-signing-chain"' \
+    '  } catch {' \
+    '    [Console]::Error.WriteLine($_.Exception.Message)' \
+    '    exit 1' \
+    '  }' \
+    '} finally {' \
+    '  if ($null -ne $signingCertificate) { $signingCertificate.Dispose() }' \
+    '}')"
+  run_h_remote trusted_signing_certificate_required "$signing_validation_script"
 
   local build_script
   build_script="$(printf '%s\n' \
@@ -687,41 +767,11 @@ stage_h(){
     "\$env:ZWORKFORCE_MSIX_SIGNING_PFX_PASSWORD = $ps_pfx_password" \
     "\$env:ZWORKFORCE_MSIX_SIGNING_PUBLISHER = $ps_publisher" \
     "\$env:ZWORKFORCE_MSIX_REQUIRE_TRUSTED_SIGNING = 'true'" \
-    '$signingCertificate = $null' \
-    'try {' \
-    '  $signingCertificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($env:ZWORKFORCE_MSIX_SIGNING_PFX_PATH, $env:ZWORKFORCE_MSIX_SIGNING_PFX_PASSWORD, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::EphemeralKeySet)' \
-    '  if (-not $signingCertificate.HasPrivateKey) { throw "Configured MSIX signing PFX does not contain a private key." }' \
-    '  if ($signingCertificate.NotAfter -le (Get-Date)) { throw "Configured MSIX signing certificate is expired." }' \
-    '  if ($signingCertificate.Subject -eq $signingCertificate.Issuer) { throw "Configured MSIX signing certificate is self-signed; production Stage H requires an enterprise-trusted CA certificate." }' \
-    '  if ($signingCertificate.Subject -ne $env:ZWORKFORCE_MSIX_SIGNING_PUBLISHER) { throw "Configured MSIX signing certificate subject does not match the configured package publisher." }' \
-    '  $ekuExtension = $signingCertificate.Extensions | Where-Object { $_.Oid.Value -eq "2.5.29.37" } | Select-Object -First 1' \
-    '  $hasCodeSigningEku = $false' \
-    '  if ($null -ne $ekuExtension) {' \
-    '    $typedEkuExtension = [System.Security.Cryptography.X509Certificates.X509EnhancedKeyUsageExtension]$ekuExtension' \
-    '    foreach ($oid in $typedEkuExtension.EnhancedKeyUsages) { if ($oid.Value -eq "1.3.6.1.5.5.7.3.3") { $hasCodeSigningEku = $true; break } }' \
-    '  }' \
-    '  if (-not $hasCodeSigningEku) { throw "Configured MSIX signing certificate does not contain the Code Signing EKU." }' \
-    '  $chain = [System.Security.Cryptography.X509Certificates.X509Chain]::new()' \
-    '  try {' \
-    '    $chain.ChainPolicy.RevocationMode = [System.Security.Cryptography.X509Certificates.X509RevocationMode]::Online' \
-    '    $chain.ChainPolicy.RevocationFlag = [System.Security.Cryptography.X509Certificates.X509RevocationFlag]::EntireChain' \
-    '    $chain.ChainPolicy.VerificationFlags = [System.Security.Cryptography.X509Certificates.X509VerificationFlags]::NoFlag' \
-    '    if (-not $chain.Build($signingCertificate)) {' \
-    '      $chainStatuses = @($chain.ChainStatus | ForEach-Object { $_.Status.ToString() }) -join ", "' \
-    '      throw "Configured MSIX signing certificate chain is not trusted: $chainStatuses"' \
-    '    }' \
-    '  } finally {' \
-    '    $chain.Dispose()' \
-    '  }' \
-    '  Write-Output "SIGNING_CERTIFICATE=trusted-code-signing-chain"' \
-    '} finally {' \
-    '  if ($null -ne $signingCertificate) { $signingCertificate.Dispose() }' \
-    '}' \
     "& ./ZWorkforceClient/build/windows/Build-Client.ps1 -Configuration Release -Platform x64; if (-not \$?) { exit 1 }" \
     "& ./ZWorkforceClient/build/windows/Test-Client.ps1 -Configuration Release; if (-not \$?) { exit 1 }" \
     "& ./ZWorkforceClient/build/windows/Package-Client.ps1 -Configuration Release -Platform x64 -Version '$release_version'; if (-not \$?) { exit 1 }" \
     "& ./ZWorkforceClient/build/windows/Test-Client.ps1 -Configuration Release -ExpectedVersion '$release_version.0' -LaunchSmoke; if (-not \$?) { exit 1 }")"
-  run_remote_pwsh "$build_script"
+  run_h_remote windows_build_or_test_failed "$build_script"
 
   # Find newest MSIX/MSIXBundle and validate the package structure + hash.
   # Add-AppxPackage in the preceding launch smoke is the Windows-side
@@ -730,7 +780,11 @@ stage_h(){
   local inspect_script
   inspect_script="$(printf '%s\n' \
     "Set-Location $ps_repo_dir" \
-    '$packages = @(Get-ChildItem -Recurse -File | Where-Object { $_.Extension -in @(".msix", ".msixbundle") } | Sort-Object LastWriteTime -Descending)' \
+    "\$expectedPublisher = $ps_publisher" \
+    "\$expectedPackageVersion = $ps_expected_package_version" \
+    "\$packageRoot = Join-Path (Get-Location) 'ZWorkforceClient/out/Release-x64'" \
+    'if (-not (Test-Path -LiteralPath $packageRoot -PathType Container)) { [Console]::Error.WriteLine("Expected Windows package output directory not found"); exit 1 }' \
+    '$packages = @(Get-ChildItem -LiteralPath $packageRoot -Recurse -File | Where-Object { $_.Extension -in @(".msix", ".msixbundle") -and $_.Name -match ("_" + [regex]::Escape($expectedPackageVersion) + "_") } | Sort-Object LastWriteTime -Descending)' \
     'if ($packages.Count -eq 0) { [Console]::Error.WriteLine("MSIX/MSIXBundle not found"); exit 1 }' \
     '$pkg = $packages[0]' \
     'Add-Type -AssemblyName System.IO.Compression.FileSystem' \
@@ -751,24 +805,31 @@ stage_h(){
     '} finally {' \
     '  $archive.Dispose()' \
     '}' \
-    'if ($publisher -ne $env:ZWORKFORCE_MSIX_SIGNING_PUBLISHER) { throw "MSIX publisher does not match the trusted signing identity." }' \
-    '$hash = (Get-FileHash -Algorithm SHA256 $pkg.FullName).Hash' \
+    'if ($publisher -ne $expectedPublisher) { throw "MSIX publisher does not match the trusted signing identity." }' \
+    '$hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $pkg.FullName).Hash' \
     'Write-Output ("PACKAGE=" + $pkg.Name)' \
     'Write-Output ("SHA256=" + $hash)' \
     'Write-Output ("PUBLISHER=" + $publisher)' \
     'Write-Output "SIGNATURE=MSIX_APPX_SIGNATURE_PRESENT"')"
-  run_remote_pwsh "$inspect_script"
+  run_h_remote windows_msix_validation_failed "$inspect_script"
 
   # Live HTTPS endpoint check from Windows host. The helper already returns a
   # complete PowerShell single-quoted literal; do not add a second quote pair.
   local ps_health_endpoint
   ps_health_endpoint="$(ps_single_quote "$ZWORKFORCE_HTTPS_ENDPOINT/health")"
-  run_remote_pwsh "Invoke-WebRequest -UseBasicParsing $ps_health_endpoint | Out-Null; if (-not \$?) { exit 1 }"
+  run_h_remote windows_live_endpoint_failed "Invoke-WebRequest -UseBasicParsing $ps_health_endpoint | Out-Null; if (-not \$?) { exit 1 }"
 
   if [[ -x "$REPO_DIR/scripts/release/verify-windows-live.sh" ]]; then
-    WINDOWS_HOST="$WINDOWS_HOST" \
+    if WINDOWS_HOST="$WINDOWS_HOST" \
       ZWORKFORCE_HTTPS_ENDPOINT="$ZWORKFORCE_HTTPS_ENDPOINT" \
-      "$REPO_DIR/scripts/release/verify-windows-live.sh"
+      "$REPO_DIR/scripts/release/verify-windows-live.sh"; then
+      :
+    else
+      local live_verify_rc=$?
+      GATE_FAILURE_STATUS=FAIL
+      GATE_FAILURE_DETAIL=windows_live_evidence_failed
+      return "$live_verify_rc"
+    fi
   fi
 
   mark H PASS "trusted_windows_signing_verified"
@@ -802,33 +863,33 @@ case "${1:-}" in
     status
     ;;
   F)
-    CURRENT_GATE=F
+    begin_gate F
     stage_f
     CURRENT_GATE=
     ;;
   E)
-    CURRENT_GATE=E
+    begin_gate E
     stage_e
     CURRENT_GATE=
     ;;
   G)
-    CURRENT_GATE=G
+    begin_gate G
     stage_g
     CURRENT_GATE=
     ;;
   H)
-    CURRENT_GATE=H
+    begin_gate H
     stage_h
     CURRENT_GATE=
     ;;
   all)
-    CURRENT_GATE=F
+    begin_gate F
     stage_f
-    CURRENT_GATE=E
+    begin_gate E
     stage_e
-    CURRENT_GATE=G
+    begin_gate G
     stage_g
-    CURRENT_GATE=H
+    begin_gate H
     stage_h
     CURRENT_GATE=
     ;;
