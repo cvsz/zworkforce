@@ -27,6 +27,7 @@ services:
       - "${ZWORKFORCE_HOST_PORT:-9570}:9569"
     environment: &zworkforce-env
       ZWORKFORCE_ENV: production
+      ZWORKFORCE_INSTANCE_ID: ${ZWORKFORCE_INSTANCE_ID:-}
       ZWORKFORCE_DATABASE_URL: postgresql://zworkforce:${ZWORKFORCE_POSTGRES_PASSWORD}@postgres:5432/zworkforce
       ZWORKFORCE_API_KEYS: ${ZWORKFORCE_API_KEYS:?set ZWORKFORCE_API_KEYS}
       ZWORKFORCE_EMBEDDED_WORKERS: "0"
