@@ -10,7 +10,7 @@ test("LiveVoiceSession requires tenantId and subjectId", () => {
 test("LiveVoiceSession initializes with default provider and model", () => {
   const session = new LiveVoiceSession({ tenantId: "tenant-1", subjectId: "user-1" });
   assert.equal(session.provider, VOICE_PROVIDERS.GEMINI_LIVE);
-  assert.equal(session.model, "gemini-2.0-flash-exp");
+  assert.equal(session.model, "gemini-3.1-flash-live-preview");
   assert.equal(session.audioFormat, AUDIO_FORMATS.PCM16_24KHZ);
   assert.equal(session.state, "idle");
 });

@@ -37,12 +37,43 @@ class FakeVoice:
         }
 
 
+class FakeLiveVoice:
+    csp_connect_sources = ("wss://generativelanguage.googleapis.com",)
+
+    def __init__(self):
+        self.calls = []
+
+    def snapshot(self):
+        return {
+            "live_enabled": True,
+            "live_model": "gemini-3.1-flash-live-preview",
+            "live_voice": "Charon",
+            "live_transport": "gemini-live",
+            "live_websocket_origin": "wss://generativelanguage.googleapis.com",
+        }
+
+    def issue_live_token(self, **kwargs):
+        self.calls.append(kwargs)
+        return {
+            "token": "auth_tokens/test-ephemeral-token",
+            "expires_at": "2026-08-27T08:00:00.000Z",
+            "model": "gemini-3.1-flash-live-preview",
+            "voice": "Charon",
+            "thinking_level": "minimal",
+            "system_prompt": "You are Z.A.R.V.I.S.",
+            "websocket_origin": "wss://generativelanguage.googleapis.com",
+            "transport": "gemini-live",
+        }
+
+
 class ZarvisVoiceApiTests(unittest.TestCase):
     def setUp(self):
         self.temp, self.settings, self.db, self.provider, self.engine, self.auth = stack()
         self.app = App(self.settings, self.db, self.engine, self.auth, self.provider)
         self.voice = FakeVoice()
+        self.live_voice = FakeLiveVoice()
         self.app.voice = self.voice
+        self.app.live_voice = self.live_voice
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), self.app.handler())
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -69,8 +100,10 @@ class ZarvisVoiceApiTests(unittest.TestCase):
         status, _, payload = self.req("/api/v1/zarvis/voice")
         self.assertEqual(status, 200)
         self.assertTrue(payload["enabled"])
+        self.assertTrue(payload["live_enabled"])
         self.assertNotIn("service_token", payload)
         self.assertNotIn("gateway_url", payload)
+        self.assertNotIn("api_key", payload)
 
         _, viewer_secret = self.auth.create_key("default", "viewer", "viewer", ["workforce:read"])
         with self.assertRaises(urllib.error.HTTPError) as ctx:
@@ -91,13 +124,28 @@ class ZarvisVoiceApiTests(unittest.TestCase):
         rendered = json.dumps(audit)
         self.assertNotIn("browser-one-time-ticket", rendered)
 
+    def test_voice_live_token_uses_authenticated_tenant_and_audits(self):
+        status, _, payload = self.req("/api/v1/zarvis/voice/live-token", "POST", {})
+        self.assertEqual(status, 201)
+        self.assertEqual(payload["token"], "auth_tokens/test-ephemeral-token")
+        self.assertEqual(payload["transport"], "gemini-live")
+        self.assertEqual(self.live_voice.calls[0]["tenant_id"], "default")
+        self.assertIn("test-admin", self.live_voice.calls[0]["subject_id"])
+        self.assertNotIn("Authorization", json.dumps(payload))
+        self.assertNotIn("api_key", payload)
+
+        audit = self.db.list_audit("default", 20, 0)
+        self.assertTrue(any(item["action"] == "zarvis.voice.live_token" for item in audit))
+        rendered = json.dumps(audit)
+        self.assertNotIn("test-ephemeral-token", rendered)
+
     def test_voice_security_headers_are_narrow_and_enable_microphone_self(self):
         request = urllib.request.Request(self.base + "/")
         with urllib.request.urlopen(request, timeout=5) as response:
             permissions = response.headers["Permissions-Policy"]
             csp = response.headers["Content-Security-Policy"]
         self.assertIn("microphone=(self)", permissions)
-        self.assertIn("connect-src 'self' wss://voice.example.com", csp)
+        self.assertIn("connect-src 'self' wss://voice.example.com wss://generativelanguage.googleapis.com", csp)
         self.assertNotIn("connect-src 'self' ws: wss:", csp)
 
     def test_voice_worklet_is_served_as_javascript(self):
