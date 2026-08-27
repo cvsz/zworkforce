@@ -63,7 +63,17 @@ function setZarvisLevel(level){$('zarvisCard').style.setProperty('--zarvis-level
 function stopZarvisPlayback(){for(const source of zarvisActiveSources){try{source.stop();}catch{}}zarvisActiveSources=new Set();zarvisPlayhead=zarvisAudioContext?.currentTime||0;}
 async function queueZarvisAudio(base64Audio,sampleRate=ZARVIS_OUTPUT_SAMPLE_RATE){if(!zarvisAudioContext||!base64Audio)return;if(zarvisAudioContext.state==='suspended')await zarvisAudioContext.resume();const samples=VC.pcm16ToFloat32(VC.base64ToBytes(base64Audio));if(!samples.length)return;const buffer=zarvisAudioContext.createBuffer(1,samples.length,sampleRate);buffer.copyToChannel(samples,0);const source=zarvisAudioContext.createBufferSource();source.buffer=buffer;source.connect(zarvisAudioContext.destination);const startAt=Math.max(zarvisAudioContext.currentTime+.02,zarvisPlayhead);source.start(startAt);zarvisPlayhead=startAt+buffer.duration;zarvisActiveSources.add(source);source.addEventListener('ended',()=>zarvisActiveSources.delete(source),{once:true});}
 function sendZarvisEvent(payload,target=zarvisSocket){if(target?.readyState===WebSocket.OPEN)target.send(JSON.stringify(payload));}
-function cancelZarvisResponse(){if(zarvisLiveMode){sendZarvisEvent({clientContent:{turns:[{role:'user',parts:[{text:'[Interrupted]'}]}],turnComplete:true}});}else{sendZarvisEvent({type:'response.cancel'});}stopZarvisPlayback();if(['speaking','thinking'].includes(zarvisStateMachine.value))setZarvisState('interrupted','Response interrupted — hold to talk');}
+function getLiveResumeKey(){
+  return `zwf:live_resume:${state.tenant || 'default'}:${(state.key || 'anon').slice(-8)}`;
+}
+
+function cancelZarvisResponse(){
+  if(!zarvisLiveMode){
+    sendZarvisEvent({type:'response.cancel'});
+  }
+  stopZarvisPlayback();
+  if(['speaking','thinking'].includes(zarvisStateMachine.value))setZarvisState('interrupted','Response interrupted — hold to talk');
+}
 function sendZarvisSilenceBurst(){if(zarvisSocket?.readyState!==WebSocket.OPEN||!zarvisSessionConfigured||zarvisLiveMode)return;const silence=VC.bytesToBase64(new Uint8Array(2048*2));for(let i=0;i<ZARVIS_SILENCE_FRAMES;i+=1)sendZarvisEvent({type:'input_audio_buffer.append',audio:silence});}
 
 function getZarvisLiveTools(){
@@ -112,7 +122,7 @@ function handleZarvisLiveEvent(payload,event){
     return;
   }
   if(payload.sessionResumptionUpdate?.newHandle){
-    try{sessionStorage.setItem('zwf:live_resume_handle',payload.sessionResumptionUpdate.newHandle);}catch{}
+    try{sessionStorage.setItem(getLiveResumeKey(),payload.sessionResumptionUpdate.newHandle);}catch{}
   }
   if(payload.toolCall){
     setZarvisState('thinking','Running workforce tool…');
@@ -204,7 +214,7 @@ async function ensureZarvisTransport(){
         onError:()=>setZarvisState('error','Unable to connect to Gemini Live API'),
         onClose:()=>{zarvisSessionConfigured=false;stopZarvisPlayback();void stopZarvisMicrophone();zarvisSocket=null;if(zarvisAvailable)setZarvisState('disconnected','Live disconnected — hold to reconnect');}
       });
-      const resumeHandle=sessionStorage.getItem('zwf:live_resume_handle');
+      const resumeHandle=sessionStorage.getItem(getLiveResumeKey());
       const setupFrame={
         setup:{
           model:`models/${liveSession.model||'gemini-3.1-flash-live-preview'}`,
@@ -289,7 +299,9 @@ async function endZarvisPtt(){
   zarvisPttActive=false;
   zarvisPttGeneration+=1;
   if(zarvisLiveMode){
-    sendZarvisEvent({clientContent:{turnComplete:true}});
+    // In Gemini Live mode, streaming audio ends on mic release.
+    // Realtime input audioStreamEnd signal informs the model that speaking has finished.
+    sendZarvisEvent({realtimeInput:{audioStreamEnd:true}});
   }else{
     sendZarvisSilenceBurst();
   }
@@ -303,6 +315,7 @@ async function stopZarvisVoiceTransport(){
   zarvisPttGeneration+=1;
   zarvisSessionConfigured=false;
   zarvisTransportPromise=null;
+  try{sessionStorage.removeItem(getLiveResumeKey());}catch{}
   await stopZarvisMicrophone();
   stopZarvisPlayback();
   const currentSocket=zarvisSocket;
