@@ -52,6 +52,7 @@ jobs:
           tf = Path("infrastructure/terraform/cloudflare/zworkforce.tf").read_text()
           expected = {
               "zwf.zeaz.dev": "http://127.0.0.1:9570",
+              "zwf-api.zeaz.dev": "http://127.0.0.1:9570",
               "studio.zeaz.dev": "http://127.0.0.1:3005",
               "zarvis.zeaz.dev": "http://127.0.0.1:9570",
               "zider.zeaz.dev": "http://127.0.0.1:8085",
@@ -140,6 +141,7 @@ jobs:
           MANAGE_TUNNEL_CONFIG=false
           STUDIO_ORIGIN=http://127.0.0.1:3005
           ZWF_ORIGIN=http://127.0.0.1:9570
+          ZWF_API_HOSTNAME=zwf-api.zeaz.dev
           ZARVIS_ORIGIN=http://127.0.0.1:9570
           ZIDER_ORIGIN=http://127.0.0.1:8085
           EOF

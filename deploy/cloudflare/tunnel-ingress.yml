@@ -8,8 +8,10 @@ tunnel: 45667e7e-7383-4265-b53e-6a9e770a8554
 credentials-file: /etc/cloudflared/45667e7e-7383-4265-b53e-6a9e770a8554.json
 
 ingress:
-  # 1. zWorkforce Control Plane API & Tasks
+  # 1. zWorkforce Control Plane and API
   - hostname: zwf.zeaz.dev
+    service: http://127.0.0.1:9570
+  - hostname: zwf-api.zeaz.dev
     service: http://127.0.0.1:9570
 
   # 2. Z.A.R.V.I.S. Voice & Hotkey Gateway (same governed control-plane gateway)

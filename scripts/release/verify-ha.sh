@@ -4,8 +4,6 @@ set -euo pipefail
 # zWorkforce v3.0.4 HA Runtime VM x2 release verification (Stage E)
 # Fail-closed verifier: PASS requires real shared-DB lease/outbox evidence.
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-
 fail(){ echo "VERIFY-HA: FAIL: $*" >&2; exit 1; }
 note(){ echo "VERIFY-HA: $*"; }
 
@@ -19,8 +17,14 @@ note(){ echo "VERIFY-HA: $*"; }
 HA_IMAGE_PULL_POLICY="${HA_IMAGE_PULL_POLICY:-always}"
 HA_IMAGE_PROVENANCE_FILE="${HA_IMAGE_PROVENANCE_FILE:-candidate-image-provenance.env}"
 HA_EXPECTED_IMAGE_PROVENANCE_SHA256="${HA_EXPECTED_IMAGE_PROVENANCE_SHA256:-}"
+HA_EXPECTED_DB_PROJECT_REF="${HA_EXPECTED_DB_PROJECT_REF:-qhprcfdgajhmdzvnsffb}"
+HA_EXPECTED_DB_HOST="${HA_EXPECTED_DB_HOST:-aws-0-ap-northeast-1.pooler.supabase.com}"
+HA_EXPECTED_DB_PORT="${HA_EXPECTED_DB_PORT:-5432}"
 [[ "$HA_HOST_A" != "$HA_HOST_B" ]] || fail "HA_HOST_A and HA_HOST_B must differ"
 [[ "$HA_EXPECTED_IMAGE_DIGEST" =~ ^sha256:[0-9a-fA-F]{64}$ ]] || fail "HA_EXPECTED_IMAGE_DIGEST must be a sha256 OCI digest"
+[[ "$HA_EXPECTED_DB_PROJECT_REF" =~ ^[a-z0-9]{20,40}$ ]] || fail "HA_EXPECTED_DB_PROJECT_REF is invalid"
+[[ "$HA_EXPECTED_DB_HOST" =~ ^[a-z0-9.-]+$ ]] || fail "HA_EXPECTED_DB_HOST is invalid"
+[[ "$HA_EXPECTED_DB_PORT" =~ ^[0-9]{1,5}$ ]] || fail "HA_EXPECTED_DB_PORT is invalid"
 case "$HA_IMAGE_PULL_POLICY" in
   always) ;;
   never)
@@ -61,6 +65,112 @@ b_instance="$(ssh "${ssh_opts[@]}" "$HA_HOST_B" "cd '$HA_DEPLOY_DIR' && docker c
 [[ "$a_instance" == "vm-a" ]] || fail "VM-A identity must be vm-a (got $a_instance)"
 [[ "$b_instance" == "vm-b" ]] || fail "VM-B identity must be vm-b (got $b_instance)"
 note "distinct runtime identities confirmed: $a_instance / $b_instance"
+
+# Verify the configured DSN target without printing the DSN or its password.
+# The username suffix identifies the Supabase project, while the session
+# pooler host/port and TLS mode prevent an accidental transaction-pooler or
+# wrong-project cutover from being reported as shared HA evidence.
+verify_database_target(){
+  local label="$1" host="$2" compose_file="$3" target_output
+  target_output="$(ssh "${ssh_opts[@]}" "$host" \
+    "cd '$HA_DEPLOY_DIR' && docker compose -f '$compose_file' exec -T serve python - '$HA_EXPECTED_DB_PROJECT_REF' '$HA_EXPECTED_DB_HOST' '$HA_EXPECTED_DB_PORT'" <<'PY'
+import os
+import sys
+from urllib.parse import parse_qs, urlsplit
+
+expected_project, expected_host, expected_port = sys.argv[1:]
+dsn = os.environ.get("ZWORKFORCE_DATABASE_URL", "").strip()
+if not dsn:
+    raise SystemExit("database_target=FAIL missing_dsn")
+try:
+    parsed = urlsplit(dsn)
+    port = parsed.port
+except ValueError:
+    raise SystemExit("database_target=FAIL malformed_dsn")
+username = parsed.username or ""
+project_ref = username.split(".", 1)[1] if "." in username else ""
+sslmode = parse_qs(parsed.query).get("sslmode", [""])[0]
+if project_ref != expected_project:
+    raise SystemExit("database_target=FAIL wrong_project")
+if parsed.hostname != expected_host:
+    raise SystemExit("database_target=FAIL wrong_host")
+if port != int(expected_port):
+    raise SystemExit("database_target=FAIL wrong_port")
+if sslmode != "require":
+    raise SystemExit("database_target=FAIL tls_required")
+print("database_target=PASS")
+PY
+  )" || fail "host $label PostgreSQL target metadata check failed"
+  grep -Fxq "database_target=PASS" <<<"$target_output" || \
+    fail "host $label is not configured for the expected qhpr session pooler"
+  note "host $label PostgreSQL target verified (qhpr session pooler/TLS)"
+}
+
+verify_database_target A "$HA_HOST_A" "$HA_COMPOSE_FILE_A"
+verify_database_target B "$HA_HOST_B" "$HA_COMPOSE_FILE_B"
+
+# current_database/current_user are not project identifiers: two independent
+# Supabase projects can return the same values. Prove that both replicas see a
+# marker written through VM-A, then remove the marker before collecting lease
+# evidence. The marker contains only the frozen candidate SHA.
+shared_database_probe(){
+  local probe_key
+  probe_key="release_ha_probe_${FROZEN_CANDIDATE}_$(date -u +%Y%m%dT%H%M%SZ)"
+  local probe_value="$FROZEN_CANDIDATE"
+  local cleanup_cmd="cd '$HA_DEPLOY_DIR' && docker compose -f '$HA_COMPOSE_FILE_A' exec -T serve python - '$probe_key' '$probe_value'"
+
+  ssh "${ssh_opts[@]}" "$HA_HOST_A" \
+    "cd '$HA_DEPLOY_DIR' && docker compose -f '$HA_COMPOSE_FILE_A' exec -T serve python - '$probe_key' '$probe_value'" <<'PY' || \
+    fail "VM-A could not write the shared PostgreSQL probe"
+import os
+import sys
+import psycopg
+
+key, value = sys.argv[1:3]
+with psycopg.connect(os.environ["ZWORKFORCE_DATABASE_URL"], connect_timeout=5) as conn:
+    conn.execute("INSERT INTO schema_meta(key,value) VALUES(%s,%s)", (key, value))
+PY
+
+  if ! ssh "${ssh_opts[@]}" "$HA_HOST_B" \
+    "cd '$HA_DEPLOY_DIR' && docker compose -f '$HA_COMPOSE_FILE_B' exec -T serve python - '$probe_key' '$probe_value'" <<'PY'
+import os
+import sys
+import psycopg
+
+key, value = sys.argv[1:3]
+with psycopg.connect(os.environ["ZWORKFORCE_DATABASE_URL"], connect_timeout=5) as conn:
+    row = conn.execute("SELECT value FROM schema_meta WHERE key=%s", (key,)).fetchone()
+    if row is None or row[0] != value:
+        raise SystemExit("shared PostgreSQL probe marker was not visible on VM-B")
+print("shared_database_probe=PASS")
+PY
+  then
+    ssh "${ssh_opts[@]}" "$HA_HOST_A" "$cleanup_cmd" <<'PY' || true
+import os
+import sys
+import psycopg
+
+key, value = sys.argv[1:3]
+with psycopg.connect(os.environ["ZWORKFORCE_DATABASE_URL"], connect_timeout=5) as conn:
+    conn.execute("DELETE FROM schema_meta WHERE key=%s AND value=%s", (key, value))
+PY
+    fail "VM-A and VM-B do not share the same PostgreSQL database"
+  fi
+
+  ssh "${ssh_opts[@]}" "$HA_HOST_A" "$cleanup_cmd" <<'PY' || \
+    fail "could not clean up the shared PostgreSQL probe marker"
+import os
+import sys
+import psycopg
+
+key, value = sys.argv[1:3]
+with psycopg.connect(os.environ["ZWORKFORCE_DATABASE_URL"], connect_timeout=5) as conn:
+    conn.execute("DELETE FROM schema_meta WHERE key=%s AND value=%s", (key, value))
+PY
+  note "shared PostgreSQL database probe passed and marker was removed"
+}
+
+shared_database_probe
 
 # Verify the deployed Compose files resolve the exact candidate image and expose
 # the runtime identity contract before querying shared state.

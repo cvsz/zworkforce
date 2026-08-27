@@ -3,6 +3,10 @@ cloudflare_account_id = "00000000000000000000000000000000"
 cloudflare_zone_id    = "00000000000000000000000000000000"
 cloudflare_tunnel_id  = "00000000-0000-0000-0000-000000000000"
 
+zwf_hostname     = "zwf.zeaz.dev"
+zwf_api_hostname = "zwf-api.zeaz.dev"
+zwf_origin       = "http://127.0.0.1:9570"
+
 moopiew_hostname  = "moopiew.zeaz.dev"
 moopiew_origin    = "http://127.0.0.1:8080"
 arin_hostname     = "arin.zeaz.dev"

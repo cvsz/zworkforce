@@ -74,6 +74,7 @@ output "cloudflared_ingress" {
       { hostname = var.auth_hostname, service = var.auth_origin },
       { hostname = var.laps_hostname, service = var.laps_origin },
     ],
+    local.zworkforce_ingress,
     local.zeaz_one_ingress,
     [{ service = "http_status:404" }],
   )

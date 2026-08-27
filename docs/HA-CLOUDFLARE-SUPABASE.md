@@ -13,7 +13,8 @@ zWorkforce uses two independent runtime VMs behind a shared Supabase durable dat
 ```text
 Cloudflare
    |
-   +-- zworkforce.zeaz.dev
+   +-- zwf.zeaz.dev
+   +-- zwf-api.zeaz.dev
    |       |
    |       +-- HA/load-balancing
    |             |
@@ -58,7 +59,8 @@ Duplicate prevention is enforced by distinct `INSTANCE_ID` values. If both VMs c
 
 | Public host | Private origin | Role |
 | --- | --- | --- |
-| `zworkforce.zeaz.dev` | Cloudflare Tunnel → primary runtime | zWorkforce production HTTPS endpoint |
+| `zwf.zeaz.dev` | Cloudflare Tunnel → primary runtime | zWorkforce production HTTPS endpoint |
+| `zwf-api.zeaz.dev` | Cloudflare Tunnel → primary runtime | zWorkforce API endpoint |
 | `ha-a.zeaz.dev` | `192.168.74.134:9456` | VM-A direct API |
 | `ha-b.zeaz.dev` | `192.168.74.135:9456` | VM-B direct API |
 | `obs.zeaz.dev` | `192.168.74.134:19090` | Prometheus API |
@@ -96,6 +98,15 @@ Each VM runs an independent Docker Compose stack from `deploy/ha/`:
 Shared environment template: `deploy/ha/compose.shared.env.example`
 
 Both stacks point to the same Supabase PostgreSQL DSN and S3-compatible artifact backend.
+For the zWorkforce release target, the DSN uses the
+`qhprcfdgajhmdzvnsffb` project's `aws-0-ap-northeast-1` session pooler on port
+`5432` with TLS required. The password remains in the external secret
+boundary; the public API hostname is not a PostgreSQL endpoint.
+The runtime Compose contract receives this value as `ZWORKFORCE_DATABASE_URL`;
+`HA_DB_DSN_SECRET_REF` is only the operator-side reference used to inject it.
+The GitHub `SUPABASE_DATABASE_URL` environment secret is a protected preflight
+credential and must resolve to the same project, not to the generic `.env.core`
+project.
 
 For controlled or air-gapped deployment, set `HA_IMAGE_PULL_POLICY=never`. Before
 the image is exported, capture a candidate provenance file from the registry-backed

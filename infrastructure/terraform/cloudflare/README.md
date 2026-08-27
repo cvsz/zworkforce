@@ -84,6 +84,13 @@ first.
 The plan script never applies. If any hostname already exists, import it
 before planning to prevent Terraform from attempting to create a duplicate:
 
+The canonical public zWorkforce hostname managed by this stack is
+`zwf.zeaz.dev`, represented by the single `cloudflare_dns_record.zwf` resource.
+After a hostname migration, inspect the reviewed plan before applying it: the
+canonical record must be retained, and only the explicitly retired legacy
+record may be removed after the cutover has been validated. Do not edit
+Terraform state JSON by hand.
+
 ```bash
 terraform -chdir=infrastructure/terraform/cloudflare import \
   cloudflare_dns_record.moopiew "<zone-id>/<dns-record-id>"

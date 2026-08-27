@@ -30,6 +30,9 @@ to the host origin at `http://127.0.0.1:9570`. The container API still listens
 on port `9569`; the host-port split keeps `9569` available for the separate
 zksato service. Keep the API bound to the loopback/network boundary and do not
 publish PostgreSQL or worker ports.
+The API alias `https://zwf-api.zeaz.dev` uses the same reviewed tunnel origin
+and may be used by API clients; it does not create a second runtime or bypass
+the existing authentication and tenant controls.
 After the origin is running, verify the public path with:
 
 ```bash

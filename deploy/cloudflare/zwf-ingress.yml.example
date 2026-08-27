@@ -3,5 +3,7 @@
 # running on the host; this file does not start the API or provision secrets.
 ingress:
   - hostname: zwf.zeaz.dev
-    service: http://127.0.0.1:9569
+    service: http://127.0.0.1:9570
+  - hostname: zwf-api.zeaz.dev
+    service: http://127.0.0.1:9570
   - service: http_status:404

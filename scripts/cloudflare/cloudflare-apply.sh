@@ -76,7 +76,11 @@ if [[ "$reconcile_dns" == true ]]; then
   fi
 fi
 
-"$CLOUDFLARE_TF_BIN" -chdir="$CLOUDFLARE_STACK" fmt -check -recursive
+# Check only Terraform source files. Operator-managed *.tfvars files may contain
+# local values and are intentionally outside the repository formatting contract.
+while IFS= read -r -d '' terraform_file; do
+  "$CLOUDFLARE_TF_BIN" -chdir="$CLOUDFLARE_STACK" fmt -check "$(basename "$terraform_file")"
+done < <(find "$CLOUDFLARE_STACK" -maxdepth 1 -type f -name '*.tf' -print0)
 "$CLOUDFLARE_TF_BIN" -chdir="$CLOUDFLARE_STACK" validate
 
 if [[ "${MANAGE_TUNNEL_CONFIG:-false}" == "true" ]]; then

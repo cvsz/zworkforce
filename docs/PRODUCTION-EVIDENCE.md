@@ -6,6 +6,27 @@ This ledger tracks the corrective `v3.0.4` line while preserving a strict bounda
 
 **Rule:** an item remains `PENDING EXTERNAL EVIDENCE` until an operator records the real environment, timestamp, command or run URL, result, and durable artifact/reference. CI output, source code, image tags, and transient terminal observations do not substitute for a durable external run record when the gate explicitly requires environment evidence.
 
+## Current operator database configuration — 2026-08-26
+
+The zWorkforce release target remains Supabase project
+`qhprcfdgajhmdzvnsffb`, using its TLS session pooler at
+`aws-0-ap-northeast-1.pooler.supabase.com:5432`; the password is supplied only
+through the operator secret boundary. The generic `.env.core` files currently
+identify `dryflnsxhjuaamnzfrtu`, whose schema is incompatible with zWorkforce,
+so they must not be used as the zWorkforce runtime DSN. VM-B currently has the
+release project's schema; VM-A is still on a different project and must be
+reconfigured and reverified after the database credential rotation. This is a
+configuration finding, not external PASS evidence.
+
+## Current public ingress verification — 2026-08-26
+
+The repository and Terraform plan now declare `zwf-api.zeaz.dev` as an alias
+for the same tunnel origin as `zwf.zeaz.dev`. A read-only public probe from the
+operator host at this timestamp found no DNS answer for `zwf-api.zeaz.dev`,
+while `zwf.zeaz.dev/health` and the legacy hostname still returned HTTP 200.
+The alias has therefore not been provisioned or externally verified; this is a
+pending Cloudflare change, not a production PASS.
+
 ## Production topology
 
 The intended production topology remains:
@@ -13,7 +34,8 @@ The intended production topology remains:
 ```text
 Cloudflare
    |
-   +-- zworkforce.zeaz.dev
+   +-- zwf.zeaz.dev
+   +-- zwf-api.zeaz.dev
    |       |
    |       +-- HA/load-balancing
    |             |
@@ -49,7 +71,7 @@ outbox-A                 outbox-B
 | Candidate version | `3.0.4` corrective candidate (provisional) |
 | Governing release authority | `v3.0.3` remains authoritative in `ROADMAP.md`, `planning/exec-planning-zwf.md`, and `planning/RELEASE-SCOPE-STATUS.md`; this ledger does not authorize a v3.0.4 release |
 | Corrective code base | `f935a5f472b942f29cc83279f75ed14bae7c3761` — PR #181 merge commit containing the v3.0.4 production-image / HA verifier correction |
-| Current `main` after forward work | `9884b9b54047a2ac1c52912c50ceec9f2a7d6ae5` — PR #183 Enterprise Capability Platform merge; this is post-candidate drift and is not covered by the `f935a5f…` release evidence |
+| Current `main` after forward work | `2182129723d1a856546c45274308e1da2873f5bb` — PR #185 merge; this is post-candidate drift and is not covered by the earlier `f935a5f…` release evidence |
 | Final release candidate SHA | _PENDING — re-freeze an exact `main` SHA only after governing release authority explicitly transitions to v3.0.4_ |
 | Release tag | _NOT AUTHORIZED_ |
 | Corrective local image digest | `sha256:a6341d3c4e1a1fb502b5e60a64c38b094daaa7202da84e4221ba8c6cd1b39971` — local candidate metadata only; immutable GHCR publication pending |
