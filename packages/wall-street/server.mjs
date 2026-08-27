@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('.', import.meta.url));
 const host = process.env.WALL_STREET_HOST || '127.0.0.1';
 const port = Number(process.env.WALL_STREET_PORT || '4174');
-const zworkforceUrl = (process.env.ZWORKFORCE_URL || 'http://127.0.0.1:8080').replace(/\/$/, '');
+const zworkforceUrl = (process.env.ZWORKFORCE_URL || 'http://127.0.0.1:9569').replace(/\/$/, '');
 
 const contentTypes = new Map([
   ['.html', 'text/html; charset=utf-8'],
@@ -85,7 +85,12 @@ async function staticFile(req, res, pathname) {
 }
 
 const server = createServer(async (req, res) => {
-  const url = new URL(req.url || '/', `http://${req.headers.host || `${host}:${port}`}`);
+  let url;
+  try {
+    url = new URL(req.url || '/', 'http://127.0.0.1');
+  } catch {
+    return sendJson(res, 400, { error: 'invalid_request' });
+  }
   if (!['GET', 'HEAD'].includes(req.method || '')) {
     res.setHeader('Allow', 'GET, HEAD');
     return sendJson(res, 405, { error: 'method_not_allowed' });

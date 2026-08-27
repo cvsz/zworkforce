@@ -142,6 +142,12 @@ function connectBinance() {
         applyChanges(state.bids, payload.b);
         applyChanges(state.asks, payload.a);
         renderBook();
+      } else if (Array.isArray(payload.bids) && Array.isArray(payload.asks)) {
+        // Binance @depth20 partial snapshot stream sends { lastUpdateId, bids, asks }
+        state.bids.clear(); state.asks.clear();
+        applyChanges(state.bids, payload.bids);
+        applyChanges(state.asks, payload.asks);
+        renderBook();
       } else if (payload.e === '24hrTicker') {
         renderTicker({ lastPrice: payload.c, priceChangePercent: payload.P, highPrice: payload.h, lowPrice: payload.l, volume: payload.v });
       }
@@ -149,6 +155,23 @@ function connectBinance() {
   };
   socket.onerror = () => marketStatus('error');
   socket.onclose = () => scheduleReconnect();
+}
+
+async function loadKucoin24hrStats(symbol) {
+  try {
+    const response = await fetch(`https://api.kucoin.com/api/v1/market/stats?symbol=${encodeURIComponent(symbol)}`);
+    if (!response.ok) return;
+    const json = await response.json();
+    if (json.data) {
+      renderTicker({
+        lastPrice: json.data.last,
+        changeRate: json.data.changeRate,
+        high: json.data.high,
+        low: json.data.low,
+        vol: json.data.vol,
+      });
+    }
+  } catch { /* keep live stream unaffected */ }
 }
 
 async function loadKucoinSnapshot(symbol) {
@@ -179,14 +202,16 @@ async function connectKucoin() {
       state.pingTimer = setInterval(() => {
         if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ id: Date.now(), type: 'ping' }));
       }, Math.max(10000, Number(server.pingInterval || 18000) - 1000));
-      try { await loadKucoinSnapshot(symbol); } catch { /* keep realtime stream alive */ }
+      try {
+        await Promise.all([loadKucoinSnapshot(symbol), loadKucoin24hrStats(symbol)]);
+      } catch { /* keep realtime stream alive */ }
     };
     socket.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
         if (!msg.data) return;
         if (msg.subject === 'trade.ticker') {
-          renderTicker(msg.data);
+          if (msg.data.price) $('lastPrice').textContent = formatPrice(number(msg.data.price));
         } else if (msg.subject === 'trade.l2update') {
           applyChanges(state.bids, msg.data.changes?.bids);
           applyChanges(state.asks, msg.data.changes?.asks);
