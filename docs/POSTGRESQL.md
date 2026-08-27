@@ -8,6 +8,20 @@ ZWORKFORCE_DATABASE_URL=postgresql://user:password@host:5432/zworkforce
 
 The repository automatically selects PostgreSQL based on URI scheme. psycopg executes parameterized statements through a compatibility layer so the same repository mixins serve SQLite and PostgreSQL.
 
+## Supabase HA endpoint
+
+For long-running HA VMs, use one shared Supabase session-pooler URL and inject
+the password from the external secret manager:
+
+```env
+ZWORKFORCE_DATABASE_URL=postgresql://postgres.<project-ref>:<url-encoded-password>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=require
+```
+
+Use the session pooler (`5432`) for VM services and `pg_dump`/`pg_restore`.
+Transaction-pooler URLs (`6543`) are intended for short-lived transactions and
+are not the repository's backup endpoint. `zwf-api.zeaz.dev` is an HTTPS API
+hostname; it must never be used as the PostgreSQL host.
+
 ## Queue semantics
 
 PostgreSQL workers claim with:

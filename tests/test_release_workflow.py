@@ -20,9 +20,49 @@ ALERT_RECEIVER_SERVICE = ROOT / "deploy" / "observability" / "alert-receiver.ser
 WINDOWS_PACKAGE_SCRIPT = ROOT / "ZWorkforceClient" / "build" / "windows" / "Package-Client.ps1"
 WINDOWS_TEST_SCRIPT = ROOT / "ZWorkforceClient" / "build" / "windows" / "Test-Client.ps1"
 WINDOWS_SIGNATURE_SCRIPT = ROOT / "ZWorkforceClient" / "build" / "windows" / "Verify-MSIXSignature.ps1"
+POSTGRES_BACKUP_SCRIPT = ROOT / "scripts" / "backup-postgres.sh"
+POSTGRES_RESTORE_SCRIPT = ROOT / "scripts" / "restore-postgres.sh"
+POSTGRES_CONNECTION_HELPER = ROOT / "scripts" / "lib" / "postgres-connection.sh"
 
 
 class ReleaseWorkflowTests(unittest.TestCase):
+    def test_postgres_backup_and_restore_keep_dsn_out_of_process_arguments(self):
+        helper = POSTGRES_CONNECTION_HELPER.read_text(encoding="utf-8")
+        self.assertIn("PGSERVICEFILE", helper)
+        self.assertIn("PGSERVICE=zworkforce", helper)
+        self.assertIn("chmod 600", helper)
+
+        for script_path in (POSTGRES_BACKUP_SCRIPT, POSTGRES_RESTORE_SCRIPT):
+            script = script_path.read_text(encoding="utf-8")
+            self.assertIn("postgres_configure_service", script)
+            self.assertNotIn('"$ZWORKFORCE_DATABASE_URL"', script)
+
+    def test_postgres_backup_and_restore_allow_dedicated_connection_urls(self):
+        backup = POSTGRES_BACKUP_SCRIPT.read_text(encoding="utf-8")
+        restore = POSTGRES_RESTORE_SCRIPT.read_text(encoding="utf-8")
+
+        self.assertIn("ZWORKFORCE_BACKUP_DATABASE_URL", backup)
+        self.assertIn("ZWORKFORCE_RESTORE_DATABASE_URL", restore)
+
+    def test_postgres_connection_helper_rejects_encoded_service_file_controls(self):
+        probe = """
+set -Eeuo pipefail
+source "$1"
+postgres_configure_service "$2"
+postgres_cleanup_service
+"""
+        for database_url in (
+            "postgresql://svc:p%0Ass@127.0.0.1:5432/workforce",
+            "postgresql://svc:p%5Css@127.0.0.1:5432/workforce",
+        ):
+            result = subprocess.run(
+                ["bash", "-c", probe, "postgres-connection-probe", str(POSTGRES_CONNECTION_HELPER), database_url],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+
     def test_publish_tolerates_missing_windows_artifact_directory(self):
         workflow = RELEASE_WORKFLOW.read_text(encoding="utf-8")
 
@@ -135,6 +175,12 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn('HA_EXPECTED_IMAGE_PROVENANCE_SHA256', gates)
         self.assertIn('HA_IMAGE_PROVENANCE_FILE', ha)
         self.assertIn('preloaded image provenance hash', ha)
+        self.assertIn('HA_EXPECTED_DB_PROJECT_REF', ha)
+        self.assertIn('HA_EXPECTED_DB_HOST', ha)
+        self.assertIn('HA_EXPECTED_DB_PORT', ha)
+        self.assertIn('database_target=PASS', ha)
+        self.assertIn('sslmode', ha)
+        self.assertIn('HA_EXPECTED_DB_PROJECT_REF="$expected_db_project_ref"', gates)
         self.assertIn('docker compose -f \'$compose_a\' up -d --pull never', gates)
         self.assertIn('docker compose -f \'$compose_b\' up -d --pull never', gates)
         self.assertIn("exact candidate image", ha)
@@ -182,6 +228,12 @@ class ReleaseWorkflowTests(unittest.TestCase):
         verifier = HA_VERIFIER.read_text(encoding="utf-8")
         self.assertIn("import psycopg", verifier)
         self.assertNotIn("import psycopg2", verifier)
+
+    def test_ha_verifier_proves_both_replicas_share_postgres(self):
+        verifier = HA_VERIFIER.read_text(encoding="utf-8")
+        self.assertIn("release_ha_probe_", verifier)
+        self.assertIn("shared PostgreSQL database", verifier)
+        self.assertIn("schema_meta", verifier)
 
     def test_ha_verifier_checks_component_lease_ownership(self):
         verifier = HA_VERIFIER.read_text(encoding="utf-8")

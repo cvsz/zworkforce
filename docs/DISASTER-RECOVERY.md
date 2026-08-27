@@ -31,11 +31,16 @@ Back up each configured backend independently. A PostgreSQL dump does not back u
 Use a dedicated backup role with sufficient read privileges and an encrypted backup destination.
 
 ```bash
-export ZWORKFORCE_DATABASE_URL='postgresql://backup-user:...@db/zworkforce'
+export ZWORKFORCE_BACKUP_DATABASE_URL='postgresql://backup-user:...@session-pooler:5432/zworkforce?sslmode=require'
 bash scripts/backup-postgres.sh
 ```
 
-The script writes a PostgreSQL custom-format dump, validates its catalog with `pg_restore --list`, then writes a SHA-256 sidecar. A backup that cannot be parsed is not accepted.
+Use a direct or session-pooler URL for the backup connection; transaction
+poolers (`6543`) are not a backup endpoint. The script places the URL in a
+short-lived mode-0600 libpq service file, so it is not passed as a
+`pg_dump` process argument. It writes a PostgreSQL custom-format dump, validates
+its catalog with `pg_restore --list`, then writes a SHA-256 sidecar. A backup
+that cannot be parsed is not accepted.
 
 For managed PostgreSQL, use provider-native PITR/snapshot backups in addition to logical dumps.
 
@@ -45,7 +50,7 @@ Never test a restore against the live production database.
 
 1. Provision an isolated PostgreSQL instance.
 2. Stop zWorkforce API/workers/scheduler/outbox for the target environment.
-3. Set the target `ZWORKFORCE_DATABASE_URL`.
+3. Set the target `ZWORKFORCE_RESTORE_DATABASE_URL` to a direct or session-pooler URL.
 4. Verify the backup checksum.
 5. Explicitly authorize the destructive restore:
 

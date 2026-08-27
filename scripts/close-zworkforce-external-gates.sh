@@ -338,6 +338,9 @@ stage_e(){
   local compose_a="${HA_COMPOSE_FILE_A:-compose.vm-a.yaml}"
   local compose_b="${HA_COMPOSE_FILE_B:-compose.vm-b.yaml}"
   local image_pull_policy="${HA_IMAGE_PULL_POLICY:-always}"
+  local expected_db_project_ref="${HA_EXPECTED_DB_PROJECT_REF:-qhprcfdgajhmdzvnsffb}"
+  local expected_db_host="${HA_EXPECTED_DB_HOST:-aws-0-ap-northeast-1.pooler.supabase.com}"
+  local expected_db_port="${HA_EXPECTED_DB_PORT:-5432}"
 
   [[ "$HA_HOST_A" != "$HA_HOST_B" ]] || die "HA_HOST_A and HA_HOST_B must differ"
   case "$image_pull_policy" in
@@ -384,6 +387,7 @@ stage_e(){
       HA_IMAGE_PULL_POLICY="$image_pull_policy" \
       HA_IMAGE_PROVENANCE_FILE="${HA_IMAGE_PROVENANCE_FILE:-candidate-image-provenance.env}" \
       HA_EXPECTED_IMAGE_PROVENANCE_SHA256="${HA_EXPECTED_IMAGE_PROVENANCE_SHA256:-}" \
+      HA_EXPECTED_DB_PROJECT_REF="$expected_db_project_ref" HA_EXPECTED_DB_HOST="$expected_db_host" HA_EXPECTED_DB_PORT="$expected_db_port" \
       HA_EXPECTED_IMAGE="$HA_EXPECTED_IMAGE" HA_EXPECTED_IMAGE_DIGEST="$HA_EXPECTED_IMAGE_DIGEST" \
       "$REPO_DIR/scripts/release/verify-ha.sh"
   elif [[ -x "$REPO_DIR/scripts/verify-ha.sh" ]]; then
@@ -392,6 +396,7 @@ stage_e(){
       HA_IMAGE_PULL_POLICY="$image_pull_policy" \
       HA_IMAGE_PROVENANCE_FILE="${HA_IMAGE_PROVENANCE_FILE:-candidate-image-provenance.env}" \
       HA_EXPECTED_IMAGE_PROVENANCE_SHA256="${HA_EXPECTED_IMAGE_PROVENANCE_SHA256:-}" \
+      HA_EXPECTED_DB_PROJECT_REF="$expected_db_project_ref" HA_EXPECTED_DB_HOST="$expected_db_host" HA_EXPECTED_DB_PORT="$expected_db_port" \
       HA_EXPECTED_IMAGE="$HA_EXPECTED_IMAGE" HA_EXPECTED_IMAGE_DIGEST="$HA_EXPECTED_IMAGE_DIGEST" \
       "$REPO_DIR/scripts/verify-ha.sh"
   else

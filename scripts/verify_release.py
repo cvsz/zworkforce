@@ -147,6 +147,7 @@ def main() -> int:
         ROOT / "docs" / "SECRET-MANAGEMENT.md",
         ROOT / "scripts" / "backup-postgres.sh",
         ROOT / "scripts" / "restore-postgres.sh",
+        ROOT / "scripts" / "lib" / "postgres-connection.sh",
         ROOT / "scripts" / "smoke-test.sh",
         ROOT / "scripts" / "generate_sbom.py",
         ROOT / "tests" / "test_repository_policy.py",

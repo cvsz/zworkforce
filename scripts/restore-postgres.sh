@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/postgres-connection.sh
+source "$SCRIPT_DIR/lib/postgres-connection.sh"
+
 if [[ $# -ne 1 ]]; then
   echo "usage: $0 <backup.dump>" >&2
   exit 2
 fi
-if [[ -z "${ZWORKFORCE_DATABASE_URL:-}" ]]; then
-  echo "ZWORKFORCE_DATABASE_URL is required" >&2
+RESTORE_DATABASE_URL="${ZWORKFORCE_RESTORE_DATABASE_URL:-${ZWORKFORCE_DATABASE_URL:-}}"
+if [[ -z "$RESTORE_DATABASE_URL" ]]; then
+  echo "ZWORKFORCE_DATABASE_URL or ZWORKFORCE_RESTORE_DATABASE_URL is required" >&2
   exit 2
 fi
 if [[ "${ZWORKFORCE_RESTORE_CONFIRM:-}" != "YES" ]]; then
@@ -30,13 +35,17 @@ fi
 # Validate the archive before touching the target database.
 pg_restore --list "$BACKUP" >/dev/null
 
+postgres_configure_service "$RESTORE_DATABASE_URL"
+unset RESTORE_DATABASE_URL ZWORKFORCE_RESTORE_DATABASE_URL
+trap postgres_cleanup_service EXIT
+
 pg_restore \
   --exit-on-error \
   --clean \
   --if-exists \
   --no-owner \
   --no-acl \
-  --dbname "$ZWORKFORCE_DATABASE_URL" \
+  --dbname=service=zworkforce \
   "$BACKUP"
 
 echo "restore completed; run zworkforce doctor and scripts/smoke-test.sh before resuming traffic"

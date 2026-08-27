@@ -71,6 +71,7 @@ export TF_VAR_cmeerp_origin="${CMEERP_ORIGIN:-http://127.0.0.1:8001}"
 export TF_VAR_zai_hostname="${ZAI_HOSTNAME:-zai.zeaz.dev}"
 export TF_VAR_zai_origin="${ZAI_ORIGIN:-http://127.0.0.1:8765}"
 export TF_VAR_zwf_hostname="${ZWF_HOSTNAME:-zwf.zeaz.dev}"
+export TF_VAR_zwf_api_hostname="${ZWF_API_HOSTNAME:-zwf-api.zeaz.dev}"
 export TF_VAR_zwf_origin="${ZWF_ORIGIN:-http://127.0.0.1:9570}"
 export TF_VAR_studio_hostname="${STUDIO_HOSTNAME:-studio.zeaz.dev}"
 export TF_VAR_studio_origin="${STUDIO_ORIGIN:-http://127.0.0.1:3001}"
@@ -91,7 +92,11 @@ if [[ -n "${ZDASH_ACCESS_ALLOWED_EMAILS:-}" ]]; then
   export TF_VAR_zdash_access_allowed_emails="$ZDASH_ACCESS_ALLOWED_EMAILS"
 fi
 
-"$TF_BIN" -chdir="$STACK" fmt -check -recursive
+# Check only Terraform source files. Operator-managed *.tfvars files may contain
+# local values and are intentionally outside the repository formatting contract.
+while IFS= read -r -d '' terraform_file; do
+  "$TF_BIN" -chdir="$STACK" fmt -check "$(basename "$terraform_file")"
+done < <(find "$STACK" -maxdepth 1 -type f -name '*.tf' -print0)
 if [[ "${TERRAFORM_BACKEND_TYPE:-local}" == "r2" ]]; then
   "$ROOT/scripts/cloudflare-state.sh" init
 else
