@@ -53,8 +53,14 @@ PROVIDER_POLICIES: Mapping[str, ProviderPolicy] = {
 def normalize_routing_mode(value: object) -> RoutingMode:
     if value is None:
         return RoutingMode.BALANCED
+    if isinstance(value, RoutingMode):
+        return value
+    if hasattr(value, "value") and isinstance(getattr(value, "value"), str):
+        value_str = getattr(value, "value")
+    else:
+        value_str = str(value)
     try:
-        return RoutingMode(str(value).strip().lower())
+        return RoutingMode(value_str.strip().lower())
     except ValueError as exc:
         allowed = ", ".join(mode.value for mode in RoutingMode)
         raise ValueError(f"Unsupported routing mode {value!r}; expected one of: {allowed}") from exc
