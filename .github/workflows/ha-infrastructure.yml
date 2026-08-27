@@ -53,6 +53,7 @@ jobs:
           expected = {
               "zwf.zeaz.dev": "http://127.0.0.1:9570",
               "zwf-api.zeaz.dev": "http://127.0.0.1:9570",
+              "zslog.zeaz.dev": "http://127.0.0.1:9581",
               "studio.zeaz.dev": "http://127.0.0.1:3005",
               "zarvis.zeaz.dev": "http://127.0.0.1:9570",
               "zider.zeaz.dev": "http://127.0.0.1:8085",
@@ -142,6 +143,8 @@ jobs:
           STUDIO_ORIGIN=http://127.0.0.1:3005
           ZWF_ORIGIN=http://127.0.0.1:9570
           ZWF_API_HOSTNAME=zwf-api.zeaz.dev
+          ZSLOG_HOSTNAME=zslog.zeaz.dev
+          ZSLOG_ORIGIN=http://127.0.0.1:9581
           ZARVIS_ORIGIN=http://127.0.0.1:9570
           ZIDER_ORIGIN=http://127.0.0.1:8085
           EOF
