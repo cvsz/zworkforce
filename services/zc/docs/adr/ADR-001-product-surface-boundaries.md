@@ -92,5 +92,5 @@ The compatibility period ends only after:
 ## Links
 
 - [Repository audit](../REPOSITORY_AUDIT_2026-07-20.md)
-- [Architecture](../../ARCHITECTURE.md)
-- [Repository instructions](../../AGENTS.md)
+- [Architecture](../../../../ARCHITECTURE.md)
+- [Repository instructions](../../../../AGENTS.md)
