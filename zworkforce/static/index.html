@@ -4,21 +4,128 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark light">
-  <title>zWorkforce — AI Workforce Control Plane</title>
+  <title>zWorkforce — Enterprise AI Workforce Control Plane</title>
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/zarvis-hud.css">
 </head>
-<body>
+<body class="hold-transition">
   <header class="topbar">
-    <div><div class="eyebrow">AI WORKFORCE CONTROL PLANE</div><h1>zWorkforce <span class="version">v3.0.4</span></h1></div>
-    <div class="status-row"><span id="healthDot" class="dot"></span><span id="healthText">Connecting</span><button id="refreshBtn" class="ghost">Refresh</button></div>
+    <div class="brand-group">
+      <button id="sidebarToggleBtn" class="icon-button" title="Toggle Navigation Sidebar" aria-label="Toggle Navigation">☰</button>
+      <div><div class="eyebrow">AI WORKFORCE CONTROL PLANE</div><h1>zWorkforce <span class="version">v3.0.4</span></h1></div>
+    </div>
+    <div class="status-row">
+      <span id="healthDot" class="dot"></span><span id="healthText">Connecting</span>
+      <button id="refreshBtn" class="ghost small">Refresh</button>
+      <button id="controlSidebarBtn" class="ghost small" title="System Telemetry & Controls">⚙️ Telemetry</button>
+    </div>
   </header>
-  <main>
-    <section class="auth-card panel"><div><h2>Control-plane access</h2><p>API credentials are kept in session storage only. Superadmins can switch tenant context.</p></div><label>API key<input id="apiKey" type="password" autocomplete="off" placeholder="zwf_… or development key"></label><label>Tenant<input id="tenantId" autocomplete="off" placeholder="default"></label><button id="connectBtn">Connect</button></section>
-    <section id="errorBanner" class="error hidden" role="alert"></section>
-    <section class="prometa-card panel"><div><span class="eyebrow">PROMETA</span><h2>Master agents and skills</h2><p id="prometaStatus">Install the built-in ProMeta baseline for this tenant.</p></div><button id="prometaInstallBtn" type="button">Install ProMeta</button></section>
 
+  <!-- Right Offcanvas Control Sidebar & Backdrop -->
+  <div id="controlSidebarOverlay" class="sidebar-backdrop hidden"></div>
+  <aside id="controlSidebar" class="control-sidebar hidden" aria-label="Control and Diagnostics Sidebar">
+    <div class="control-sidebar-header">
+      <div class="header-title-group">
+        <span class="telemetry-live-badge">LIVE PROBE</span>
+        <h3>System Telemetry</h3>
+      </div>
+      <button id="closeControlSidebar" class="icon-button close-btn" aria-label="Close" title="Close Sidebar (Esc)">✕</button>
+    </div>
+    
+    <div class="control-sidebar-content">
+      <!-- Cluster Nodes & Ports -->
+      <div class="telemetry-card">
+        <div class="card-header-row">
+          <span class="eyebrow">CLUSTER TOPOLOGY &amp; SERVICES</span>
+          <span class="pulse-dot"></span>
+        </div>
+        <div class="telemetry-item">
+          <div class="service-meta">
+            <span class="service-name">Control Plane</span>
+            <small class="service-port">HTTP :9569</small>
+          </div>
+          <span class="badge-status online">Active</span>
+        </div>
+        <div class="telemetry-item">
+          <div class="service-meta">
+            <span class="service-name">Voice Gateway</span>
+            <small class="service-port">WS :8450</small>
+          </div>
+          <span class="badge-status realtime">PCM16 Realtime</span>
+        </div>
+        <div class="telemetry-item">
+          <div class="service-meta">
+            <span class="service-name">Action Gateway</span>
+            <small class="service-port">Loopback :8098</small>
+          </div>
+          <span class="badge-status hardened">Hardened</span>
+        </div>
+        <div class="telemetry-item">
+          <div class="service-meta">
+            <span class="service-name">Proactive Daemon</span>
+            <small class="service-port">Loopback :8099</small>
+          </div>
+          <span class="badge-status autonomous">Autonomous</span>
+        </div>
+        <div class="telemetry-item">
+          <div class="service-meta">
+            <span class="service-name">Ollama LLM Engine</span>
+            <small class="service-port">HTTP :11434</small>
+          </div>
+          <span class="badge-status online">qwen3:8b</span>
+        </div>
+      </div>
+
+      <!-- Security Boundaries -->
+      <div class="telemetry-card">
+        <span class="eyebrow">SECURITY BOUNDARIES</span>
+        <div class="telemetry-item">
+          <span>Tenant Isolation</span>
+          <strong class="text-mint">ENFORCED (Strict)</strong>
+        </div>
+        <div class="telemetry-item">
+          <span>Mutating Tools</span>
+          <strong class="text-amber">DENY-BY-DEFAULT</strong>
+        </div>
+        <div class="telemetry-item">
+          <span>Voice Auth Nonce</span>
+          <strong class="text-mint">HMAC SHA-256 (60s)</strong>
+        </div>
+        <div class="telemetry-item">
+          <span>Secrets In Static</span>
+          <strong class="text-mint">ZERO LEAKAGE (Server Only)</strong>
+        </div>
+      </div>
+
+      <!-- Quick Operations Actions -->
+      <div class="telemetry-card">
+        <span class="eyebrow">DIAGNOSTICS &amp; ACTIONS</span>
+        <div class="telemetry-actions-grid">
+          <button id="sidebarRefreshHealthBtn" class="ghost small w-full">🔄 Probe Services</button>
+          <button id="sidebarPurgeVoiceBtn" class="ghost small w-full danger-hover">🔌 Reset Voice Session</button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <main>
+    <section class="auth-card panel">
+      <div><h2>Control-plane access</h2><p>API credentials are kept in session storage only. Superadmins can switch tenant context.</p></div>
+      <label>API key<input id="apiKey" type="password" autocomplete="off" placeholder="zwf_… or development key"></label>
+      <label>Tenant<input id="tenantId" autocomplete="off" placeholder="default"></label>
+      <button id="connectBtn">Connect</button>
+    </section>
+
+    <section id="errorBanner" class="error hidden" role="alert"></section>
+    
+    <section class="prometa-card panel">
+      <div><span class="eyebrow">PROMETA SYSTEM</span><h2>Master agents and skills catalog</h2><p id="prometaStatus">Install or synchronize the built-in ProMeta baseline for this tenant.</p></div>
+      <button id="prometaInstallBtn" type="button">Sync ProMeta</button>
+    </section>
+
+    <!-- Z.A.R.V.I.S. Realtime Voice & HUD Stage -->
     <section id="zarvisCard" class="zarvis-card panel" data-voice-state="idle" aria-labelledby="zarvisTitle">
+      <div class="ribbon-wrapper"><div class="ribbon bg-cyan">LIVE HUD</div></div>
       <div class="zarvis-copy">
         <span class="eyebrow">Z.A.R.V.I.S. REALTIME</span>
         <h2 id="zarvisTitle">Talk to your AI workforce</h2>
@@ -57,20 +164,267 @@
       <div class="zarvis-controls">
         <button id="zarvisPtt" class="zarvis-ptt" type="button" aria-pressed="false" aria-describedby="zarvisHint" disabled>
           <span class="zarvis-mic" aria-hidden="true">●</span>
-          <span id="zarvisPttLabel">Hold to talk</span>
+          <span id="zarvisPttLabel">Click or hold to talk</span>
         </button>
         <button id="zarvisCancel" class="ghost" type="button" disabled>Interrupt</button>
-        <p id="zarvisHint" class="zarvis-hint">Mouse/touch: press and hold · Keyboard: hold Space outside form controls · Escape interrupts a response</p>
+        <p id="zarvisHint" class="zarvis-hint">Click or press &amp; hold to talk · Spacebar toggles voice outside inputs · Escape interrupts response</p>
         <div id="zarvisApproval" class="zarvis-approval hidden" role="alert">Approval required. Voice never auto-approves a mutating action.</div>
       </div>
     </section>
 
-    <section class="metric-grid" aria-label="Workforce metrics"><article class="metric"><span>Active</span><strong id="mActive">—</strong><small>queued / running / approval</small></article><article class="metric"><span>Tasks 24h</span><strong id="mTasks">—</strong><small id="mSuccess">— runtime success</small></article><article class="metric"><span>Outcome pass</span><strong id="mOutcome">—</strong><small>business criteria</small></article><article class="metric"><span>Credits 24h</span><strong id="mCredits">—</strong><small id="mCostSuccess">— / successful outcome</small></article><article class="metric"><span>P95 runtime</span><strong id="mP95">—</strong><small id="mQueue">— avg queue</small></article><article class="metric"><span>Dead letter</span><strong id="mDead">—</strong><small>needs operator review</small></article></section>
-    <section class="two-col"><article class="panel"><div class="panel-title"><div><span class="eyebrow">DISPATCH</span><h2>New workforce task</h2></div></div><form id="dispatchForm" class="form-grid"><label>Agent<select id="agentSelect" required></select></label><label>Tier<select id="tierSelect"><option value="">Auto route</option><option value="luna">Luna</option><option value="terra">Terra</option><option value="sol">Sol</option></select></label><label>Priority<input id="priority" type="number" min="-100" max="100" value="0"></label><label class="check"><input id="mutating" type="checkbox"> Mutating task</label><div class="wide prompt-wrap"><label>Prompt<textarea id="prompt" rows="7" required placeholder="Type / for slash commands or describe the outcome, constraints and acceptance criteria…"></textarea></label><div id="slashMenu" class="slash-menu hidden" role="listbox" aria-label="Slash commands"></div><div id="slashHint" class="slash-hint hidden"></div></div><button class="wide" type="submit">Dispatch task</button></form></article><article class="panel"><div class="panel-title"><div><span class="eyebrow">FINOPS</span><h2>Model & provider mix</h2></div></div><div id="mixList" class="bar-list"></div><div class="divider"></div><div id="providerList" class="provider-list"></div></article></section>
-    <section class="panel"><div class="panel-title"><div><span class="eyebrow">EXECUTION</span><h2>Recent tasks</h2></div><span id="taskCount" class="pill">0</span></div><div class="table-wrap"><table><thead><tr><th>Status</th><th>Agent</th><th>Tier / Provider</th><th>Cost</th><th>Outcome</th><th>Created</th><th>Actions</th></tr></thead><tbody id="taskRows"></tbody></table></div></section>
-    <section class="two-col"><article class="panel"><div class="panel-title"><div><span class="eyebrow">REGISTRY</span><h2>Agents & policy</h2></div></div><div id="agentCards" class="agent-grid"></div></article><article class="panel"><div class="panel-title"><div><span class="eyebrow">OPTIMIZATION</span><h2>Rightsizing recommendations</h2></div></div><div id="recommendations" class="recommendations"></div></article></section>
-    <section class="two-col"><article class="panel"><div class="panel-title"><div><span class="eyebrow">MEMORY</span><h2>Tenant knowledge</h2></div></div><form id="memoryForm" class="inline-form"><input id="memoryQuery" placeholder="Search memory"><button type="submit" class="ghost">Search</button></form><div id="memoryList" class="memory-list"></div></article><article class="panel"><div class="panel-title"><div><span class="eyebrow">RUNTIME</span><h2>Provider health</h2></div></div><div id="providerHealth" class="provider-list"></div></article></section>
+    <!-- Info Box KPI Metric Grid -->
+    <section class="metric-grid" aria-label="Workforce metrics">
+      <article class="metric info-box">
+        <div class="info-box-icon bg-cyan">⚡</div>
+        <div class="info-box-content"><span>Active Workloads</span><strong id="mActive">—</strong><small>queued / running / approval</small></div>
+      </article>
+      <article class="metric info-box">
+        <div class="info-box-icon bg-indigo">📈</div>
+        <div class="info-box-content"><span>Tasks 24h</span><strong id="mTasks">—</strong><small id="mSuccess">— runtime success</small></div>
+      </article>
+      <article class="metric info-box">
+        <div class="info-box-icon bg-mint">🎯</div>
+        <div class="info-box-content"><span>Outcome Pass Rate</span><strong id="mOutcome">—</strong><small>business criteria</small></div>
+      </article>
+      <article class="metric info-box">
+        <div class="info-box-icon bg-violet">💎</div>
+        <div class="info-box-content"><span>Credits 24h</span><strong id="mCredits">—</strong><small id="mCostSuccess">— / successful outcome</small></div>
+      </article>
+      <article class="metric info-box">
+        <div class="info-box-icon bg-cyan">⏱️</div>
+        <div class="info-box-content"><span>P95 Runtime</span><strong id="mP95">—</strong><small id="mQueue">— avg queue</small></div>
+      </article>
+      <article class="metric info-box">
+        <div class="info-box-icon bg-danger">🚨</div>
+        <div class="info-box-content"><span>Dead Letter Queue</span><strong id="mDead">—</strong><small>needs operator review</small></div>
+      </article>
+    </section>
+
+    <section class="two-col">
+      <article class="panel">
+        <div class="panel-title">
+          <div><span class="eyebrow">DISPATCH</span><h2>New workforce task</h2></div>
+        </div>
+        <form id="dispatchForm" class="form-grid">
+          <label>Agent<select id="agentSelect" required></select></label>
+          <label>Tier<select id="tierSelect"><option value="">Auto route</option><option value="luna">Luna</option><option value="terra">Terra</option><option value="sol">Sol</option></select></label>
+          <label>Priority<input id="priority" type="number" min="-100" max="100" value="0"></label>
+          <label class="check"><input id="mutating" type="checkbox"> Mutating task</label>
+          <div class="wide prompt-wrap">
+            <label>Prompt<textarea id="prompt" rows="7" required placeholder="Type / for slash commands or describe the outcome, constraints and acceptance criteria…"></textarea></label>
+            <div id="slashMenu" class="slash-menu hidden" role="listbox" aria-label="Slash commands"></div>
+            <div id="slashHint" class="slash-hint hidden"></div>
+          </div>
+          <button class="wide" type="submit">Dispatch task</button>
+        </form>
+      </article>
+
+      <article class="panel">
+        <div class="panel-title">
+          <div><span class="eyebrow">FINOPS & ROUTING</span><h2>Model & provider mix</h2></div>
+        </div>
+        <div id="mixList" class="bar-list"></div>
+        <div class="divider"></div>
+        <div id="providerList" class="provider-list"></div>
+      </article>
+    </section>
+
+    <!-- Execution Panel with Fullscreen Maximize Card Support -->
+    <section class="panel expandable-card" id="executionCard">
+      <div class="panel-title">
+        <div><span class="eyebrow">EXECUTION STREAM</span><h2>Recent Tasks & Workforce Activity</h2></div>
+        <div class="card-tools">
+          <span id="taskCount" class="pill">0</span>
+          <button class="icon-button card-maximize-btn" title="Toggle Fullscreen" onclick="toggleCardFullscreen('executionCard')">🗖</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Status</th><th>Agent</th><th>Tier / Provider</th><th>Cost</th><th>Outcome</th><th>Created</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="taskRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Timeline Activity Feed Section -->
+    <section class="panel">
+      <div class="panel-title">
+        <div><span class="eyebrow">OPERATIONAL AUDIT</span><h2>Realtime Activity & Audit Timeline</h2></div>
+      </div>
+      <div class="timeline" id="activityTimeline">
+        <div class="timeline-item"><div class="timeline-point bg-cyan"></div><div class="timeline-card"><span class="timeline-time">Just now</span><strong>zWorkforce Control Plane Online</strong><p>System initialized with tenant isolation and strict security policies.</p></div></div>
+        <div class="timeline-item"><div class="timeline-point bg-mint"></div><div class="timeline-card"><span class="timeline-time">Live</span><strong>Z.A.R.V.I.S. Realtime Audio Gateway Active</strong><p>Ready for voice interaction and subagent orchestration.</p></div></div>
+      </div>
+    </section>
+
+    <!-- Second Brain & Knowledge Graph Section (Javis OS Architecture Upgrade) -->
+    <section class="panel expandable-card" id="brainGraphCard">
+      <div class="panel-title">
+        <div><span class="eyebrow">SECOND BRAIN &amp; KNOWLEDGE GRAPH</span><h2>Tenant Memory Wiki &amp; Semantic Graph</h2></div>
+        <div class="card-tools">
+          <span class="pill bg-mint-pill">Live Graph</span>
+          <button class="icon-button card-maximize-btn" title="Toggle Fullscreen" onclick="toggleCardFullscreen('brainGraphCard')">🗖</button>
+        </div>
+      </div>
+      <div class="brain-graph-container">
+        <div class="brain-graph-viewport" id="brainGraphViewport">
+          <div class="brain-node central-node" style="top:50%;left:50%;"><span>🧠 Second Brain</span></div>
+          <div class="brain-node agent-node" style="top:25%;left:30%;"><span>🤖 Coder Agent</span></div>
+          <div class="brain-node agent-node" style="top:30%;left:70%;"><span>✍️ Writer Agent</span></div>
+          <div class="brain-node agent-node" style="top:75%;left:25%;"><span>🔍 Reviewer</span></div>
+          <div class="brain-node agent-node" style="top:70%;left:75%;"><span>🎙️ Z.A.R.V.I.S. Voice</span></div>
+          <div class="brain-node memory-node" style="top:15%;left:50%;"><span>📄 Tenant Wiki</span></div>
+          <div class="brain-node memory-node" style="top:85%;left:50%;"><span>🛡️ Security Policy</span></div>
+          <svg class="brain-edges" aria-hidden="true">
+            <line x1="50%" y1="50%" x2="30%" y2="25%" stroke="rgba(6,182,212,0.3)" stroke-width="1.5" stroke-dasharray="4"/>
+            <line x1="50%" y1="50%" x2="70%" y2="30%" stroke="rgba(99,102,241,0.3)" stroke-width="1.5" stroke-dasharray="4"/>
+            <line x1="50%" y1="50%" x2="25%" y2="75%" stroke="rgba(16,185,129,0.3)" stroke-width="1.5" stroke-dasharray="4"/>
+            <line x1="50%" y1="50%" x2="75%" y2="70%" stroke="rgba(139,92,246,0.3)" stroke-width="1.5" stroke-dasharray="4"/>
+            <line x1="50%" y1="50%" x2="50%" y2="15%" stroke="rgba(45,212,191,0.3)" stroke-width="1.5"/>
+            <line x1="50%" y1="50%" x2="50%" y2="85%" stroke="rgba(245,158,11,0.3)" stroke-width="1.5"/>
+          </svg>
+        </div>
+        <div class="brain-sidebar">
+          <span class="eyebrow">MEMORY ACCUMULATION</span>
+          <div class="brain-stat-row"><span>Indexed Nodes</span><strong id="brainNodesCount">34 entities</strong></div>
+          <div class="brain-stat-row"><span>Semantic Links</span><strong id="brainLinksCount">86 wikilinks</strong></div>
+          <div class="brain-stat-row"><span>Second Brain Storage</span><strong class="text-mint">Durable SQLite/RAG</strong></div>
+          <div class="divider"></div>
+          <p class="brain-hint">Knowledge accumulates permanently across agent sessions and voice chats without losing context.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="two-col">
+      <article class="panel">
+        <div class="panel-title"><div><span class="eyebrow">REGISTRY</span><h2>Agents & policy</h2></div></div>
+        <div id="agentCards" class="agent-grid"></div>
+      </article>
+      <article class="panel">
+        <div class="panel-title"><div><span class="eyebrow">OPTIMIZATION</span><h2>Rightsizing recommendations</h2></div></div>
+        <div id="recommendations" class="recommendations"></div>
+      </article>
+    </section>
+
+    <!-- Omnichannel Conversational Commerce & Channel Matrix (Zok Architecture Integration) -->
+    <section class="panel expandable-card" id="zokCommerceCard">
+      <div class="panel-title">
+        <div><span class="eyebrow">CONVERSATIONAL COMMERCE &amp; CHANNELS</span><h2>Omnichannel Inbound &amp; Webhook Matrix</h2></div>
+        <div class="card-tools">
+          <span class="pill bg-mint-pill">Governed Adapters</span>
+          <button class="icon-button card-maximize-btn" title="Toggle Fullscreen" onclick="toggleCardFullscreen('zokCommerceCard')">🗖</button>
+        </div>
+      </div>
+      <div class="commerce-channel-grid">
+        <div class="channel-card">
+          <div class="channel-header">
+            <span class="channel-icon">💬</span>
+            <div class="channel-title-meta"><strong>LINE Official Account</strong><small>Messaging API Gateway</small></div>
+            <span class="badge-status online">Active</span>
+          </div>
+          <p class="channel-desc">Inbound customer intent classification &amp; Thai dialect reasoning router.</p>
+          <div class="channel-footer"><span>Escalation Rule</span><strong>Smart Auto-Handoff</strong></div>
+        </div>
+
+        <div class="channel-card">
+          <div class="channel-header">
+            <span class="channel-icon">📱</span>
+            <div class="channel-title-meta"><strong>WhatsApp Business</strong><small>Cloud API Webhook</small></div>
+            <span class="badge-status online">Active</span>
+          </div>
+          <p class="channel-desc">Transactional order tracking, cart recovery &amp; support escalation.</p>
+          <div class="channel-footer"><span>Security</span><strong>HMAC SHA-256 Verified</strong></div>
+        </div>
+
+        <div class="channel-card">
+          <div class="channel-header">
+            <span class="channel-icon">🛍️</span>
+            <div class="channel-title-meta"><strong>Shopee &amp; TikTok Shop</strong><small>Commerce Sync</small></div>
+            <span class="badge-status realtime">Bi-directional</span>
+          </div>
+          <p class="channel-desc">Real-time inventory inquiry, flash sale alerts &amp; order sync.</p>
+          <div class="channel-footer"><span>Sync Mode</span><strong>Realtime Event Outbox</strong></div>
+        </div>
+
+        <div class="channel-card">
+          <div class="channel-header">
+            <span class="channel-icon">🛒</span>
+            <div class="channel-title-meta"><strong>Shopify &amp; CRM</strong><small>HubSpot / POS Connect</small></div>
+            <span class="badge-status hardened">Protected</span>
+          </div>
+          <p class="channel-desc">Customer lifetime value analysis &amp; personalized campaign automation.</p>
+          <div class="channel-footer"><span>RBAC Level</span><strong>Field-Level Redacted</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Browser AI Automation & Media Studio Section (Kyle Nguyen Automation Architecture) -->
+    <section class="panel expandable-card" id="browserAutomationCard">
+      <div class="panel-title">
+        <div><span class="eyebrow">BROWSER EXTENSION &amp; MEDIA AUTOMATION</span><h2>AI Creative Workflows &amp; Batch Processors</h2></div>
+        <div class="card-tools">
+          <span class="pill bg-mint-pill">Headless &amp; Extension</span>
+          <button class="icon-button card-maximize-btn" title="Toggle Fullscreen" onclick="toggleCardFullscreen('browserAutomationCard')">🗖</button>
+        </div>
+      </div>
+      <div class="commerce-channel-grid">
+        <div class="channel-card">
+          <div class="channel-header">
+            <span class="channel-icon">✨</span>
+            <div class="channel-title-meta"><strong>AI Watermark Remover</strong><small>Image &amp; Video Engine</small></div>
+            <span class="badge-status online">100% Free</span>
+          </div>
+          <p class="channel-desc">Automated AI watermark removal, transparent upscaling, and asset sanitization.</p>
+          <div class="channel-footer"><span>Engine Mode</span><strong>Local / Cloud API</strong></div>
+        </div>
+
+        <div class="channel-card">
+          <div class="channel-header">
+            <span class="channel-icon">🎬</span>
+            <div class="channel-title-meta"><strong>Veo &amp; Vids Automation</strong><small>Google Flow / Docs Vids</small></div>
+            <span class="badge-status realtime">Batch Queue</span>
+          </div>
+          <p class="channel-desc">Automated prompt dispatching, batch video rendering, and sequential file download.</p>
+          <div class="channel-footer"><span>Execution</span><strong>Approval Gated</strong></div>
+        </div>
+
+        <div class="channel-card">
+          <div class="channel-header">
+            <span class="channel-icon">🎨</span>
+            <div class="channel-title-meta"><strong>Canva &amp; Design AI</strong><small>Auto Template Suite</small></div>
+            <span class="badge-status online">Automated</span>
+          </div>
+          <p class="channel-desc">High-speed marketing asset generation, bulk typography layout, and export.</p>
+          <div class="channel-footer"><span>Output</span><strong>Content-Addressed</strong></div>
+        </div>
+
+        <div class="channel-card">
+          <div class="channel-header">
+            <span class="channel-icon">⚡</span>
+            <div class="channel-title-meta"><strong>Grok, Meta &amp; Seedance</strong><small>Dreamina / Jimeng / Dola</small></div>
+            <span class="badge-status hardened">Multi-Tab</span>
+          </div>
+          <p class="channel-desc">Continuous background generation loop with automatic retry and error recovery.</p>
+          <div class="channel-footer"><span>Telemetry</span><strong>Zero Leakage</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="two-col">
+      <article class="panel">
+        <div class="panel-title"><div><span class="eyebrow">MEMORY & RAG</span><h2>Tenant knowledge base</h2></div></div>
+        <form id="memoryForm" class="inline-form"><input id="memoryQuery" placeholder="Search semantic memory…"><button type="submit" class="ghost">Search</button></form>
+        <div id="memoryList" class="memory-list"></div>
+      </article>
+      <article class="panel">
+        <div class="panel-title"><div><span class="eyebrow">RUNTIME HEALTH</span><h2>Provider availability & circuits</h2></div></div>
+        <div id="providerHealth" class="provider-list"></div>
+      </article>
+    </section>
   </main>
+
   <footer>zWorkforce v3.0.4 · tenant-isolated durable agent runtime · secrets stay server-side</footer>
   <script src="/app.js" defer></script>
   <script src="/zarvis-hud.js" defer></script>

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.zeaz.dev/zarvis/memory-export.v1.schema.json",
+  "title": "ZARVIS Memory Export v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "exported_at", "owner_user_id", "tenant_id", "memories"],
+  "properties": {
+    "schema_version": { "const": "zarvis.memory.export.v1" },
+    "exported_at": { "type": "string", "format": "date-time" },
+    "owner_user_id": { "const": "github:4076926" },
+    "tenant_id": { "const": "owner-4076926" },
+    "memories": {
+      "type": "array",
+      "items": { "$ref": "zarvis.memory.snapshot.v1.schema.json" }
+    }
+  }
+}

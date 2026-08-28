@@ -1,0 +1,12 @@
+{
+  "name": "zworkforce-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "services/*",
+    "apps/*"
+  ],
+  "dependencies": {
+    "@supabase/server": "^1.4.1"
+  }
+}

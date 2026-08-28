@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>zAICoder — Master Control Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="control-panel.css" />
+</head>
+<body class="dark-theme">
+
+  <!-- Background Animated Elements -->
+  <div class="bg-gradient"></div>
+  <div class="glass-blob blob-1"></div>
+  <div class="glass-blob blob-2"></div>
+
+  <div class="dashboard-container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path></svg>
+        </div>
+        <div class="brand-text">
+          <h1>zAICoder</h1>
+          <p>Control Panel</p>
+        </div>
+      </div>
+
+      <nav class="nav-menu">
+        <a href="#" class="nav-item active" data-target="overview">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          Overview
+        </a>
+        <a href="#" class="nav-item" data-target="telemetry">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+          Telemetry Traces
+        </a>
+        <a href="#" class="nav-item" data-target="features">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>
+          Feature Flags
+        </a>
+        <a href="#" class="nav-item" data-target="uploads">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          Worker Queues
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="status-indicator">
+          <div class="pulse-dot"></div>
+          <span id="connectionStatus">Connecting...</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      
+      <!-- Topbar -->
+      <header class="topbar">
+        <h2>Dashboard Overview</h2>
+        <div class="user-profile">
+          <span>Admin</span>
+          <div class="avatar">A</div>
+        </div>
+      </header>
+
+      <!-- Sections -->
+      <div class="sections-wrapper">
+        
+        <!-- Overview Section -->
+        <section id="overview" class="view-section active">
+          
+          <div class="metrics-grid">
+            <div class="metric-card glass">
+              <div class="metric-header">
+                <h3>Active Uploads</h3>
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="var(--primary)" stroke-width="2" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+              </div>
+              <div class="metric-value" id="valActiveUploads">0</div>
+              <div class="metric-trend positive">Live</div>
+            </div>
+
+            <div class="metric-card glass">
+              <div class="metric-header">
+                <h3>Queue Depth</h3>
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="var(--secondary)" stroke-width="2" fill="none"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+              </div>
+              <div class="metric-value" id="valQueueDepth">0</div>
+              <div class="metric-trend neutral">Live</div>
+            </div>
+
+            <div class="metric-card glass">
+              <div class="metric-header">
+                <h3>Avg Latency (ms)</h3>
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="var(--accent)" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              </div>
+              <div class="metric-value" id="valAvgLatency">0.0</div>
+              <div class="metric-trend positive" id="trendLatency">Stable</div>
+            </div>
+
+            <div class="metric-card glass">
+              <div class="metric-header">
+                <h3>Requests / Sec</h3>
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="var(--warning)" stroke-width="2" fill="none"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+              </div>
+              <div class="metric-value" id="valRps">0.0</div>
+              <div class="metric-trend neutral">Live</div>
+            </div>
+          </div>
+
+          <div class="chart-container glass mt-6">
+            <div class="card-header">
+              <h3>System Latency & Load</h3>
+              <div class="card-actions">
+                <button class="btn btn-sm">1H</button>
+                <button class="btn btn-sm active">24H</button>
+              </div>
+            </div>
+            <!-- Mock Chart Visualization -->
+            <div class="chart-mockup">
+              <div class="bar" style="height: 40%"></div>
+              <div class="bar" style="height: 60%"></div>
+              <div class="bar" style="height: 30%"></div>
+              <div class="bar" style="height: 80%"></div>
+              <div class="bar" style="height: 50%"></div>
+              <div class="bar" style="height: 90%"></div>
+              <div class="bar" style="height: 45%"></div>
+              <div class="bar" style="height: 70%"></div>
+              <div class="bar" style="height: 55%"></div>
+              <div class="bar" style="height: 85%"></div>
+              <div class="bar" style="height: 65%"></div>
+              <div class="bar" style="height: 75%"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Telemetry Section -->
+        <section id="telemetry" class="view-section">
+          <div class="panel-header glass">
+            <h3>OpenTelemetry Trace Log</h3>
+            <p>Real-time distributed traces and agent activity logs</p>
+          </div>
+          <div class="log-container glass mt-4">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Action</th>
+                  <th>Resource</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="telemetryTableBody">
+                <!-- Data populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Feature Flags Section -->
+        <section id="features" class="view-section">
+          <div class="panel-header glass">
+            <h3>Granular Feature Flags</h3>
+            <p>Toggle system capabilities in real-time</p>
+          </div>
+          <div class="features-grid mt-4" id="featureFlagsGrid">
+            <!-- Populated by JS -->
+          </div>
+        </section>
+
+        <!-- Uploads / Queue Section -->
+        <section id="uploads" class="view-section">
+          <div class="panel-header glass">
+            <h3>Distributed Worker Queues</h3>
+            <p>Monitor asynchronous file processing and delta-sync operations</p>
+          </div>
+          <div class="queue-container glass mt-4">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Session ID</th>
+                  <th>File Name</th>
+                  <th>Status</th>
+                  <th>Progress</th>
+                  <th>Size</th>
+                </tr>
+              </thead>
+              <tbody id="uploadsTableBody">
+                <!-- Data populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="control-panel.js"></script>
+</body>
+</html>

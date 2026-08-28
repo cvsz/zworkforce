@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.zeaz.dev/zarvis/command-requested.v1.schema.json",
+  "title": "ZARVIS Command Requested v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "session_id", "input"],
+  "properties": {
+    "schema_version": {
+      "const": "zarvis.command.requested.v1"
+    },
+    "command_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._:-]+$"
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["modality", "text"],
+      "properties": {
+        "modality": {
+          "enum": ["text", "voice"]
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "locale": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        }
+      }
+    },
+    "tool": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["name", "arguments"],
+      "properties": {
+        "name": {
+          "const": "github.repository.status"
+        },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["owner", "repo"],
+          "properties": {
+            "owner": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 39,
+              "pattern": "^[A-Za-z0-9_.-]+$"
+            },
+            "repo": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9_.-]+$"
+            }
+          }
+        }
+      }
+    }
+  }
+}

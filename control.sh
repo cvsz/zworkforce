@@ -99,12 +99,24 @@ cmd_install() {
         (cd packages/zider && npm install && npm run build || true)
     fi
 
+    # 5. Zok Conversational Commerce OS
+    if [ -d "packages/zok" ]; then
+        log_info "Setting up packages/zok..."
+        (cd packages/zok && npm install || true)
+    fi
+
+    # 6. Top-level Monorepo Workspace (services & apps)
+    if [ -f "pnpm-workspace.yaml" ]; then
+        log_info "Setting up root pnpm workspaces..."
+        pnpm install || true
+    fi
+
     log_success "Monorepo installation complete!"
 }
 
 cmd_start() {
     log_info "Starting zWorkforce Services..."
-    docker compose up -d
+    docker compose --profile all up -d
     if [ -f "compose.open-webui.yml" ]; then
         docker compose -f compose.open-webui.yml up -d
     fi

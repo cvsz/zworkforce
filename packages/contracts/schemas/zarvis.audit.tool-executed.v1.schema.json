@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.zeaz.dev/zarvis/audit-tool-executed.v1.schema.json",
+  "title": "ZARVIS Tool Audit Event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "occurred_at",
+    "tenant_id",
+    "user_id",
+    "request_id",
+    "command_id",
+    "session_id",
+    "tool",
+    "outcome",
+    "duration_ms"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "zarvis.audit.tool-executed.v1"
+    },
+    "event_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "tenant_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "user_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "request_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "command_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "session_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "access", "arguments"],
+      "properties": {
+        "name": { "const": "github.repository.status" },
+        "access": { "const": "read_only" },
+        "arguments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["owner", "repo"],
+          "properties": {
+            "owner": { "type": "string", "minLength": 1, "maxLength": 39 },
+            "repo": { "type": "string", "minLength": 1, "maxLength": 100 }
+          }
+        }
+      }
+    },
+    "outcome": {
+      "enum": ["succeeded", "failed"]
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "result_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "visibility", "default_branch", "open_issues_count"],
+      "properties": {
+        "repository": { "type": "string" },
+        "visibility": { "type": "string" },
+        "default_branch": { "type": "string" },
+        "open_issues_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "error_code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "outcome": { "const": "succeeded" } }
+      },
+      "then": {
+        "required": ["result_summary"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "outcome": { "const": "failed" } }
+      },
+      "then": {
+        "required": ["error_code"]
+      }
+    }
+  ]
+}

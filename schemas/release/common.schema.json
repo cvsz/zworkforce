@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://z-platform.dev/schemas/release/common.schema.json",
+  "$defs": {
+    "fullCommitSha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "imageDigest": {"type": "string", "pattern": "^[^@\\s]+@sha256:[0-9a-f]{64}$"},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "nonEmpty": {"type": "string", "minLength": 1},
+    "reference": {"type": "string", "minLength": 1},
+    "decision": {"type": "string", "enum": ["GO", "NO-GO"]},
+    "checkResult": {"type": "string", "enum": ["passed", "failed"]}
+  }
+}

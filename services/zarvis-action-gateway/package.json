@@ -1,0 +1,14 @@
+{
+  "name": "@z-platform/zarvis-action-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "worker": "node worker.mjs",
+    "test": "node --import ../../scripts/zarvis-test-clean-env.mjs --test test/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}

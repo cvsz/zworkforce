@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://z-platform.local/contracts/agent.job.approved.v1.schema.json",
+  "title": "agent.job.approved.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "event_type",
+    "event_version",
+    "occurred_at",
+    "tenant_id",
+    "job_id",
+    "approved_by",
+    "approval_state",
+    "tool_grants",
+    "constraints"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "event_type": {
+      "const": "agent.job.approved.v1"
+    },
+    "event_version": {
+      "const": "v1"
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "job_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "correlation_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "approved_by": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "user",
+            "service",
+            "system"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "approval_state": {
+      "type": "string",
+      "enum": [
+        "approved",
+        "rejected"
+      ]
+    },
+    "tool_grants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tool",
+          "scope",
+          "mutating",
+          "expires_at"
+        ],
+        "properties": {
+          "tool": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "mutating": {
+            "type": "boolean"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sandbox",
+        "network",
+        "timeout_seconds",
+        "max_retries"
+      ],
+      "properties": {
+        "sandbox": {
+          "type": "string",
+          "enum": [
+            "restricted",
+            "isolated"
+          ]
+        },
+        "network": {
+          "type": "string",
+          "enum": [
+            "deny-by-default",
+            "allowlisted"
+          ]
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400
+        },
+        "max_retries": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10
+        }
+      }
+    }
+  }
+}

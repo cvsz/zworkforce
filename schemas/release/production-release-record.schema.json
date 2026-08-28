@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://z-platform.dev/schemas/release/production-release-record.schema.json",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec", "status"],
+  "properties": {
+    "apiVersion": {"const": "release.zeaz.dev/v1alpha1"},
+    "kind": {"const": "ProductionReleaseRecord"},
+    "metadata": {"type": "object", "required": ["name"]},
+    "spec": {
+      "type": "object",
+      "required": ["repository", "revision", "targetEnvironment", "changeWindow", "stagingEvidence", "risk", "approval", "operatorRecord", "execution"],
+      "properties": {
+        "repository": {"const": "cvsz/z-platform"},
+        "targetEnvironment": {"const": "production"},
+        "revision": {"type": "object", "required": ["commitSha", "imageDigests"]},
+        "changeWindow": {"type": "object", "required": ["startsAt", "endsAt"]},
+        "stagingEvidence": {"type": "object", "required": ["reference", "digest"]},
+        "risk": {"type": "object", "required": ["knownRisks", "successCriteria", "abortCriteria", "rollbackPlan"]},
+        "approval": {"type": "object", "required": ["decision", "approver", "approvedCommitSha", "approvedEvidenceDigest", "approvedAt", "approvalRef"]},
+        "operatorRecord": {"type": "object", "required": ["stagingReviewer", "incidentOwner", "escalationRoute", "watchWindow"]},
+        "execution": {"type": "object", "required": ["operator", "startedAt", "completedAt", "deploymentRef", "observedCommitSha", "observedImageDigests"]}
+      }
+    },
+    "status": {"type": "object", "required": ["state", "postDeployEvidence", "outcomeRecordedAt"], "properties": {"state": {"enum": ["READY_FOR_RELEASE", "RELEASE_APPROVED", "DEPLOYED", "ROLLED_BACK", "RELEASE_FAILED"]}}}
+  }
+}

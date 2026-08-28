@@ -1,0 +1,12 @@
+ingress:
+  - hostname: zai.zeaz.dev
+    service: http://localhost:8080
+    originRequest:
+      connectTimeout: 10s
+      noHappyEyeballs: false
+  - hostname: api.zeaz.dev
+    service: http://localhost:8080
+    originRequest:
+      connectTimeout: 10s
+      noHappyEyeballs: false
+  - service: http_status:404

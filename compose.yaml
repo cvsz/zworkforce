@@ -135,6 +135,118 @@ services:
       postgres:
         condition: service_healthy
 
+  # ---------------------------------------------------------------------------
+  # Z.A.R.V.I.S. Local Daemon & Action Gateway Services (Consolidated)
+  # ---------------------------------------------------------------------------
+  zarvis-action-gateway:
+    image: node:24-alpine
+    working_dir: /workspace/services/zarvis-action-gateway
+    command: ["node", "server.mjs"]
+    restart: unless-stopped
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+    cpus: 1.0
+    network_mode: host
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    environment:
+      ZARVIS_ACTION_HOST: 127.0.0.1
+      ZARVIS_ACTION_PORT: ${ZARVIS_ACTION_PORT:-8098}
+      ZARVIS_ACTION_DATA_DIR: /var/lib/zarvis-action
+      ZARVIS_LOCAL_OWNER_TOKEN: ${ZARVIS_LOCAL_OWNER_TOKEN:-development-owner-token}
+      ZARVIS_ACTION_WORKER_TOKEN: ${ZARVIS_ACTION_WORKER_TOKEN:-development-worker-token}
+    volumes:
+      - ./:/workspace:ro
+      - zarvis_action_data:/var/lib/zarvis-action
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:'+(process.env.ZARVIS_ACTION_PORT||'8098')+'/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 5s
+    profiles: ["zarvis-local", "all"]
+
+  zarvis-action-worker:
+    image: node:24-alpine
+    working_dir: /workspace/services/zarvis-action-gateway
+    command: ["node", "worker.mjs"]
+    restart: unless-stopped
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 128m
+    cpus: 0.5
+    network_mode: host
+    tmpfs: ["/tmp:size=8m,mode=1777"]
+    environment:
+      ZARVIS_ACTION_HOST: 127.0.0.1
+      ZARVIS_ACTION_PORT: ${ZARVIS_ACTION_PORT:-8098}
+      ZARVIS_ACTION_WORKER_INTERVAL_MS: ${ZARVIS_ACTION_WORKER_INTERVAL_MS:-1000}
+      ZARVIS_ACTION_WORKER_TOKEN: ${ZARVIS_ACTION_WORKER_TOKEN:-development-worker-token}
+    depends_on:
+      zarvis-action-gateway:
+        condition: service_healthy
+    profiles: ["zarvis-local", "all"]
+
+  zarvis-proactive:
+    image: node:24-alpine
+    working_dir: /workspace/services/zarvis-proactive
+    command: ["node", "server.mjs"]
+    restart: unless-stopped
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+    cpus: 1.0
+    network_mode: host
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    environment:
+      ZARVIS_PROACTIVE_HOST: 127.0.0.1
+      ZARVIS_PROACTIVE_PORT: ${ZARVIS_PROACTIVE_PORT:-8099}
+      ZARVIS_PROACTIVE_DATA_DIR: /var/lib/zarvis-proactive
+      ZARVIS_PROACTIVE_CHECK_TIMEOUT_MS: ${ZARVIS_PROACTIVE_CHECK_TIMEOUT_MS:-3000}
+      ZARVIS_ACTION_HEALTH_URL: ${ZARVIS_ACTION_HEALTH_URL:-http://127.0.0.1:8098/healthz}
+      ZARVIS_LOCAL_OWNER_TOKEN: ${ZARVIS_LOCAL_OWNER_TOKEN:-development-owner-token}
+      ZARVIS_PROACTIVE_WORKER_TOKEN: ${ZARVIS_PROACTIVE_WORKER_TOKEN:-development-worker-token}
+    volumes:
+      - ./:/workspace:ro
+      - zarvis_proactive_data:/var/lib/zarvis-proactive
+    depends_on:
+      zarvis-action-gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:'+(process.env.ZARVIS_PROACTIVE_PORT||'8099')+'/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 5s
+    profiles: ["zarvis-local", "all"]
+
+  zarvis-proactive-worker:
+    image: node:24-alpine
+    working_dir: /workspace/services/zarvis-proactive
+    command: ["node", "worker.mjs"]
+    restart: unless-stopped
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 128m
+    cpus: 0.5
+    network_mode: host
+    tmpfs: ["/tmp:size=8m,mode=1777"]
+    environment:
+      ZARVIS_PROACTIVE_HOST: 127.0.0.1
+      ZARVIS_PROACTIVE_PORT: ${ZARVIS_PROACTIVE_PORT:-8099}
+      ZARVIS_PROACTIVE_WORKER_INTERVAL_MS: ${ZARVIS_PROACTIVE_WORKER_INTERVAL_MS:-60000}
+      ZARVIS_PROACTIVE_WORKER_TOKEN: ${ZARVIS_PROACTIVE_WORKER_TOKEN:-development-worker-token}
+    depends_on:
+      zarvis-proactive:
+        condition: service_healthy
+    profiles: ["zarvis-local", "all"]
+
 volumes:
   postgres-data:
   artifacts:
+  zarvis_action_data:
+  zarvis_proactive_data:

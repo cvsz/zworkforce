@@ -28,7 +28,6 @@ workspace/
 .kiro/
 node_modules/
 package-lock.json
-package.json
 backup
 
 # Environment secret files (allow example templates only)

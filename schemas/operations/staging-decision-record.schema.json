@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://z-platform.dev/schemas/operations/staging-decision-record.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "identityProvider", "secretManager", "managedDataServices", "backup", "observability", "aiPolicy", "billing"],
+  "properties": {
+    "schemaVersion": {"const": "1.0.0"},
+    "releaseSha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "_note": {"type": "string"},
+    "identityProvider": {
+      "type": "object",
+      "required": ["status", "providerClass", "claimMappingReference"],
+      "properties": {
+        "status": {"const": "approved"},
+        "providerClass": {"type": "string", "minLength": 1},
+        "claimMappingReference": {"type": "string", "minLength": 1}
+      }
+    },
+    "secretManager": {
+      "type": "object",
+      "required": ["status", "providerClass"],
+      "properties": {
+        "status": {"const": "approved"},
+        "providerClass": {"type": "string", "minLength": 1}
+      }
+    },
+    "managedDataServices": {
+      "type": "object",
+      "required": ["status", "databaseClass", "queueClass", "objectStorageClass", "regionPolicy"],
+      "properties": {
+        "status": {"const": "approved"},
+        "databaseClass": {"type": "string", "minLength": 1},
+        "queueClass": {"type": "string", "minLength": 1},
+        "objectStorageClass": {"type": "string", "minLength": 1},
+        "regionPolicy": {"type": "string", "minLength": 1}
+      }
+    },
+    "backup": {
+      "type": "object",
+      "required": ["status", "targetClass", "retentionPolicyReference"],
+      "properties": {
+        "status": {"const": "approved"},
+        "targetClass": {"type": "string", "minLength": 1},
+        "retentionPolicyReference": {"type": "string", "minLength": 1}
+      }
+    },
+    "observability": {
+      "type": "object",
+      "required": ["status", "platformClass", "alertRouteClass"],
+      "properties": {
+        "status": {"const": "approved"},
+        "platformClass": {"type": "string", "minLength": 1},
+        "alertRouteClass": {"type": "string", "minLength": 1}
+      }
+    },
+    "aiPolicy": {
+      "type": "object",
+      "required": ["status", "allowlistReference", "quotaPolicyReference", "failoverPolicyReference", "dataGovernanceReference"],
+      "properties": {
+        "status": {"const": "approved"},
+        "allowlistReference": {"type": "string", "minLength": 1},
+        "quotaPolicyReference": {"type": "string", "minLength": 1},
+        "failoverPolicyReference": {"type": "string", "minLength": 1},
+        "dataGovernanceReference": {"type": "string", "minLength": 1}
+      }
+    },
+    "billing": {
+      "type": "object",
+      "required": ["status", "currency", "jurisdiction", "merchantResponsibility", "paymentProcessorClass"],
+      "properties": {
+        "status": {"const": "approved"},
+        "currency": {"type": "string", "minLength": 1},
+        "jurisdiction": {"type": "string", "minLength": 1},
+        "merchantResponsibility": {"type": "string", "minLength": 1},
+        "paymentProcessorClass": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

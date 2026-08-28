@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Z.A.R.V.I.S. Perception Consent</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">ONE-SHOT OWNER CONSENT</p>
+      <h1>Z.A.R.V.I.S. Perception</h1>
+      <p>วิเคราะห์รูปภาพ เอกสาร หน้าจอ หรือกล้องแบบครั้งเดียว หลังยืนยันสิทธิ์อย่างชัดเจน ไม่มีการบันทึก raw media</p>
+    </header>
+    <section class="panel">
+      <h2>1. สร้าง Consent Session</h2>
+      <input id="purpose" value="Analyze owner-provided media" aria-label="Purpose" />
+      <div class="checks">
+        <label><input type="checkbox" value="image" checked /> Image</label>
+        <label><input type="checkbox" value="document" checked /> Document</label>
+        <label><input type="checkbox" value="screen" /> Screen snapshot</label>
+        <label><input type="checkbox" value="camera" /> Camera snapshot</label>
+      </div>
+      <button id="create">สร้างข้อเสนอ Consent</button>
+      <pre id="session">ยังไม่มี session</pre>
+      <button id="activate" disabled>ยืนยันและเปิด Session</button>
+      <button id="stop" disabled>หยุด Session</button>
+    </section>
+    <section class="panel">
+      <h2>2. One-shot Capture / Upload</h2>
+      <input id="file" type="file" accept="image/png,image/jpeg,text/plain,application/pdf" />
+      <div class="row">
+        <button id="upload" disabled>วิเคราะห์ไฟล์</button>
+        <button id="screen" disabled>จับหน้าจอ 1 ภาพ</button>
+        <button id="camera" disabled>ถ่ายกล้อง 1 ภาพ</button>
+      </div>
+      <pre id="result">ยังไม่มีผลลัพธ์</pre>
+    </section>
+    <section class="panel">
+      <div class="row between">
+        <h2>Session History</h2>
+        <button id="refresh">รีเฟรช</button>
+      </div>
+      <ul id="history"></ul>
+    </section>
+    <p id="status" role="status">พร้อมใช้งาน</p>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

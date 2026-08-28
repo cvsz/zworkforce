@@ -1,0 +1,5 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://schemas.zeaz.dev/zarvis/proactive-action-handoff.v1.schema.json","title":"ZARVIS Proactive Action Handoff v1","type":"object","additionalProperties":false,
+  "required":["schema_version","handoff_id","notification_id","owner_user_id","tenant_id","destination","requires_owner_approval","executed","request","created_at"],
+  "properties":{"schema_version":{"const":"zarvis.proactive.action-handoff.v1"},"handoff_id":{"type":"string","minLength":1,"maxLength":128},"notification_id":{"type":"string","minLength":1,"maxLength":128},"owner_user_id":{"const":"github:4076926"},"tenant_id":{"const":"owner-4076926"},"destination":{"const":"zarvis-action-gateway"},"requires_owner_approval":{"const":true},"executed":{"const":false},"request":{"type":"object","additionalProperties":false,"required":["capability","key","value"],"properties":{"capability":{"const":"sandbox.preference.set"},"key":{"const":"assistant.proactive_attention"},"value":{"type":"string","minLength":1,"maxLength":512}}},"created_at":{"type":"string","format":"date-time"}}
+}

@@ -1,0 +1,30 @@
+atch { return json({ error: { code: "invalid_json", message: "Invalid JSON body." } }, 400); }
+    const validation = validateLeadPayload(input);
+    if (!validation.valid) return json({ error: { code: "validation_error", message: validation.value.locale === "th" ? "โปรดตรวจสอบข้อมูลในแบบฟอร์ม" : "Please check the form fields.", fields: validation.errors } }, 422);
+    if (!env.DB) return json({ error: { code: "database_unavailable", message: "Service is temporarily unavailable." } }, 503);
+    const result = await saveLead(request, env, validation.value);
+    if (result.rateLimited) return json({ error: { code: "rate_limited", message: validation.value.locale === "th" ? "ส่งคำขอมากเกินไป โปรดลองอีกครั้งภายหลัง" : "Too many requests. Please try again later." } }, 429);
+    ctx.waitUntil(notify(env, validation.value, result.id));
+    return json({ ok: true, requestId: result.id, message: validation.value.locale === "th" ? "เราได้รับคำขอของคุณแล้ว" : "Your request has been received." }, 201);
+  }
+  if (request.method === "GET" && url.pathname === "/api/admin/early-access") {
+    if (!env.ADMIN_API_TOKEN || request.headers.get("authorization") !== `Bearer ${env.ADMIN_API_TOKEN}`) return json({ error: { code: "unauthorized", message: "Unauthorized." } }, 401);
+    const limit = Math.min(Math.max(Number(url.searchParams.get("limit") || 50), 1), 200);
+    const status = clean(url.searchParams.get("status"), 20) || "new";
+    const rows = await env.DB.prepare("SELECT id,created_at,updated_at,email,full_name,company,role,country,interest,message,locale,source,status,marketing_consent,cf_country FROM early_access_requests WHERE status=?1 ORDER BY created_at DESC LIMIT ?2").bind(status, limit).all();
+    return json({ ok: true, leads: rows.results || [] });
+  }
+  return json({ error: { code: "not_found", message: "API route not found." } }, 404);
+}
+
+const COPY = {
+  en: {
+    navWhy:"Why ZEAZ", navSpecs:"Specifications", navAi:"Private AI", navSecurity:"Security", navModels:"Models", navEarly:"Early access",
+    eyebrow:"Global premium business smartphone", heroA:"Your secure workday,", heroB:"in one phone.", heroP:"ZEAZ One is a premium Android flagship engineered for executives, entrepreneurs, consultants, creators and technical professionals who depend on their phone for serious work.", explore:"Explore ZEAZ One", seven:"Seven-year security target", private:"Private AI by design", global:"Global 5G + eSIM",
+    whyEyebrow:"Built around real work", whyTitle:"A flagship that earns its place in your business.", whyP:"Every core feature supports privacy, productivity, reliability, global mobility or a longer product life.",
+    cards:[ ["Business-grade security","Secure boot, hardware-backed keys, verified software, encrypted storage and ZEAZ-controlled production signing."], ["Global connectivity","Global 5G Sub-6, LTE fallback, eSIM flexibility and a high-performance hotspot."], ["Desktop productivity","Connect a monitor, keyboard and mouse for resizable windows, secure files and remote desktops."], ["All-day endurance","5,200–5,600 mAh target, adaptive charging and open USB Power Delivery compatibility."], ["Private AI","On-device summarisation, transcription, translation, search, OCR and sensitive-data detection."], ["Long-term support","A published lifecycle targeting seven years of security updates and six major Android upgrades."] ],
+    specsEyebrow:"Premium hardware platform", specsTitle:"Engineered for dependable performance.", specsP:"A balanced flagship focused on sustained performance, thermals, battery life, radio quality and serviceability.", specs:[["Display","6.6–6.8″ LTPO OLED · adaptive 1–120 Hz"],["Performance","Premium 64-bit SoC · 12/16 GB memory"],["Storage","256/512 GB high-performance UFS"],["Battery","5,200–5,600 mAh · 65 W wired · 30 W wireless"],["Camera","50 MP main + ultrawide + telephoto · 4K video"],["Connectivity","Global 5G · eSIM · Wi-Fi · NFC · USB 3.x"],["Durability","IP68 target · service-replaceable major modules"]],
+    aiEyebrow:"ZEAZ Private AI", aiTitle:"Useful AI. Clear boundaries.", aiP:"Business content is never uploaded silently. Processing location is visible and local capability remains available wherever possible.", tiers:[["01","On-device","Default","Summarisation, transcription, translation, OCR and sensitive-data detection."],["02","Private enterprise cloud","Managed","Approved endpoints with administrator-controlled models, retention and audit logging."],["03","User-approved public cloud","Optional","Explicitly enabled, clearly identified and protected by sensitive-data warnings."]],
+    securityTitle:"Security starts before the first PCB.", securityP:"ZEAZ directly controls signing keys, provisioning certificates, device identity and production security policy.", security:[["Verified platform","Secure boot, Android Verified Boot and rollback protection."],["Protected identity","Hardware-backed keys, TEE and unique per-device identity."],["Secure updates","Signed OTA packages, seamless updates and validated rollback."],["Enterprise controls","Work profiles, zero-touch enrollment, EMM and always-on VPN."]],
+    modelsEyebrow:"Launch portfolio", modelsTitle:"One platform. Three focused choices.", modelsP:"A simple product family for professionals and enterprise deployments.", models:[["ZEAZ One","$1,099","12 GB · 256 GB","The premium business flagship."],["ZEAZ One Pro","$1,249","16 GB · 512 GB","More capacity for demanding workflows."],["Pro Business","$1,399","16 GB · 512 GB + Care","Premium care, priority replacement and USB-C dock."]],
+    roadmapEyebrow:"Development roadmap", roadmapTitle:"A controlled global launch.", roadmap:[["2026","Definition and partner selection","PRD, customer research, platform evaluation, JDM selection and security requirements."],["2027","Architecture, EVT and DVT","Electrical, RF, mechanical, Android bring-up, prototypes and reliability validation."],["2028","Certification and launch","Regulatory approval, factory

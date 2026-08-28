@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Z.A.R.V.I.S. Proactive Console</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">OWNER 4076926 · LOCAL SUGGESTIONS ONLY</p>
+      <h1>Proactive Intelligence</h1>
+      <p>Owner-defined read-only checks with quiet hours, budgets, cooldowns, explainability, and approval-only action handoff.</p>
+    </header>
+
+    <section class="panel auth">
+      <label>Local owner token<input id="token" type="password" autocomplete="current-password"></label>
+      <button id="unlock">Unlock</button><span id="state">Locked</span>
+    </section>
+
+    <section class="grid">
+      <form id="policy" class="panel">
+        <h2>Notification policy</h2>
+        <label>Timezone<input id="timezone" value="Asia/Bangkok"></label>
+        <div class="row">
+          <label>Quiet start<input id="quiet-start" type="time" value="22:00"></label>
+          <label>Quiet end<input id="quiet-end" type="time" value="07:00"></label>
+        </div>
+        <label>Daily budget<input id="budget" type="number" min="0" max="20" value="5"></label>
+        <label>Cooldown minutes<input id="cooldown" type="number" min="1" max="1440" value="60"></label>
+        <label>Confidence threshold<input id="confidence" type="number" min="0" max="1" step="0.05" value="0.7"></label>
+        <button type="submit">Save policy</button>
+      </form>
+
+      <form id="subscription" class="panel">
+        <h2>Local health schedule</h2>
+        <label>Target<select id="target"><option value="zarvis-action-gateway">ZARVIS Action Gateway</option></select></label>
+        <label>Interval minutes<input id="interval" type="number" min="1" max="1440" value="5"></label>
+        <label>Notify on<select id="notify-on"><option value="unhealthy">Unhealthy</option><option value="status_change">Status change</option><option value="always">Every check</option></select></label>
+        <label>Missed run<select id="missed"><option value="run_once">Run once</option><option value="skip">Skip</option></select></label>
+        <button type="submit">Create schedule</button>
+      </form>
+    </section>
+
+    <section class="panel"><div class="toolbar"><h2>Subscriptions</h2><button id="refresh" class="secondary">Refresh</button></div><div id="subscriptions"></div></section>
+    <section class="panel"><h2>Suggestion inbox</h2><div id="notifications"></div></section>
+    <pre id="log" aria-live="polite"></pre>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

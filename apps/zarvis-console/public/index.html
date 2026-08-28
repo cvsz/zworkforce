@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Z.A.R.V.I.S. Command Console</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Z Platform Adaptive Reasoning, Voice, Intelligence &amp; Service System</p>
+          <h1>Z.A.R.V.I.S.</h1>
+          <p class="lede">ศูนย์สั่งงานเสียงแบบ read-only สำหรับตรวจสถานะ GitHub พร้อม audit trail ทุกครั้ง</p>
+        </div>
+        <div class="status" aria-live="polite">
+          <span class="status-dot"></span>
+          <span id="system-status">พร้อมรับคำสั่ง</span>
+        </div>
+      </header>
+
+      <section class="command-panel" aria-labelledby="command-title">
+        <div class="orb" id="orb" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </div>
+        <div class="command-content">
+          <h2 id="command-title">Voice command</h2>
+          <label for="command-input">คำสั่ง</label>
+          <textarea id="command-input" rows="3">ตรวจสถานะ GitHub cvsz/z-platform</textarea>
+          <div class="actions">
+            <button id="listen-button" class="secondary" type="button">เริ่มฟังเสียง</button>
+            <button id="send-button" class="primary" type="button">ส่งคำสั่ง</button>
+          </div>
+          <label class="toggle">
+            <input id="speak-toggle" type="checkbox" checked />
+            <span>อ่านคำตอบออกเสียง</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article class="card" aria-labelledby="result-title">
+          <div class="card-heading">
+            <h2 id="result-title">Assistant response</h2>
+            <span id="intent-badge" class="badge">waiting</span>
+          </div>
+          <p id="assistant-response" class="response">ยังไม่มีผลลัพธ์</p>
+          <dl id="repository-facts" class="facts"></dl>
+        </article>
+
+        <article class="card" aria-labelledby="timeline-title">
+          <div class="card-heading">
+            <h2 id="timeline-title">Audit timeline</h2>
+            <span class="badge safe">read-only</span>
+          </div>
+          <ol id="timeline" class="timeline">
+            <li>ระบบพร้อมใช้งาน</li>
+          </ol>
+        </article>
+      </section>
+
+      <footer>
+        Browser → ZARVIS Console → ZARVIS Orchestrator → GitHub REST API. ไม่มี provider token หรือ GitHub token ใน browser
+      </footer>
+    </main>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: z-platform
+resources:
+  - ../../base
+
+# Release automation must replace these values with sha256 digests before
+# Argo CD sync. The explicit marker is intentionally fail-closed for humans.
+images:
+  - name: ghcr.io/cvsz/z-platform/phase6-api
+    newTag: sha-89c4bde011fb08625dbd44eac3d16628a835d470@sha256:6ad07d8b35d6523cc1004a2e5e8ffb189311d05c01e60d46d1584a999158b969
+  - name: ghcr.io/cvsz/z-platform/zc-api
+    newTag: sha-89c4bde011fb08625dbd44eac3d16628a835d470@sha256:eb9684054b1a49d272746d7d85b2e501ef824df8aa7d67c60a6ff18b2144a4ae
+  - name: ghcr.io/cvsz/z-platform/ai-gateway
+    newTag: sha-89c4bde011fb08625dbd44eac3d16628a835d470@sha256:50c5d95dc34f4ec818aea1903f3b72589cd46d45cab41c6171763a0fc79e6582
+  - name: ghcr.io/cvsz/z-platform/zchat
+    newTag: sha-89c4bde011fb08625dbd44eac3d16628a835d470@sha256:1a64d19e1f64324b4e9fc4f9dc0863214142a0d2020203df26a6638abf5d65ef
