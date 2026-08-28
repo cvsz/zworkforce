@@ -489,6 +489,9 @@ footer {
   box-shadow: -10px 0 30px rgba(0,0,0,0.5);
   animation: slideLeft 0.25s ease-out;
 }
+.control-sidebar.hidden {
+  display: none !important;
+}
 @keyframes slideLeft {
   from { transform: translateX(100%); }
   to { transform: translateX(0); }
