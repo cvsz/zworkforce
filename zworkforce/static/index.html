@@ -4,21 +4,65 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark light">
-  <title>zWorkforce — AI Workforce Control Plane</title>
+  <title>zWorkforce — Enterprise AI Workforce Control Plane</title>
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/zarvis-hud.css">
 </head>
-<body>
+<body class="hold-transition">
   <header class="topbar">
-    <div><div class="eyebrow">AI WORKFORCE CONTROL PLANE</div><h1>zWorkforce <span class="version">v3.0.4</span></h1></div>
-    <div class="status-row"><span id="healthDot" class="dot"></span><span id="healthText">Connecting</span><button id="refreshBtn" class="ghost">Refresh</button></div>
+    <div class="brand-group">
+      <button id="sidebarToggleBtn" class="icon-button" title="Toggle Navigation Sidebar" aria-label="Toggle Navigation">☰</button>
+      <div><div class="eyebrow">AI WORKFORCE CONTROL PLANE</div><h1>zWorkforce <span class="version">v3.0.4</span></h1></div>
+    </div>
+    <div class="status-row">
+      <span id="healthDot" class="dot"></span><span id="healthText">Connecting</span>
+      <button id="refreshBtn" class="ghost small">Refresh</button>
+      <button id="controlSidebarBtn" class="ghost small" title="System Telemetry & Controls">⚙️ Telemetry</button>
+    </div>
   </header>
-  <main>
-    <section class="auth-card panel"><div><h2>Control-plane access</h2><p>API credentials are kept in session storage only. Superadmins can switch tenant context.</p></div><label>API key<input id="apiKey" type="password" autocomplete="off" placeholder="zwf_… or development key"></label><label>Tenant<input id="tenantId" autocomplete="off" placeholder="default"></label><button id="connectBtn">Connect</button></section>
-    <section id="errorBanner" class="error hidden" role="alert"></section>
-    <section class="prometa-card panel"><div><span class="eyebrow">PROMETA</span><h2>Master agents and skills</h2><p id="prometaStatus">Install the built-in ProMeta baseline for this tenant.</p></div><button id="prometaInstallBtn" type="button">Install ProMeta</button></section>
 
+  <!-- Right Offcanvas Control Sidebar -->
+  <aside id="controlSidebar" class="control-sidebar hidden" aria-label="Control and Diagnostics Sidebar">
+    <div class="control-sidebar-header">
+      <h3>System Telemetry</h3>
+      <button id="closeControlSidebar" class="icon-button" aria-label="Close">✕</button>
+    </div>
+    <div class="control-sidebar-content">
+      <div class="telemetry-card">
+        <span class="eyebrow">CLUSTER TOPOLOGY</span>
+        <div class="telemetry-item"><span>Control Plane</span><strong>Port 9569 (Active)</strong></div>
+        <div class="telemetry-item"><span>Voice Gateway</span><strong>Port 8450 (Realtime)</strong></div>
+        <div class="telemetry-item"><span>Action Gateway</span><strong>Port 8098 (Hardened)</strong></div>
+        <div class="telemetry-item"><span>Proactive Service</span><strong>Port 8099 (Autonomous)</strong></div>
+        <div class="telemetry-item"><span>Ollama LLM Engine</span><strong>Port 11434 (Online)</strong></div>
+      </div>
+      <div class="telemetry-card">
+        <span class="eyebrow">SECURITY BOUNDARIES</span>
+        <div class="telemetry-item"><span>Tenant Isolation</span><strong class="text-mint">ENFORCED</strong></div>
+        <div class="telemetry-item"><span>Mutating Tool Safety</span><strong class="text-amber">DENY-BY-DEFAULT</strong></div>
+        <div class="telemetry-item"><span>Voice Ephemeral Ticket</span><strong class="text-mint">HMAC SHA-256</strong></div>
+      </div>
+    </div>
+  </aside>
+
+  <main>
+    <section class="auth-card panel">
+      <div><h2>Control-plane access</h2><p>API credentials are kept in session storage only. Superadmins can switch tenant context.</p></div>
+      <label>API key<input id="apiKey" type="password" autocomplete="off" placeholder="zwf_… or development key"></label>
+      <label>Tenant<input id="tenantId" autocomplete="off" placeholder="default"></label>
+      <button id="connectBtn">Connect</button>
+    </section>
+
+    <section id="errorBanner" class="error hidden" role="alert"></section>
+    
+    <section class="prometa-card panel">
+      <div><span class="eyebrow">PROMETA SYSTEM</span><h2>Master agents and skills catalog</h2><p id="prometaStatus">Install or synchronize the built-in ProMeta baseline for this tenant.</p></div>
+      <button id="prometaInstallBtn" type="button">Sync ProMeta</button>
+    </section>
+
+    <!-- Z.A.R.V.I.S. Realtime Voice & HUD Stage -->
     <section id="zarvisCard" class="zarvis-card panel" data-voice-state="idle" aria-labelledby="zarvisTitle">
+      <div class="ribbon-wrapper"><div class="ribbon bg-cyan">LIVE HUD</div></div>
       <div class="zarvis-copy">
         <span class="eyebrow">Z.A.R.V.I.S. REALTIME</span>
         <h2 id="zarvisTitle">Talk to your AI workforce</h2>
@@ -65,12 +109,117 @@
       </div>
     </section>
 
-    <section class="metric-grid" aria-label="Workforce metrics"><article class="metric"><span>Active</span><strong id="mActive">—</strong><small>queued / running / approval</small></article><article class="metric"><span>Tasks 24h</span><strong id="mTasks">—</strong><small id="mSuccess">— runtime success</small></article><article class="metric"><span>Outcome pass</span><strong id="mOutcome">—</strong><small>business criteria</small></article><article class="metric"><span>Credits 24h</span><strong id="mCredits">—</strong><small id="mCostSuccess">— / successful outcome</small></article><article class="metric"><span>P95 runtime</span><strong id="mP95">—</strong><small id="mQueue">— avg queue</small></article><article class="metric"><span>Dead letter</span><strong id="mDead">—</strong><small>needs operator review</small></article></section>
-    <section class="two-col"><article class="panel"><div class="panel-title"><div><span class="eyebrow">DISPATCH</span><h2>New workforce task</h2></div></div><form id="dispatchForm" class="form-grid"><label>Agent<select id="agentSelect" required></select></label><label>Tier<select id="tierSelect"><option value="">Auto route</option><option value="luna">Luna</option><option value="terra">Terra</option><option value="sol">Sol</option></select></label><label>Priority<input id="priority" type="number" min="-100" max="100" value="0"></label><label class="check"><input id="mutating" type="checkbox"> Mutating task</label><div class="wide prompt-wrap"><label>Prompt<textarea id="prompt" rows="7" required placeholder="Type / for slash commands or describe the outcome, constraints and acceptance criteria…"></textarea></label><div id="slashMenu" class="slash-menu hidden" role="listbox" aria-label="Slash commands"></div><div id="slashHint" class="slash-hint hidden"></div></div><button class="wide" type="submit">Dispatch task</button></form></article><article class="panel"><div class="panel-title"><div><span class="eyebrow">FINOPS</span><h2>Model & provider mix</h2></div></div><div id="mixList" class="bar-list"></div><div class="divider"></div><div id="providerList" class="provider-list"></div></article></section>
-    <section class="panel"><div class="panel-title"><div><span class="eyebrow">EXECUTION</span><h2>Recent tasks</h2></div><span id="taskCount" class="pill">0</span></div><div class="table-wrap"><table><thead><tr><th>Status</th><th>Agent</th><th>Tier / Provider</th><th>Cost</th><th>Outcome</th><th>Created</th><th>Actions</th></tr></thead><tbody id="taskRows"></tbody></table></div></section>
-    <section class="two-col"><article class="panel"><div class="panel-title"><div><span class="eyebrow">REGISTRY</span><h2>Agents & policy</h2></div></div><div id="agentCards" class="agent-grid"></div></article><article class="panel"><div class="panel-title"><div><span class="eyebrow">OPTIMIZATION</span><h2>Rightsizing recommendations</h2></div></div><div id="recommendations" class="recommendations"></div></article></section>
-    <section class="two-col"><article class="panel"><div class="panel-title"><div><span class="eyebrow">MEMORY</span><h2>Tenant knowledge</h2></div></div><form id="memoryForm" class="inline-form"><input id="memoryQuery" placeholder="Search memory"><button type="submit" class="ghost">Search</button></form><div id="memoryList" class="memory-list"></div></article><article class="panel"><div class="panel-title"><div><span class="eyebrow">RUNTIME</span><h2>Provider health</h2></div></div><div id="providerHealth" class="provider-list"></div></article></section>
+    <!-- Info Box KPI Metric Grid -->
+    <section class="metric-grid" aria-label="Workforce metrics">
+      <article class="metric info-box">
+        <div class="info-box-icon bg-cyan">⚡</div>
+        <div class="info-box-content"><span>Active Workloads</span><strong id="mActive">—</strong><small>queued / running / approval</small></div>
+      </article>
+      <article class="metric info-box">
+        <div class="info-box-icon bg-indigo">📈</div>
+        <div class="info-box-content"><span>Tasks 24h</span><strong id="mTasks">—</strong><small id="mSuccess">— runtime success</small></div>
+      </article>
+      <article class="metric info-box">
+        <div class="info-box-icon bg-mint">🎯</div>
+        <div class="info-box-content"><span>Outcome Pass Rate</span><strong id="mOutcome">—</strong><small>business criteria</small></div>
+      </article>
+      <article class="metric info-box">
+        <div class="info-box-icon bg-violet">💎</div>
+        <div class="info-box-content"><span>Credits 24h</span><strong id="mCredits">—</strong><small id="mCostSuccess">— / successful outcome</small></div>
+      </article>
+      <article class="metric info-box">
+        <div class="info-box-icon bg-cyan">⏱️</div>
+        <div class="info-box-content"><span>P95 Runtime</span><strong id="mP95">—</strong><small id="mQueue">— avg queue</small></div>
+      </article>
+      <article class="metric info-box">
+        <div class="info-box-icon bg-danger">🚨</div>
+        <div class="info-box-content"><span>Dead Letter Queue</span><strong id="mDead">—</strong><small>needs operator review</small></div>
+      </article>
+    </section>
+
+    <section class="two-col">
+      <article class="panel">
+        <div class="panel-title">
+          <div><span class="eyebrow">DISPATCH</span><h2>New workforce task</h2></div>
+        </div>
+        <form id="dispatchForm" class="form-grid">
+          <label>Agent<select id="agentSelect" required></select></label>
+          <label>Tier<select id="tierSelect"><option value="">Auto route</option><option value="luna">Luna</option><option value="terra">Terra</option><option value="sol">Sol</option></select></label>
+          <label>Priority<input id="priority" type="number" min="-100" max="100" value="0"></label>
+          <label class="check"><input id="mutating" type="checkbox"> Mutating task</label>
+          <div class="wide prompt-wrap">
+            <label>Prompt<textarea id="prompt" rows="7" required placeholder="Type / for slash commands or describe the outcome, constraints and acceptance criteria…"></textarea></label>
+            <div id="slashMenu" class="slash-menu hidden" role="listbox" aria-label="Slash commands"></div>
+            <div id="slashHint" class="slash-hint hidden"></div>
+          </div>
+          <button class="wide" type="submit">Dispatch task</button>
+        </form>
+      </article>
+
+      <article class="panel">
+        <div class="panel-title">
+          <div><span class="eyebrow">FINOPS & ROUTING</span><h2>Model & provider mix</h2></div>
+        </div>
+        <div id="mixList" class="bar-list"></div>
+        <div class="divider"></div>
+        <div id="providerList" class="provider-list"></div>
+      </article>
+    </section>
+
+    <!-- Execution Panel with Fullscreen Maximize Card Support -->
+    <section class="panel expandable-card" id="executionCard">
+      <div class="panel-title">
+        <div><span class="eyebrow">EXECUTION STREAM</span><h2>Recent Tasks & Workforce Activity</h2></div>
+        <div class="card-tools">
+          <span id="taskCount" class="pill">0</span>
+          <button class="icon-button card-maximize-btn" title="Toggle Fullscreen" onclick="toggleCardFullscreen('executionCard')">🗖</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Status</th><th>Agent</th><th>Tier / Provider</th><th>Cost</th><th>Outcome</th><th>Created</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="taskRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Timeline Activity Feed Section -->
+    <section class="panel">
+      <div class="panel-title">
+        <div><span class="eyebrow">OPERATIONAL AUDIT</span><h2>Realtime Activity & Audit Timeline</h2></div>
+      </div>
+      <div class="timeline" id="activityTimeline">
+        <div class="timeline-item"><div class="timeline-point bg-cyan"></div><div class="timeline-card"><span class="timeline-time">Just now</span><strong>zWorkforce Control Plane Online</strong><p>System initialized with tenant isolation and strict security policies.</p></div></div>
+        <div class="timeline-item"><div class="timeline-point bg-mint"></div><div class="timeline-card"><span class="timeline-time">Live</span><strong>Z.A.R.V.I.S. Realtime Audio Gateway Active</strong><p>Ready for voice interaction and subagent orchestration.</p></div></div>
+      </div>
+    </section>
+
+    <section class="two-col">
+      <article class="panel">
+        <div class="panel-title"><div><span class="eyebrow">REGISTRY</span><h2>Agents & policy</h2></div></div>
+        <div id="agentCards" class="agent-grid"></div>
+      </article>
+      <article class="panel">
+        <div class="panel-title"><div><span class="eyebrow">OPTIMIZATION</span><h2>Rightsizing recommendations</h2></div></div>
+        <div id="recommendations" class="recommendations"></div>
+      </article>
+    </section>
+
+    <section class="two-col">
+      <article class="panel">
+        <div class="panel-title"><div><span class="eyebrow">MEMORY & RAG</span><h2>Tenant knowledge base</h2></div></div>
+        <form id="memoryForm" class="inline-form"><input id="memoryQuery" placeholder="Search semantic memory…"><button type="submit" class="ghost">Search</button></form>
+        <div id="memoryList" class="memory-list"></div>
+      </article>
+      <article class="panel">
+        <div class="panel-title"><div><span class="eyebrow">RUNTIME HEALTH</span><h2>Provider availability & circuits</h2></div></div>
+        <div id="providerHealth" class="provider-list"></div>
+      </article>
+    </section>
   </main>
+
   <footer>zWorkforce v3.0.4 · tenant-isolated durable agent runtime · secrets stay server-side</footer>
   <script src="/app.js" defer></script>
   <script src="/zarvis-hud.js" defer></script>

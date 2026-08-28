@@ -452,6 +452,190 @@ footer {
   letter-spacing: 0.02em;
 }
 
+/* ==========================================================================
+   AdminLTE Enterprise-Grade UI Components (Glassmorphism Styled)
+   ========================================================================== */
+
+/* Brand & Icon Buttons */
+.brand-group { display: flex; align-items: center; gap: 14px; }
+.icon-button {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-main);
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.15s ease;
+}
+.icon-button:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.18); }
+
+/* Control Sidebar (Right Offcanvas) */
+.control-sidebar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 320px;
+  background: rgba(10, 15, 24, 0.95);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-left: 1px solid var(--border-subtle);
+  z-index: 1050;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+  animation: slideLeft 0.25s ease-out;
+}
+@keyframes slideLeft {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.control-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 12px;
+}
+.control-sidebar-header h3 { margin: 0; font-size: 15px; color: #f8fafc; }
+.control-sidebar-content { display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
+.telemetry-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.telemetry-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.telemetry-item strong { font-size: 12px; color: #f1f5f9; }
+
+/* Info-Box Component */
+.metric.info-box {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  position: relative;
+  overflow: hidden;
+}
+.info-box-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.info-box-content { display: flex; flex-direction: column; flex: 1; }
+.bg-cyan { background: linear-gradient(135deg, #0284c7 0%, #06b6d4 100%); color: #fff; }
+.bg-indigo { background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); color: #fff; }
+.bg-mint { background: linear-gradient(135deg, #059669 0%, #10b981 100%); color: #fff; }
+.bg-violet { background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%); color: #fff; }
+.bg-danger { background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%); color: #fff; }
+
+.text-mint { color: #34d399 !important; }
+.text-amber { color: #fbbf24 !important; }
+
+/* Ribbons Component */
+.ribbon-wrapper {
+  width: 85px;
+  height: 85px;
+  overflow: hidden;
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  z-index: 10;
+  pointer-events: none;
+}
+.ribbon {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-align: center;
+  transform: rotate(45deg);
+  position: relative;
+  padding: 4px 0;
+  left: -5px;
+  top: 15px;
+  width: 120px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+/* Card Tools & Fullscreen Maximize */
+.card-tools { display: flex; align-items: center; gap: 8px; }
+.card-maximize-btn { font-size: 13px; line-height: 1; padding: 4px 8px; }
+.panel.fullscreen-card {
+  position: fixed !important;
+  inset: 16px !important;
+  z-index: 1100 !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: none !important;
+  margin: 0 !important;
+  box-shadow: 0 25px 60px rgba(0,0,0,0.8) !important;
+  backdrop-filter: blur(32px) saturate(180%) !important;
+}
+
+/* Vertical Activity Timeline */
+.timeline {
+  position: relative;
+  padding: 10px 0 10px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.timeline::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 7px;
+  width: 2px;
+  background: var(--border-subtle);
+}
+.timeline-item {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.timeline-point {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  position: absolute;
+  left: -24px;
+  top: 4px;
+  border: 3px solid var(--bg-base);
+  box-shadow: 0 0 10px rgba(6,182,212,0.4);
+}
+.timeline-card {
+  flex: 1;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.timeline-card strong { font-size: 13px; color: #f8fafc; display: block; margin-bottom: 2px; }
+.timeline-card p { margin: 0; font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+.timeline-time { float: right; font-size: 10px; color: var(--text-dim); }
+
 @media(max-width:1100px){
   .metric-grid{grid-template-columns:repeat(3,1fr)}
   .auth-card{grid-template-columns:1fr 1fr}
