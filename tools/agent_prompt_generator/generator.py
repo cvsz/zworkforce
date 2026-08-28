@@ -1,30 +1,29 @@
-"""
-Agent Prompt Generator for zWorkforce and Antigravity.
-Generates structured, hardened, role-specific system prompts and agent manifests.
-"""
-
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional
+
+# Valid zWorkforce tool identifiers from TOOL_DEFINITIONS
+DEFAULT_ZWORKFORCE_TOOLS = ["workspace_read", "workspace_write", "shell_exec"]
 
 
 @dataclass
 class AgentPromptSpec:
     name: str
-    role: str
-    description: str
+    role: str = ""
+    description: str = ""
     domain: str = "general"
-    reasoning_tier: str = "balanced"  # fast, balanced, deep_thinking
-    allowed_tools: List[str] = field(default_factory=lambda: ["read_file", "grep_search", "run_command"])
+    reasoning_tier: str = "terra"  # luna, terra, sol
+    allowed_tools: List[str] = field(default_factory=lambda: list(DEFAULT_ZWORKFORCE_TOOLS))
     tenant_isolation: bool = True
     deny_by_default: bool = True
     fail_closed: bool = True
     additional_rules: List[str] = field(default_factory=list)
-    output_format: str = "markdown"  # markdown, json, yaml
+    output_format: str = "markdown"  # markdown, json
 
 
 class AgentPromptGenerator:
@@ -64,22 +63,32 @@ class AgentPromptGenerator:
                 "Follow established repo styling, markdown standards, and mermaid diagrams.",
                 "Ensure zero drift between implementation and reference documentation."
             ]
+        },
+        "general": {
+            "role": "Specialist Agent",
+            "principles": [
+                "Perform assigned tasks with precision and adhere to repository boundaries."
+            ]
         }
     }
 
     def __init__(self) -> None:
         pass
 
+    def resolve_role(self, spec: AgentPromptSpec) -> str:
+        if spec.role and spec.role.strip():
+            return spec.role.strip()
+        template = self.TEMPLATES.get(spec.domain, self.TEMPLATES["general"])
+        return template["role"]
+
     def build_system_prompt(self, spec: AgentPromptSpec) -> str:
         """Constructs a comprehensive system prompt string."""
-        template_info = self.TEMPLATES.get(spec.domain, {
-            "role": spec.role,
-            "principles": ["Perform assigned tasks with precision and adhere to repository boundaries."]
-        })
+        resolved_role = self.resolve_role(spec)
+        template_info = self.TEMPLATES.get(spec.domain, self.TEMPLATES["general"])
 
         lines = [
             f"# AGENT SYSTEM DIRECTIVE: {spec.name.upper()}",
-            f"**Role**: {spec.role or template_info['role']}",
+            f"**Role**: {resolved_role}",
             f"**Domain**: {spec.domain.capitalize()} | **Reasoning Tier**: {spec.reasoning_tier.upper()}",
             "",
             "## 1. Primary Objectives & Identity",
@@ -116,37 +125,50 @@ class AgentPromptGenerator:
         return "\n".join(lines)
 
     def generate_manifest(self, spec: AgentPromptSpec) -> Dict[str, Any]:
-        """Generates a structured manifest JSON representation."""
+        """Generates a zWorkforce API compatible agent manifest dictionary."""
+        slug_id = re.sub(r"[^a-z0-9-]+", "-", spec.name.lower()).strip("-")
         prompt = self.build_system_prompt(spec)
+        
+        tier_map = {
+            "fast": "luna",
+            "balanced": "terra",
+            "deep_thinking": "sol",
+            "luna": "luna",
+            "terra": "terra",
+            "sol": "sol"
+        }
+        tier = tier_map.get(spec.reasoning_tier.lower(), "terra")
+
         return {
-            "agent": {
-                "name": spec.name,
-                "role": spec.role,
-                "domain": spec.domain,
-                "reasoning_tier": spec.reasoning_tier,
-                "tools": spec.allowed_tools,
-                "security": {
-                    "tenant_isolation": spec.tenant_isolation,
-                    "deny_by_default": spec.deny_by_default,
-                    "fail_closed": spec.fail_closed
-                }
-            },
-            "system_prompt": prompt
+            "id": slug_id or "custom-agent",
+            "name": spec.name,
+            "description": spec.description,
+            "system_prompt": prompt,
+            "default_tier": tier,
+            "allowed_tools": spec.allowed_tools,
+            "approval_tools": [t for t in spec.allowed_tools if t in {"workspace_write", "shell_exec"}],
+            "skill_ids": [],
+            "max_iterations": 16,
+            "max_subagents": 4,
+            "required_approvals": 1 if any(t in {"workspace_write", "shell_exec"} for t in spec.allowed_tools) else 0,
+            "max_cost_credits": 10.0
         }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate structured agent prompts and manifests")
     parser.add_argument("--name", required=True, help="Agent name (e.g. zworkforce-auditor)")
-    parser.add_argument("--role", default="Specialist Agent", help="Role title")
+    parser.add_argument("--role", default="", help="Role title (defaults to domain template role if omitted)")
     parser.add_argument("--domain", choices=["coder", "reviewer", "researcher", "writer", "general"], default="coder", help="Predefined domain")
     parser.add_argument("--desc", required=True, help="Task description and objectives")
-    parser.add_argument("--tier", choices=["fast", "balanced", "deep_thinking"], default="balanced", help="Reasoning tier")
-    parser.add_argument("--tools", nargs="*", default=["read_file", "write_to_file", "run_command"], help="Allowed tools")
+    parser.add_argument("--tier", choices=["luna", "terra", "sol", "fast", "balanced", "deep_thinking"], default="terra", help="Reasoning tier")
+    parser.add_argument("--tools", nargs="*", default=None, help="Allowed tools")
     parser.add_argument("--rules", nargs="*", default=[], help="Additional specific rules")
     parser.add_argument("--format", choices=["markdown", "json"], default="markdown", help="Output format")
 
     args = parser.parse_args()
+
+    tools = args.tools if args.tools is not None else list(DEFAULT_ZWORKFORCE_TOOLS)
 
     spec = AgentPromptSpec(
         name=args.name,
@@ -154,7 +176,7 @@ def main() -> None:
         description=args.desc,
         domain=args.domain,
         reasoning_tier=args.tier,
-        allowed_tools=args.tools,
+        allowed_tools=tools,
         additional_rules=args.rules,
         output_format=args.format
     )
