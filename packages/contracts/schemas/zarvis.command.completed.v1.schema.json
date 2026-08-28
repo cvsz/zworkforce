@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.zeaz.dev/zarvis/command-completed.v1.schema.json",
+  "title": "ZARVIS Command Completed v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "command_id",
+    "session_id",
+    "completed_at",
+    "status",
+    "intent",
+    "result",
+    "speech",
+    "audit"
+  ],
+  "properties": {
+    "schema_version": { "const": "zarvis.command.completed.v1" },
+    "command_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "session_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "completed_at": { "type": "string", "format": "date-time" },
+    "status": { "const": "completed" },
+    "replayed": {
+      "type": "boolean",
+      "description": "True when the response came from the command idempotency store rather than a new tool execution."
+    },
+    "intent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "source"],
+      "properties": {
+        "name": { "const": "github.repository.status" },
+        "source": { "enum": ["explicit", "inferred"] }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "full_name",
+        "visibility",
+        "private",
+        "archived",
+        "disabled",
+        "fork",
+        "default_branch",
+        "open_issues_count",
+        "stargazers_count",
+        "watchers_count",
+        "forks_count",
+        "updated_at",
+        "pushed_at",
+        "web_url"
+      ],
+      "properties": {
+        "full_name": { "type": "string" },
+        "visibility": { "type": "string" },
+        "private": { "type": "boolean" },
+        "archived": { "type": "boolean" },
+        "disabled": { "type": "boolean" },
+        "fork": { "type": "boolean" },
+        "default_branch": { "type": "string" },
+        "open_issues_count": { "type": "integer", "minimum": 0 },
+        "stargazers_count": { "type": "integer", "minimum": 0 },
+        "watchers_count": { "type": "integer", "minimum": 0 },
+        "forks_count": { "type": "integer", "minimum": 0 },
+        "updated_at": { "type": "string", "format": "date-time" },
+        "pushed_at": { "type": "string", "format": "date-time" },
+        "web_url": { "type": ["string", "null"], "format": "uri" }
+      }
+    },
+    "speech": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["locale", "text"],
+      "properties": {
+        "locale": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "text": { "type": "string", "minLength": 1, "maxLength": 4000 }
+      }
+    },
+    "audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "schema_version"],
+      "properties": {
+        "event_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "schema_version": { "const": "zarvis.audit.tool-executed.v1" }
+      }
+    }
+  }
+}

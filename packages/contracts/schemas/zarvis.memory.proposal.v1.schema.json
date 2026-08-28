@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.zeaz.dev/zarvis/memory-proposal.v1.schema.json",
+  "title": "ZARVIS Memory Proposal v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "proposal_id", "memory_id", "revision", "content", "classification", "reason", "confidence", "retention_days", "expires_at", "provenance", "approval_digest", "approval_nonce", "approval_expires_at", "created_at"],
+  "properties": {
+    "schema_version": { "const": "zarvis.memory.proposal.v1" },
+    "proposal_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "memory_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "revision": { "type": "integer", "minimum": 1 },
+    "content": { "type": "string", "minLength": 1, "maxLength": 4000 },
+    "classification": { "enum": ["working", "episodic", "semantic", "procedural"] },
+    "reason": { "type": "string", "minLength": 1, "maxLength": 1000 },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "retention_days": { "type": "integer", "minimum": 1, "maximum": 3650 },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "provenance": { "$ref": "#/$defs/provenance" },
+    "approval_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "approval_nonce": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "approval_expires_at": { "type": "string", "format": "date-time" },
+    "created_at": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_type", "source_id", "source_uri", "captured_at"],
+      "properties": {
+        "source_type": { "enum": ["owner", "session", "task", "document", "integration"] },
+        "source_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "source_uri": { "type": ["string", "null"], "maxLength": 1000 },
+        "captured_at": { "type": ["string", "null"], "maxLength": 64 }
+      }
+    }
+  }
+}

@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.zeaz.dev/zarvis/task-snapshot.v1.schema.json",
+  "title": "ZARVIS Task Snapshot v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task_version",
+    "id",
+    "tenant_id",
+    "owner_user_id",
+    "objective",
+    "task",
+    "plan",
+    "status",
+    "approval_state",
+    "approval_digest",
+    "approval_expires_at",
+    "requested_tool_grants",
+    "idempotency_key",
+    "attempt",
+    "max_retries",
+    "timeout_seconds",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "task_version": { "const": "zarvis.task.v1" },
+    "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "tenant_id": { "const": "owner-4076926" },
+    "owner_user_id": { "const": "github:4076926" },
+    "objective": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "task": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "status": {
+      "enum": ["pending_approval", "paused", "approved", "running", "succeeded", "failed", "cancelled", "expired"]
+    },
+    "approval_state": { "enum": ["pending", "approved"] },
+    "approval_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "approval_nonce": { "type": ["string", "null"] },
+    "approval_expires_at": { "type": "string", "format": "date-time" },
+    "approval_consumed_at": { "type": "string", "format": "date-time" },
+    "approved_by": { "type": "string" },
+    "approved_at": { "type": "string", "format": "date-time" },
+    "requested_tool_grants": { "$ref": "#/$defs/grants" },
+    "tool_grants": { "$ref": "#/$defs/grants" },
+    "approved_tool_grants": { "$ref": "#/$defs/grants" },
+    "input_refs": { "type": "array", "items": { "type": "object" } },
+    "idempotency_key": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "correlation_id": { "type": "string" },
+    "attempt": { "type": "integer", "minimum": 0 },
+    "max_retries": { "type": "integer", "minimum": 0, "maximum": 5 },
+    "timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 3600 },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox": { "type": "string" },
+        "network": { "type": "string" },
+        "timeout_seconds": { "type": "integer" },
+        "max_retries": { "type": "integer" }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["objective", "steps"],
+      "properties": {
+        "objective": { "type": "string" },
+        "steps": { "type": "array", "minItems": 1, "maxItems": 20 }
+      }
+    },
+    "paused_from_status": { "type": ["string", "null"] },
+    "paused_by": { "type": "string" },
+    "paused_at": { "type": "string", "format": "date-time" },
+    "resumed_by": { "type": "string" },
+    "resumed_at": { "type": "string", "format": "date-time" },
+    "cancelled_by": { "type": "string" },
+    "cancelled_at": { "type": "string", "format": "date-time" },
+    "started_at": { "type": "string", "format": "date-time" },
+    "completed_at": { "type": "string", "format": "date-time" },
+    "result_refs": { "type": "array", "items": { "type": "object" } },
+    "step_results": { "type": "array", "items": { "type": "object" } },
+    "checkpoint": { "type": "object" },
+    "usage": { "type": "object" },
+    "audit": { "type": "object" },
+    "error": { "type": "object" }
+  },
+  "$defs": {
+    "grants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tool", "scope", "mutating"],
+        "properties": {
+          "tool": { "type": "string" },
+          "scope": { "type": "string" },
+          "mutating": { "const": false }
+        }
+      }
+    }
+  }
+}

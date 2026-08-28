@@ -1,0 +1,5 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://schemas.zeaz.dev/zarvis/proactive-feedback.v1.schema.json","title":"ZARVIS Proactive Feedback v1","type":"object","additionalProperties":false,
+  "required":["schema_version","notification_id","owner_user_id","tenant_id","rating","note","created_at"],
+  "properties":{"schema_version":{"const":"zarvis.proactive.feedback.v1"},"notification_id":{"type":"string","minLength":1,"maxLength":128},"owner_user_id":{"const":"github:4076926"},"tenant_id":{"const":"owner-4076926"},"rating":{"enum":["useful","irrelevant","false_positive"]},"note":{"type":["string","null"],"maxLength":500},"created_at":{"type":"string","format":"date-time"}}
+}

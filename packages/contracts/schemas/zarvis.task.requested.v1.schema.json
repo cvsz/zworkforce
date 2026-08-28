@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.zeaz.dev/zarvis/task-requested.v1.schema.json",
+  "title": "ZARVIS Task Requested v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "idempotency_key", "objective", "steps"],
+  "properties": {
+    "schema_version": { "const": "zarvis.task.requested.v1" },
+    "idempotency_key": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9._:-]+$" },
+    "objective": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "correlation_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "max_retries": { "type": "integer", "minimum": 0, "maximum": 5 },
+    "timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 3600 },
+    "input_refs": {
+      "type": "array",
+      "maxItems": 50,
+      "items": { "type": "object" }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "tool", "scope"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9._:-]+$" },
+          "tool": { "enum": ["github.repository.status", "zarvis.repository.summary"] },
+          "scope": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+          "mutating": { "const": false },
+          "depends_on": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1, "maxLength": 128 }
+          },
+          "arguments": { "type": "object" }
+        }
+      }
+    }
+  }
+}

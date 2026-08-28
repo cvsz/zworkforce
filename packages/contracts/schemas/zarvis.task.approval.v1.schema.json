@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.zeaz.dev/zarvis/task-approval.v1.schema.json",
+  "title": "ZARVIS Task Approval v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "approval_digest", "approval_nonce"],
+  "properties": {
+    "schema_version": { "const": "zarvis.task.approval.v1" },
+    "approval_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "approval_nonce": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sandbox": { "const": "restricted" },
+        "network": { "const": "deny-by-default" },
+        "timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 3600 },
+        "max_retries": { "type": "integer", "minimum": 0, "maximum": 5 }
+      }
+    }
+  }
+}

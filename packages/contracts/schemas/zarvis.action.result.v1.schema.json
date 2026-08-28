@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.zeaz.dev/zarvis/action-result.v1.schema.json",
+  "title": "ZARVIS Local Action Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "action_id", "capability", "scope", "mutating", "reversible", "status", "owner_user_id", "tenant_id", "key", "previous_value", "next_value", "impact", "approval_digest", "approval_nonce", "approval_expires_at", "approval_consumed_at", "execution_id", "executed_at", "rollback_digest", "rollback_nonce", "rolled_back_at", "failure_code", "created_at", "updated_at", "replayed"],
+  "properties": {
+    "schema_version": { "const": "zarvis.action.snapshot.v1" },
+    "action_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "capability": { "const": "sandbox.preference.set" },
+    "scope": { "const": "owner-sandbox/preferences" },
+    "mutating": { "const": true },
+    "reversible": { "const": true },
+    "status": { "const": "executed" },
+    "owner_user_id": { "const": "github:4076926" },
+    "tenant_id": { "const": "owner-4076926" },
+    "key": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{0,63}$" },
+    "previous_value": { "type": ["string", "null"], "maxLength": 512 },
+    "next_value": { "type": "string", "maxLength": 512 },
+    "impact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "external_side_effects", "network_access", "filesystem_scope"],
+      "properties": {
+        "target": { "const": "local owner sandbox preference store" },
+        "external_side_effects": { "const": false },
+        "network_access": { "const": false },
+        "filesystem_scope": { "const": "operator-controlled fixed local state file" }
+      }
+    },
+    "approval_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "approval_nonce": { "type": "null" },
+    "approval_expires_at": { "type": "string", "format": "date-time" },
+    "approval_consumed_at": { "type": "string", "format": "date-time" },
+    "execution_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "executed_at": { "type": "string", "format": "date-time" },
+    "rollback_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "rollback_nonce": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "rolled_back_at": { "type": "null" },
+    "failure_code": { "type": "null" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "replayed": { "type": "boolean" }
+  }
+}
