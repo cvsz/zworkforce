@@ -10,6 +10,7 @@ from ai.fallback import AIFallbackManager
 from ai.guardrails import AIGuardrails
 from ai.metrics import AIMetricsTracker
 from ai.prompt_registry import PromptRegistry
+from ai.provider_policy import RoutingMode, filter_provider_chain, normalize_routing_mode
 from ai.provider_registry import PROVIDER_SPECS, build_provider_factories
 from ai.routing_rules import AIRoutingRules
 
@@ -51,9 +52,13 @@ class AIRouter:
         context: Dict[str, Any],
         preferred_provider: str = "claude",
     ) -> Dict[str, Any]:
-        # Cost Control Check
+        routing_mode = normalize_routing_mode(context.get("routing_mode"))
+
+        # Exhausting the configured spend budget must never silently continue to
+        # another external provider. Downgrade to the fail-closed local-only
+        # policy instead; callers can explicitly raise the budget out of band.
         if self.cost_controller.check_budget_exceeded():
-            preferred_provider = "ollama"
+            routing_mode = RoutingMode.ZERO
 
         prompt_content = self.prompt_registry.render(prompt_id, context)
         system_prompt = self.prompt_registry.get_system_prompt(prompt_id) or context.get("system_prompt", "")
@@ -75,7 +80,26 @@ class AIRouter:
             return cached_res
 
         self.metrics.record_cache(hit=False)
-        provider_chain = [chosen_provider, "gemini", "deepseek", "ollama"]
+        candidate_chain = [
+            chosen_provider,
+            "gemini",
+            "deepseek",
+            "ollama",
+            "vllm",
+            "lm_studio",
+            "llama_cpp",
+            "onnx_runtime",
+        ]
+        provider_chain = filter_provider_chain(
+            candidate_chain,
+            routing_mode,
+            self.provider_factories.keys(),
+        )
+        if not provider_chain:
+            raise RuntimeError(
+                f"No provider is available under routing mode '{routing_mode.value}'. "
+                "ZERO mode requires a configured local runtime."
+            )
 
         def execute_fn(provider_name: str) -> Dict[str, Any]:
             start = time.monotonic()

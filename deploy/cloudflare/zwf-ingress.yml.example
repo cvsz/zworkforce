@@ -6,4 +6,6 @@ ingress:
     service: http://127.0.0.1:9570
   - hostname: zwf-api.zeaz.dev
     service: http://127.0.0.1:9570
+  - hostname: zslog.zeaz.dev
+    service: http://127.0.0.1:9581
   - service: http_status:404

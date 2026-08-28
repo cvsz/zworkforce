@@ -1,0 +1,22 @@
+[Unit]
+Description=30-day Cloudflare credential rotation
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/cvsz/platforms/zworkforce
+Environment=ROTATION_APPROVED=YES
+Environment=ROTATION_STATE_FILE=/home/cvsz/platforms/zworkforce/.rotation/cloudflare-rotation.json
+Environment=ROTATION_HOOK_DIR=/home/cvsz/platforms/zworkforce/scripts/cloudflare-rotation.d
+Environment=ROTATION_OUT_DIR=/home/cvsz/platforms/zworkforce/output/cloudflare-rotation
+Environment=ROTATION_BOOTSTRAP_ENV_FILE=/home/cvsz/.config/zworkforce/cloudflare-rotation.env
+ExecStart=/home/cvsz/platforms/zworkforce/scripts/rotate-cloudflare-secrets.sh --execute
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/home/cvsz/platforms/zworkforce/.rotation /home/cvsz/platforms/zworkforce/output/cloudflare-rotation /home/cvsz/platforms/zworkforce/.env.cloudflare
+

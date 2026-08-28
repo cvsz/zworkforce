@@ -220,3 +220,24 @@ http://laps.zeaz.dev:80 {
 	}
 }
 
+http://zany.zeaz.dev:8080, http://zany.zeaz.dev:80 {
+	bind 127.0.0.1
+
+	encode zstd gzip
+
+	header {
+		-Server
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "no-referrer"
+	}
+
+	reverse_proxy 127.0.0.1:8088 {
+		header_up Host {http.request.host}
+		header_up X-Forwarded-Proto https
+		header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+		header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+	}
+}
+
+

@@ -28,7 +28,7 @@ export class LiveVoiceSession {
     this.tenantId = options.tenantId;
     this.subjectId = options.subjectId;
     this.provider = options.provider || VOICE_PROVIDERS.GEMINI_LIVE;
-    this.model = options.model || (this.provider === VOICE_PROVIDERS.GEMINI_LIVE ? "gemini-2.0-flash-exp" : "gpt-4o-realtime-preview");
+    this.model = options.model || (this.provider === VOICE_PROVIDERS.GEMINI_LIVE ? "gemini-3.1-flash-live-preview" : "gpt-4o-realtime-preview");
     this.systemPrompt = options.systemPrompt || "You are Z.A.R.V.I.S., a voice assistant for zWorkforce.";
     this.vad = parseVadConfig(options.vadConfig || {});
     this.audioFormat = options.audioFormat || AUDIO_FORMATS.PCM16_24KHZ;
