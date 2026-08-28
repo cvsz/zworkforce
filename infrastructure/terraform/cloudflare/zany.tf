@@ -1,7 +1,7 @@
 variable "zany_hostname" {
   type        = string
   default     = "zany.zeaz.dev"
-  description = "Protected hostname for the zanything Universal AI Operator."
+  description = "Protected hostname for the zanything enterprise AI operator console."
 
   validation {
     condition     = endswith(lower(var.zany_hostname), ".${lower(var.zone_name)}")
@@ -11,31 +11,13 @@ variable "zany_hostname" {
 
 variable "zany_origin" {
   type        = string
-  default     = "http://127.0.0.1:8088"
-  description = "Loopback origin published by the zanything Universal AI Operator container."
+  default     = "http://127.0.0.1:8080"
+  description = "Loopback zanything gateway reached by cloudflared."
 
   validation {
-    condition     = can(regex("^http://127\\.0\\.0\\.1:[0-9]+$", var.zany_origin))
-    error_message = "zany_origin must use a loopback address."
+    condition     = var.zany_origin == "http://127.0.0.1:8080"
+    error_message = "zany_origin must use the local gateway at http://127.0.0.1:8080."
   }
-}
-
-variable "zany_access_allowed_emails" {
-  type        = set(string)
-  default     = []
-  description = "Exact operator emails allowed through Cloudflare Access for zanything. Empty inherits piewdash_access_allowed_emails."
-
-  validation {
-    condition = alltrue([
-      for email in var.zany_access_allowed_emails :
-      can(regex("^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$", lower(email)))
-    ])
-    error_message = "zany_access_allowed_emails must contain only valid operator emails."
-  }
-}
-
-locals {
-  zany_access_allowed_emails = length(var.zany_access_allowed_emails) > 0 ? var.zany_access_allowed_emails : var.piewdash_access_allowed_emails
 }
 
 resource "cloudflare_dns_record" "zany" {
@@ -63,7 +45,7 @@ resource "cloudflare_zero_trust_access_application" "zany" {
     precedence = 1
     decision   = "allow"
     include = [
-      for email in sort(tolist(local.zany_access_allowed_emails)) :
+      for email in sort(tolist(var.piewdash_access_allowed_emails)) :
       { email = { email = lower(email) } }
     ]
   }]
@@ -71,7 +53,7 @@ resource "cloudflare_zero_trust_access_application" "zany" {
 
 output "zany_url" {
   value       = "https://${var.zany_hostname}"
-  description = "Protected zanything Universal AI Operator URL after DNS, tunnel ingress, and Cloudflare Access are active."
+  description = "Protected zanything URL after DNS, tunnel ingress, and Cloudflare Access are active."
 }
 
 output "zany_access_audience" {

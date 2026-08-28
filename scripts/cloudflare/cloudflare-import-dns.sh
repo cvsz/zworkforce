@@ -63,10 +63,6 @@ declare -A resources=(
   [auth]="cloudflare_dns_record.auth"
   [zwf]="cloudflare_dns_record.zwf"
   [zwf-api]="cloudflare_dns_record.zwf_api"
-  [studio]="cloudflare_dns_record.studio"
-  [zarvis]="cloudflare_dns_record.zarvis"
-  [zider]="cloudflare_dns_record.zider"
-  [zany]="cloudflare_dns_record.zany"
   [zslog]="cloudflare_dns_record.zslog"
   [zeaz-one]="cloudflare_dns_record.zeaz_one[0]"
   [zeaz-one-support]="cloudflare_dns_record.zeaz_one_support[0]"
@@ -86,16 +82,12 @@ declare -A hostnames=(
   [auth]="${AUTH_HOSTNAME:-auth.zeaz.dev}"
   [zwf]="${ZWF_HOSTNAME:-zwf.zeaz.dev}"
   [zwf-api]="${ZWF_API_HOSTNAME:-zwf-api.zeaz.dev}"
-  [studio]="${STUDIO_HOSTNAME:-studio.zeaz.dev}"
-  [zarvis]="${ZARVIS_HOSTNAME:-zarvis.zeaz.dev}"
-  [zider]="${ZIDER_HOSTNAME:-zider.zeaz.dev}"
-  [zany]="${ZANY_HOSTNAME:-zany.zeaz.dev}"
   [zslog]="${ZSLOG_HOSTNAME:-zslog.zeaz.dev}"
   [zeaz-one]="${ZEAZ_ONE_HOSTNAME:-one.zeaz.dev}"
   [zeaz-one-support]="${ZEAZ_ONE_SUPPORT_HOSTNAME:-support.zeaz.dev}"
 )
 
-declare -a all_targets=(moopiew arin zttshop qwen chat piewdash zdash zerp cmeerp zai auth zwf zwf-api studio zarvis zider zany zslog)
+declare -a all_targets=(moopiew arin zttshop qwen chat piewdash zdash zerp cmeerp zai auth zwf zwf-api zslog)
 if [[ "${ZEAZ_ONE_ENABLED:-false}" == "true" ]]; then
   all_targets+=(zeaz-one zeaz-one-support)
 fi
