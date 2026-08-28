@@ -71,6 +71,7 @@ output "cloudflared_ingress" {
       { hostname = var.cmeerp_hostname, service = var.cmeerp_origin },
       { hostname = var.arin_hostname, service = var.arin_origin },
       { hostname = var.zai_hostname, service = var.zai_origin },
+      { hostname = var.zany_hostname, service = var.zany_origin },
       { hostname = var.auth_hostname, service = var.auth_origin },
       { hostname = var.laps_hostname, service = var.laps_origin },
     ],

@@ -204,6 +204,7 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "moopiew" {
         { hostname = var.arin_hostname, service = var.arin_origin },
         { hostname = var.zai_hostname, service = var.zai_origin },
         { hostname = var.autoc_hostname, service = var.autoc_origin },
+        { hostname = var.zany_hostname, service = var.zany_origin },
         { hostname = var.auth_hostname, service = var.auth_origin },
         { hostname = var.laps_hostname, service = var.laps_origin },
       ],
