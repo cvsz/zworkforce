@@ -259,6 +259,44 @@
       </div>
     </section>
 
+    <!-- Second Brain & Knowledge Graph Section (Javis OS Architecture Upgrade) -->
+    <section class="panel expandable-card" id="brainGraphCard">
+      <div class="panel-title">
+        <div><span class="eyebrow">SECOND BRAIN &amp; KNOWLEDGE GRAPH</span><h2>Tenant Memory Wiki &amp; Semantic Graph</h2></div>
+        <div class="card-tools">
+          <span class="pill bg-mint-pill">Live Graph</span>
+          <button class="icon-button card-maximize-btn" title="Toggle Fullscreen" onclick="toggleCardFullscreen('brainGraphCard')">🗖</button>
+        </div>
+      </div>
+      <div class="brain-graph-container">
+        <div class="brain-graph-viewport" id="brainGraphViewport">
+          <div class="brain-node central-node" style="top:50%;left:50%;"><span>🧠 Second Brain</span></div>
+          <div class="brain-node agent-node" style="top:25%;left:30%;"><span>🤖 Coder Agent</span></div>
+          <div class="brain-node agent-node" style="top:30%;left:70%;"><span>✍️ Writer Agent</span></div>
+          <div class="brain-node agent-node" style="top:75%;left:25%;"><span>🔍 Reviewer</span></div>
+          <div class="brain-node agent-node" style="top:70%;left:75%;"><span>🎙️ Z.A.R.V.I.S. Voice</span></div>
+          <div class="brain-node memory-node" style="top:15%;left:50%;"><span>📄 Tenant Wiki</span></div>
+          <div class="brain-node memory-node" style="top:85%;left:50%;"><span>🛡️ Security Policy</span></div>
+          <svg class="brain-edges" aria-hidden="true">
+            <line x1="50%" y1="50%" x2="30%" y2="25%" stroke="rgba(6,182,212,0.3)" stroke-width="1.5" stroke-dasharray="4"/>
+            <line x1="50%" y1="50%" x2="70%" y2="30%" stroke="rgba(99,102,241,0.3)" stroke-width="1.5" stroke-dasharray="4"/>
+            <line x1="50%" y1="50%" x2="25%" y2="75%" stroke="rgba(16,185,129,0.3)" stroke-width="1.5" stroke-dasharray="4"/>
+            <line x1="50%" y1="50%" x2="75%" y2="70%" stroke="rgba(139,92,246,0.3)" stroke-width="1.5" stroke-dasharray="4"/>
+            <line x1="50%" y1="50%" x2="50%" y2="15%" stroke="rgba(45,212,191,0.3)" stroke-width="1.5"/>
+            <line x1="50%" y1="50%" x2="50%" y2="85%" stroke="rgba(245,158,11,0.3)" stroke-width="1.5"/>
+          </svg>
+        </div>
+        <div class="brain-sidebar">
+          <span class="eyebrow">MEMORY ACCUMULATION</span>
+          <div class="brain-stat-row"><span>Indexed Nodes</span><strong id="brainNodesCount">34 entities</strong></div>
+          <div class="brain-stat-row"><span>Semantic Links</span><strong id="brainLinksCount">86 wikilinks</strong></div>
+          <div class="brain-stat-row"><span>Second Brain Storage</span><strong class="text-mint">Durable SQLite/RAG</strong></div>
+          <div class="divider"></div>
+          <p class="brain-hint">Knowledge accumulates permanently across agent sessions and voice chats without losing context.</p>
+        </div>
+      </div>
+    </section>
+
     <section class="two-col">
       <article class="panel">
         <div class="panel-title"><div><span class="eyebrow">REGISTRY</span><h2>Agents & policy</h2></div></div>
