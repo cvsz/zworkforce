@@ -35,7 +35,7 @@ Consolidate the `z-platform` monorepo into `zworkforce` to create a single unifi
 | `zarvis-perception` | `services/zarvis-perception` | Perception layer |
 | `zarvis-task-gateway` | `services/zarvis-task-gateway` | Task routing |
 | `zarvis-owner-voice-edge` | `services/zarvis-owner-voice-edge` | Voice edge |
-| `phase6-api` | `services/phase6-api` | Staging verification |
+| `phase6-api` | `services/zc-api` | Staging verification |
 | `zc` | `services/zc` | ZC API/CLI/webapp |
 | `z-prov` | `services/z-provisioning` | Service provisioning |
 
