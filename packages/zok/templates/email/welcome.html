@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to Zok Store</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f8fafc;
+      margin: 0;
+      padding: 0;
+      color: #0f172a;
+    }
+    .container {
+      max-width: 600px;
+      margin: 20px auto;
+      background-color: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .header {
+      background-color: #00c28e;
+      color: #ffffff;
+      padding: 30px;
+      text-align: center;
+    }
+    .content {
+      padding: 30px;
+      line-height: 1.6;
+    }
+    .button {
+      display: inline-block;
+      background-color: #00c28e;
+      color: #ffffff !important;
+      padding: 12px 24px;
+      border-radius: 30px;
+      text-decoration: none;
+      font-weight: bold;
+      margin: 20px 0;
+    }
+    .footer {
+      background-color: #0f172a;
+      color: #94a3b8;
+      padding: 20px;
+      text-align: center;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Welcome to Zok Store!</h1>
+    </div>
+    <div class="content">
+      <p>Hi {{customer_name}},</p>
+      <p>Thank you for connecting with us! To celebrate your signup, here is a special welcome discount voucher for 10% off your first purchase.</p>
+      <div style="text-align: center;">
+        <h2 style="color: #00c28e; font-size: 28px; margin: 10px 0;">WELCOME10</h2>
+        <a href="{{store_url}}" class="button">Visit Our Store</a>
+      </div>
+      <p>Best regards,<br>The Zok Team</p>
+    </div>
+    <div class="footer">
+      <p>© 2026 Zok. All rights reserved. You received this email because you subscribed to our channel.</p>
+    </div>
+  </div>
+</body>
+</html>

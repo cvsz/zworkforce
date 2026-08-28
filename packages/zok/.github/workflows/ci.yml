@@ -1,0 +1,83 @@
+name: Zok Release Verification CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zok-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-verification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ZOK_POSTGRES_TEST_URL: postgresql://zok:zok_test_password@127.0.0.1:5432/zok_test
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: zok
+          POSTGRES_PASSWORD: zok_test_password
+          POSTGRES_DB: zok_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U zok -d zok_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22.x'
+          cache: npm
+
+      - name: Verify release-control documents
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            "exec-planing.md"
+            "IMPLEMENTATION-CHECKLIST.md"
+            "CHANGELOG.md"
+            "ZOK_COMPLETE_RELEASE_PLAN.md"
+            "README.md"
+            "DEPLOYMENT_GUIDE.md"
+          )
+          for file in "${required[@]}"; do
+            test -s "$file" || { echo "Missing or empty required release document: $file"; exit 1; }
+          done
+
+      - name: Verify PostgreSQL client
+        run: psql --version
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Run lint checks
+        run: npm run lint
+
+      - name: Run TypeScript checks
+        run: npm run typecheck
+
+      - name: Verify production build
+        run: npm run build
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high

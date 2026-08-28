@@ -54,6 +54,7 @@ local skill records are required.
 | Disaster recovery | Backup/restore scripts, RPO/RTO targets | Prove recoverability with drill evidence, not just backups. |
 | Zeto content factory | ProMeta compilers, publishing adapters, QA scorecards | Produce and publish content that passes quality gates. |
 | Skill registry | Signed remote skill packages, host allowlisting | Install only verifiable, audited skills into a tenant runtime. |
+| Zok Conversational Commerce | Omnichannel Inbound, Thai dialect, Cart recovery, Webhook outbox | Drive sales, customer support and order fulfillment across LINE, WhatsApp, TikTok, Shopee, Shopify. |
 
 ## Agent contract
 
@@ -109,6 +110,7 @@ Every production agent should have:
 | `disaster-recovery-lead` | operations | sol | yes | Run backup/restore drills and validate RPO/RTO across data and secrets. |
 | `zeto-producer` | product | terra | yes | Compile, QA and publish content through the Zeto pipeline. |
 | `skill-registry-curator` | governance | sol | no | Verify skill manifest validation, signatures and registry host safety. |
+| `zok-merchant` | commerce | terra | yes | Manage conversational commerce, intent routing, cart recovery and omnichannel webhook dispatch across LINE, WhatsApp, TikTok, Shopee and Shopify. |
 
 ## Skill catalog
 
@@ -139,6 +141,7 @@ remote installation and remain small enough for audit.
 | `disaster-recovery` | disaster-recovery-lead | `workspace_read`, `shell_exec` | Run restore drills and validate RPO/RTO with captured evidence. |
 | `zeto-content-factory` | zeto-producer | `workspace_read`, `memory_search`, `media_generate` | Compile, QA and publish content through Zeto platform adapters. |
 | `skill-registry-governance` | skill-registry-curator | `workspace_read` | Verify manifest validation, signatures and registry host safety. |
+| `zok-commerce` | zok-merchant | `workspace_read`, `workspace_write`, `http_get` | Operate omnichannel conversational commerce, Thai dialect reasoning, order routing, cart recovery and signed webhook sync. |
 
 The repo-local Codex skill names are prefixed with `zworkforce-` so they can be
 discovered as project-specific instructions, while runtime manifests keep short
