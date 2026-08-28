@@ -26,7 +26,7 @@ variable "zwf_api_hostname" {
 
 variable "zwf_origin" {
   type        = string
-  default     = "http://127.0.0.1:9570"
+  default     = "http://127.0.0.1:9569"
   description = "Loopback origin published by the zWorkforce API service."
 
   validation {
@@ -70,7 +70,7 @@ variable "zarvis_hostname" {
 
 variable "zarvis_origin" {
   type        = string
-  default     = "http://127.0.0.1:9570"
+  default     = "http://127.0.0.1:9569"
   description = "Loopback origin published for Z.A.R.V.I.S. (zWorkforce API & Voice Gateway)."
 
   validation {
