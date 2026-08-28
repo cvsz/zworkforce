@@ -4,6 +4,8 @@ import sys
 import types
 import unittest
 
+from ai.cost_control import AICostController
+from ai.provider_policy import ProviderTier, RoutingMode, is_allowed_in_mode, normalize_routing_mode, provider_policy
 from ai.provider_registry import PROVIDER_SPECS, ProviderSpec, _resolve_provider_class, build_provider_factories
 from ai.router import AIRouter
 
@@ -92,6 +94,76 @@ class AIRouterTests(unittest.TestCase):
         self.assertEqual(fake_provider.calls[0][0], "this is a harmless prompt with enough words to keep the preferred provider")
         self.assertEqual(fake_provider.calls[0][1], "system policy")
         self.assertEqual(fake_provider.calls[0][2], {"temperature": 0.1})
+
+    def test_zero_mode_never_calls_external_preferred_provider(self) -> None:
+        external = FakeProvider()
+        local = FakeProvider()
+        router = AIRouter(
+            provider_factories={
+                "claude": lambda: external,
+                "ollama": lambda: local,
+            }
+        )
+
+        response = router.route_request(
+            "prompt-id",
+            {
+                "prompt": "use the local runtime for this harmless zero cost request",
+                "routing_mode": "zero",
+            },
+            preferred_provider="claude",
+        )
+
+        self.assertEqual(response["provider"], "ollama")
+        self.assertEqual(len(external.calls), 0)
+        self.assertEqual(len(local.calls), 1)
+
+    def test_zero_mode_fails_closed_without_local_runtime(self) -> None:
+        external = FakeProvider()
+        router = AIRouter(provider_factories={"claude": lambda: external})
+
+        with self.assertRaisesRegex(RuntimeError, "ZERO mode requires a configured local runtime"):
+            router.route_request(
+                "prompt-id",
+                {
+                    "prompt": "do not silently fall back to a paid provider",
+                    "routing_mode": "zero",
+                },
+                preferred_provider="claude",
+            )
+
+        self.assertEqual(len(external.calls), 0)
+
+    def test_budget_exhaustion_downgrades_to_local_only(self) -> None:
+        external = FakeProvider()
+        local = FakeProvider()
+        router = AIRouter(
+            provider_factories={
+                "claude": lambda: external,
+                "ollama": lambda: local,
+            },
+            cost_controller=AICostController(daily_budget_limit=0.0),
+        )
+
+        response = router.route_request(
+            "prompt-id",
+            {"prompt": "budget exhausted should use local only"},
+            preferred_provider="claude",
+        )
+
+        self.assertEqual(response["provider"], "ollama")
+        self.assertEqual(len(external.calls), 0)
+        self.assertEqual(len(local.calls), 1)
+
+    def test_provider_policy_is_conservative_for_unknown_providers(self) -> None:
+        self.assertEqual(provider_policy("ollama").tier, ProviderTier.LOCAL)
+        self.assertFalse(provider_policy("ollama").external)
+        self.assertTrue(provider_policy("unknown-provider").external)
+        self.assertFalse(is_allowed_in_mode("unknown-provider", RoutingMode.ZERO))
+
+    def test_invalid_routing_mode_is_rejected(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Unsupported routing mode"):
+            normalize_routing_mode("free-ish")
 
 
 if __name__ == "__main__":
