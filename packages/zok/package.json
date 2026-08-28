@@ -1,0 +1,51 @@
+{
+  "name": "zok-clone",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"node server.js\" \"vite --host 127.0.0.1\"",
+    "build": "vite build",
+    "start": "concurrently \"node server.js\" \"vite preview --host 127.0.0.1\"",
+    "lint": "eslint src server.js test scripts vite.config.js",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test 'test/*.test.js' 'src/tests/*.test.js' --test-reporter spec",
+    "test:a11y": "node --test 'src/tests/accessibility.test.js' --test-reporter spec",
+    "test:perf": "node --test 'src/tests/performance.test.js' --test-reporter spec",
+    "analyze:bundle": "vite build --mode analyze && source-map-explorer 'dist/**/*.js' --html dist/bundle-analysis.html",
+    "build:analyze": "vite build",
+    "dev:vite": "concurrently \"node server.js\" \"vite\"",
+    "build:vite": "vite build",
+    "preview:vite": "vite preview"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=9.0.0"
+  },
+  "dependencies": {
+    "adm-zip": "^0.6.0",
+    "clsx": "^2.1.1",
+    "cors": "^2.8.6",
+    "date-fns": "^4.4.0",
+    "express": "^5.2.1",
+    "lucide-react": "^1.31.0",
+    "pg": "^8.23.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.12.7",
+    "tailwind-merge": "^3.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/react": "^18.3.2",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^6.0.4",
+    "autoprefixer": "^10.4.19",
+    "concurrently": "^10.0.5",
+    "eslint": "^10.8.1",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.0"
+  }
+}

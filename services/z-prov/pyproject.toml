@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling==1.31.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "zeaz-provider"
+version = "0.4.0rc1"
+description = "Standalone Anthropic and OpenAI/Codex compatible multi-provider gateway"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+  "fastapi>=0.117,<0.118",
+  "httpx>=0.28,<1",
+  "pydantic>=2.11,<3",
+  "prometheus-client>=0.22,<1",
+  "PyYAML>=6.0,<7",
+  "redis>=6.4,<7",
+  "starlette>=0.47,<0.48",
+  "uvicorn[standard]>=0.35,<1",
+  "opentelemetry-api>=1.36,<2",
+  "opentelemetry-sdk>=1.36,<2",
+  "opentelemetry-exporter-otlp-proto-http>=1.36,<2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.4,<9",
+  "pytest-asyncio>=1.1,<2",
+  "ruff>=0.12,<1",
+]
+
+[project.scripts]
+zeaz-provider = "zeaz_provider.main:run"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/zeaz_provider"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = [
+  "src",
+  "packages/zeaz-agent/src",
+  "packages/zeaz-sandbox/src",
+  "packages/zeaz-control/src",
+  "packages/zeaz-enterprise/src",
+  "packages/zeaz-web/src",
+  "packages/zeaz-infra/src",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

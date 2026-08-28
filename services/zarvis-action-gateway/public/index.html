@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Z.A.R.V.I.S. Local Action Console</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">OWNER 4076926 · LOOPBACK ONLY</p>
+      <h1>Local Action Console</h1>
+      <p>Preview, approve, execute through the isolated worker, and roll back one reversible local sandbox preference.</p>
+    </header>
+
+    <section class="panel auth">
+      <label>Local owner token
+        <input id="token" type="password" autocomplete="current-password" placeholder="ZARVIS_LOCAL_OWNER_TOKEN">
+      </label>
+      <button id="save-token">Unlock local console</button>
+      <span id="connection">Locked</span>
+    </section>
+
+    <section class="grid">
+      <form id="preview-form" class="panel">
+        <h2>Create dry-run preview</h2>
+        <label>Preference key
+          <input id="key" value="assistant.response_style" pattern="[a-z][a-z0-9_.-]{0,63}" required>
+        </label>
+        <label>Next value
+          <input id="value" value="concise" maxlength="512" required>
+        </label>
+        <button type="submit">Preview exact impact</button>
+      </form>
+
+      <section class="panel danger">
+        <h2>Emergency controls</h2>
+        <button id="stop">Emergency stop and revoke</button>
+        <button id="resume" class="secondary">Resume local actions</button>
+      </section>
+    </section>
+
+    <section class="panel">
+      <div class="toolbar">
+        <h2>Action history</h2>
+        <button id="refresh" class="secondary">Refresh</button>
+      </div>
+      <div id="actions" class="actions"></div>
+    </section>
+
+    <pre id="log" aria-live="polite"></pre>
+  </main>
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

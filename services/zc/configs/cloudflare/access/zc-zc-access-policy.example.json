@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "applications": [
+    {
+      "hostname": "zai.zeaz.dev",
+      "policy": "authenticated-company-users",
+      "decision": "allow",
+      "identityProvider": "configure-in-cloudflare-zero-trust",
+      "sessionDuration": "8h"
+    }
+  ],
+  "api": {
+    "hostname": "api.zeaz.dev",
+    "protection": "application JWT and tenant-scoped RBAC",
+    "cloudflareAccess": false,
+    "reason": "Non-interactive CLI clients authenticate directly to the Enterprise API"
+  },
+  "notes": [
+    "Replace the identity provider placeholder before enabling Cloudflare Access.",
+    "Do not store Access service tokens in this file."
+  ]
+}

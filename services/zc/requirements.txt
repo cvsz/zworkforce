@@ -1,0 +1,40 @@
+anthropic>=0.75.0
+# 0.75.0+ needed for client.beta.agents / .environments / .sessions
+# (zAICoder Managed Agents — see zc_agents_sdk.ManagedAgentsClient) and
+# the streaming client used elsewhere. Most other modules in this project
+# talk to the Messages API directly over urllib and don't need the SDK at
+# all, so an older pin would still "work" for those — but --agent-managed-run
+# needs 0.75.0+ specifically.
+python-dotenv>=1.0.0
+
+# Vision / multimodal — no extra deps (base64 + urllib)
+# Batch API — no extra deps
+# Streaming — no extra deps
+# Files API — no extra deps
+
+# Optional: for local code execution tool
+# (code_exec runs in Anthropic's sandbox; no local deps needed)
+
+# Optional — multimedia subsystem (v1.3)
+# gtts>=2.5.0
+# pyttsx3>=2.90
+# moviepy>=1.0.3
+# music21>=9.1.0
+
+# Optional — --excel conversational spreadsheet chat (v1.14.0)
+# Not required for any other flag; zc_excel.py raises a clear error
+# and exits if these aren't installed and --excel is used.
+pandas>=2.0.0
+openpyxl>=3.1.0
+
+# Optional — --pptx conversational slide-deck chat (v1.15.0)
+# Not required for any other flag; zc_powerpoint.py raises a clear
+# error and exits if this isn't installed and --pptx is used.
+python-pptx>=0.6.23
+
+# --browse (v1.15.0) needs no extra deps: urllib + html.parser, both stdlib.
+
+# Optional — --tui full-screen Textual interface (v1.29.0)
+# Not required for any other flag; tui.py raises a clear error and exits
+# if this isn't installed and --tui is used.
+textual>=0.80.0

@@ -1,0 +1,9 @@
+# Web UI backend (webapp/backend/server.py) — additive to the project's
+# main requirements.txt, which already covers everything the Coder/CLI
+# core needs (anthropic, python-dotenv, etc). Install both:
+#   pip install -r requirements.txt -r webapp/requirements-web.txt
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+# Required by fastapi.testclient.TestClient (tests/test_webapp_server.py);
+# not a transitive dependency of fastapi or uvicorn[standard] on their own.
+httpx>=0.27.0

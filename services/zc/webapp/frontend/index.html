@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ai-coder — web</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ───────────────────────── sidebar ───────────────────────── -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">▍</span>
+      <div class="brand-text">
+        <span class="brand-name">ai-coder</span>
+        <span class="brand-sub">web console</span>
+      </div>
+      <span class="tl-spacer"></span>
+      <a href="control-panel.html" target="_blank" class="btn-ghost" style="text-decoration:none; margin-right:8px; font-size:0.8rem; padding: 4px 8px;">Control Panel</a>
+      <button id="themeToggle" class="theme-toggle" title="Toggle light/dark theme">☾</button>
+    </div>
+
+    <div class="side-section">
+      <label class="side-label">sessions</label>
+      <div id="sessionList" class="session-list">
+        <span class="session-list-empty">no sessions yet</span>
+      </div>
+    </div>
+
+    <div class="side-section">
+      <label class="side-label" for="streamToggle">
+        <input type="checkbox" id="streamToggle" checked style="accent-color:var(--accent);vertical-align:-2px;" />
+        stream response
+      </label>
+    </div>
+
+    <div class="side-section">
+      <label class="side-label">status</label>
+      <div id="healthDot" class="health-row">
+        <span class="dot" id="healthPip"></span>
+        <span id="healthText">checking…</span>
+      </div>
+    </div>
+
+    <div class="side-section">
+      <label class="side-label" for="modelSelect">model</label>
+      <select id="modelSelect"></select>
+    </div>
+
+    <div class="side-section">
+      <label class="side-label" for="personalitySelect">personality</label>
+      <select id="personalitySelect">
+        <option value="">none</option>
+      </select>
+    </div>
+
+    <div class="side-section">
+      <label class="side-label" for="agentSelect">agent role</label>
+      <select id="agentSelect">
+        <option value="">none</option>
+      </select>
+    </div>
+
+    <div class="side-section">
+      <label class="side-label" for="skillSelect">skill focus</label>
+      <select id="skillSelect">
+        <option value="">none</option>
+      </select>
+    </div>
+
+    <div class="side-section">
+      <label class="side-label" for="tempRange">temperature <span id="tempVal">0.3</span></label>
+      <input type="range" id="tempRange" min="0" max="1" step="0.05" value="0.3" />
+    </div>
+
+    <div class="side-section grow">
+      <label class="side-label" for="systemPrompt">system prompt</label>
+      <textarea id="systemPrompt" rows="4" placeholder="optional — extra instructions prepended to every request"></textarea>
+    </div>
+
+    <div class="side-section">
+      <label class="side-label" for="apiKeyInput">api key <span class="hint">(session only)</span></label>
+      <input type="password" id="apiKeyInput" placeholder="sk-ant-…" autocomplete="off" />
+      <button id="saveKeyBtn" class="btn-ghost">save to server config</button>
+    </div>
+
+    <div class="side-footer">
+      <button id="newSessionBtn" class="btn-ghost">＋ new session</button>
+      <span id="versionTag" class="version-tag">v…</span>
+    </div>
+  </aside>
+
+  <!-- ───────────────────────── terminal window ───────────────────────── -->
+  <main class="terminal">
+    <div class="titlebar">
+      <div class="tl-dots"><span></span><span></span><span></span></div>
+      <div class="tl-title">ai-coder@web — session <span id="sessionIdTag">new</span></div>
+      <div class="tl-spacer"></div>
+    </div>
+
+    <div class="transcript" id="transcript">
+      <div class="welcome">
+        <p><span class="prompt-sym">&gt;</span> ai-coder web console ready.</p>
+        <p class="dim">Pick a model, personality, agent role or skill focus on the left, then type below.
+        Everything here calls the exact same <code>Coder</code> class the CLI uses — no behaviour is duplicated.</p>
+      </div>
+    </div>
+
+    <form class="inputbar" id="chatForm">
+      <span class="prompt-sym">$</span>
+      <textarea id="promptInput" rows="1" placeholder="Ask ai-coder anything…  (Shift+Enter for newline)"></textarea>
+      <span class="cursor-blink" id="cursorBlink">▍</span>
+      <button type="submit" id="sendBtn">run</button>
+    </form>
+  </main>
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

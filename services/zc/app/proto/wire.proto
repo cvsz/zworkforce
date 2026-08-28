@@ -1,0 +1,186 @@
+syntax = "proto3";
+
+package wire.v1;
+
+// Core CLI-to-API Envelope for multiplexed requests
+message CliEnvelope {
+    string request_id = 1;          // Unique request correlation ID
+    uint64 timestamp_ns = 2;        // Nanosecond precision timestamp
+    string client_version = 3;      // Wire CLI version
+    string auth_token = 4;          // JWT/mTLS token
+    
+    oneof payload {
+        // File Upload Operations
+        UploadInitRequest init_upload = 10;
+        ChunkUploadRequest upload_chunk = 11;
+        UploadFinalizeRequest finalize_upload = 12;
+        
+        // Command Execution
+        CommandExecuteRequest execute_command = 20;
+        
+        // Delta Sync
+        DeltaSyncRequest delta_sync = 30;
+        
+        // Health & Status
+        HealthCheckRequest health_check = 40;
+    }
+}
+
+// Response Envelope
+message CliResponse {
+    string request_id = 1;
+    uint64 timestamp_ns = 2;
+    bool success = 3;
+    string error_message = 4;
+    ErrorCode error_code = 5;
+    
+    oneof payload {
+        UploadInitResponse init_upload = 10;
+        ChunkUploadResponse upload_chunk = 11;
+        UploadFinalizeResponse finalize_upload = 12;
+        CommandExecuteResponse execute_command = 20;
+        DeltaSyncResponse delta_sync = 30;
+        HealthCheckResponse health_check = 40;
+    }
+}
+
+enum ErrorCode {
+    ERROR_NONE = 0;
+    ERROR_AUTH_FAILED = 1;
+    ERROR_INVALID_REQUEST = 2;
+    ERROR_CHUNK_INTEGRITY = 3;
+    ERROR_SESSION_EXPIRED = 4;
+    ERROR_STORAGE_FULL = 5;
+    ERROR_RATE_LIMITED = 6;
+    ERROR_INTERNAL = 99;
+}
+
+// === File Upload Messages ===
+
+message UploadInitRequest {
+    string file_id = 1;             // Content-addressable ID (BLAKE3)
+    string file_name = 2;
+    uint64 total_size = 3;
+    string content_hash = 4;        // Full file BLAKE3 hash
+    repeated string existing_chunks = 5;  // Client-side chunk hashes
+    map<string, string> metadata = 6;
+}
+
+message UploadInitResponse {
+    string upload_session_id = 1;
+    repeated int32 missing_chunk_indices = 2;  // Chunks to upload
+    uint64 chunk_size = 3;
+    uint64 estimated_transfer_bytes = 4;
+    string storage_endpoint = 5;    // Direct S3 presigned URL (optional)
+}
+
+message ChunkUploadRequest {
+    string session_id = 1;
+    int32 chunk_index = 2;
+    bytes data = 3;                 // Raw chunk bytes (max 4MB)
+    string chunk_hash = 4;          // BLAKE3 hash of chunk
+    uint32 compression_type = 5;    // 0=none, 1=zstd, 2=gzip
+}
+
+message ChunkUploadResponse {
+    bool success = 1;
+    string chunk_storage_key = 2;   // CAS key in object store
+    uint64 bytes_received = 3;
+    float progress_percent = 4;
+}
+
+message UploadFinalizeRequest {
+    string session_id = 1;
+    repeated string chunk_keys = 2;  // Ordered list of stored chunk keys
+    string final_hash = 3;           // Verify complete file integrity
+}
+
+message UploadFinalizeResponse {
+    bool success = 1;
+    string file_uri = 2;            // s3://bucket/key or file://path
+    uint64 total_bytes = 3;
+    uint64 processing_time_ms = 4;
+}
+
+// === Command Execution ===
+
+message CommandExecuteRequest {
+    string command = 1;
+    repeated string args = 2;
+    map<string, string> env_vars = 3;
+    uint32 timeout_seconds = 4;
+    bytes stdin_data = 5;
+}
+
+message CommandExecuteResponse {
+    int32 exit_code = 1;
+    bytes stdout_data = 2;
+    bytes stderr_data = 3;
+    uint64 execution_time_ms = 4;
+}
+
+// === Delta Sync (Binary Diffing) ===
+
+message DeltaSyncRequest {
+    string file_id = 1;
+    string base_version_hash = 2;     // Current local version
+    string target_version_hash = 3;   // Desired remote version
+    bytes delta_patch = 4;            // BSDiff/VCDIFF encoded patch
+    string patch_algorithm = 5;       // "bsdiff", "vcdiff", "xdelta"
+}
+
+message DeltaSyncResponse {
+    bool success = 1;
+    string new_version_hash = 2;
+    uint64 bytes_saved = 3;           // Bandwidth saved vs full upload
+    uint64 patch_apply_time_ms = 4;
+}
+
+// === Health Check ===
+
+message HealthCheckRequest {
+    bool include_metrics = 1;
+    bool include_traces = 2;
+}
+
+message HealthCheckResponse {
+    string status = 1;                // "healthy", "degraded", "unhealthy"
+    string version = 2;
+    uint64 uptime_seconds = 3;
+    float latency_p50_ms = 4;
+    float latency_p99_ms = 5;
+    int64 active_connections = 6;
+    int64 pending_uploads = 7;
+}
+
+// === Streaming for Real-time Progress ===
+
+message UploadProgressStream {
+    string session_id = 1;
+    float percent_complete = 2;
+    uint64 bytes_transferred = 3;
+    uint64 bytes_total = 4;
+    float transfer_rate_mbps = 5;
+    uint64 eta_seconds = 6;
+}
+
+message UploadProgressRequest {
+    string session_id = 1;
+}
+
+service WireService {
+    // Initialize an upload session
+    rpc InitUpload(UploadInitRequest) returns (UploadInitResponse);
+    
+    // Upload a single chunk
+    rpc UploadChunk(ChunkUploadRequest) returns (ChunkUploadResponse);
+    
+    // Stream progress updates for an upload
+    rpc StreamUploadProgress(UploadProgressRequest) returns (stream UploadProgressStream);
+    
+    // Sync file using delta updates
+    rpc SyncDelta(DeltaSyncRequest) returns (DeltaSyncResponse);
+    
+    // Health check
+    rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}

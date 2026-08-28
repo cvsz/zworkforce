@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "zone": "zeaz.dev",
+  "costPolicy": {
+    "plan": "Free",
+    "allowPaidFeatures": false
+  },
+  "ownership": {
+    "zeaz.dev": "ZEAZDEV COMPANY LIMITED loading page",
+    "zai.zeaz.dev": "zc web application and control panel",
+    "api.zeaz.dev": "zc Enterprise API"
+  },
+  "invariants": [
+    "zc Terraform must not manage the zeaz.dev apex record",
+    "Public zc traffic must enter through Cloudflare Tunnel",
+    "The Enterprise API must not expose arbitrary CLI execution",
+    "Metrics and internal service ports must not be publicly routed"
+  ]
+}

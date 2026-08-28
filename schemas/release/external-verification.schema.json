@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://z-platform.dev/schemas/release/external-verification.schema.json",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec", "status"],
+  "properties": {
+    "apiVersion": {"const": "release.zeaz.dev/v1alpha1"},
+    "kind": {"const": "ExternalVerification"},
+    "metadata": {"type": "object", "required": ["name"]},
+    "spec": {
+      "type": "object",
+      "required": ["repository", "environment", "revision", "execution", "checks", "evidence"],
+      "properties": {
+        "repository": {"const": "cvsz/z-platform"},
+        "environment": {"const": "staging"},
+        "revision": {"type": "object", "required": ["commitSha", "imageDigests"]},
+        "execution": {"type": "object", "required": ["githubRunId", "githubRunUrl", "startedAt", "completedAt", "actor"]},
+        "checks": {"type": "object", "required": ["health", "authentication", "authorization", "providerConnectivity", "jobLifecycle", "cancellation", "idempotency", "failurePaths", "rateLimits", "auditExport", "secretExposure"]},
+        "evidence": {"type": "object", "required": ["report", "deploymentLogs", "testReport", "redactionReport", "digest"]}
+      }
+    },
+    "status": {"type": "object", "required": ["state", "findings", "reviewer", "reviewedAt"], "properties": {"state": {"enum": ["PENDING_EXTERNAL", "VERIFIED_EXTERNAL"]}}}
+  }
+}

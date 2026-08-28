@@ -1,0 +1,4 @@
+wrangler.generated.jsonc
+src/index.js
+.wrangler/
+.dev.vars

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://z-platform.dev/schemas/release/staging-inventory.schema.json",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec", "status"],
+  "properties": {
+    "apiVersion": {"const": "release.zeaz.dev/v1alpha1"},
+    "kind": {"const": "StagingInventory"},
+    "metadata": {"type": "object", "required": ["name"]},
+    "spec": {
+      "type": "object",
+      "required": ["repository", "environment", "region", "revision", "components"],
+      "properties": {
+        "repository": {"const": "cvsz/z-platform"},
+        "environment": {"const": "staging"},
+        "revision": {
+          "type": "object",
+          "required": ["commitSha", "deployedAt", "operator", "images"],
+          "properties": {
+            "commitSha": {"$ref": "common.schema.json#/$defs/fullCommitSha"},
+            "deployedAt": {"$ref": "common.schema.json#/$defs/timestamp"},
+            "images": {"type": "object", "minProperties": 1, "additionalProperties": {"$ref": "common.schema.json#/$defs/imageDigest"}}
+          }
+        },
+        "components": {"type": "object", "required": ["database", "queue", "objectStorage", "identityProvider", "sandbox", "observability", "secretManager"]}
+      }
+    },
+    "status": {"type": "object", "required": ["state", "evidenceRoot"], "properties": {"state": {"enum": ["PENDING_EXTERNAL", "VERIFIED_EXTERNAL"]}}}
+  }
+}

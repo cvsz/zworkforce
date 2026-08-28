@@ -1,0 +1,24 @@
+# Cilium values for Ubuntu 24.04 + k3s with kube-proxy replacement.
+# Install only during an approved maintenance window.
+kubeProxyReplacement: true
+k8sServiceHost: 127.0.0.1
+k8sServicePort: 6443
+k8sNamespace: kube-system
+ipam:
+  mode: kubernetes
+routingMode: tunnel
+tunnelProtocol: geneve
+enableIPv4Masquerade: true
+operator:
+  replicas: 1
+  prometheus:
+    enabled: true
+rollOutCiliumPods: true
+hubble:
+  enabled: true
+  relay:
+    enabled: true
+  ui:
+    enabled: false
+prometheus:
+  enabled: true
