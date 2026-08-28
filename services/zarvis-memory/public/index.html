@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Z.A.R.V.I.S. Memory & Privacy</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">OWNER-ONLY MEMORY CONTROL</p>
+      <h1>Z.A.R.V.I.S. Memory</h1>
+      <p>ทุกการบันทึกต้องเสนอและยืนยันก่อน ข้อมูลถูกเข้ารหัสและลบได้โดยเจ้าของ</p>
+    </header>
+    <section class="panel">
+      <h2>เสนอ Memory ใหม่</h2>
+      <textarea id="content" rows="4" placeholder="สิ่งที่ต้องการให้ระบบจดจำ"></textarea>
+      <div class="row">
+        <select id="classification">
+          <option value="semantic">Semantic</option>
+          <option value="episodic">Episodic</option>
+          <option value="procedural">Procedural</option>
+          <option value="working">Working</option>
+        </select>
+        <input id="reason" value="Owner confirmed preference" aria-label="Reason" />
+        <button id="propose">สร้างข้อเสนอ</button>
+      </div>
+      <pre id="proposal">ยังไม่มีข้อเสนอ</pre>
+    </section>
+    <section class="panel">
+      <div class="row between">
+        <h2>Memory ที่ใช้งานอยู่</h2>
+        <div class="row">
+          <input id="search" placeholder="ค้นหา" />
+          <button id="refresh">รีเฟรช</button>
+          <button id="export">Export JSON</button>
+        </div>
+      </div>
+      <ul id="memories"></ul>
+    </section>
+    <p id="status" role="status">พร้อมใช้งาน</p>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

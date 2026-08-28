@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.zeaz.dev/zarvis/perception-provenance.v1.schema.json",
+  "title": "ZARVIS Perception Provenance v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source_name", "source_modality", "media_type", "byte_length", "sha256", "captured_at", "analyzed_at", "analyzer", "owner_user_id", "tenant_id"],
+  "properties": {
+    "schema_version": { "const": "zarvis.perception.provenance.v1" },
+    "source_name": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "source_modality": { "enum": ["image", "document", "screen", "camera"] },
+    "media_type": { "enum": ["text/plain", "application/pdf", "image/png", "image/jpeg"] },
+    "byte_length": { "type": "integer", "minimum": 1, "maximum": 5242880 },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "captured_at": { "type": ["string", "null"], "maxLength": 64 },
+    "analyzed_at": { "type": "string", "format": "date-time" },
+    "analyzer": { "const": "zarvis-local-redaction-v1" },
+    "owner_user_id": { "const": "github:4076926" },
+    "tenant_id": { "const": "owner-4076926" }
+  }
+}

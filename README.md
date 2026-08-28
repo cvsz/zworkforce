@@ -35,6 +35,8 @@ The repository also contains:
 - The **Zeto** AI Content Factory & M11/M12 Neural Operator Stack under [`packages/zeto/`](packages/zeto/), including ProMeta prompt compilers, multi-platform publishing adapters, QA scorecards, point-cloud canvas HUD, and M12 tool registry.
 - The **ZSP AI Studio** & HyperFrames Video Generator under [`packages/zsp-aitool/`](packages/zsp-aitool/), an enterprise Thai-first affiliate marketing suite with 23 Prisma models, multi-scene video rendering, and vision OCR.
 - The **Zider** AI Browser Companion under [`packages/zider/`](packages/zider/), a Manifest V3 Shadow DOM isolated sidebar, ChatPDF document intelligence, and multi-model group streaming gateway.
+- The **Zok Conversational Commerce OS** under [`packages/zok/`](packages/zok/), an omnichannel inbound and order routing gateway (LINE OA, WhatsApp, Shopee, TikTok Shop, Shopify).
+- The **Microservices & Apps Monorepo Ecosystem** under [`services/`](services/) and [`apps/`](apps/), unified from `z-platform` with shared type schemas in [`packages/contracts/`](packages/contracts/).
 - The **Master Orchestrator & CLI** in [`control.sh`](control.sh) and [`cmd/zctl/`](cmd/zctl/) for single-command lifecycle management, diagnostics, and full validation.
 
 

@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: phase6-api
+  labels: {app.kubernetes.io/name: phase6-api, app.kubernetes.io/part-of: z-platform}
+spec:
+  replicas: 3
+  selector: {matchLabels: {app.kubernetes.io/name: phase6-api}}
+  template:
+    metadata: {labels: {app.kubernetes.io/name: phase6-api, app.kubernetes.io/part-of: z-platform}}
+    spec:
+      serviceAccountName: z-platform
+      securityContext: {runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: phase6-api
+          image: ghcr.io/cvsz/z-platform/phase6-api:dev
+          ports: [{name: http, containerPort: 8080}]
+          envFrom: [{secretRef: {name: z-platform-runtime}}]
+          readinessProbe:
+            httpGet: {path: /health/ready, port: http}
+            initialDelaySeconds: 5
+          livenessProbe:
+            httpGet: {path: /health/live, port: http}
+            periodSeconds: 20
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: 1, memory: 1Gi}
+          securityContext: {runAsUser: 10001, runAsGroup: 10001, allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zc-api
+  labels: {app.kubernetes.io/name: zc-api, app.kubernetes.io/part-of: z-platform}
+spec:
+  replicas: 3
+  selector: {matchLabels: {app.kubernetes.io/name: zc-api}}
+  template:
+    metadata: {labels: {app.kubernetes.io/name: zc-api, app.kubernetes.io/part-of: z-platform}}
+    spec:
+      serviceAccountName: z-platform
+      securityContext: {runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: zc-api
+          image: ghcr.io/cvsz/z-platform/zc-api:dev
+          ports: [{name: http, containerPort: 8420}, {name: grpc, containerPort: 8421}]
+          envFrom: [{secretRef: {name: z-platform-runtime}}]
+          readinessProbe: {httpGet: {path: /v1/wire/health/ready, port: http}, periodSeconds: 10}
+          livenessProbe: {httpGet: {path: /v1/wire/health/live, port: http}, periodSeconds: 20}
+          resources: {requests: {cpu: 250m, memory: 512Mi}, limits: {cpu: 2, memory: 2Gi}}
+          securityContext: {runAsUser: 10001, runAsGroup: 10001, allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-gateway
+  labels: {app.kubernetes.io/name: ai-gateway, app.kubernetes.io/part-of: z-platform}
+spec:
+  replicas: 3
+  selector: {matchLabels: {app.kubernetes.io/name: ai-gateway}}
+  template:
+    metadata: {labels: {app.kubernetes.io/name: ai-gateway, app.kubernetes.io/part-of: z-platform}}
+    spec:
+      serviceAccountName: z-platform
+      securityContext: {runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: ai-gateway
+          image: ghcr.io/cvsz/z-platform/ai-gateway:dev
+          ports: [{name: http, containerPort: 8400}]
+          envFrom: [{secretRef: {name: z-platform-runtime}}]
+          env:
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: "8400"
+          readinessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 10}
+          livenessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 20}
+          resources: {requests: {cpu: 100m, memory: 256Mi}, limits: {cpu: 1, memory: 1Gi}}
+          securityContext: {runAsUser: 1000, runAsGroup: 1000, allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zchat
+  labels: {app.kubernetes.io/name: zchat, app.kubernetes.io/part-of: z-platform}
+spec:
+  replicas: 3
+  selector: {matchLabels: {app.kubernetes.io/name: zchat}}
+  template:
+    metadata: {labels: {app.kubernetes.io/name: zchat, app.kubernetes.io/part-of: z-platform}}
+    spec:
+      serviceAccountName: z-platform
+      securityContext: {runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: zchat
+          image: ghcr.io/cvsz/z-platform/zchat:dev
+          ports: [{name: http, containerPort: 3021}]
+          envFrom: [{secretRef: {name: z-platform-runtime}}]
+          readinessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 10}
+          livenessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 20}
+          resources: {requests: {cpu: 100m, memory: 256Mi}, limits: {cpu: 1, memory: 1Gi}}
+          securityContext: {runAsUser: 1000, runAsGroup: 1000, allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}

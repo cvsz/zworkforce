@@ -1,0 +1,8 @@
+# Approved maintenance-window merge for the single-node k3s cluster.
+disable:
+  - traefik
+  - metrics-server
+  - local-storage
+flannel-backend: none
+disable-kube-proxy: true
+disable-network-policy: true

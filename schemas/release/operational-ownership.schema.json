@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://z-platform.dev/schemas/release/operational-ownership.schema.json",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec", "status"],
+  "properties": {
+    "apiVersion": {"const": "release.zeaz.dev/v1alpha1"},
+    "kind": {"const": "OperationalOwnership"},
+    "metadata": {"type": "object", "required": ["name"]},
+    "spec": {
+      "type": "object",
+      "required": ["candidate", "roles", "escalation"],
+      "properties": {
+        "candidate": {"type": "object", "required": ["repository", "commitSha", "environment", "changeWindow"], "properties": {"repository": {"const": "cvsz/z-platform"}, "environment": {"const": "production"}}},
+        "roles": {"type": "object", "required": ["incidentOwner", "platformOwner", "securityOwner", "releaseOperator", "productionApprover", "rollbackOwner"]},
+        "escalation": {"type": "object", "required": ["sev1", "sev2", "sev3"]}
+      }
+    },
+    "status": {"type": "object", "required": ["state", "approvalRef", "approvedBy", "approvedAt"], "properties": {"state": {"enum": ["PENDING_OPERATOR", "APPROVED_OPERATOR"]}}}
+  }
+}

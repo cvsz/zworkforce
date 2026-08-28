@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.zeaz.dev/zarvis/action-rollback.v1.schema.json",
+  "title": "ZARVIS Local Action Rollback Request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["rollback_digest", "rollback_nonce"],
+  "properties": {
+    "schema_version": { "const": "zarvis.action.rollback.v1" },
+    "rollback_digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "rollback_nonce": { "type": "string", "minLength": 1, "maxLength": 128 }
+  }
+}

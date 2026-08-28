@@ -1,0 +1,142 @@
+services:
+  provider:
+    build: .
+    image: zeaz/provider:0.4.0-rc.1
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./config/providers.yaml:/app/config/providers.yaml:ro
+    ports:
+      - "127.0.0.1:${ZEAZ_PORT:-8080}:8080"
+    networks:
+      - provider
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "2.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+  control:
+    profiles: ["control"]
+    build:
+      context: .
+      dockerfile: Dockerfile.control
+    image: zeaz/control:0.1.0-alpha.1
+    restart: unless-stopped
+    environment:
+      ZEAZ_CONTROL_STATE: /var/lib/zeaz-control/control.sqlite3
+    volumes:
+      - control-state:/var/lib/zeaz-control
+    ports:
+      - "127.0.0.1:${ZEAZ_CONTROL_PORT:-8090}:8090"
+    networks:
+      - control
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "1.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+  enterprise:
+    profiles: ["enterprise"]
+    build:
+      context: .
+      dockerfile: Dockerfile.enterprise
+    image: zeaz/enterprise:0.1.0-alpha.1
+    restart: unless-stopped
+    environment:
+      ZEAZ_ENTERPRISE_WEBHOOK_STATE: /var/lib/zeaz-enterprise/webhook-replay.sqlite3
+    volumes:
+      - enterprise-state:/var/lib/zeaz-enterprise
+    ports:
+      - "127.0.0.1:${ZEAZ_ENTERPRISE_PORT:-8091}:8091"
+    networks:
+      - enterprise
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "1.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+  web:
+    profiles: ["web"]
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    image: zeaz/web:0.1.0-alpha.1
+    restart: unless-stopped
+    environment:
+      ZEAZ_WEB_GATEWAY_URL: http://provider:8080
+      ZEAZ_WEB_CONTROL_URL: http://control:8090
+      ZEAZ_WEB_ENTERPRISE_URL: http://enterprise:8091
+    ports:
+      - "127.0.0.1:${ZEAZ_WEB_PORT:-8070}:8070"
+    networks:
+      - provider
+      - control
+      - enterprise
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "1.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+networks:
+  provider:
+    internal: false
+  control:
+    internal: false
+  enterprise:
+    internal: false
+  web:
+    internal: true
+
+volumes:
+  control-state:
+  enterprise-state:

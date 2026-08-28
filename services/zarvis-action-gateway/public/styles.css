@@ -1,0 +1,28 @@
+:root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background:#070b14; color:#e8eefc; }
+* { box-sizing:border-box; }
+body { margin:0; min-height:100vh; background:radial-gradient(circle at top right,#14213a,#070b14 45%); }
+main { width:min(1100px,calc(100% - 32px)); margin:0 auto; padding:48px 0 80px; }
+header { margin-bottom:24px; }
+h1 { margin:.25rem 0 .5rem; font-size:clamp(2rem,5vw,4rem); letter-spacing:-.04em; }
+h2 { margin-top:0; }
+.eyebrow { color:#66e3ff; font-size:.78rem; font-weight:800; letter-spacing:.16em; }
+.panel { border:1px solid #253451; background:rgba(11,18,33,.86); border-radius:18px; padding:20px; box-shadow:0 18px 50px rgba(0,0,0,.25); }
+.auth,.toolbar { display:flex; align-items:end; gap:12px; flex-wrap:wrap; }
+.auth label { flex:1 1 360px; }
+.grid { display:grid; grid-template-columns:2fr 1fr; gap:18px; margin:18px 0; }
+label { display:grid; gap:8px; margin-bottom:14px; color:#b9c6dd; font-size:.9rem; }
+input { width:100%; border:1px solid #344767; border-radius:10px; background:#09101d; color:#fff; padding:12px 14px; }
+button { border:0; border-radius:10px; padding:12px 16px; background:#38c6ec; color:#031018; font-weight:800; cursor:pointer; }
+button:hover { filter:brightness(1.08); }
+button:disabled { opacity:.45; cursor:not-allowed; }
+button.secondary { background:#243553; color:#e8eefc; }
+.danger button:first-of-type { background:#ff6d7a; color:#210407; }
+.toolbar { justify-content:space-between; }
+.actions { display:grid; gap:12px; }
+.action { border:1px solid #263957; border-radius:14px; padding:16px; background:#09111f; }
+.action .meta { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.action code { color:#7ee7ff; }
+.action .controls { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+.badge { border:1px solid #385276; border-radius:999px; padding:4px 9px; font-size:.75rem; }
+pre { min-height:72px; white-space:pre-wrap; background:#03060c; border:1px solid #1c2a42; border-radius:12px; padding:14px; color:#9ef0b4; }
+@media (max-width:760px) { .grid { grid-template-columns:1fr; } }

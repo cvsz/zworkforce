@@ -1,0 +1,19 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: phase6-api}
+spec: {minAvailable: 2, selector: {matchLabels: {app.kubernetes.io/name: phase6-api}}}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: zc-api}
+spec: {minAvailable: 2, selector: {matchLabels: {app.kubernetes.io/name: zc-api}}}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: ai-gateway}
+spec: {minAvailable: 2, selector: {matchLabels: {app.kubernetes.io/name: ai-gateway}}}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: zchat}
+spec: {minAvailable: 2, selector: {matchLabels: {app.kubernetes.io/name: zchat}}}

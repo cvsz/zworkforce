@@ -1,0 +1,17 @@
+{
+  "name": "@z-platform/zeaz-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Full-stack bilingual ZEAZ One website for www.zeaz.dev",
+  "scripts": {
+    "assemble": "node scripts/assemble-source.mjs",
+    "build": "node scripts/assemble-source.mjs && node scripts/validate-build.mjs",
+    "lint": "node scripts/assemble-source.mjs && node --check src/index.js && node --check scripts/render-wrangler.mjs",
+    "typecheck": "node scripts/assemble-source.mjs && node --check src/index.js",
+    "test": "node scripts/assemble-source.mjs && node --test test/*.test.mjs",
+    "dev": "pnpm run assemble && pnpm dlx wrangler@4.114.0 dev --config wrangler.local.jsonc",
+    "deploy": "pnpm run assemble && pnpm dlx wrangler@4.114.0 deploy --config wrangler.generated.jsonc"
+  },
+  "engines": { "node": ">=22.13", "pnpm": ">=11" }
+}

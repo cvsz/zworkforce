@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://z-platform.dev/schemas/release/staging-review.schema.json",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": {"const": "release.zeaz.dev/v1alpha1"},
+    "kind": {"const": "StagingReview"},
+    "metadata": {"type": "object", "required": ["name"]},
+    "spec": {
+      "type": "object",
+      "required": ["reviewer", "reviewedAt", "revision", "findings", "decision", "attestation"],
+      "properties": {
+        "reviewer": {"type": "object", "required": ["identity", "role"], "properties": {"role": {"enum": ["operations", "security", "release"]}}},
+        "revision": {"type": "object", "required": ["repository", "commitSha", "environment", "evidenceRef", "evidenceDigest"], "properties": {"repository": {"const": "cvsz/z-platform"}, "environment": {"const": "staging"}}},
+        "findings": {"type": "array"},
+        "decision": {"type": "object", "required": ["externalState", "recommendation", "rationale", "conditions"], "properties": {"externalState": {"enum": ["VERIFIED_EXTERNAL", "PENDING_EXTERNAL", "EXTERNAL_VERIFICATION_FAILED"]}, "recommendation": {"enum": ["APPROVE", "REJECT", "CONDITIONAL"]}}},
+        "attestation": {"type": "object", "required": ["approvalRef", "signedAt"]}
+      }
+    }
+  }
+}

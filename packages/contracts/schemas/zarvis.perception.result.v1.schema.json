@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.zeaz.dev/zarvis/perception-result.v1.schema.json",
+  "title": "ZARVIS Perception Result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "result_id", "session_id", "source_modality", "media_type", "analysis", "security", "provenance", "expires_at", "created_at"],
+  "properties": {
+    "schema_version": { "const": "zarvis.perception.result.v1" },
+    "result_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "session_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "source_modality": { "enum": ["image", "document", "screen", "camera"] },
+    "media_type": { "enum": ["text/plain", "application/pdf", "image/png", "image/jpeg"] },
+    "analysis": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["kind", "summary"],
+      "properties": {
+        "kind": { "enum": ["redacted_text", "image_metadata"] },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "excerpt": { "type": "string", "maxLength": 1000 },
+        "word_count": { "type": "integer", "minimum": 0 },
+        "format": { "enum": ["png", "jpeg"] },
+        "width": { "type": "integer", "minimum": 1, "maximum": 16384 },
+        "height": { "type": "integer", "minimum": 1, "maximum": 16384 }
+      }
+    },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["untrusted_content", "policy_effect", "tool_grants", "raw_media_retained", "redaction_count", "injection_markers_neutralized"],
+      "properties": {
+        "untrusted_content": { "const": true },
+        "policy_effect": { "const": "none" },
+        "tool_grants": { "type": "array", "maxItems": 0 },
+        "raw_media_retained": { "const": false },
+        "redaction_count": { "type": "integer", "minimum": 0 },
+        "injection_markers_neutralized": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "provenance": { "$ref": "zarvis.perception.provenance.v1.schema.json" },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "created_at": { "type": "string", "format": "date-time" }
+  }
+}

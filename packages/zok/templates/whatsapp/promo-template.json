@@ -1,0 +1,40 @@
+{
+  "name": "zok_vip_promo_template",
+  "category": "MARKETING",
+  "allow_category_change": true,
+  "language": "en_US",
+  "components": [
+    {
+      "type": "HEADER",
+      "format": "TEXT",
+      "text": "August VIP Promotion"
+    },
+    {
+      "type": "BODY",
+      "text": "Hello {{1}}, here is your exclusive 15% discount for this month! Use coupon code: {{2}} at checkout. Valid till {{3}}.",
+      "example": {
+        "body_text": [
+          [
+            "Wilfried Buiron",
+            "VIP15",
+            "Aug 31"
+          ]
+        ]
+      }
+    },
+    {
+      "type": "FOOTER",
+      "text": "To unsubscribe, reply STOP."
+    },
+    {
+      "type": "BUTTONS",
+      "buttons": [
+        {
+          "type": "URL",
+          "text": "Shop Deals Now",
+          "url": "https://zok.zeaz.dev/deals"
+        }
+      ]
+    }
+  ]
+}

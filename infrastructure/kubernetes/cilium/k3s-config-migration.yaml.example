@@ -1,0 +1,5 @@
+# Merge these keys into /etc/rancher/k3s/config.yaml during the approved
+# maintenance window. Do not replace the existing config blindly.
+flannel-backend: none
+disable-kube-proxy: true
+disable-network-policy: true

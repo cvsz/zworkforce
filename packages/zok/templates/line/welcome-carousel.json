@@ -1,0 +1,33 @@
+{
+  "type": "template",
+  "altText": "Welcome to Zok Store Carousel",
+  "template": {
+    "type": "carousel",
+    "columns": [
+      {
+        "thumbnailImageUrl": "https://cdn.prod.website-files.com/641814af0ec494592ec981d5/6808a3131f4cb51289af07e1_Logo-Zok-Primary-1.91_1.png",
+        "title": "Welcome Voucher",
+        "text": "Get 10% off your purchase",
+        "actions": [
+          {
+            "type": "message",
+            "label": "Claim Voucher",
+            "text": "Claim welcome discount voucher"
+          }
+        ]
+      },
+      {
+        "thumbnailImageUrl": "https://cdn.prod.website-files.com/641814af0ec494592ec981d5/6808a3131f4cb51289af07e1_Logo-Zok-Primary-1.91_1.png",
+        "title": "Store Catalog",
+        "text": "Explore new arrivals",
+        "actions": [
+          {
+            "type": "uri",
+            "label": "View Products",
+            "uri": "https://zok.zeaz.dev/catalog"
+          }
+        ]
+      }
+    ]
+  }
+}

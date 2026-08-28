@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ZChat</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="topbar__title">
+        <h1>ZChat</h1>
+        <p>Gateway-only chat surface at zchat.zeaz.dev</p>
+      </div>
+      <div class="topbar__actions">
+        <button id="theme-toggle" type="button" aria-pressed="false" aria-label="Switch to dark mode">Dark mode</button>
+        <span class="conversation" id="conversation" aria-label="Conversation id">new</span>
+        <a href="/api/auth/cloudflare" id="login" role="button" aria-label="Log in with Cloudflare Access">Log in</a>
+        <button id="logout" type="button" aria-label="Log out">Log out</button>
+      </div>
+    </header>
+
+    <section class="workspace" aria-label="Chat workspace">
+      <aside class="history-panel" aria-label="Conversation history">
+        <div class="history-panel__header">
+          <div>
+            <h2>History</h2>
+            <p>Recent chats stay on the browser side only.</p>
+          </div>
+          <button id="new-chat" type="button" aria-label="Start a new chat">New chat</button>
+        </div>
+        <label class="history-search" for="history-search">
+          <span>Search chats</span>
+          <input id="history-search" type="search" placeholder="Search title or message" autocomplete="off" aria-keyshortcuts="Control+K Meta+K">
+        </label>
+        <ol id="history" class="history" aria-label="Saved conversations"></ol>
+      </aside>
+
+      <section class="workspace__main" aria-label="Active conversation">
+        <section class="conversation-panel" aria-label="Conversation details">
+          <label for="conversation-title">Conversation title</label>
+          <input id="conversation-title" type="text" placeholder="New chat">
+          <p class="hint">This title stays with the selected conversation and appears in history.</p>
+        </section>
+
+        <section class="export-panel" aria-label="Conversation export">
+          <div class="export-panel__header">
+            <div>
+              <h2>Export</h2>
+              <p>Copy the active conversation as Markdown or download it as JSON.</p>
+            </div>
+          </div>
+          <div class="export-panel__actions">
+            <button id="copy-markdown" type="button" aria-label="Copy active conversation as markdown">Copy markdown</button>
+            <button id="download-json" type="button" aria-label="Download active conversation as JSON">Download JSON</button>
+            <button id="import-json" type="button" aria-label="Import a validated conversation JSON file">Import JSON</button>
+            <input id="import-json-file" class="visually-hidden" type="file" accept="application/json,.json">
+          </div>
+        </section>
+
+        <section class="template-panel" aria-label="Prompt templates">
+          <div class="template-panel__header">
+            <div>
+              <h2>Prompt templates</h2>
+              <p>Save reusable prompts and start a new chat from one with a click.</p>
+            </div>
+          </div>
+          <form id="template-form" class="template-form">
+            <label for="template-title">Template name</label>
+            <input id="template-title" type="text" placeholder="Code review">
+            <label for="template-prompt">Template prompt</label>
+            <textarea id="template-prompt" rows="3" placeholder="Enter a reusable prompt"></textarea>
+            <div class="template-form__actions">
+              <p class="hint">Built-in prompts stay available; your custom templates are browser-local.</p>
+              <button id="save-template" type="submit">Save template</button>
+            </div>
+          </form>
+          <ol id="templates" class="templates" aria-label="Saved prompt templates"></ol>
+        </section>
+
+        <section class="prompt-panel" aria-label="Conversation instructions">
+          <label for="system-prompt">System prompt</label>
+          <textarea id="system-prompt" rows="4" placeholder="Set the instructions for this conversation"></textarea>
+          <p class="hint">Saved with the current chat and sent before each user message.</p>
+        </section>
+
+        <div class="toolbar" aria-label="Chat controls">
+          <label for="model">Model</label>
+          <select id="model" aria-label="Model"></select>
+          <div class="toolbar__buttons">
+            <button id="retry" type="button" aria-label="Retry last message">Retry</button>
+            <button id="clear" type="button" aria-label="Clear conversation">Clear</button>
+          </div>
+        </div>
+
+        <p id="status" class="status" role="status" aria-live="polite" data-tone="ready">Loading models</p>
+
+        <section class="transcript" aria-label="Conversation transcript">
+          <button id="load-older" class="load-older" type="button" hidden>Load older messages</button>
+          <ol id="transcript" class="messages" role="log" aria-live="polite" aria-relevant="additions text"></ol>
+          <div id="empty-state" class="empty-state">
+            Start a conversation. Replies stream into the timeline and stay on the server gateway path.
+          </div>
+        </section>
+
+        <form id="composer" class="composer">
+          <label for="prompt">Message</label>
+          <textarea id="prompt" rows="5" placeholder="Write a message"></textarea>
+          <div class="composer__actions">
+            <p class="hint">Enter sends. Shift+Enter inserts a new line. Ctrl/⌘+K searches chats.</p>
+            <div class="composer__actions-group">
+              <button id="stop" type="button" aria-label="Stop generating" disabled>Stop</button>
+              <button id="send" type="submit">Send</button>
+            </div>
+          </div>
+        </form>
+      </section>
+    </section>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

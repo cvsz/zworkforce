@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.zeaz.dev/zarvis/session-event.v1.schema.json",
+  "title": "ZARVIS Session Event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "event_type",
+    "occurred_at",
+    "session_id",
+    "command_id",
+    "actor",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": { "const": "zarvis.session.event.v1" },
+    "event_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "event_type": {
+      "enum": ["command.accepted", "command.completed", "command.failed"]
+    },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "session_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "command_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tenant_id", "user_id", "request_id"],
+      "properties": {
+        "tenant_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "user_id": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "request_id": { "type": "string", "minLength": 1, "maxLength": 160 }
+      }
+    },
+    "payload": { "type": "object" }
+  }
+}

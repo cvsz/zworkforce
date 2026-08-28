@@ -1,0 +1,11 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://schemas.zeaz.dev/zarvis/proactive-policy.v1.schema.json",
+  "title":"ZARVIS Proactive Policy v1","type":"object","additionalProperties":false,
+  "required":["schema_version","owner_user_id","tenant_id","timezone","quiet_hours_start","quiet_hours_end","daily_notification_budget","default_cooldown_minutes","confidence_threshold","updated_at"],
+  "properties":{
+    "schema_version":{"const":"zarvis.proactive.policy.v1"},"owner_user_id":{"const":"github:4076926"},"tenant_id":{"const":"owner-4076926"},
+    "timezone":{"type":"string","minLength":1,"maxLength":64},"quiet_hours_start":{"type":"string","pattern":"^([01]\\d|2[0-3]):[0-5]\\d$"},"quiet_hours_end":{"type":"string","pattern":"^([01]\\d|2[0-3]):[0-5]\\d$"},
+    "daily_notification_budget":{"type":"integer","minimum":0,"maximum":20},"default_cooldown_minutes":{"type":"integer","minimum":1,"maximum":1440},"confidence_threshold":{"type":"number","minimum":0,"maximum":1},"updated_at":{"type":["string","null"]}
+  }
+}
