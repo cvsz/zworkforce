@@ -313,5 +313,5 @@ Post-mortem scheduled for <date>.
 ### Related Documents
 
 - [`docs/gold-master-checklist.md`](../gold-master-checklist.md)
-- [`docs/operator-runbook-postgresql-cutover.md`](./operator-runbook-postgresql-cutover.md)
-- [`DEPLOYMENT_GUIDE.md`](../DEPLOYMENT_GUIDE.md)
+- [`docs/operator-runbook-postgresql-cutover.md`](../operator-runbook-postgresql-cutover.md)
+- [`docs/architecture.md`](../architecture.md)
