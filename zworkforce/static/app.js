@@ -21,8 +21,13 @@ function renderMemories(items){$('memoryList').innerHTML=items.map(m=>`<div clas
 async function taskAction(id,action){try{await api(`/api/v1/tasks/${id}/${action}`,{method:'POST',body:{comment:`Dashboard ${action}`}});await refresh();}catch(err){banner(err.message);}}
 $('connectBtn').addEventListener('click',()=>{void stopZarvisVoiceTransport();state.key=$('apiKey').value.trim();state.tenant=$('tenantId').value.trim()||'default';sessionStorage.setItem('zwf:key',state.key);sessionStorage.setItem('zwf:tenant',state.tenant);refresh();});
 $('refreshBtn').addEventListener('click',refresh);
-$('controlSidebarBtn')?.addEventListener('click',()=>{$('controlSidebar')?.classList.toggle('hidden');});
-$('closeControlSidebar')?.addEventListener('click',()=>{$('controlSidebar')?.classList.add('hidden');});
+function toggleControlSidebar(open){const sb=$('controlSidebar');const ob=$('controlSidebarOverlay');if(!sb)return;const shouldOpen=open!==undefined?open:sb.classList.contains('hidden');sb.classList.toggle('hidden',!shouldOpen);ob?.classList.toggle('hidden',!shouldOpen);}
+$('controlSidebarBtn')?.addEventListener('click',()=>toggleControlSidebar());
+$('closeControlSidebar')?.addEventListener('click',()=>toggleControlSidebar(false));
+$('controlSidebarOverlay')?.addEventListener('click',()=>toggleControlSidebar(false));
+window.addEventListener('keydown',(e)=>{if(e.key==='Escape'&&!$('controlSidebar')?.classList.contains('hidden'))toggleControlSidebar(false);});
+$('sidebarRefreshHealthBtn')?.addEventListener('click',async()=>{banner('');await refresh();});
+$('sidebarPurgeVoiceBtn')?.addEventListener('click',async()=>{await stopZarvisVoiceTransport();await refreshZarvisVoiceHealth();});
 $('prometaInstallBtn').addEventListener('click',async()=>{try{const btn=$('prometaInstallBtn');btn.disabled=true;$('prometaStatus').textContent='Installing ProMeta baseline...';const data=await api('/api/v1/prometa/install',{method:'POST',body:{}});$('prometaStatus').textContent=`Installed ${data.agents} agents, ${data.skills} skills, ${data.agent_templates} templates and ${data.workflows} workflows.`;await refresh();}catch(err){banner(err.message);$('prometaStatus').textContent='ProMeta install failed.';}finally{$('prometaInstallBtn').disabled=false;}});
 
 let slashActiveIndex = -1;

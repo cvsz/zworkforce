@@ -21,26 +21,89 @@
     </div>
   </header>
 
-  <!-- Right Offcanvas Control Sidebar -->
+  <!-- Right Offcanvas Control Sidebar & Backdrop -->
+  <div id="controlSidebarOverlay" class="sidebar-backdrop hidden"></div>
   <aside id="controlSidebar" class="control-sidebar hidden" aria-label="Control and Diagnostics Sidebar">
     <div class="control-sidebar-header">
-      <h3>System Telemetry</h3>
-      <button id="closeControlSidebar" class="icon-button" aria-label="Close">✕</button>
-    </div>
-    <div class="control-sidebar-content">
-      <div class="telemetry-card">
-        <span class="eyebrow">CLUSTER TOPOLOGY</span>
-        <div class="telemetry-item"><span>Control Plane</span><strong>Port 9569 (Active)</strong></div>
-        <div class="telemetry-item"><span>Voice Gateway</span><strong>Port 8450 (Realtime)</strong></div>
-        <div class="telemetry-item"><span>Action Gateway</span><strong>Port 8098 (Hardened)</strong></div>
-        <div class="telemetry-item"><span>Proactive Service</span><strong>Port 8099 (Autonomous)</strong></div>
-        <div class="telemetry-item"><span>Ollama LLM Engine</span><strong>Port 11434 (Online)</strong></div>
+      <div class="header-title-group">
+        <span class="telemetry-live-badge">LIVE PROBE</span>
+        <h3>System Telemetry</h3>
       </div>
+      <button id="closeControlSidebar" class="icon-button close-btn" aria-label="Close" title="Close Sidebar (Esc)">✕</button>
+    </div>
+    
+    <div class="control-sidebar-content">
+      <!-- Cluster Nodes & Ports -->
+      <div class="telemetry-card">
+        <div class="card-header-row">
+          <span class="eyebrow">CLUSTER TOPOLOGY &amp; SERVICES</span>
+          <span class="pulse-dot"></span>
+        </div>
+        <div class="telemetry-item">
+          <div class="service-meta">
+            <span class="service-name">Control Plane</span>
+            <small class="service-port">HTTP :9569</small>
+          </div>
+          <span class="badge-status online">Active</span>
+        </div>
+        <div class="telemetry-item">
+          <div class="service-meta">
+            <span class="service-name">Voice Gateway</span>
+            <small class="service-port">WS :8450</small>
+          </div>
+          <span class="badge-status realtime">PCM16 Realtime</span>
+        </div>
+        <div class="telemetry-item">
+          <div class="service-meta">
+            <span class="service-name">Action Gateway</span>
+            <small class="service-port">Loopback :8098</small>
+          </div>
+          <span class="badge-status hardened">Hardened</span>
+        </div>
+        <div class="telemetry-item">
+          <div class="service-meta">
+            <span class="service-name">Proactive Daemon</span>
+            <small class="service-port">Loopback :8099</small>
+          </div>
+          <span class="badge-status autonomous">Autonomous</span>
+        </div>
+        <div class="telemetry-item">
+          <div class="service-meta">
+            <span class="service-name">Ollama LLM Engine</span>
+            <small class="service-port">HTTP :11434</small>
+          </div>
+          <span class="badge-status online">qwen3:8b</span>
+        </div>
+      </div>
+
+      <!-- Security Boundaries -->
       <div class="telemetry-card">
         <span class="eyebrow">SECURITY BOUNDARIES</span>
-        <div class="telemetry-item"><span>Tenant Isolation</span><strong class="text-mint">ENFORCED</strong></div>
-        <div class="telemetry-item"><span>Mutating Tool Safety</span><strong class="text-amber">DENY-BY-DEFAULT</strong></div>
-        <div class="telemetry-item"><span>Voice Ephemeral Ticket</span><strong class="text-mint">HMAC SHA-256</strong></div>
+        <div class="telemetry-item">
+          <span>Tenant Isolation</span>
+          <strong class="text-mint">ENFORCED (Strict)</strong>
+        </div>
+        <div class="telemetry-item">
+          <span>Mutating Tools</span>
+          <strong class="text-amber">DENY-BY-DEFAULT</strong>
+        </div>
+        <div class="telemetry-item">
+          <span>Voice Auth Nonce</span>
+          <strong class="text-mint">HMAC SHA-256 (60s)</strong>
+        </div>
+        <div class="telemetry-item">
+          <span>Secrets In Static</span>
+          <strong class="text-mint">ZERO LEAKAGE (Server Only)</strong>
+        </div>
+      </div>
+
+      <!-- Quick Operations Actions -->
+      <div class="telemetry-card">
+        <span class="eyebrow">DIAGNOSTICS &amp; ACTIONS</span>
+        <div class="telemetry-actions-grid">
+          <button id="sidebarRefreshHealthBtn" class="ghost small w-full">🔄 Probe Services</button>
+          <button id="sidebarPurgeVoiceBtn" class="ghost small w-full danger-hover">🔌 Reset Voice Session</button>
+        </div>
       </div>
     </div>
   </aside>
