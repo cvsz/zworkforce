@@ -24,6 +24,28 @@ variable "zwf_api_hostname" {
   }
 }
 
+variable "zslog_hostname" {
+  type        = string
+  default     = "zslog.zeaz.dev"
+  description = "Public hostname for the zslog fake-credit realtime log service."
+
+  validation {
+    condition     = endswith(lower(var.zslog_hostname), ".${lower(var.zone_name)}")
+    error_message = "zslog_hostname must be a subdomain of zone_name."
+  }
+}
+
+variable "zslog_origin" {
+  type        = string
+  default     = "http://127.0.0.1:9581"
+  description = "Loopback origin published by the zslog fake-credit realtime log service."
+
+  validation {
+    condition     = can(regex("^http://127\\.0\\.0\\.1:[0-9]+$", var.zslog_origin))
+    error_message = "zslog_origin must use a loopback address."
+  }
+}
+
 variable "zwf_origin" {
   type        = string
   default     = "http://127.0.0.1:9570"
@@ -108,6 +130,7 @@ locals {
   zworkforce_ingress = [
     { hostname = var.zwf_hostname, service = var.zwf_origin },
     { hostname = var.zwf_api_hostname, service = var.zwf_origin },
+    { hostname = var.zslog_hostname, service = var.zslog_origin },
     { hostname = var.studio_hostname, service = var.studio_origin },
     { hostname = var.zarvis_hostname, service = var.zarvis_origin },
     { hostname = var.zider_hostname, service = var.zider_origin },
@@ -140,6 +163,16 @@ resource "cloudflare_dns_record" "zwf_api" {
   ttl     = 1
   proxied = true
   comment = "zWorkforce API via Cloudflare Tunnel"
+}
+
+resource "cloudflare_dns_record" "zslog" {
+  zone_id = var.cloudflare_zone_id
+  name    = var.zslog_hostname
+  type    = "CNAME"
+  content = local.tunnel_cname
+  ttl     = 1
+  proxied = true
+  comment = "zWorkforce log surface alias via Cloudflare Tunnel"
 }
 
 # Keep the former public hostname during the migration window.  Retiring this
@@ -203,6 +236,11 @@ output "zwf_url" {
 output "zwf_api_url" {
   value       = "https://${var.zwf_api_hostname}"
   description = "Public zWorkforce API URL."
+}
+
+output "zslog_url" {
+  value       = "https://${var.zslog_hostname}"
+  description = "Public zslog realtime log service URL."
 }
 
 output "studio_url" {

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import datetime
 import json
 import os
 import socket
@@ -178,6 +179,166 @@ class ZarvisVoiceService:
             "model": selected_model,
             "transport": "realtime-pcm16",
         }
+
+
+@dataclass(frozen=True)
+class ZarvisLiveConfig:
+    enabled: bool
+    api_key: str
+    model: str
+    voice: str
+    thinking_level: str
+    system_prompt: str
+    token_ttl_minutes: int
+    connect_window_minutes: int
+    websocket_origin: str
+
+
+def load_live_config() -> ZarvisLiveConfig:
+    enabled = _bool_env("ZWORKFORCE_ZARVIS_LIVE_ENABLED")
+    api_key = os.getenv("ZWORKFORCE_GEMINI_API_KEY", "").strip()
+    if enabled and not api_key:
+        raise ValueError("ZWORKFORCE_GEMINI_API_KEY is required when Z.A.R.V.I.S. Live is enabled")
+    if enabled and len(api_key) < 20:
+        raise ValueError("ZWORKFORCE_GEMINI_API_KEY must be at least 20 characters")
+    
+    model = os.getenv("ZWORKFORCE_ZARVIS_LIVE_MODEL", "gemini-3.1-flash-live-preview").strip()
+    voice = os.getenv("ZWORKFORCE_ZARVIS_LIVE_VOICE", "Charon").strip()
+    if len(voice) > 64:
+        raise ValueError("ZWORKFORCE_ZARVIS_LIVE_VOICE must be <= 64 characters")
+    
+    thinking_level = os.getenv("ZWORKFORCE_ZARVIS_LIVE_THINKING", "minimal").strip()
+    if thinking_level not in {"minimal", "low", "medium", "high"}:
+        raise ValueError("ZWORKFORCE_ZARVIS_LIVE_THINKING must be one of: minimal, low, medium, high")
+    
+    system_prompt = os.getenv("ZWORKFORCE_ZARVIS_LIVE_SYSTEM_PROMPT", "You are Z.A.R.V.I.S., a direct and highly capable AI workforce assistant. Reply concisely in the user's language. Never claim that spoken text approves a mutating action.").strip()
+    if len(system_prompt) > 8000:
+        raise ValueError("ZWORKFORCE_ZARVIS_LIVE_SYSTEM_PROMPT must be <= 8000 characters")
+    
+    try:
+        token_ttl_minutes = int(os.getenv("ZWORKFORCE_ZARVIS_LIVE_TOKEN_TTL_MINUTES", "30").strip())
+    except ValueError:
+        raise ValueError("ZWORKFORCE_ZARVIS_LIVE_TOKEN_TTL_MINUTES must be an integer")
+    if not 5 <= token_ttl_minutes <= 120:
+        raise ValueError("ZWORKFORCE_ZARVIS_LIVE_TOKEN_TTL_MINUTES must be between 5 and 120")
+    
+    try:
+        connect_window_minutes = int(os.getenv("ZWORKFORCE_ZARVIS_LIVE_CONNECT_WINDOW_MINUTES", "1").strip())
+    except ValueError:
+        raise ValueError("ZWORKFORCE_ZARVIS_LIVE_CONNECT_WINDOW_MINUTES must be an integer")
+    if not 1 <= connect_window_minutes <= 5:
+        raise ValueError("ZWORKFORCE_ZARVIS_LIVE_CONNECT_WINDOW_MINUTES must be between 1 and 5")
+    
+    websocket_origin = "wss://generativelanguage.googleapis.com"
+    
+    return ZarvisLiveConfig(
+        enabled=enabled,
+        api_key=api_key,
+        model=model,
+        voice=voice,
+        thinking_level=thinking_level,
+        system_prompt=system_prompt,
+        token_ttl_minutes=token_ttl_minutes,
+        connect_window_minutes=connect_window_minutes,
+        websocket_origin=websocket_origin,
+    )
+
+
+class ZarvisLiveVoiceService:
+    def __init__(self, config: ZarvisLiveConfig | None = None, *, opener: Any = None) -> None:
+        self.config = config or load_live_config()
+        self._opener = opener or urllib.request.urlopen
+
+    @property
+    def csp_connect_sources(self) -> tuple[str, ...]:
+        if not self.config.enabled:
+            return ()
+        return (self.config.websocket_origin,)
+
+    def snapshot(self) -> dict[str, Any]:
+        return {
+            "live_enabled": self.config.enabled,
+            "live_model": self.config.model if self.config.enabled else None,
+            "live_voice": self.config.voice if self.config.enabled else None,
+            "live_transport": "gemini-live" if self.config.enabled else None,
+            "live_websocket_origin": self.config.websocket_origin if self.config.enabled else None,
+        }
+
+    def issue_live_token(self, *, tenant_id: str, subject_id: str, request_id: str) -> dict[str, Any]:
+        """Generate a Gemini ephemeral token for browser Live API sessions.
+        
+        Uses Google's auth_tokens.create() API endpoint to issue a single-use
+        ephemeral token. The master API key never leaves the server.
+        """
+        if not self.config.enabled:
+            raise ZarvisVoiceError("Z.A.R.V.I.S. Live voice is disabled", status=503, code="live_voice_disabled")
+        if not self.config.api_key:
+            raise ZarvisVoiceError("Z.A.R.V.I.S. Live voice is not configured", status=503, code="live_voice_not_configured")
+
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
+        expire_time = now + datetime.timedelta(minutes=self.config.token_ttl_minutes)
+        connect_window = now + datetime.timedelta(minutes=self.config.connect_window_minutes)
+
+        token_request_body = json.dumps({
+            "config": {
+                "uses": 1,
+                "expire_time": expire_time.isoformat(),
+                "new_session_expire_time": connect_window.isoformat(),
+            }
+        }, separators=(",", ":")).encode("utf-8")
+
+        api_url = f"https://generativelanguage.googleapis.com/v1alpha/auth_tokens?key={self.config.api_key}"
+        request = urllib.request.Request(
+            api_url,
+            data=token_request_body,
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "X-Request-Id": request_id,
+            },
+            method="POST",
+        )
+
+        try:
+            with self._opener(request, timeout=5.0) as response:
+                raw = response.read(16 * 1024 + 1)
+                if len(raw) > 16 * 1024:
+                    raise ZarvisVoiceError("Gemini token response is too large", code="live_token_invalid_response")
+        except urllib.error.HTTPError as exc:
+            status = 503 if exc.code in {429, 503} else 502
+            raise ZarvisVoiceError("Gemini token API rejected the request", status=status, code="live_token_rejected") from exc
+        except (urllib.error.URLError, TimeoutError, socket.timeout, OSError) as exc:
+            raise ZarvisVoiceError("Gemini token API is unavailable", status=503, code="live_token_unavailable") from exc
+
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ZarvisVoiceError("Gemini token API returned invalid JSON", code="live_token_invalid_response") from exc
+
+        if not isinstance(payload, dict):
+            raise ZarvisVoiceError("Gemini token API returned an invalid response", code="live_token_invalid_response")
+
+        token_name = payload.get("name")
+        if not isinstance(token_name, str) or not token_name.startswith("auth_tokens/"):
+            raise ZarvisVoiceError("Gemini token API returned an invalid token", code="live_token_invalid_response")
+
+        if self.config.api_key and self.config.api_key in json.dumps(payload):
+            raise ZarvisVoiceError("Gemini token response echoed the API key", code="live_token_invalid_response")
+
+        return {
+            "token": token_name,
+            "expires_at": expire_time.isoformat(),
+            "model": self.config.model,
+            "voice": self.config.voice,
+            "thinking_level": self.config.thinking_level,
+            "system_prompt": self.config.system_prompt,
+            "websocket_origin": self.config.websocket_origin,
+            "transport": "gemini-live",
+        }
+
+
+def build_zarvis_voice_services() -> tuple[ZarvisVoiceService, ZarvisLiveVoiceService]:
+    return ZarvisVoiceService(), ZarvisLiveVoiceService()
 
 
 def build_zarvis_voice_service() -> ZarvisVoiceService:

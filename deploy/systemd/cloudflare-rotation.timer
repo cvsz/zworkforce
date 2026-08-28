@@ -1,0 +1,13 @@
+[Unit]
+Description=Daily check for 30-day Cloudflare credential rotation
+
+[Timer]
+OnBootSec=15min
+OnUnitActiveSec=24h
+Persistent=true
+RandomizedDelaySec=15min
+Unit=cloudflare-rotation.service
+
+[Install]
+WantedBy=timers.target
+

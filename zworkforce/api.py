@@ -26,7 +26,7 @@ from .security import AuthManager, RateLimiter, resolve_tenant
 from .skills import SkillError, validate_manifest, verify_manifest
 from .tools import TOOL_DEFINITIONS
 from .workflow import WorkflowOrchestrator
-from .zarvis_voice import ZarvisVoiceError, build_zarvis_voice_service
+from .zarvis_voice import ZarvisVoiceError, build_zarvis_voice_service, ZarvisLiveVoiceService, build_zarvis_voice_services
 
 AGENT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
@@ -58,6 +58,7 @@ class App:
         self.rag = build_semantic_memory(db)
         self.artifacts = build_artifact_store(settings, db)
         self.voice = build_zarvis_voice_service()
+        self.live_voice = ZarvisLiveVoiceService()
 
     def handler(self):
         app = self
@@ -85,9 +86,9 @@ class App:
                 self.send_header("X-Content-Type-Options", "nosniff")
                 self.send_header("X-Frame-Options", "DENY")
                 self.send_header("Referrer-Policy", "no-referrer")
-                microphone_policy = "microphone=(self)" if app.voice.microphone_enabled else "microphone=()"
+                microphone_policy = "microphone=(self)" if (app.voice.microphone_enabled or app.live_voice.config.enabled) else "microphone=()"
                 self.send_header("Permissions-Policy", f"camera=(), {microphone_policy}, geolocation=()")
-                connect_sources = " ".join(("'self'", *app.voice.csp_connect_sources))
+                connect_sources = " ".join(("'self'", *app.voice.csp_connect_sources, *app.live_voice.csp_connect_sources))
                 self.send_header("Content-Security-Policy", f"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src {connect_sources}; frame-ancestors 'none'; base-uri 'none'")
                 self.send_header("X-Request-ID", _sanitize_header_value(self.request_id))
                 if self._cors_origin:
@@ -225,7 +226,9 @@ class App:
                 if path == "/api/v1/zarvis/voice":
                     ctx, response = self._principal("viewer", "voice:use")
                     if response: return response
-                    return self._json(200, app.voice.snapshot())
+                    snapshot = app.voice.snapshot()
+                    snapshot.update(app.live_voice.snapshot())
+                    return self._json(200, snapshot)
                 if path == "/api/v1/tenants":
                     ctx, response = self._principal("superadmin", "tenant:read")
                     if response: return response
@@ -351,6 +354,21 @@ class App:
                         except ZarvisVoiceError as exc:
                             return self._error(exc.status, exc.code, str(exc))
                         app.db.audit(tenant_id, principal.name, "zarvis.voice.session", "voice_session", self.request_id,
+                                     {"expires_at": result["expires_at"], "model": result["model"], "transport": result["transport"]})
+                        return self._json(201, result)
+                    if path == "/api/v1/zarvis/voice/live-token":
+                        ctx, response = self._principal("viewer", "voice:use")
+                        if response: return response
+                        principal, tenant_id = ctx
+                        try:
+                            result = app.live_voice.issue_live_token(
+                                tenant_id=tenant_id,
+                                subject_id=f"{principal.key_id}:{principal.name}"[:256],
+                                request_id=self.request_id,
+                            )
+                        except ZarvisVoiceError as exc:
+                            return self._error(exc.status, exc.code, str(exc))
+                        app.db.audit(tenant_id, principal.name, "zarvis.voice.live_token", "voice_live_token", self.request_id,
                                      {"expires_at": result["expires_at"], "model": result["model"], "transport": result["transport"]})
                         return self._json(201, result)
                     if path == "/api/v1/tenants":

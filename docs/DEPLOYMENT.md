@@ -33,6 +33,10 @@ publish PostgreSQL or worker ports.
 The API alias `https://zwf-api.zeaz.dev` uses the same reviewed tunnel origin
 and may be used by API clients; it does not create a second runtime or bypass
 the existing authentication and tenant controls.
+The `https://zslog.zeaz.dev` hostname is the separate zslog fake-credit
+realtime log service. It must route to `http://127.0.0.1:9581`; the service is
+loopback-only, demo-only, and does not connect to external games or handle real
+currency.
 After the origin is running, verify the public path with:
 
 ```bash
