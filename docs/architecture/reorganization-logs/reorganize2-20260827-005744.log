@@ -1,0 +1,20 @@
+[2026-08-27T00:57:44] === Starting reorganization phase 2: phase=r1 dry_run=true force=false ===
+[2026-08-27T00:57:44] Phase R1: Safe moves (non-git or 0 changes)
+[2026-08-27T00:57:44] DRY-RUN: Would move /home/cvsz/ads -> /home/cvsz/platforms/ads
+[2026-08-27T00:57:44] DRY-RUN: Would move /home/cvsz/aicoder -> /home/cvsz/platforms/aicoder
+[2026-08-27T00:57:44] DRY-RUN: Would move /home/cvsz/github-private-control -> /home/cvsz/tools/github-private-control
+[2026-08-27T00:57:44] DRY-RUN: Would move /home/cvsz/litellm -> /home/cvsz/tools/litellm
+[2026-08-27T00:57:44] DRY-RUN: Would move /home/cvsz/llm-wiki-app -> /home/cvsz/apps/llm-wiki-app
+[2026-08-27T00:57:44] SKIP: /home/cvsz/llm_wiki has 3 uncommitted changes (use --force to override)
+[2026-08-27T00:57:44] DRY-RUN: Would move /home/cvsz/raw -> /home/cvsz/archives/raw
+[2026-08-27T00:57:44] DRY-RUN: Would move /home/cvsz/wiki -> /home/cvsz/archives/wiki
+[2026-08-27T00:57:44] DRY-RUN: Would move /home/cvsz/cloudflare -> /home/cvsz/tools/cloudflare
+[2026-08-27T00:57:45] SKIP: /home/cvsz/computer has 7 uncommitted changes (use --force to override)
+[2026-08-27T00:57:45] DRY-RUN: Would move /home/cvsz/freebuff -> /home/cvsz/archives/freebuff
+[2026-08-27T00:57:45] DRY-RUN: Would move /home/cvsz/go -> /home/cvsz/tools/go
+[2026-08-27T00:57:45] DRY-RUN: Would move /home/cvsz/google-cloud-sdk -> /home/cvsz/tools/google-cloud-sdk
+[2026-08-27T00:57:45] DRY-RUN: Would move /home/cvsz/hercules-copy -> /home/cvsz/archives/hercules-copy
+[2026-08-27T00:57:45] DRY-RUN: Would move /home/cvsz/kbank-edc -> /home/cvsz/archives/kbank-edc
+[2026-08-27T00:57:45] DRY-RUN: Would move /home/cvsz/snap -> /home/cvsz/archives/snap
+[2026-08-27T00:57:45] DRY-RUN: Would move /home/cvsz/bin -> /home/cvsz/tools/bin
+[2026-08-27T00:57:45] === Reorganization phase 2 complete ===

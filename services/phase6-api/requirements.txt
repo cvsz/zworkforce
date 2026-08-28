@@ -1,7 +1,6 @@
-fastapi==0.116.1
-uvicorn[standard]==0.51.0
-redis==6.4.0
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+redis==8.1.0
 httpx==0.28.1
 python-multipart==0.0.32
 prometheus-client==0.26.0
-pytest==9.1.1

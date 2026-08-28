@@ -1,0 +1,48 @@
+apiVersion: release.zeaz.dev/v1alpha1
+kind: ProductionReleaseRecord
+metadata:
+  name: <release-id>
+spec:
+  repository: cvsz/z-platform
+  revision:
+    commitSha: <40-character-sha>
+    imageDigests:
+      gateway: <sha256:digest>
+      api: <sha256:digest>
+      worker: <sha256:digest>
+      web: <sha256:digest>
+  targetEnvironment: production
+  changeWindow:
+    startsAt: <ISO-8601>
+    endsAt: <ISO-8601>
+  stagingEvidence:
+    reference: <artifact-reference>
+    digest: <sha256:digest>
+  risk:
+    knownRisks: <summary>
+    successCriteria: <measurable-criteria>
+    abortCriteria: <measurable-criteria>
+    rollbackPlan: <runbook-reference-or-steps>
+  approval:
+    decision: <GO|NO-GO>
+    approver: <name-or-handle>
+    approvedCommitSha: <40-character-sha>
+    approvedEvidenceDigest: <sha256:digest>
+    approvedAt: <ISO-8601>
+    approvalRef: <auditable-reference>
+  operatorRecord:
+    stagingReviewer: <name-or-handle>
+    incidentOwner: <owner>
+    escalationRoute: <path-and-target>
+    watchWindow: <ISO-8601-range-or-hours>
+  execution:
+    operator: <identity>
+    startedAt: <ISO-8601>
+    completedAt: <ISO-8601>
+    deploymentRef: <gitops-or-deployment-reference>
+    observedCommitSha: <40-character-sha>
+    observedImageDigests: {}
+status:
+  state: <READY_FOR_RELEASE|RELEASE_APPROVED|DEPLOYED|ROLLED_BACK|RELEASE_FAILED>
+  postDeployEvidence: <reference>
+  outcomeRecordedAt: <ISO-8601>

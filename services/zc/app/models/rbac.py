@@ -1,6 +1,6 @@
 from enum import Enum
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 
 class Role(str, Enum):
     ADMIN = "admin"

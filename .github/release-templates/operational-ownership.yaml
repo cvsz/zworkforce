@@ -1,0 +1,46 @@
+apiVersion: release.zeaz.dev/v1alpha1
+kind: OperationalOwnership
+metadata:
+  name: <release-id>
+spec:
+  candidate:
+    repository: cvsz/z-platform
+    commitSha: <40-character-sha>
+    environment: production
+    changeWindow:
+      startsAt: <ISO-8601>
+      endsAt: <ISO-8601>
+  roles:
+    incidentOwner:
+      primary: <owner>
+      backup: <owner>
+      contact: <on-call-path>
+    platformOwner:
+      primary: <owner>
+      backup: <owner>
+      contact: <on-call-path>
+    securityOwner:
+      primary: <owner>
+      backup: <owner>
+      contact: <on-call-path>
+    releaseOperator:
+      primary: <owner>
+      backup: <owner>
+      contact: <contact>
+    productionApprover:
+      primary: <owner>
+      backup: <owner>
+      contact: <contact>
+    rollbackOwner:
+      primary: <owner>
+      backup: <owner>
+      contact: <contact>
+  escalation:
+    sev1: <path-and-target>
+    sev2: <path-and-target>
+    sev3: <path-and-target>
+status:
+  state: PENDING_OPERATOR
+  approvalRef: <auditable-reference>
+  approvedBy: <name-or-handle>
+  approvedAt: <ISO-8601>

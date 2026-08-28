@@ -1,0 +1,4 @@
+name: z-platform CodeQL config
+
+queries:
+  - uses: security-and-quality

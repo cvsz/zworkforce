@@ -1,49 +1,109 @@
-# Secrets are supplied by .env.cloudflare as TF_VAR_cloudflare_api_token.
+cloudflare_api_token = "set-via-TF_VAR_cloudflare_api_token"
 cloudflare_account_id = "00000000000000000000000000000000"
 cloudflare_zone_id    = "00000000000000000000000000000000"
 cloudflare_tunnel_id  = "00000000-0000-0000-0000-000000000000"
+manage_tunnel_config   = true
+manage_free_access     = true
+free_access_session_duration = "8h"
+free_access_require_mfa = true
+free_access_allowed_idps = ["a8cd7aa7-0d5b-4bab-bf7a-e78fc7d86253"]
+free_access_service_token_ids = ["8fde4de5-3c1c-4389-a04d-1d3c0416e8dc"]
+zone_name             = "zeaz.dev"
 
-zwf_hostname     = "zwf.zeaz.dev"
-zwf_api_hostname = "zwf-api.zeaz.dev"
-zslog_hostname   = "zslog.zeaz.dev"
-zslog_origin     = "http://127.0.0.1:9581"
-zwf_origin       = "http://127.0.0.1:9570"
+app_routes = {
+  phase6 = {
+    hostname             = "phase6.zeaz.dev"
+    service              = "http://phase6-api:8080"
+    access_enabled       = true
+    allowed_emails       = ["operator@zeaz.dev"]
+    allowed_email_domains = ["zeaz.dev"]
+  }
 
-moopiew_hostname  = "moopiew.zeaz.dev"
-moopiew_origin    = "http://127.0.0.1:8080"
-autoc_hostname      = "autoc.zeaz.dev"
-autoc_origin        = "http://127.0.0.1:8001"
-zany_hostname       = "zany.zeaz.dev"
-zany_origin         = "http://127.0.0.1:8080"
-arin_hostname     = "arin.zeaz.dev"
-arin_origin       = "http://127.0.0.1:8080"
-zttshop_hostname  = "zttshop.zeaz.dev"
-zttshop_origin    = "http://127.0.0.1:8080"
-chat_hostname     = "chat.zeaz.dev"
-chat_origin       = "http://127.0.0.1:3000"
-piewdash_hostname = "piewdash.zeaz.dev"
-piewdash_origin   = "http://127.0.0.1:80"
-zdash_hostname    = "zdash.zeaz.dev"
-zdash_origin      = "http://127.0.0.1:18080"
-zerp_hostname     = "zerp.zeaz.dev"
-zerp_origin       = "http://127.0.0.1:80"
+  zchat = {
+    hostname       = "zchat.zeaz.dev"
+    service        = "http://127.0.0.1:3021"
+    access_enabled = false
+  }
 
-piewdash_access_allowed_emails = [
-  "operator@example.com",
-]
+  zchat_staging = {
+    hostname       = "zchat-staging.zeaz.dev"
+    service        = "http://127.0.0.1:3021"
+    access_enabled = false
+  }
 
-# Optional. Empty inherits piewdash_access_allowed_emails.
-zdash_access_allowed_emails = []
+  zchat_web = {
+    hostname       = "zchat-web.zeaz.dev"
+    service        = "http://127.0.0.1:3021"
+    access_enabled = false
+  }
 
-# ZEAZ One remains disabled unless an operator explicitly enables it.
-# Corporate www.zeaz.dev routes are managed by cvsz/zeaz-platform.
-enable_zeaz_one           = false
-enable_zeaz_one_api_route = false
-zeaz_one_hostname         = "one.zeaz.dev"
-zeaz_one_origin           = "http://127.0.0.1:18081"
-zeaz_one_api_hostname     = "api.zeaz.dev"
-zeaz_one_api_origin       = "http://127.0.0.1:18084"
-zeaz_one_support_hostname = "support.zeaz.dev"
-zeaz_one_support_origin   = "http://127.0.0.1:18083"
+  zwallet = {
+    hostname       = "wallet.zeaz.dev"
+    service        = "http://zwallet:3040"
+    access_enabled = true
+    allowed_email_domains = ["zeaz.dev"]
+  }
 
-manage_tunnel_config = false
+  ai_gateway = {
+    hostname       = "ai.zeaz.dev"
+    service        = "http://z-platform-ai-gateway-1:8400"
+    access_enabled = true
+    allowed_email_domains = ["zeaz.dev"]
+  }
+
+  billing_ledger = {
+    hostname       = "billing.zeaz.dev"
+    service        = "http://z-platform-billing-ledger-1:8700"
+    access_enabled = true
+    allowed_email_domains = ["zeaz.dev"]
+  }
+
+  agent_orchestrator = {
+    hostname       = "orchestrator.zeaz.dev"
+    service        = "http://z-platform-agent-orchestrator-1:8500"
+    access_enabled = true
+    allowed_email_domains = ["zeaz.dev"]
+  }
+
+  agent_provider = {
+    hostname       = "provider.zeaz.dev"
+    service        = "http://z-platform-agent-provider-1:8800"
+    access_enabled = true
+    allowed_email_domains = ["zeaz.dev"]
+  }
+
+  workspace_runtime = {
+    hostname       = "workspace.zeaz.dev"
+    service        = "http://z-platform-workspace-runtime-1:8600"
+    access_enabled = true
+    allowed_email_domains = ["zeaz.dev"]
+  }
+
+  grafana = {
+    hostname       = "grafana.zeaz.dev"
+    service        = "http://127.0.0.1:80"
+    access_enabled = true
+    allowed_email_domains = ["zeaz.dev"]
+  }
+
+  prometheus = {
+    hostname       = "prometheus.zeaz.dev"
+    service        = "http://127.0.0.1:80"
+    access_enabled = true
+    allowed_email_domains = ["zeaz.dev"]
+  }
+
+  jaeger = {
+    hostname       = "jaeger.zeaz.dev"
+    service        = "http://z-platform-phase6-jaeger-1:16686"
+    access_enabled = true
+    allowed_email_domains = ["zeaz.dev"]
+  }
+
+  zaicoder_web = {
+    hostname       = "zai.zeaz.dev"
+    service        = "http://zaicoder-web:3005"
+    access_enabled = true
+    allowed_email_domains = ["zeaz.dev"]
+  }
+}

@@ -1,0 +1,56 @@
+apiVersion: release.zeaz.dev/v1alpha1
+kind: StagingInventory
+metadata:
+  name: <release-id>
+spec:
+  repository: cvsz/z-platform
+  environment: staging
+  region: <region>
+  revision:
+    commitSha: <40-character-sha>
+    deployedAt: <ISO-8601>
+    operator: <github-handle-or-service-identity>
+    images:
+      gateway: <image@sha256:digest>
+      api: <image@sha256:digest>
+      worker: <image@sha256:digest>
+      web: <image@sha256:digest>
+  components:
+    database:
+      provider: <provider>
+      accountRef: <redacted>
+      endpoint: <endpoint>
+      secretRef: <secret-manager-reference>
+      evidence: <reference>
+    queue:
+      provider: <provider>
+      accountRef: <redacted>
+      endpoint: <endpoint>
+      secretRef: <secret-manager-reference>
+      evidence: <reference>
+    objectStorage:
+      provider: <provider>
+      accountRef: <redacted>
+      endpoint: <endpoint>
+      secretRef: <secret-manager-reference>
+      evidence: <reference>
+    identityProvider:
+      provider: <provider>
+      issuer: <issuer>
+      secretRef: <secret-manager-reference>
+      evidence: <reference>
+    sandbox:
+      runtime: <runtime>
+      identityRef: <workload-identity>
+      evidence: <reference>
+    observability:
+      provider: <provider>
+      dashboardRef: <reference>
+      evidence: <reference>
+    secretManager:
+      provider: <provider>
+      identityRef: <workload-identity>
+      evidence: <reference>
+status:
+  state: PENDING_EXTERNAL
+  evidenceRoot: <artifact-reference>

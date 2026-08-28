@@ -1,0 +1,32 @@
+name: apikey-tools
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/apikey-manager.sh'
+      - 'scripts/normalize-apikey.sh'
+      - 'scripts/test-normalize-apikey.sh'
+      - '.github/workflows/apikey-tools.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shellcheck-and-test:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Validate shell syntax
+        run: |
+          bash -n scripts/apikey-manager.sh
+          bash -n scripts/normalize-apikey.sh
+          bash -n scripts/test-normalize-apikey.sh
+      - name: Run ShellCheck
+        run: shellcheck scripts/apikey-manager.sh scripts/normalize-apikey.sh scripts/test-normalize-apikey.sh
+      - name: Run quote normalization tests twice
+        run: |
+          bash scripts/test-normalize-apikey.sh
+          bash scripts/test-normalize-apikey.sh

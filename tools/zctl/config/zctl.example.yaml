@@ -1,0 +1,29 @@
+apiVersion: control.zeaz.dev/v1alpha1
+kind: ZControlConfig
+
+project:
+  name: z-platform
+  repository: cvsz/z-platform
+  defaultBranch: main
+
+runtime:
+  provider: docker-compose
+  composeFile: compose.yml
+  projectName: z-platform
+  healthTimeout: 180s
+
+profiles:
+  local:
+    environmentFile: .env
+    allowPurge: true
+  staging:
+    environmentFile: .env.staging
+    allowPurge: false
+  production:
+    environmentFile: .env.production
+    allowPurge: false
+
+audit:
+  enabled: true
+  directory: .zctl/audit
+  redactEnvironment: true

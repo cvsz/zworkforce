@@ -1,0 +1,85 @@
+name: validate-release-evidence
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/staging-readiness-manifest.json'
+      - 'scripts/staging-decision-record.json'
+      - 'scripts/phase-6-operator-inputs.json'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/staging-readiness-manifest.json'
+      - 'scripts/staging-decision-record.json'
+      - 'scripts/phase-6-operator-inputs.json'
+
+permissions:
+  contents: read
+
+jobs:
+  validate-evidence-sha:
+    name: Validate release evidence is bound to current HEAD SHA
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Check staging-readiness-manifest releaseSha
+        env:
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          MANIFEST=scripts/staging-readiness-manifest.json
+          if [ ! -f "$MANIFEST" ]; then
+            echo "INFO: $MANIFEST not present, skipping."
+            exit 0
+          fi
+          RELEASE_SHA=$(jq -r '.releaseSha // empty' "$MANIFEST")
+          if [ -z "$RELEASE_SHA" ]; then
+            echo "INFO: $MANIFEST has no releaseSha field, skipping."
+            exit 0
+          fi
+          if [ "$RELEASE_SHA" != "$HEAD_SHA" ]; then
+            echo "ERROR: staging-readiness-manifest.json releaseSha ($RELEASE_SHA) does not match current HEAD ($HEAD_SHA)."
+            echo "Update releaseSha in $MANIFEST to match the current commit SHA before merging."
+            exit 1
+          fi
+          echo "OK: releaseSha ($RELEASE_SHA) matches HEAD."
+
+      - name: Check staging-decision-record releaseSha
+        env:
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          RECORD=scripts/staging-decision-record.json
+          if [ ! -f "$RECORD" ]; then
+            echo "INFO: $RECORD not present, skipping."
+            exit 0
+          fi
+          RELEASE_SHA=$(jq -r '.releaseSha // empty' "$RECORD")
+          if [ -z "$RELEASE_SHA" ]; then
+            echo "INFO: $RECORD has no releaseSha field, skipping."
+            exit 0
+          fi
+          if [ "$RELEASE_SHA" != "$HEAD_SHA" ]; then
+            echo "ERROR: staging-decision-record.json releaseSha ($RELEASE_SHA) does not match current HEAD ($HEAD_SHA)."
+            echo "Update releaseSha in $RECORD to match the current commit SHA before merging."
+            exit 1
+          fi
+          echo "OK: releaseSha ($RELEASE_SHA) matches HEAD."
+
+      - name: Run validate-release-evidence unit tests
+        run: node --test scripts/test/validate-release-evidence.test.mjs
+
+      - name: Validate staging decision record
+        run: node scripts/validate-staging-decision-record.mjs scripts/staging-decision-record.json
+
+      - name: Validate phase 6 operator inputs
+        run: node scripts/validate-phase-6-operator-inputs.mjs scripts/phase-6-operator-inputs.json

@@ -1,0 +1,69 @@
+{
+  "schemaVersion": "1.0.0",
+  "_note": "This register intentionally records only pending operator-owned inputs. It must not contain real credentials, account identifiers, or approvals.",
+  "items": [
+    {
+      "id": "external-identity-provider-production-claim-mapping",
+      "issueItem": "External identity provider and production claim mapping",
+      "status": "PENDING_OPERATOR",
+      "recordOwner": "Identity / Cloudflare",
+      "canonicalTargets": [
+        "docs/operations/phase-6-operator-inputs.md",
+        "docs/operations/phase-6-decisions.md",
+        "docs/operations/cloudflare-access.md",
+        "docs/operations/operator-inputs-status.md",
+        "scripts/staging-decision-record.json",
+        "scripts/validate-staging-decision-record.mjs"
+      ]
+    },
+    {
+      "id": "production-secret-manager-selection",
+      "issueItem": "Production secret-manager selection",
+      "status": "PENDING_OPERATOR",
+      "recordOwner": "Infrastructure / secrets",
+      "canonicalTargets": [
+        "docs/operations/phase-6-operator-inputs.md",
+        "docs/operations/phase-6-decisions.md",
+        "docs/operations/github-environments.md",
+        "docs/operations/operator-inputs-status.md"
+      ]
+    },
+    {
+      "id": "managed-production-data-services-region-retention-observability-backup",
+      "issueItem": "Managed production data services, region, retention authority, observability platform, and external backup target",
+      "status": "PENDING_OPERATOR",
+      "recordOwner": "Platform / operations",
+      "canonicalTargets": [
+        "docs/operations/phase-6-operator-inputs.md",
+        "docs/operations/phase-6-decisions.md",
+        "docs/release/operational-ownership.md",
+        "docs/release/production-release-record.md"
+      ]
+    },
+    {
+      "id": "billing-currency-jurisdiction-tax-merchant-payment-processor",
+      "issueItem": "Billing currency, jurisdiction, tax treatment, merchant responsibilities, and payment processor",
+      "status": "PENDING_OPERATOR",
+      "recordOwner": "Finance / legal",
+      "canonicalTargets": [
+        "docs/operations/phase-6-operator-inputs.md",
+        "docs/operations/phase-6-decisions.md",
+        "docs/release/production-release-record.md",
+        "docs/operations/operator-inputs-status.md"
+      ]
+    },
+    {
+      "id": "staging-reviewer-production-approver-incident-owner-escalation-route-watch-window",
+      "issueItem": "Staging reviewer, production approver, incident owner, escalation route, and watch window",
+      "status": "PENDING_OPERATOR",
+      "recordOwner": "Release / incident ownership",
+      "canonicalTargets": [
+        "docs/operations/phase-6-operator-inputs.md",
+        "docs/release/operational-ownership.md",
+        "docs/release/production-release-record.md",
+        ".github/workflows/external-staging-readiness.yml",
+        ".github/workflows/final-release-readiness.yml"
+      ]
+    }
+  ]
+}

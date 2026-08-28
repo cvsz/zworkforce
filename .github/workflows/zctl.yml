@@ -1,0 +1,31 @@
+name: zctl
+
+on:
+  pull_request:
+    paths:
+      - "tools/zctl/**"
+      - ".github/workflows/zctl.yml"
+  push:
+    branches: [main]
+    paths:
+      - "tools/zctl/**"
+      - ".github/workflows/zctl.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: tools/zctl/go.mod
+          cache: false
+      - name: Test and build zctl
+        working-directory: tools/zctl
+        run: |
+          go test ./...
+          go vet ./...
+          go build ./cmd/zctl

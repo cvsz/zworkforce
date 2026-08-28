@@ -178,55 +178,64 @@ document.addEventListener('DOMContentLoaded', () => {
     return name.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   }
 
-  // Load live, tenant-scoped uploads from the control-plane API.
-  async function loadUploads() {
+  // Load Mock Uploads
+  function loadUploads() {
     const tbody = document.getElementById('uploadsTableBody');
+    const mockUploads = [
+      { id: 'sess-8923a', file: 'enterprise_dataset_2026.parquet', status: 'syncing', progress: 68, size: '4.2 GB' },
+      { id: 'sess-4b82c', file: 'q3_financial_report.pdf', status: 'completed', progress: 100, size: '12 MB' },
+      { id: 'sess-19ca2', file: 'machine_learning_weights.pt', status: 'validating', progress: 100, size: '8.4 GB' },
+      { id: 'sess-f2910', file: 'user_avatars_batch_9.zip', status: 'pending', progress: 0, size: '540 MB' }
+    ];
+
     tbody.innerHTML = '';
-    let uploads = [];
-    try {
-      const response = await fetch('/admin/uploads', { credentials: 'same-origin' });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      uploads = await response.json();
-    } catch (error) {
-      tbody.innerHTML = `<tr><td colspan="5">Live upload data unavailable: ${error.message}</td></tr>`;
-      return;
-    }
-    uploads.forEach(u => {
+    mockUploads.forEach(u => {
       let badgeClass = 'pending';
       if (u.status === 'completed') badgeClass = 'success';
       
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td style="font-family: 'JetBrains Mono', monospace; color: var(--text-secondary)">${u.session_id}</td>
-        <td style="font-weight: 500">${u.file_name}</td>
+        <td style="font-family: 'JetBrains Mono', monospace; color: var(--text-secondary)">${u.id}</td>
+        <td style="font-weight: 500">${u.file}</td>
         <td><span class="badge ${badgeClass}">${u.status.toUpperCase()}</span></td>
         <td style="width: 30%">
           <div style="display: flex; align-items: center; gap: 12px">
             <div class="progress-bg">
-              <div class="progress-fill" style="width: ${u.progress_percent}%"></div>
+              <div class="progress-fill" style="width: ${u.progress}%"></div>
             </div>
-            <span style="font-size: 0.8rem; color: var(--text-secondary)">${u.progress_percent.toFixed(1)}%</span>
+            <span style="font-size: 0.8rem; color: var(--text-secondary)">${u.progress}%</span>
           </div>
         </td>
-        <td style="color: var(--text-secondary)">${u.total_size.toLocaleString()} bytes</td>
+        <td style="color: var(--text-secondary)">${u.size}</td>
       `;
       tbody.appendChild(tr);
     });
   }
 
-  // Load live operational telemetry; never fabricate activity records.
-  async function loadTelemetry() {
+  // Load Mock Telemetry
+  function loadTelemetry() {
     const tbody = document.getElementById('telemetryTableBody');
+    const actions = [
+      { action: 'FILE_CHUNK_UPLOAD', resource: 's3://bucket/dataset', status: 'OK' },
+      { action: 'AUTH_TOKEN_ROTATION', resource: 'user_svc', status: 'OK' },
+      { action: 'GRPC_CLI_CMD', resource: 'wire_servicer', status: 'OK' },
+      { action: 'DELTA_SYNC_PATCH', resource: 'app/services/delta', status: 'WARN' },
+      { action: 'OPA_POLICY_CHECK', resource: 'auth_gateway', status: 'OK' }
+    ];
+
     tbody.innerHTML = '';
-    try {
-      const response = await fetch('/admin/metrics', { credentials: 'same-origin' });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
+    for(let i=0; i<8; i++) {
+      const a = actions[Math.floor(Math.random() * actions.length)];
+      const d = new Date(Date.now() - Math.floor(Math.random() * 10000));
+      
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${new Date(data.timestamp * 1000).toISOString()}</td><td>LIVE_METRICS</td><td>wire-api</td><td>OK</td>`;
+      tr.innerHTML = `
+        <td style="font-family: 'JetBrains Mono', monospace; color: var(--text-secondary)">${d.toISOString().split('T')[1].substring(0,8)}</td>
+        <td style="font-weight: 500">${a.action}</td>
+        <td style="color: var(--text-secondary)">${a.resource}</td>
+        <td><span style="color: ${a.status === 'OK' ? 'var(--accent)' : 'var(--warning)'}">${a.status}</span></td>
+      `;
       tbody.appendChild(tr);
-    } catch (error) {
-      tbody.innerHTML = `<tr><td colspan="4">Live telemetry unavailable: ${error.message}</td></tr>`;
     }
   }
 

@@ -24,10 +24,10 @@ from prometheus_client import (
 
 class MetricsRegistry:
     """Centralized Prometheus Metrics Registry"""
-
+    
     def __init__(self):
         self.registry = CollectorRegistry()
-
+        
         # HTTP Request Metrics
         self.http_requests_total = Counter(
             'wire_http_requests_total',
@@ -35,7 +35,7 @@ class MetricsRegistry:
             ['method', 'endpoint', 'status_code'],
             registry=self.registry
         )
-
+        
         self.http_request_duration_seconds = Histogram(
             'wire_http_request_duration_seconds',
             'HTTP request duration in seconds',
@@ -43,14 +43,14 @@ class MetricsRegistry:
             buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
             registry=self.registry
         )
-
+        
         self.http_requests_in_progress = Gauge(
             'wire_http_requests_in_progress',
             'Number of HTTP requests currently being processed',
             ['method'],
             registry=self.registry
         )
-
+        
         # File Upload Metrics
         self.upload_initiated_total = Counter(
             'wire_upload_initiated_total',
@@ -58,27 +58,27 @@ class MetricsRegistry:
             ['chunked', 'delta_sync'],
             registry=self.registry
         )
-
+        
         self.upload_chunk_total = Counter(
             'wire_upload_chunks_total',
             'Total chunks uploaded',
             ['status'],
             registry=self.registry
         )
-
+        
         self.upload_bytes_total = Counter(
             'wire_upload_bytes_total',
             'Total bytes uploaded',
             ['type'],  # 'original', 'delta'
             registry=self.registry
         )
-
+        
         self.upload_active = Gauge(
             'wire_upload_active',
             'Number of active file uploads',
             registry=self.registry
         )
-
+        
         self.upload_duration_seconds = Histogram(
             'wire_upload_duration_seconds',
             'File upload duration in seconds',
@@ -86,7 +86,7 @@ class MetricsRegistry:
             buckets=[1, 5, 10, 30, 60, 300, 600, 1800, 3600],
             registry=self.registry
         )
-
+        
         # gRPC Metrics
         self.grpc_requests_total = Counter(
             'wire_grpc_requests_total',
@@ -94,7 +94,7 @@ class MetricsRegistry:
             ['service', 'method', 'status_code'],
             registry=self.registry
         )
-
+        
         self.grpc_request_duration_seconds = Histogram(
             'wire_grpc_request_duration_seconds',
             'gRPC request duration in seconds',
@@ -102,7 +102,7 @@ class MetricsRegistry:
             buckets=[0.0001, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0],
             registry=self.registry
         )
-
+        
         # Cache Metrics
         self.cache_hits_total = Counter(
             'wire_cache_hits_total',
@@ -110,28 +110,28 @@ class MetricsRegistry:
             ['cache_type'],
             registry=self.registry
         )
-
+        
         self.cache_misses_total = Counter(
             'wire_cache_misses_total',
             'Total cache misses',
             ['cache_type'],
             registry=self.registry
         )
-
+        
         self.cache_size = Gauge(
             'wire_cache_size',
             'Current cache size',
             ['cache_type'],
             registry=self.registry
         )
-
+        
         # Database Metrics
         self.db_connections_active = Gauge(
             'wire_db_connections_active',
             'Number of active database connections',
             registry=self.registry
         )
-
+        
         self.db_query_duration_seconds = Histogram(
             'wire_db_query_duration_seconds',
             'Database query duration in seconds',
@@ -139,7 +139,7 @@ class MetricsRegistry:
             buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0],
             registry=self.registry
         )
-
+        
         # Security Metrics
         self.auth_attempts_total = Counter(
             'wire_auth_attempts_total',
@@ -147,14 +147,14 @@ class MetricsRegistry:
             ['method', 'success'],
             registry=self.registry
         )
-
+        
         self.rate_limit_hits_total = Counter(
             'wire_rate_limit_hits_total',
             'Total rate limit violations',
             ['endpoint', 'role'],
             registry=self.registry
         )
-
+        
         # System Metrics
         self.worker_queue_depth = Gauge(
             'wire_worker_queue_depth',
@@ -162,14 +162,14 @@ class MetricsRegistry:
             ['queue_name'],
             registry=self.registry
         )
-
+        
         self.worker_tasks_processed_total = Counter(
             'wire_worker_tasks_processed_total',
             'Total tasks processed by workers',
             ['queue_name', 'status'],
             registry=self.registry
         )
-
+    
     def get_metrics(self) -> str:
         """Get all metrics in Prometheus format"""
         return generate_latest(self.registry).decode('utf-8')
@@ -437,13 +437,13 @@ groups:
 
 class OpenTelemetryConfig:
     """OpenTelemetry Configuration for Distributed Tracing"""
-
+    
     def __init__(self):
         self.service_name = os.getenv("OTEL_SERVICE_NAME", "wire-enterprise")
         self.exporter_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://tempo:4317")
         self.trace_sample_rate = float(os.getenv("OTEL_TRACE_SAMPLE_RATE", "0.1"))
         self.metrics_export_interval = int(os.getenv("OTEL_METRICS_EXPORT_INTERVAL", "60"))
-
+    
     def get_config(self) -> dict[str, Any]:
         return {
             "service_name": self.service_name,
@@ -469,35 +469,35 @@ class OpenTelemetryConfig:
 
 class HealthChecker:
     """Comprehensive Health Check System"""
-
+    
     def __init__(self) -> None:
         self.checks: dict[str, Callable[[], Awaitable[dict[str, Any]]]] = {}
         self.register_default_checks()
-
+    
     def register_default_checks(self) -> None:
         """Register default health checks"""
         self.register_check("database", self._check_database)
         self.register_check("redis", self._check_redis)
         self.register_check("storage", self._check_storage)
         self.register_check("workers", self._check_workers)
-
+    
     def register_check(self, name: str, check_func: Callable[[], Awaitable[dict[str, Any]]]) -> None:
         """Register a health check"""
         self.checks[name] = check_func
-
+    
     async def _check_database(self) -> dict[str, Any]:
         """Check database connectivity"""
         # Implementation depends on actual DB driver
         return {"status": "healthy", "latency_ms": 5}
-
+    
     async def _check_redis(self) -> dict[str, Any]:
         """Check Redis connectivity"""
         # Implementation depends on actual Redis client
         return {"status": "healthy", "latency_ms": 2}
-
+    
     async def _check_storage(self) -> dict[str, Any]:
         """Check storage availability"""
-        storage_path = Path(os.getenv("STORAGE_PATH", "./data/storage"))
+        storage_path = Path(os.getenv("STORAGE_PATH", "/tmp/wire-storage"))
         try:
             storage_path.mkdir(parents=True, exist_ok=True)
             test_file = storage_path / ".health_check"
@@ -507,17 +507,17 @@ class HealthChecker:
             return {"status": "healthy", "path": str(storage_path)}
         except Exception as e:
             return {"status": "unhealthy", "error": str(e)}
-
+    
     async def _check_workers(self) -> dict[str, Any]:
         """Check worker queue health"""
         # Implementation depends on actual queue system
         return {"status": "healthy", "active_workers": 3}
-
+    
     async def run_all_checks(self) -> dict[str, Any]:
         """Run all registered health checks"""
         results = {}
         overall_status = "healthy"
-
+        
         for name, check_func in self.checks.items():
             try:
                 result = await check_func()
@@ -527,7 +527,7 @@ class HealthChecker:
             except Exception as e:
                 results[name] = {"status": "unhealthy", "error": str(e)}
                 overall_status = "unhealthy"
-
+        
         return {
             "status": overall_status,
             "timestamp": datetime.now(timezone.utc).isoformat(),

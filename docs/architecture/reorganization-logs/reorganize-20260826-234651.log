@@ -1,0 +1,7 @@
+[2026-08-26T23:46:51] === Starting reorganization: phase=h3 dry_run=false force=true ===
+[2026-08-26T23:46:51] Phase H3: Move separate platforms (requires operator approval)
+[2026-08-26T23:46:51] MOVING: /home/cvsz/zaff → /home/cvsz/platforms/zaff
+[2026-08-26T23:47:07] VERIFIED: Checksum match for zaff
+[2026-08-26T23:47:07] REMOVED: /home/cvsz/zaff
+[2026-08-26T23:47:08] MOVING: /home/cvsz/zworkforce → /home/cvsz/platforms/zworkforce
+[2026-08-26T23:48:26] VERIFIED: Checksum match for zworkforce

@@ -1,0 +1,118 @@
+{
+  "schemaVersion": "1.0.0",
+  "_note": "releaseSha is intentionally absent. It must be set to the exact merge commit SHA only after a passing CI run for that commit is recorded. Prior evidence (f647ca61...) is valid only for its own commit.",
+  "checks": [
+    {
+      "id": "observability.dashboard",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "cvsz",
+      "reviewedAt": "2026-07-14T10:44:40Z",
+      "evidenceRef": "pending:external-observability-dashboard-verification"
+    },
+    {
+      "id": "observability.traces",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "cvsz",
+      "reviewedAt": "2026-07-14T10:44:40Z",
+      "evidenceRef": "pending:distributed-trace-verification"
+    },
+    {
+      "id": "observability.alert_delivery",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "cvsz",
+      "reviewedAt": "2026-07-14T10:44:40Z",
+      "evidenceRef": "pending:alert-delivery-verification"
+    },
+    {
+      "id": "backup.external_restore",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "cvsz",
+      "reviewedAt": "2026-07-14T10:44:40Z",
+      "evidenceRef": "pending:external-backup-restore-verification"
+    },
+    {
+      "id": "ai.streaming",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "cvsz",
+      "reviewedAt": "2026-07-14T10:44:40Z",
+      "evidenceRef": "pending:approved-upstream-streaming-verification"
+    },
+    {
+      "id": "ai.upload",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "cvsz",
+      "reviewedAt": "2026-07-14T10:44:40Z",
+      "evidenceRef": "pending:approved-upstream-upload-verification"
+    },
+    {
+      "id": "ai.multi_provider",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "cvsz",
+      "reviewedAt": "2026-07-14T10:44:40Z",
+      "evidenceRef": "pending:multi-provider-verification"
+    },
+    {
+      "id": "ai.failover",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "cvsz",
+      "reviewedAt": "2026-07-14T10:44:40Z",
+      "evidenceRef": "pending:quota-failover-verification"
+    },
+    {
+      "id": "browser.bundle_scan",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "cvsz",
+      "reviewedAt": "2026-07-14T10:44:40Z",
+      "evidenceRef": "pending:production-browser-bundle-scan"
+    },
+    {
+      "id": "browser.har_scan",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "cvsz",
+      "reviewedAt": "2026-07-14T10:44:40Z",
+      "evidenceRef": "pending:production-browser-har-scan"
+    },
+    {
+      "id": "zchat.keyboard",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "cvsz",
+      "reviewedAt": "2026-07-14T10:44:40Z",
+      "evidenceRef": "pending:zchat-keyboard-human-qa"
+    },
+    {
+      "id": "zchat.screen_reader",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "cvsz",
+      "reviewedAt": "2026-07-14T10:44:40Z",
+      "evidenceRef": "pending:zchat-screen-reader-human-qa"
+    },
+    {
+      "id": "zchat.responsive",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "cvsz",
+      "reviewedAt": "2026-07-14T10:44:40Z",
+      "evidenceRef": "pending:zchat-target-device-responsive-qa"
+    },
+    {
+      "id": "zchat.session_provider",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "cvsz",
+      "reviewedAt": "2026-07-14T10:44:40Z",
+      "evidenceRef": "pending:external-session-provider-verification"
+    }
+  ]
+}

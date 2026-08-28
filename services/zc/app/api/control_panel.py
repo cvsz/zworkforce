@@ -89,10 +89,10 @@ class Query:
     async def system_metrics(self, info: strawberry.Info) -> SystemMetrics:
         """Get real-time system performance metrics."""
         redis = await get_redis_client()
-
+        
         # Fetch metrics from Redis (populated by telemetry service)
         metrics_data = await redis.hgetall("metrics:system")
-
+        
         return SystemMetrics(  # type: ignore[call-arg]
             active_uploads=int(metrics_data.get(b"active_uploads", 0)),
             queue_depth=int(metrics_data.get(b"queue_depth", 0)),
@@ -103,20 +103,20 @@ class Query:
             requests_per_second=float(metrics_data.get(b"rps", 1500.0)),
             timestamp=datetime.now(timezone.utc).isoformat()
         )
-
+    
     @strawberry.field
     async def upload_sessions(
-        self,
+        self, 
         info: strawberry.Info,
         status_filter: Optional[str] = None,
         limit: int = 50
     ) -> list[UploadSession]:
         """List active and recent upload sessions."""
         redis = await get_redis_client()
-
+        
         sessions = []
         session_keys = await redis.keys("upload:*:meta")
-
+        
         for key in session_keys[:limit]:
             data = await redis.hgetall(key)
             if data:
@@ -134,15 +134,15 @@ class Query:
                 )
                 if status_filter is None or session.status == status_filter:
                     sessions.append(session)
-
+        
         return sessions
-
+    
     @strawberry.field
     async def feature_flags(self, info: strawberry.Info) -> list[FeatureFlag]:
         """List all feature flags with current state."""
         redis = await get_redis_client()
         flags_data = await redis.hgetall("feature_flags")
-
+        
         flags = []
         default_flags = {
             "delta_sync_v2": {"enabled": True, "rollout": 100, "desc": "Delta synchronization v2"},
@@ -150,7 +150,7 @@ class Query:
             "ai_scan_enabled": {"enabled": False, "rollout": 0, "desc": "AI-powered malware scanning"},
             "quantum_crypto": {"enabled": False, "rollout": 0, "desc": "Quantum-resistant cryptography"},
         }
-
+        
         for name, config in default_flags.items():
             stored = flags_data.get(name.encode())
             if stored:
@@ -171,9 +171,9 @@ class Query:
                     description=config["desc"],
                     last_modified=datetime.now(timezone.utc).isoformat()
                 ))
-
+        
         return flags
-
+    
     @strawberry.field
     async def activity_logs(
         self,
@@ -183,24 +183,24 @@ class Query:
     ) -> list[ActivityLog]:
         """Retrieve recent activity logs."""
         redis = await get_redis_client()
-
+        
         logs = []
         log_entries = await redis.lrange("activity:logs", offset, offset + limit - 1)
-
+        
         for entry in log_entries:
             import json
             data = json.loads(entry.decode())
             logs.append(ActivityLog(**data))
-
+        
         return logs
-
+    
     @strawberry.field
     async def health_status(self, info: strawberry.Info) -> HealthStatus:
         """Get overall system health status."""
         redis = await get_redis_client()
         start_time = await redis.get("system:start_time")
         uptime = (datetime.now(timezone.utc).timestamp() - float(start_time or 0)) if start_time else 0
-
+        
         return HealthStatus(  # type: ignore[call-arg]
             status="healthy",
             version="2026.1.0",
@@ -226,23 +226,23 @@ class Mutation:
     ) -> FeatureFlag:
         """Update a feature flag configuration."""
         redis = await get_redis_client()
-
+        
         import json
         flag_data = {
             "enabled": flag.enabled,
             "rollout": flag.rollout_percentage,
             "modified": datetime.now(timezone.utc).isoformat()
         }
-
+        
         await redis.hset("feature_flags", flag.name, json.dumps(flag_data))
-
+        
         # Publish event for real-time updates
         await redis.publish("feature_flags:changed", json.dumps({
             "flag": flag.name,
             "action": "updated",
             "data": flag_data
         }))
-
+        
         return FeatureFlag(  # type: ignore[call-arg]
             name=flag.name,
             enabled=flag.enabled,
@@ -250,7 +250,7 @@ class Mutation:
             description="Updated via control panel",
             last_modified=flag_data["modified"]
         )
-
+    
     @strawberry.mutation
     async def restart_service(
         self,
@@ -259,13 +259,13 @@ class Mutation:
     ) -> dict[str, str]:
         """Trigger a graceful restart of a specific service."""
         allowed_services = ["api", "worker", "telemetry"]
-
+        
         if service_name not in allowed_services:
             raise HTTPException(status_code=400, detail=f"Service must be one of: {allowed_services}")
-
+        
         redis = await get_redis_client()
         await redis.set(f"service:restart:{service_name}", "pending", ex=60)
-
+        
         return {"status": "initiated", "service": service_name, "message": "Restart signal sent"}
 
 # ==================== Subscription Resolvers ====================
@@ -281,7 +281,7 @@ class Subscription:
         while True:
             redis = await get_redis_client()
             metrics_data = await redis.hgetall("metrics:system")
-
+            
             yield SystemMetrics(  # type: ignore[call-arg]
                 active_uploads=int(metrics_data.get(b"active_uploads", 0)),
                 queue_depth=int(metrics_data.get(b"queue_depth", 0)),
@@ -292,9 +292,9 @@ class Subscription:
                 requests_per_second=float(metrics_data.get(b"rps", 1500.0)),
                 timestamp=datetime.now(timezone.utc).isoformat()
             )
-
+            
             await asyncio.sleep(interval_seconds)
-
+    
     @strawberry.subscription
     async def upload_progress(
         self,
@@ -304,7 +304,7 @@ class Subscription:
         redis = await get_redis_client()
         pubsub = redis.pubsub()
         await pubsub.subscribe(f"upload:{session_id}:progress")
-
+        
         async for message in pubsub.listen():
             if message["type"] == "message":
                 import json
@@ -329,9 +329,9 @@ def create_control_panel_app() -> FastAPI:
         docs_url="/admin/docs",
         redoc_url="/admin/redoc"
     )
-
+    
     app.include_router(graphql_app, prefix="/admin/graphql")
-
+    
     @app.websocket("/admin/ws/metrics")
     async def websocket_metrics(websocket: WebSocket):
         await websocket.accept()
@@ -339,7 +339,7 @@ def create_control_panel_app() -> FastAPI:
             while True:
                 redis = await get_redis_client()
                 metrics_data = await redis.hgetall("metrics:system")
-
+                
                 await websocket.send_json({
                     "type": "metrics",
                     "data": {
@@ -352,5 +352,5 @@ def create_control_panel_app() -> FastAPI:
                 await asyncio.sleep(1.0)
         except WebSocketDisconnect:
             pass
-
+    
     return app

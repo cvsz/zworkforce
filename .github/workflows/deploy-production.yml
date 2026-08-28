@@ -1,0 +1,193 @@
+name: Deploy production
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Full commit SHA already published to GHCR
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Materialize secrets and sync Argo CD
+    runs-on: self-hosted
+    environment: production
+    env:
+      RELEASE_SHA: ${{ inputs.release_sha }}
+      GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+      GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+      GHCR_OAUTH_ID: ${{ secrets.GHCR_OAUTH_ID }}
+      GHCR_OAUTH_TOKEN: ${{ secrets.GHCR_OAUTH_TOKEN }}
+      Z_PLATFORM_SERVICE_TOKEN: ${{ secrets.Z_PLATFORM_SERVICE_TOKEN }}
+      ZC_API_TOKEN: ${{ secrets.ZC_API_TOKEN }}
+      PHASE6_API_TOKEN: ${{ secrets.PHASE6_API_TOKEN || secrets.Z_PLATFORM_SERVICE_TOKEN }}
+      REDIS_URL: ${{ secrets.REDIS_URL || 'redis://redis:6379/0' }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+      AI_GATEWAY_PROVIDER_TOKEN: ${{ secrets.AI_GATEWAY_PROVIDER_TOKEN }}
+      PHASE6_AI_PROVIDER_ENDPOINTS_JSON: ${{ secrets.PHASE6_AI_PROVIDER_ENDPOINTS_JSON }}
+      PHASE6_AI_PROVIDER_KEYS_JSON: ${{ secrets.PHASE6_AI_PROVIDER_KEYS_JSON }}
+      AGENT_AUDIT_URL: ${{ secrets.AGENT_AUDIT_URL }}
+      AGENT_IDENTITY_URL: ${{ secrets.AGENT_IDENTITY_URL }}
+      AGENT_JOB_STORE_URL: ${{ secrets.AGENT_JOB_STORE_URL }}
+      AGENT_QUEUE_URL: ${{ secrets.AGENT_QUEUE_URL }}
+      AGENT_SANDBOX_URL: ${{ secrets.AGENT_SANDBOX_URL }}
+      BILLING_LEDGER_URL: ${{ secrets.BILLING_LEDGER_URL }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Repair and verify shell helper checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          helper="scripts/resolve-ghcr-credentials.sh"
+          git -c core.autocrlf=false checkout-index --force -- "$helper"
+          expected="$(git rev-parse "HEAD:$helper")"
+          actual="$(git hash-object --no-filters "$helper")"
+          test "$actual" = "$expected" || {
+            echo "Checked-out GHCR helper differs from the immutable Git blob" >&2
+            exit 1
+          }
+          bash -n "$helper"
+
+      - name: Resolve GHCR credential pair
+        shell: bash
+        run: bash scripts/resolve-ghcr-credentials.sh
+
+      - name: Validate immutable release input
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          for name in GHCR_EFFECTIVE_USERNAME GHCR_EFFECTIVE_TOKEN Z_PLATFORM_SERVICE_TOKEN ZC_API_TOKEN PHASE6_API_TOKEN JWT_SECRET ENCRYPTION_KEY AI_GATEWAY_PROVIDER_TOKEN PHASE6_AI_PROVIDER_ENDPOINTS_JSON PHASE6_AI_PROVIDER_KEYS_JSON; do
+            [[ -n "${!name:-}" ]] || { echo "Missing required production secret: $name" >&2; exit 1; }
+          done
+          node <<'NODE'
+          const endpoints = JSON.parse(process.env.PHASE6_AI_PROVIDER_ENDPOINTS_JSON);
+          const keys = JSON.parse(process.env.PHASE6_AI_PROVIDER_KEYS_JSON);
+          const names = Object.keys(endpoints);
+          if (names.length < 2) throw new Error("At least two Phase 6 AI providers are required");
+          if (JSON.stringify([...names].sort()) !== JSON.stringify(Object.keys(keys).sort())) {
+            throw new Error("Phase 6 AI endpoint and key provider names must match exactly");
+          }
+          const origins = new Set();
+          for (const name of names) {
+            const provider = typeof endpoints[name] === "string"
+              ? { baseUrl: endpoints[name], model: process.env.AI_MODEL || "Qwen/Qwen2.5-Coder-32B-Instruct" }
+              : endpoints[name];
+            if (!provider || typeof provider.baseUrl !== "string" || typeof provider.model !== "string" || !provider.model.trim()) {
+              throw new Error(`Invalid Phase 6 AI provider configuration for ${name}`);
+            }
+            const url = new URL(provider.baseUrl);
+            if (url.protocol !== "https:" || url.username || url.password) throw new Error(`Invalid Phase 6 AI endpoint for ${name}`);
+            if (typeof keys[name] !== "string" || keys[name].length < 16) throw new Error(`Invalid Phase 6 AI key for ${name}`);
+            origins.add(url.origin);
+          }
+          if (origins.size < 2) throw new Error("Phase 6 AI providers must use distinct origins");
+          NODE
+
+      - name: Verify Kubernetes context
+        shell: bash
+        run: |
+          set -euo pipefail
+          kubectl cluster-info
+          kubectl get node --no-headers | awk '$2 == "Ready" { found=1 } END { exit(found ? 0 : 1) }'
+
+      - name: Materialize runtime secret without logging values
+        shell: bash
+        run: |
+          set -euo pipefail
+          kubectl -n z-platform create namespace z-platform --dry-run=client -o yaml | kubectl apply -f -
+          kubectl -n z-platform create secret generic z-platform-runtime \
+            --from-literal=Z_PLATFORM_SERVICE_TOKEN="$Z_PLATFORM_SERVICE_TOKEN" \
+            --from-literal=ZC_API_TOKEN="$ZC_API_TOKEN" \
+            --from-literal=PHASE6_API_TOKEN="$PHASE6_API_TOKEN" \
+            --from-literal=REDIS_URL="${REDIS_URL:-redis://redis:6379/0}" \
+            --from-literal=AI_PROVIDER_ENDPOINTS="$PHASE6_AI_PROVIDER_ENDPOINTS_JSON" \
+            --from-literal=AI_PROVIDER_KEYS_JSON="$PHASE6_AI_PROVIDER_KEYS_JSON" \
+            --from-literal=Z_PLATFORM_RELEASE_SHA="$RELEASE_SHA" \
+            --from-literal=JWT_SECRET="$JWT_SECRET" \
+            --from-literal=ENCRYPTION_KEY="$ENCRYPTION_KEY" \
+            --from-literal=AI_GATEWAY_PROVIDER_TOKEN="$AI_GATEWAY_PROVIDER_TOKEN" \
+            --from-literal=AGENT_AUDIT_URL="${AGENT_AUDIT_URL:-}" \
+            --from-literal=AGENT_IDENTITY_URL="${AGENT_IDENTITY_URL:-}" \
+            --from-literal=AGENT_JOB_STORE_URL="${AGENT_JOB_STORE_URL:-}" \
+            --from-literal=AGENT_QUEUE_URL="${AGENT_QUEUE_URL:-}" \
+            --from-literal=AGENT_SANDBOX_URL="${AGENT_SANDBOX_URL:-}" \
+            --from-literal=BILLING_LEDGER_URL="${BILLING_LEDGER_URL:-}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Materialize private GHCR pull secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          kubectl -n z-platform create secret docker-registry ghcr-pull \
+            --docker-server=ghcr.io \
+            --docker-username="$GHCR_EFFECTIVE_USERNAME" \
+            --docker-password "$GHCR_EFFECTIVE_TOKEN" \
+            --docker-email="platform@zeazdev.com" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Bind Argo CD to immutable release images
+        shell: bash
+        run: |
+          set -euo pipefail
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+          printf '%s' "$GHCR_EFFECTIVE_TOKEN" | docker login ghcr.io --username "$GHCR_EFFECTIVE_USERNAME" --password-stdin >/dev/null
+
+          image_overrides=()
+          for name in phase6-api zc-api ai-gateway zchat; do
+            image="ghcr.io/${GITHUB_REPOSITORY}/${name}:sha-${RELEASE_SHA}"
+            digest="$(docker buildx imagetools inspect "$image" --format '{{.Manifest.Digest}}')"
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || {
+              echo "Could not resolve immutable digest for $name" >&2
+              exit 1
+            }
+            image_overrides+=("ghcr.io/${GITHUB_REPOSITORY}/${name}=ghcr.io/${GITHUB_REPOSITORY}/${name}:sha-${RELEASE_SHA}@${digest}")
+          done
+
+          images_json="$(printf '%s\n' "${image_overrides[@]}" | jq -R . | jq -s .)"
+          patch="$(jq -n --argjson images "$images_json" '{spec:{source:{kustomize:{images:$images}}}}')"
+          kubectl -n argocd patch application z-platform --type=merge -p "$patch"
+
+      - name: Request Argo CD sync for the selected release
+        shell: bash
+        run: |
+          set -euo pipefail
+          kubectl -n argocd patch application z-platform --type=merge \
+            -p '{"operation":{"sync":{"prune":true}}}'
+          for attempt in $(seq 1 60); do
+            sync_status=$(kubectl -n argocd get application z-platform -o jsonpath='{.status.sync.status}')
+            health_status=$(kubectl -n argocd get application z-platform -o jsonpath='{.status.health.status}')
+            if [[ "$sync_status" == "Synced" && "$health_status" == "Healthy" ]]; then
+              exit 0
+            fi
+            sleep 10
+          done
+          kubectl -n argocd get application z-platform -o yaml
+          exit 1
+
+      - name: Verify runtime release identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          declare -A probes=(
+            [phase6-api]="health/live"
+            [zc-api]="v1/wire/health/live"
+            [ai-gateway]="health"
+            [zchat]="health/live"
+          )
+          for service in phase6-api zc-api ai-gateway zchat; do
+            payload="$(kubectl get --raw "/api/v1/namespaces/z-platform/services/${service}:http/proxy/${probes[$service]}")"
+            actual="$(jq -er '.release_sha' <<<"$payload")"
+            if [[ "$actual" != "$RELEASE_SHA" ]]; then
+              echo "Runtime release mismatch for $service" >&2
+              exit 1
+            fi
+            echo "$service release identity verified"
+          done

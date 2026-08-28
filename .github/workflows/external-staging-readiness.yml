@@ -1,0 +1,155 @@
+name: external-staging-readiness
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Full immutable release commit SHA
+        required: true
+        type: string
+      request_production_approval:
+        description: Request the protected production approval job after staging verification
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read
+  attestations: write
+  id-token: write
+
+jobs:
+  staging-readiness:
+    name: Verify external staging evidence
+    runs-on: self-hosted
+    environment: staging
+    steps:
+      - name: Validate release SHA format
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "release_sha must be a full lowercase commit SHA"; exit 2; }
+
+      - name: Verify release SHA exists in repository
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          response_file="$(mktemp)"
+          if ! status="$(curl -sS -o "$response_file" -w '%{http_code}' -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${RELEASE_SHA}")"; then
+            echo "release_sha lookup failed"
+            cat "$response_file"
+            exit 2
+          fi
+          if [ "$status" != 200 ]; then
+            echo "release_sha must reference a commit in ${GITHUB_REPOSITORY}"
+            cat "$response_file"
+            exit 2
+          fi
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.release_sha }}
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Verify checked-out immutable revision
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+
+      - name: Materialize protected readiness manifest
+        env:
+          STAGING_READINESS_MANIFEST_JSON: ${{ secrets.STAGING_READINESS_MANIFEST_JSON }}
+        run: |
+          set -euo pipefail
+          test -n "$STAGING_READINESS_MANIFEST_JSON"
+          umask 077
+          printf '%s' "$STAGING_READINESS_MANIFEST_JSON" > /tmp/staging-readiness-manifest.json
+
+      - name: Collect and validate external evidence
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          STAGING_BEARER_TOKEN: ${{ secrets.STAGING_BEARER_TOKEN }}
+          STAGING_CF_ACCESS_CLIENT_ID: ${{ secrets.STAGING_CF_ACCESS_CLIENT_ID }}
+          STAGING_CF_ACCESS_CLIENT_SECRET: ${{ secrets.STAGING_CF_ACCESS_CLIENT_SECRET }}
+          STAGING_REVIEWER: ${{ vars.STAGING_REVIEWER }}
+          INCIDENT_OWNER: ${{ vars.INCIDENT_OWNER }}
+          ESCALATION_ROUTE: ${{ vars.ESCALATION_ROUTE }}
+          WATCH_WINDOW: ${{ vars.WATCH_WINDOW }}
+          STAGING_ALLOWED_ORIGINS: ${{ vars.STAGING_ALLOWED_ORIGINS }}
+          DECISION_RECORD_JSON: ${{ secrets.STAGING_DECISION_RECORD_JSON }}
+        run: node scripts/external-readiness.mjs /tmp/staging-readiness-manifest.json external-staging-evidence.json
+
+      - name: Upload sanitized staging evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: external-staging-evidence-${{ inputs.release_sha }}
+          path: external-staging-evidence.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Attest staging evidence
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: external-staging-evidence.json
+
+      - name: Publish summary
+        run: |
+          {
+            echo "## External staging readiness"
+            echo
+            echo "- Release SHA: \`${{ inputs.release_sha }}\`"
+            echo "- Evidence: VERIFIED"
+            echo "- Production traffic: still disabled unless the protected production approval job completes"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove protected temporary input
+        if: always()
+        run: rm -f /tmp/staging-readiness-manifest.json
+
+  production-approval:
+    name: Explicit production release approval
+    if: ${{ inputs.request_production_approval }}
+    needs: staging-readiness
+    runs-on: self-hosted
+    environment: production
+    steps:
+      - name: Record protected approval
+        env:
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          PRODUCTION_APPROVER: ${{ vars.PRODUCTION_APPROVER }}
+        run: |
+          set -euo pipefail
+          test -n "$PRODUCTION_APPROVER"
+          umask 077
+          cat > production-approval-evidence.json <<EOF
+          {
+            "schemaVersion": "1.0.0",
+            "releaseSha": "$RELEASE_SHA",
+            "approver": "$PRODUCTION_APPROVER",
+            "approvedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "workflowRunId": "${GITHUB_RUN_ID}",
+            "result": "APPROVED"
+          }
+          EOF
+
+      - name: Upload production approval evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: production-approval-${{ inputs.release_sha }}
+          path: production-approval-evidence.json
+          if-no-files-found: error
+          retention-days: 365
+
+      - name: Attest production approval evidence
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: production-approval-evidence.json

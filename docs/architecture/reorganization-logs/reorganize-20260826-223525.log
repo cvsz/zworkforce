@@ -1,0 +1,10 @@
+[2026-08-26T22:35:25] === Starting reorganization: phase=h1 dry_run=true force=false ===
+[2026-08-26T22:35:25] Phase H1: Safe moves (0 uncommitted changes)
+[2026-08-26T22:35:25] DRY-RUN: Would move /home/cvsz/z-world → /home/cvsz/platforms/z-world
+[2026-08-26T22:35:25] DRY-RUN: Would move /home/cvsz/zaffiliate → /home/cvsz/platforms/zaffiliate
+[2026-08-26T22:35:26] SKIP: /home/cvsz/zeaz-ai-command-center has 4 uncommitted changes (use --force to override)
+[2026-08-26T22:35:26] DRY-RUN: Would move /home/cvsz/zeaz-autonomous-security-agent → /home/cvsz/archives/zeaz-autonomous-security-agent
+[2026-08-26T22:35:26] DRY-RUN: Would move /home/cvsz/zeaz-one-complete → /home/cvsz/archives/zeaz-one-complete
+[2026-08-26T22:35:26] DRY-RUN: Would move /home/cvsz/zloop_orig → /home/cvsz/archives/zloop_orig
+[2026-08-26T22:35:26] DRY-RUN: Would move /home/cvsz/zkid → /home/cvsz/apps/zkid
+[2026-08-26T22:35:26] === Reorganization complete ===

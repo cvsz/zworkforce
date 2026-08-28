@@ -51,7 +51,7 @@ export function createGatewayApp({ redis, fetchImpl = globalThis.fetch, logger: 
   // Enterprise security and middleware
   app.use(helmet());
   app.use(cors(corsConfig()));
-  app.use(express.json({ limit: process.env.AI_GATEWAY_JSON_LIMIT || '32mb' }));
+  app.use(express.json({ limit: '10mb' }));
   app.use(pinoHttp({ logger: appLogger }));
   app.use('/v1', rateLimit(rateLimitConfig()));
 
@@ -86,125 +86,6 @@ export function createGatewayApp({ redis, fetchImpl = globalThis.fetch, logger: 
       : [{ id: fallback, object: 'model', owned_by: 'z-platform' }];
     return res.json({ object: 'list', data });
   });
-
-  const forwardAnthropicMessages = async (req, res) => {
-    const body = req.body || {};
-
-    if (!body.model || typeof body.model !== 'string') {
-      return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Model ID is required' } });
-    }
-
-    if (!Number.isInteger(body.max_tokens) || body.max_tokens < 1) {
-      return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'max_tokens must be a positive integer' } });
-    }
-
-    if (!Array.isArray(body.messages) || body.messages.length === 0) {
-      return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'messages must be a non-empty array' } });
-    }
-
-    const provider = 'anthropic';
-    const controller = new AbortController();
-    const abortUpstream = () => controller.abort();
-    req.once('aborted', abortUpstream);
-    res.once('close', () => {
-      if (!res.writableEnded) {
-        abortUpstream();
-      }
-    });
-
-    const maxRetries = 3;
-    let lastError = null;
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      if (controller.signal.aborted) {
-        appLogger.info({ provider, attempt }, 'Client disconnected before Anthropic upstream completion');
-        return;
-      }
-
-      const key = await redisClient.srandmember(`provider:${provider}:active_keys`);
-
-      if (!key) {
-        appLogger.error({ provider }, 'No active keys available in pool');
-        return res.status(503).json({ error: { code: 'SERVICE_UNAVAILABLE', message: 'No upstream provider keys available' } });
-      }
-
-      try {
-        const upstreamBaseUrl = process.env.ANTHROPIC_UPSTREAM_BASE_URL || process.env.UPSTREAM_ANTHROPIC_BASE_URL || 'https://api.anthropic.com/v1';
-        const upstreamUrl = `${upstreamBaseUrl.replace(/\/+$/, '')}/messages`;
-        const headers = {
-          'Content-Type': 'application/json',
-          'x-api-key': key,
-          'anthropic-version': process.env.ANTHROPIC_VERSION || '2023-06-01'
-        };
-
-        if (process.env.ANTHROPIC_BETA) {
-          headers['anthropic-beta'] = process.env.ANTHROPIC_BETA;
-        }
-
-        const response = await fetchImpl(upstreamUrl, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(body),
-          signal: controller.signal
-        });
-
-        const requestId = response.headers?.get?.('request-id');
-        if (requestId) {
-          res.setHeader('request-id', requestId);
-        }
-
-        if (response.ok) {
-          if (body.stream) {
-            if (!response.body) {
-              return res.status(502).json({ error: { code: 'BAD_GATEWAY', message: 'Streaming response body is unavailable' } });
-            }
-
-            const upstreamStream = Readable.fromWeb(response.body);
-            res.setHeader('Content-Type', response.headers?.get?.('content-type') || 'text/event-stream');
-            res.setHeader('Cache-Control', 'no-cache');
-            res.setHeader('Connection', 'keep-alive');
-            res.once('close', () => upstreamStream.destroy());
-            return upstreamStream.pipe(res);
-          }
-
-          res.setHeader('Content-Type', response.headers?.get?.('content-type') || 'application/json');
-          return res.status(200).send(await response.text());
-        }
-
-        if (response.status === 429) {
-          await redisClient.srem(`provider:${provider}:active_keys`, key);
-          await redisClient.set(`provider:${provider}:cooldown_keys:${key}`, 'cooldown', 'EX', 3600);
-          appLogger.warn({ provider, attempt }, 'Anthropic rate limit hit (429). Key rotated to cooldown.');
-          lastError = { status: 429, message: 'Upstream rate limit' };
-          continue;
-        }
-
-        if (response.status === 401 || response.status === 403) {
-          await redisClient.srem(`provider:${provider}:active_keys`, key);
-          await redisClient.sadd(`provider:${provider}:invalid_keys`, key);
-          appLogger.warn({ provider, attempt, status: response.status }, 'Anthropic key invalid. Permanently removed.');
-          lastError = { status: response.status, message: 'Upstream authentication failed' };
-          continue;
-        }
-
-        res.setHeader('Content-Type', response.headers?.get?.('content-type') || 'application/json');
-        return res.status(response.status).send(await response.text());
-      } catch (error) {
-        if (controller.signal.aborted) {
-          appLogger.info({ provider, attempt }, 'Client disconnected while Anthropic upstream request was in flight');
-          return;
-        }
-
-        appLogger.error({ err: error }, 'Internal Anthropic fetch error');
-        lastError = { status: 500, message: 'Internal network error' };
-      }
-    }
-
-    appLogger.error({ provider, lastError }, 'Exhausted all Anthropic retry attempts');
-    return res.status(502).json({ error: { code: 'EXHAUSTED', message: 'Provider routing failed after retries' } });
-  };
-
-  app.post('/v1/messages', requireAuth, forwardAnthropicMessages);
 
   // Primary Gateway Route
   app.post('/v1/chat/completions', requireAuth, async (req, res) => {

@@ -1,0 +1,87 @@
+name: Publish container images
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+concurrency:
+  group: container-images-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: phase6-api
+            context: services/phase6-api
+            file: services/phase6-api/Dockerfile
+          - name: zc-api
+            context: .
+            file: services/zc/Dockerfile
+          - name: ai-gateway
+            context: .
+            file: deploy/docker/ai-gateway.Dockerfile
+          - name: zchat
+            context: .
+            file: deploy/docker/node-service.Dockerfile
+            service_path: apps/zchat
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
+        with:
+          images: ghcr.io/${{ github.repository }}/${{ matrix.name }}
+          tags: |
+            type=sha,format=long,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and publish immutable image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          push: true
+          sbom: true
+          provenance: mode=max
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            SERVICE_PATH=${{ matrix.service_path }}
+            OCI_REVISION=${{ github.sha }}
+            OCI_SOURCE=https://github.com/${{ github.repository }}
+            OCI_CREATED=${{ github.event.head_commit.timestamp }}
+            OCI_VERSION=sha-${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+      - name: Record digest
+        run: |
+          {
+            echo "image=${{ steps.meta.outputs.tags }}"
+            echo "revision=${GITHUB_SHA}"
+            echo "digest=${{ steps.meta.outputs.digest }}"
+          } >> "$GITHUB_STEP_SUMMARY"

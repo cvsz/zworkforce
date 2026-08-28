@@ -24,8 +24,8 @@ python-dotenv>=1.0.0
 # Optional — --excel conversational spreadsheet chat (v1.14.0)
 # Not required for any other flag; zc_excel.py raises a clear error
 # and exits if these aren't installed and --excel is used.
-pandas>=2.0.0
-openpyxl>=3.1.0
+pandas>=3.0.5
+openpyxl>=3.1.5
 
 # Optional — --pptx conversational slide-deck chat (v1.15.0)
 # Not required for any other flag; zc_powerpoint.py raises a clear
@@ -37,4 +37,4 @@ python-pptx>=0.6.23
 # Optional — --tui full-screen Textual interface (v1.29.0)
 # Not required for any other flag; tui.py raises a clear error and exits
 # if this isn't installed and --tui is used.
-textual>=0.80.0
+textual>=8.2.8

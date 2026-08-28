@@ -1,0 +1,40 @@
+[2026-08-27T01:03:59] === Starting reorganization phase 3: phase=f1 dry_run=true force=false cleanse_secrets=false ===
+[2026-08-27T01:03:59] Phase F1: Scripts and tools
+[2026-08-27T01:03:59] DRY-RUN: Would move /home/cvsz/clean-os.sh -> tools/scripts/clean-os.sh
+[2026-08-27T01:03:59] === Starting reorganization phase 3: phase=f2 dry_run=true force=false cleanse_secrets=false ===
+[2026-08-27T01:03:59] DRY-RUN: Would move /home/cvsz/clean-os-v2.sh -> tools/scripts/clean-os-v2.sh
+[2026-08-27T01:03:59] Phase F2: Documentation, reports, images, archives
+[2026-08-27T01:03:59] DRY-RUN: Would move /home/cvsz/full-repo-list-cvsz.md -> archives/docs/full-repo-list-cvsz.md
+[2026-08-27T01:03:59] DRY-RUN: Would move /home/cvsz/freedns_update.sh -> tools/scripts/freedns_update.sh
+[2026-08-27T01:03:59] DRY-RUN: Would move /home/cvsz/purpose.md -> archives/docs/purpose.md
+[2026-08-27T01:03:59] DRY-RUN: Would move /home/cvsz/g-cvsz.sh -> tools/scripts/g-cvsz.sh
+[2026-08-27T01:03:59] DRY-RUN: Would move /home/cvsz/schema.md -> archives/docs/schema.md
+[2026-08-27T01:03:59] DRY-RUN: Would move /home/cvsz/install_dashscope.sh -> tools/scripts/install_dashscope.sh
+[2026-08-27T01:03:59] DRY-RUN: Would move /home/cvsz/rotate.md -> archives/docs/rotate.md
+[2026-08-27T01:03:59] DRY-RUN: Would move /home/cvsz/ps.txt -> archives/logs/ps.txt
+[2026-08-27T01:03:59] DRY-RUN: Would move /home/cvsz/install-clean-os.sh -> tools/scripts/install-clean-os.sh
+[2026-08-27T01:03:59] DRY-RUN: Would move /home/cvsz/find_26de_outgoing_fast.log -> archives/logs/find_26de_outgoing_fast.log
+[2026-08-27T01:03:59] DRY-RUN: Would move /home/cvsz/trace_26de_usdt.log -> archives/logs/trace_26de_usdt.log
+[2026-08-27T01:03:59] DRY-RUN: Would move /home/cvsz/migrate-zarvis-to-sdb.sh -> tools/scripts/migrate-zarvis-to-sdb.sh
+[2026-08-27T01:03:59] DRY-RUN: Would move /home/cvsz/stack-duplicate-report-20260812-084755.txt -> archives/reports/stack-duplicate-report-20260812-084755.txt
+[2026-08-27T01:03:59] DRY-RUN: Would move /home/cvsz/omega-core-ssh-repair.sh -> tools/scripts/omega-core-ssh-repair.sh
+[2026-08-27T01:03:59] DRY-RUN: Would move /home/cvsz/omega-ssh-linux.sh -> tools/scripts/omega-ssh-linux.sh
+[2026-08-27T01:03:59] DRY-RUN: Would move /home/cvsz/oneclick-docker-recovery.sh -> tools/scripts/oneclick-docker-recovery.sh
+[2026-08-27T01:03:59] DRY-RUN: Would move /home/cvsz/loe.jpg -> archives/images/loe.jpg
+[2026-08-27T01:03:59] DRY-RUN: Would move /home/cvsz/scan-stack-duplicates.sh -> tools/scripts/scan-stack-duplicates.sh
+[2026-08-27T01:04:00] DRY-RUN: Would move /home/cvsz/ssh-setup.sh -> tools/scripts/ssh-setup.sh
+[2026-08-27T01:03:59] DRY-RUN: Would move /home/cvsz/loe2.jpg -> archives/images/loe2.jpg
+[2026-08-27T01:04:00] DRY-RUN: Would move /home/cvsz/sync-z-world.sh -> tools/scripts/sync-z-world.sh
+[2026-08-27T01:04:00] DRY-RUN: Would move /home/cvsz/zeaz-ai-command-center-v3.4.1.zip -> archives/zeaz-ai-command-center-v3.4.1.zip
+[2026-08-27T01:04:00] DRY-RUN: Would move /home/cvsz/trace-usdt.sh -> tools/scripts/trace-usdt.sh
+[2026-08-27T01:04:00] SKIP: Sensitive files require --cleanse-secrets flag:
+[2026-08-27T01:04:00] DRY-RUN: Would move /home/cvsz/uv.sh -> tools/scripts/uv.sh
+[2026-08-27T01:04:00]   - /home/cvsz/extracted_keys.txt
+[2026-08-27T01:04:00] DRY-RUN: Would move /home/cvsz/zarvis-compose.sh -> tools/scripts/zarvis-compose.sh
+[2026-08-27T01:04:00]   - /home/cvsz/scan_keys.py
+[2026-08-27T01:04:00] DRY-RUN: Would move /home/cvsz/zarvis-oneclick.sh -> tools/scripts/zarvis-oneclick.sh
+[2026-08-27T01:04:00] DRY-RUN: Would move /home/cvsz/zarvis-oneclick.sh.old.20260806-211920 -> tools/scripts/zarvis-oneclick.sh.old.20260806-211920
+[2026-08-27T01:04:00] DRY-RUN: Would move /home/cvsz/find_26de_outgoing_fast.py -> tools/scripts/find_26de_outgoing_fast.py
+[2026-08-27T01:04:00] === Reorganization phase 3 complete ===
+[2026-08-27T01:04:00] DRY-RUN: Would move /home/cvsz/trace_26de_usdt.py -> tools/scripts/trace_26de_usdt.py
+[2026-08-27T01:04:00] === Reorganization phase 3 complete ===
