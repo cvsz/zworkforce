@@ -9,7 +9,7 @@ from prometheus_client import REGISTRY
 
 
 ROOT = Path(__file__).resolve().parents[3]
-APP_PATH = ROOT / "services" / "phase6-api" / "app.py"
+APP_PATH = ROOT / "services" / "zc-api" / "app.py"
 
 
 def load_app(monkeypatch):
@@ -38,7 +38,7 @@ def test_liveness_exposes_the_immutable_release_identity(monkeypatch):
     response = TestClient(module.app).get("/health/live")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "alive", "service": "phase6-api", "release_sha": "a" * 40}
+    assert response.json() == {"status": "alive", "service": "zc-api", "release_sha": "a" * 40}
 
 
 def test_upload_is_bounded_and_processed_by_an_external_provider(monkeypatch):

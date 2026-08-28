@@ -8,7 +8,7 @@ from prometheus_client import REGISTRY
 
 
 ROOT = Path(__file__).resolve().parents[3]
-APP_PATH = ROOT / "services" / "phase6-api" / "app.py"
+APP_PATH = ROOT / "services" / "zc-api" / "app.py"
 
 
 def load_app(monkeypatch):

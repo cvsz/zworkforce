@@ -103,7 +103,7 @@ async def health(_: None = Depends(auth)):
 @app.get("/health/live")
 async def health_live():
     """Unauthenticated process liveness endpoint for Kubernetes probes."""
-    return {"status": "alive", "service": "phase6-api", "release_sha": RELEASE_SHA}
+    return {"status": "alive", "service": "zc-api", "release_sha": RELEASE_SHA}
 
 @app.get("/health/ready")
 async def health_ready():

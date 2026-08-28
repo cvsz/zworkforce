@@ -7,8 +7,6 @@ resources:
 # Release automation must replace these values with sha256 digests before
 # Argo CD sync. The explicit marker is intentionally fail-closed for humans.
 images:
-  - name: ghcr.io/cvsz/z-platform/phase6-api
-    newTag: sha-89c4bde011fb08625dbd44eac3d16628a835d470@sha256:6ad07d8b35d6523cc1004a2e5e8ffb189311d05c01e60d46d1584a999158b969
   - name: ghcr.io/cvsz/z-platform/zc-api
     newTag: sha-89c4bde011fb08625dbd44eac3d16628a835d470@sha256:eb9684054b1a49d272746d7d85b2e501ef824df8aa7d67c60a6ff18b2144a4ae
   - name: ghcr.io/cvsz/z-platform/ai-gateway

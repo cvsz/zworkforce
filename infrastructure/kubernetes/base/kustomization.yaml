@@ -13,9 +13,6 @@ resources:
 # Production overlays MUST replace these development image references with
 # immutable image digests before applying them to a cluster.
 images:
-  - name: ghcr.io/zeazdev/z-platform/phase6-api
-    newName: ghcr.io/zeazdev/z-platform/phase6-api
-    newTag: dev
   - name: ghcr.io/zeazdev/z-platform/zc-api
     newName: ghcr.io/zeazdev/z-platform/zc-api
     newTag: dev
