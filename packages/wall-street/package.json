@@ -1,0 +1,14 @@
+{
+  "name": "@zworkforce/wall-street",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ZWorkforce Wall Street operator surface with TradingView interoperability and public market feeds.",
+  "scripts": {
+    "start": "node server.mjs",
+    "check": "node --check server.mjs && node --check app.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -104,6 +104,8 @@ cloudflare_load_terraform_env() {
   export TF_VAR_auth_origin="${AUTH_ORIGIN:-http://127.0.0.1:8080}"
   export TF_VAR_zwf_hostname="${ZWF_HOSTNAME:-zwf.zeaz.dev}"
   export TF_VAR_zwf_api_hostname="${ZWF_API_HOSTNAME:-zwf-api.zeaz.dev}"
+  export TF_VAR_zslog_hostname="${ZSLOG_HOSTNAME:-zslog.zeaz.dev}"
+  export TF_VAR_zslog_origin="${ZSLOG_ORIGIN:-http://127.0.0.1:9581}"
   export TF_VAR_zwf_origin="${ZWF_ORIGIN:-http://127.0.0.1:9570}"
   export TF_VAR_studio_hostname="${STUDIO_HOSTNAME:-studio.zeaz.dev}"
   export TF_VAR_studio_origin="${STUDIO_ORIGIN:-http://127.0.0.1:3005}"

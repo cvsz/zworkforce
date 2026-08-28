@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Wall Street · zWorkforce</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">ZWORKFORCE · MARKET INTELLIGENCE</div>
+      <h1>11 Wall Street <span>operator surface</span></h1>
+    </div>
+    <div class="actions">
+      <a class="ghost" href="http://127.0.0.1:8080/" target="_blank" rel="noreferrer">Control plane</a>
+      <button id="desktopBtn" class="ghost" type="button">Open TradingView Desktop</button>
+      <a id="webChartLink" class="primary" href="https://www.tradingview.com/chart/?symbol=BINANCE%3ABTCUSDT" target="_blank" rel="noreferrer">Open full chart</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="market-head panel">
+      <div class="market-selectors">
+        <label>Exchange
+          <select id="exchangeSelect">
+            <option value="binance">Binance</option>
+            <option value="kucoin">KuCoin</option>
+          </select>
+        </label>
+        <label>Pair
+          <select id="symbolSelect"></select>
+        </label>
+      </div>
+      <div class="quote">
+        <div><span id="pairLabel">BTC/USDT</span><strong id="lastPrice">—</strong></div>
+        <div><span>24h</span><strong id="changePct">—</strong></div>
+        <div><span>High</span><strong id="highPrice">—</strong></div>
+        <div><span>Low</span><strong id="lowPrice">—</strong></div>
+        <div><span>Volume</span><strong id="volume">—</strong></div>
+      </div>
+      <div class="status-stack">
+        <span id="feedStatus" class="status">feed: connecting</span>
+        <span id="zworkforceStatus" class="status">zWorkforce: checking</span>
+      </div>
+    </section>
+
+    <section class="terminal-grid">
+      <article class="panel chart-panel">
+        <div class="panel-title"><span>TradingView Advanced Chart</span><small>official public embed</small></div>
+        <div id="chart" class="chart" aria-label="TradingView chart"></div>
+      </article>
+
+      <article class="panel book-panel">
+        <div class="panel-title"><span>Order book</span><small id="bookPair">BTC/USDT</small></div>
+        <div class="book-head"><span>Price</span><span>Amount</span></div>
+        <div id="asks" class="book-list asks"></div>
+        <div class="mid-price" id="midPrice">—</div>
+        <div id="bids" class="book-list bids"></div>
+      </article>
+
+      <article class="panel trades-panel">
+        <div class="panel-title"><span>Recent trades</span><small>public market stream</small></div>
+        <div class="trade-head"><span>Price</span><span>Amount</span><span>Time</span></div>
+        <div id="trades" class="trade-list"></div>
+      </article>
+
+      <article class="panel provenance-panel">
+        <div class="panel-title"><span>Interop boundary</span><small>no private TradingView code</small></div>
+        <p>This surface uses TradingView's public embed interface, public exchange market data and the desktop URI scheme exposed by the Debian package.</p>
+        <dl>
+          <div><dt>Desktop scheme</dt><dd><code>tradingview:</code></dd></div>
+          <div><dt>Widget</dt><dd>Advanced Chart embed</dd></div>
+          <div><dt>Credentials</dt><dd>None in browser assets</dd></div>
+          <div><dt>Trading actions</dt><dd>Disabled — market intelligence only</dd></div>
+        </dl>
+        <p id="desktopHint" class="hint">Desktop launch requires TradingView Desktop to be installed and the browser to allow the external protocol.</p>
+      </article>
+    </section>
+  </main>
+
+  <footer>zWorkforce Wall Street · public market intelligence · no brokerage/order execution</footer>
+  <script src="/app.js" defer></script>
+</body>
+</html>

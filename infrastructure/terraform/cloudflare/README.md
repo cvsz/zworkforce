@@ -86,6 +86,9 @@ before planning to prevent Terraform from attempting to create a duplicate:
 
 The canonical public zWorkforce hostname managed by this stack is
 `zwf.zeaz.dev`, represented by the single `cloudflare_dns_record.zwf` resource.
+`zslog.zeaz.dev` is a proxied route to the dedicated zslog fake-credit
+realtime log service at `http://127.0.0.1:9581`. The service is demo-only and
+does not connect to external games or handle real currency.
 After a hostname migration, inspect the reviewed plan before applying it: the
 canonical record must be retained, and only the explicitly retired legacy
 record may be removed after the cutover has been validated. Do not edit

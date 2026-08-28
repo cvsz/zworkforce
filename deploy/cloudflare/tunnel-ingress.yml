@@ -13,6 +13,8 @@ ingress:
     service: http://127.0.0.1:9570
   - hostname: zwf-api.zeaz.dev
     service: http://127.0.0.1:9570
+  - hostname: zslog.zeaz.dev
+    service: http://127.0.0.1:9581
 
   # 2. Z.A.R.V.I.S. Voice & Hotkey Gateway (same governed control-plane gateway)
   - hostname: zarvis.zeaz.dev
@@ -55,6 +57,8 @@ ingress:
     service: http://127.0.0.1:8001
   - hostname: autoc.zeaz.dev
     service: http://127.0.0.1:8001
+  - hostname: zany.zeaz.dev
+    service: http://127.0.0.1:8080
   - hostname: auth.zeaz.dev
     service: http://127.0.0.1:8080
   - hostname: laps.zeaz.dev

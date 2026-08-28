@@ -32,13 +32,15 @@ document.addEventListener('click',(e)=>{if(!e.target.closest('.prompt-wrap')){$(
 $('dispatchForm').addEventListener('submit',async(e)=>{e.preventDefault();try{let promptText=$('prompt').value.trim();if(promptText.startsWith('/')){try{const res=await api('/api/v1/workspaces/commands/resolve',{method:'POST',body:{text:promptText}});if(res&&res.resolved){promptText=`[command:${res.target}] ${res.argument||''}`.trim();}}catch(err){banner(`Slash command resolution error: ${err.message}`);return;}}const body={agent_id:$('agentSelect').value,prompt:promptText,mutating:$('mutating').checked,priority:Number($('priority').value||0)};if($('tierSelect').value)body.tier_override=$('tierSelect').value;await api('/api/v1/tasks',{method:'POST',headers:{'Idempotency-Key':crypto.randomUUID()},body});$('prompt').value='';$('slashMenu')?.classList.add('hidden');$('slashHint')?.classList.add('hidden');await refresh();}catch(err){banner(err.message);}});
 $('memoryForm').addEventListener('submit',async(e)=>{e.preventDefault();try{const q=encodeURIComponent($('memoryQuery').value.trim());const data=await api(`/api/v1/memories?limit=20${q?`&q=${q}`:''}`);renderMemories(data.items||[]);}catch(err){banner(err.message);}});
 
-(function attachZarvisVoiceClient(root){"use strict";const SAMPLE_RATE=16000;const STATES=Object.freeze(["idle","arming","ready","listening","transcribing","thinking","speaking","approval_required","interrupted","muted","disconnected","error"]);const STATE_SET=new Set(STATES);function bytesToBase64(bytes){let binary="";const chunkSize=0x8000;for(let index=0;index<bytes.length;index+=chunkSize)binary+=String.fromCharCode(...bytes.subarray(index,index+chunkSize));return root.btoa(binary);}function base64ToBytes(value){const binary=root.atob(value);const bytes=new Uint8Array(binary.length);for(let index=0;index<binary.length;index+=1)bytes[index]=binary.charCodeAt(index);return bytes;}function resampleToPcm16(input,inputRate,outputRate=SAMPLE_RATE){if(!input.length)return new Uint8Array();if(!Number.isFinite(inputRate)||inputRate<=0||!Number.isFinite(outputRate)||outputRate<=0)throw new TypeError("sample rates must be positive finite numbers");const ratio=inputRate/outputRate;const outputLength=Math.max(1,Math.floor(input.length/ratio));const output=new ArrayBuffer(outputLength*2);const view=new DataView(output);for(let index=0;index<outputLength;index+=1){const position=index*ratio;const leftIndex=Math.floor(position);const rightIndex=Math.min(input.length-1,leftIndex+1);const fraction=position-leftIndex;const sample=input[leftIndex]*(1-fraction)+input[rightIndex]*fraction;const clamped=Math.max(-1,Math.min(1,sample));view.setInt16(index*2,clamped<0?clamped*0x8000:clamped*0x7fff,true);}return new Uint8Array(output);}function pcm16ToFloat32(bytes){const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);const samples=new Float32Array(Math.floor(bytes.byteLength/2));for(let index=0;index<samples.length;index+=1){const value=view.getInt16(index*2,true);samples[index]=value<0?value/0x8000:value/0x7fff;}return samples;}function rms(samples){if(!samples.length)return 0;let total=0;for(const value of samples)total+=value*value;return Math.min(1,Math.sqrt(total/samples.length)*4);}function decodeRealtimeEvent(event){const raw=typeof event==="string"?event:event?.data;if(typeof raw!=="string")return null;try{const payload=JSON.parse(raw);return payload&&typeof payload==="object"?payload:null;}catch{return null;}}function createStateMachine(onChange,initial="idle"){if(!STATE_SET.has(initial))throw new TypeError(`unknown voice state: ${initial}`);let current=initial;return Object.freeze({get value(){return current;},transition(next,detail){if(!STATE_SET.has(next))throw new TypeError(`unknown voice state: ${next}`);current=next;onChange?.(next,detail);return current;}});}function isEditableTarget(target){return Boolean(target?.closest?.('input,textarea,select,button,a,[contenteditable="true"]'));}function bindPushToTalk({button,keyTarget=root,onStart,onStop,onCancel,editable=isEditableTarget}){if(!button?.addEventListener||!keyTarget?.addEventListener)throw new TypeError("PTT targets must support events");let active=false;const start=(event)=>{if(active||button.disabled)return;active=true;onStart?.(event);};const stop=(event)=>{if(!active)return;active=false;onStop?.(event);};const pointerDown=(event)=>{event.preventDefault?.();try{button.setPointerCapture?.(event.pointerId);}catch{}start(event);};const pointerUp=(event)=>{event.preventDefault?.();stop(event);};const pointerCancel=(event)=>stop(event);const click=(event)=>{if(event.detail!==0||button.disabled)return;active?stop(event):start(event);};const keyDown=(event)=>{if(event.code==="Escape"){onCancel?.(event);return;}if(event.code==="Space"&&!event.repeat&&!editable(event.target)){event.preventDefault?.();start(event);}};const keyUp=(event)=>{if(event.code==="Space"&&!editable(event.target)){event.preventDefault?.();stop(event);}};button.addEventListener("pointerdown",pointerDown);button.addEventListener("pointerup",pointerUp);button.addEventListener("pointercancel",pointerCancel);button.addEventListener("click",click);keyTarget.addEventListener("keydown",keyDown);keyTarget.addEventListener("keyup",keyUp);return Object.freeze({get active(){return active;},stop,destroy(){button.removeEventListener("pointerdown",pointerDown);button.removeEventListener("pointerup",pointerUp);button.removeEventListener("pointercancel",pointerCancel);button.removeEventListener("click",click);keyTarget.removeEventListener("keydown",keyDown);keyTarget.removeEventListener("keyup",keyUp);active=false;}});}async function createAudioCapture({audioContext,workletUrl,processorName,onSamples,mediaDevices=root.navigator?.mediaDevices,AudioWorkletNodeCtor=root.AudioWorkletNode}){if(!audioContext?.audioWorklet||!mediaDevices?.getUserMedia||!AudioWorkletNodeCtor)throw new Error("browser audio capture is unavailable");await audioContext.audioWorklet.addModule(workletUrl);const stream=await mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1}});const source=audioContext.createMediaStreamSource(stream);const node=new AudioWorkletNodeCtor(audioContext,processorName);node.port.onmessage=({data})=>onSamples?.(data);source.connect(node);const silent=audioContext.createGain();silent.gain.value=0;node.connect(silent).connect(audioContext.destination);let stopped=false;return Object.freeze({stream,node,stop(){if(stopped)return;stopped=true;try{node.disconnect();}catch{}try{source.disconnect();}catch{}for(const track of stream.getTracks())track.stop();}});}function openRealtimeSocket(session,{onEvent,onClose,onError,WebSocketCtor=root.WebSocket}={}){if(!session?.websocket_url||!session?.ticket||!WebSocketCtor)return Promise.reject(new Error("invalid realtime voice session"));return new Promise((resolve,reject)=>{const socket=new WebSocketCtor(session.websocket_url,[`zticket.${session.ticket}`]);let settled=false;socket.addEventListener("message",(event)=>{const payload=decodeRealtimeEvent(event);if(payload)onEvent?.(payload,event);});socket.addEventListener("open",()=>{if(!settled){settled=true;resolve(socket);}},{once:true});socket.addEventListener("error",(event)=>{onError?.(event);if(!settled){settled=true;reject(new Error("unable to connect realtime voice session"));}},{once:true});socket.addEventListener("close",(event)=>onClose?.(event),{once:true});});}root.ZarvisVoiceClient=Object.freeze({SAMPLE_RATE,STATES,bytesToBase64,base64ToBytes,resampleToPcm16,pcm16ToFloat32,rms,decodeRealtimeEvent,createStateMachine,isEditableTarget,bindPushToTalk,createAudioCapture,openRealtimeSocket});})(globalThis);
+(function attachZarvisVoiceClient(root){"use strict";const SAMPLE_RATE=16000;const OUTPUT_SAMPLE_RATE_LIVE=24000;const STATES=Object.freeze(["idle","arming","ready","listening","transcribing","thinking","speaking","approval_required","interrupted","muted","disconnected","error"]);const STATE_SET=new Set(STATES);function bytesToBase64(bytes){let binary="";const chunkSize=0x8000;for(let index=0;index<bytes.length;index+=chunkSize)binary+=String.fromCharCode(...bytes.subarray(index,index+chunkSize));return root.btoa(binary);}function base64ToBytes(value){const binary=root.atob(value);const bytes=new Uint8Array(binary.length);for(let index=0;index<binary.length;index+=1)bytes[index]=binary.charCodeAt(index);return bytes;}function resampleToPcm16(input,inputRate,outputRate=SAMPLE_RATE){if(!input.length)return new Uint8Array();if(!Number.isFinite(inputRate)||inputRate<=0||!Number.isFinite(outputRate)||outputRate<=0)throw new TypeError("sample rates must be positive finite numbers");const ratio=inputRate/outputRate;const outputLength=Math.max(1,Math.floor(input.length/ratio));const output=new ArrayBuffer(outputLength*2);const view=new DataView(output);for(let index=0;index<outputLength;index+=1){const position=index*ratio;const leftIndex=Math.floor(position);const rightIndex=Math.min(input.length-1,leftIndex+1);const fraction=position-leftIndex;const sample=input[leftIndex]*(1-fraction)+input[rightIndex]*fraction;const clamped=Math.max(-1,Math.min(1,sample));view.setInt16(index*2,clamped<0?clamped*0x8000:clamped*0x7fff,true);}return new Uint8Array(output);}function pcm16ToFloat32(bytes){const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);const samples=new Float32Array(Math.floor(bytes.byteLength/2));for(let index=0;index<samples.length;index+=1){const value=view.getInt16(index*2,true);samples[index]=value<0?value/0x8000:value/0x7fff;}return samples;}function rms(samples){if(!samples.length)return 0;let total=0;for(const value of samples)total+=value*value;return Math.min(1,Math.sqrt(total/samples.length)*4);}function decodeRealtimeEvent(event){const raw=typeof event==="string"?event:event?.data;if(typeof raw!=="string")return null;try{const payload=JSON.parse(raw);return payload&&typeof payload==="object"?payload:null;}catch{return null;}}function createStateMachine(onChange,initial="idle"){if(!STATE_SET.has(initial))throw new TypeError(`unknown voice state: ${initial}`);let current=initial;return Object.freeze({get value(){return current;},transition(next,detail){if(!STATE_SET.has(next))throw new TypeError(`unknown voice state: ${next}`);current=next;onChange?.(next,detail);return current;}});}function isEditableTarget(target){return Boolean(target?.closest?.('input,textarea,select,button,a,[contenteditable="true"]'));}function bindPushToTalk({button,keyTarget=root,onStart,onStop,onCancel,editable=isEditableTarget}){if(!button?.addEventListener||!keyTarget?.addEventListener)throw new TypeError("PTT targets must support events");let active=false;const start=(event)=>{if(active||button.disabled)return;active=true;onStart?.(event);};const stop=(event)=>{if(!active)return;active=false;onStop?.(event);};const pointerDown=(event)=>{event.preventDefault?.();try{button.setPointerCapture?.(event.pointerId);}catch{}start(event);};const pointerUp=(event)=>{event.preventDefault?.();stop(event);};const pointerCancel=(event)=>stop(event);const click=(event)=>{if(event.detail!==0||button.disabled)return;active?stop(event):start(event);};const keyDown=(event)=>{if(event.code==="Escape"){onCancel?.(event);return;}if(event.code==="Space"&&!event.repeat&&!editable(event.target)){event.preventDefault?.();start(event);}};const keyUp=(event)=>{if(event.code==="Space"&&!editable(event.target)){event.preventDefault?.();stop(event);}};button.addEventListener("pointerdown",pointerDown);button.addEventListener("pointerup",pointerUp);button.addEventListener("pointercancel",pointerCancel);button.addEventListener("click",click);keyTarget.addEventListener("keydown",keyDown);keyTarget.addEventListener("keyup",keyUp);return Object.freeze({get active(){return active;},stop,destroy(){button.removeEventListener("pointerdown",pointerDown);button.removeEventListener("pointerup",pointerUp);button.removeEventListener("pointercancel",pointerCancel);button.removeEventListener("click",click);keyTarget.removeEventListener("keydown",keyDown);keyTarget.removeEventListener("keyup",keyUp);active=false;}});}async function createAudioCapture({audioContext,workletUrl,processorName,onSamples,mediaDevices=root.navigator?.mediaDevices,AudioWorkletNodeCtor=root.AudioWorkletNode}){if(!audioContext?.audioWorklet||!mediaDevices?.getUserMedia||!AudioWorkletNodeCtor)throw new Error("browser audio capture is unavailable");await audioContext.audioWorklet.addModule(workletUrl);const stream=await mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1}});const source=audioContext.createMediaStreamSource(stream);const node=new AudioWorkletNodeCtor(audioContext,processorName);node.port.onmessage=({data})=>onSamples?.(data);source.connect(node);const silent=audioContext.createGain();silent.gain.value=0;node.connect(silent).connect(audioContext.destination);let stopped=false;return Object.freeze({stream,node,stop(){if(stopped)return;stopped=true;try{node.disconnect();}catch{}try{source.disconnect();}catch{}for(const track of stream.getTracks())track.stop();}});}function openRealtimeSocket(session,{onEvent,onClose,onError,WebSocketCtor=root.WebSocket}={}){if(!session?.websocket_url||!session?.ticket||!WebSocketCtor)return Promise.reject(new Error("invalid realtime voice session"));return new Promise((resolve,reject)=>{const socket=new WebSocketCtor(session.websocket_url,[`zticket.${session.ticket}`]);let settled=false;socket.addEventListener("message",(event)=>{const payload=decodeRealtimeEvent(event);if(payload)onEvent?.(payload,event);});socket.addEventListener("open",()=>{if(!settled){settled=true;resolve(socket);}},{once:true});socket.addEventListener("error",(event)=>{onError?.(event);if(!settled){settled=true;reject(new Error("unable to connect realtime voice session"));}},{once:true});socket.addEventListener("close",(event)=>onClose?.(event),{once:true});});}function openGeminiLiveSocket(session,{onEvent,onClose,onError,WebSocketCtor=root.WebSocket}={}){if(!session?.token||!WebSocketCtor)return Promise.reject(new Error("invalid Gemini Live session"));const wsUrl=`wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${session.token}`;return new Promise((resolve,reject)=>{const socket=new WebSocketCtor(wsUrl);let settled=false;socket.addEventListener("message",(event)=>{const payload=decodeRealtimeEvent(event);if(payload)onEvent?.(payload,event);});socket.addEventListener("open",()=>{if(!settled){settled=true;resolve(socket);}},{once:true});socket.addEventListener("error",(event)=>{onError?.(event);if(!settled){settled=true;reject(new Error("unable to connect to Gemini Live API"));}},{once:true});socket.addEventListener("close",(event)=>onClose?.(event),{once:true});});}root.ZarvisVoiceClient=Object.freeze({SAMPLE_RATE,OUTPUT_SAMPLE_RATE_LIVE,STATES,bytesToBase64,base64ToBytes,resampleToPcm16,pcm16ToFloat32,rms,decodeRealtimeEvent,createStateMachine,isEditableTarget,bindPushToTalk,createAudioCapture,openRealtimeSocket,openGeminiLiveSocket});})(globalThis);
 
 // Z.A.R.V.I.S. realtime voice -------------------------------------------------
 const VC=globalThis.ZarvisVoiceClient;
 const ZARVIS_SAMPLE_RATE=VC.SAMPLE_RATE;
+const ZARVIS_OUTPUT_SAMPLE_RATE=24000;
 const ZARVIS_SILENCE_FRAMES=6;
 let zarvisAvailable=false;
+let zarvisLiveMode=false;
 let zarvisSocket=null;
 let zarvisSessionConfigured=false;
 let zarvisAudioContext=null;
@@ -50,6 +52,7 @@ let zarvisPlayhead=0;
 let zarvisActiveSources=new Set();
 let zarvisTranscriptBuffer='';
 let zarvisReplyBuffer='';
+let zarvisLiveConfig=null;
 
 const zarvisStateMachine=VC.createStateMachine((next,message)=>{
   const card=$('zarvisCard');card.dataset.voiceState=next;$('zarvisState').textContent=message||next;
@@ -58,21 +61,298 @@ const zarvisStateMachine=VC.createStateMachine((next,message)=>{
 function setZarvisState(next,message){zarvisStateMachine.transition(next,message);}
 function setZarvisLevel(level){$('zarvisCard').style.setProperty('--zarvis-level',String(Math.max(0,Math.min(1,level||0))));}
 function stopZarvisPlayback(){for(const source of zarvisActiveSources){try{source.stop();}catch{}}zarvisActiveSources=new Set();zarvisPlayhead=zarvisAudioContext?.currentTime||0;}
-async function queueZarvisAudio(base64Audio){if(!zarvisAudioContext||!base64Audio)return;if(zarvisAudioContext.state==='suspended')await zarvisAudioContext.resume();const samples=VC.pcm16ToFloat32(VC.base64ToBytes(base64Audio));if(!samples.length)return;const buffer=zarvisAudioContext.createBuffer(1,samples.length,ZARVIS_SAMPLE_RATE);buffer.copyToChannel(samples,0);const source=zarvisAudioContext.createBufferSource();source.buffer=buffer;source.connect(zarvisAudioContext.destination);const startAt=Math.max(zarvisAudioContext.currentTime+.02,zarvisPlayhead);source.start(startAt);zarvisPlayhead=startAt+buffer.duration;zarvisActiveSources.add(source);source.addEventListener('ended',()=>zarvisActiveSources.delete(source),{once:true});}
+async function queueZarvisAudio(base64Audio,sampleRate=ZARVIS_OUTPUT_SAMPLE_RATE){if(!zarvisAudioContext||!base64Audio)return;if(zarvisAudioContext.state==='suspended')await zarvisAudioContext.resume();const samples=VC.pcm16ToFloat32(VC.base64ToBytes(base64Audio));if(!samples.length)return;const buffer=zarvisAudioContext.createBuffer(1,samples.length,sampleRate);buffer.copyToChannel(samples,0);const source=zarvisAudioContext.createBufferSource();source.buffer=buffer;source.connect(zarvisAudioContext.destination);const startAt=Math.max(zarvisAudioContext.currentTime+.02,zarvisPlayhead);source.start(startAt);zarvisPlayhead=startAt+buffer.duration;zarvisActiveSources.add(source);source.addEventListener('ended',()=>zarvisActiveSources.delete(source),{once:true});}
 function sendZarvisEvent(payload,target=zarvisSocket){if(target?.readyState===WebSocket.OPEN)target.send(JSON.stringify(payload));}
-function cancelZarvisResponse(){sendZarvisEvent({type:'response.cancel'});stopZarvisPlayback();if(['speaking','thinking'].includes(zarvisStateMachine.value))setZarvisState('interrupted','Response interrupted — hold to talk');}
-function sendZarvisSilenceBurst(){if(zarvisSocket?.readyState!==WebSocket.OPEN||!zarvisSessionConfigured)return;const silence=VC.bytesToBase64(new Uint8Array(2048*2));for(let i=0;i<ZARVIS_SILENCE_FRAMES;i+=1)sendZarvisEvent({type:'input_audio_buffer.append',audio:silence});}
+function getLiveResumeKey(){
+  return `zwf:live_resume:${state.tenant || 'default'}:${(state.key || 'anon').slice(-8)}`;
+}
 
-function handleZarvisRealtimeEvent(payload,event){switch(payload.type){case 'session.created':sendZarvisEvent({type:'session.update',session:{type:'realtime',instructions:'You are Z.A.R.V.I.S., a concise and helpful AI workforce voice assistant. Reply in the user language. Never claim that spoken text approves a mutating action.'}},event?.target);zarvisSessionConfigured=true;if(!zarvisPttActive)setZarvisState('ready','Voice ready — hold to talk');break;case 'input_audio_buffer.speech_started':zarvisTranscriptBuffer='';zarvisReplyBuffer='';stopZarvisPlayback();setZarvisState('listening','Listening…');break;case 'input_audio_buffer.speech_stopped':setZarvisState('transcribing','Transcribing…');break;case 'conversation.item.input_audio_transcription.delta':if(payload.delta){zarvisTranscriptBuffer+=payload.delta;$('zarvisTranscript').textContent=zarvisTranscriptBuffer;}break;case 'conversation.item.input_audio_transcription.completed':zarvisTranscriptBuffer=payload.transcript||payload.text||zarvisTranscriptBuffer;$('zarvisTranscript').textContent=zarvisTranscriptBuffer||'—';setZarvisState('thinking','Z.A.R.V.I.S. is thinking…');break;case 'response.audio.delta':case 'response.output_audio.delta':setZarvisState('speaking','Z.A.R.V.I.S. is speaking…');$('zarvisCancel').disabled=false;void queueZarvisAudio(payload.delta);break;case 'response.audio_transcript.delta':case 'response.output_audio_transcript.delta':if(payload.delta){zarvisReplyBuffer+=payload.delta;$('zarvisReply').textContent=zarvisReplyBuffer;}break;case 'response.audio_transcript.done':case 'response.output_audio_transcript.done':zarvisReplyBuffer=payload.transcript||payload.text||zarvisReplyBuffer;$('zarvisReply').textContent=zarvisReplyBuffer||$('zarvisReply').textContent;break;case 'approval.required':case 'zarvis.approval_required':setZarvisState('approval_required','Approval required — review in the task panel');break;case 'response.done':$('zarvisCancel').disabled=true;if(!zarvisPttActive)setZarvisState('ready','Voice ready — hold to talk');break;case 'error':setZarvisState('error',payload.error?.message||'Voice session error');break;default:break;}}
+function cancelZarvisResponse(){
+  if(!zarvisLiveMode){
+    sendZarvisEvent({type:'response.cancel'});
+  }
+  stopZarvisPlayback();
+  if(['speaking','thinking'].includes(zarvisStateMachine.value))setZarvisState('interrupted','Response interrupted — hold to talk');
+}
+function sendZarvisSilenceBurst(){if(zarvisSocket?.readyState!==WebSocket.OPEN||!zarvisSessionConfigured||zarvisLiveMode)return;const silence=VC.bytesToBase64(new Uint8Array(2048*2));for(let i=0;i<ZARVIS_SILENCE_FRAMES;i+=1)sendZarvisEvent({type:'input_audio_buffer.append',audio:silence});}
+
+function getZarvisLiveTools(){
+  return [{
+    functionDeclarations:[
+      {name:'list_workforce_tasks',description:'List recent workforce tasks in zWorkforce',parameters:{type:'OBJECT',properties:{limit:{type:'INTEGER',description:'Max tasks to return (1-20)'}},required:[]}},
+      {name:'get_provider_health',description:'Check health and availability of AI providers in zWorkforce',parameters:{type:'OBJECT',properties:{},required:[]}},
+      {name:'search_tenant_memory',description:'Search the tenant knowledge base / memory',parameters:{type:'OBJECT',properties:{query:{type:'STRING',description:'Query text'}},required:['query']}},
+      {name:'get_workforce_overview',description:'Get metrics and workforce status overview',parameters:{type:'OBJECT',properties:{},required:[]}}
+    ]
+  }];
+}
+
+async function handleZarvisToolCall(toolCall){
+  const functionCalls=toolCall?.functionCalls||[];
+  const functionResponses=[];
+  for(const call of functionCalls){
+    let result={status:'ok'};
+    try{
+      if(call.name==='list_workforce_tasks'){
+        const data=await api(`/api/v1/tasks?limit=${Math.min(20,call.args?.limit||5)}`);
+        result={tasks:(data.items||[]).map(t=>({id:t.id,status:t.status,agent:t.agent_id,tier:t.tier}))};
+      }else if(call.name==='get_provider_health'){
+        const data=await api('/api/v1/providers');
+        result={providers:data.items||[]};
+      }else if(call.name==='search_tenant_memory'){
+        const q=encodeURIComponent(call.args?.query||'');
+        const data=await api(`/api/v1/memories?limit=5&q=${q}`);
+        result={memories:(data.items||[]).map(m=>({title:m.title,content:m.content}))};
+      }else if(call.name==='get_workforce_overview'){
+        const data=await api('/api/v1/overview');
+        result={active_tasks:data.active_tasks,tasks_24h:data.tasks_24h,success_rate:data.success_rate};
+      }
+    }catch(err){
+      result={error:err.message||'tool execution failed'};
+    }
+    functionResponses.push({id:call.id,name:call.name,response:{result}});
+  }
+  sendZarvisEvent({toolResponse:{functionResponses}});
+}
+
+function handleZarvisLiveEvent(payload,event){
+  if(payload.setupComplete){
+    zarvisSessionConfigured=true;
+    if(!zarvisPttActive)setZarvisState('ready','Gemini Live ready — hold to talk');
+    return;
+  }
+  if(payload.sessionResumptionUpdate?.newHandle){
+    try{sessionStorage.setItem(getLiveResumeKey(),payload.sessionResumptionUpdate.newHandle);}catch{}
+  }
+  if(payload.toolCall){
+    setZarvisState('thinking','Running workforce tool…');
+    void handleZarvisToolCall(payload.toolCall);
+    return;
+  }
+  const serverContent=payload.serverContent;
+  if(serverContent){
+    if(serverContent.interrupted){
+      stopZarvisPlayback();
+      setZarvisState('interrupted','Interrupted — hold to talk');
+      return;
+    }
+    if(serverContent.inputTranscription?.text){
+      zarvisTranscriptBuffer+=serverContent.inputTranscription.text;
+      $('zarvisTranscript').textContent=zarvisTranscriptBuffer;
+    }
+    if(serverContent.modelTurn?.parts){
+      for(const part of serverContent.modelTurn.parts){
+        if(part.text){
+          zarvisReplyBuffer+=part.text;
+          $('zarvisReply').textContent=zarvisReplyBuffer;
+        }
+        if(part.inlineData?.data){
+          setZarvisState('speaking','Z.A.R.V.I.S. is speaking…');
+          $('zarvisCancel').disabled=false;
+          const rate=part.inlineData.mimeType?.includes('24000')?24000:ZARVIS_OUTPUT_SAMPLE_RATE;
+          void queueZarvisAudio(part.inlineData.data,rate);
+        }
+      }
+    }
+    if(serverContent.turnComplete){
+      $('zarvisCancel').disabled=true;
+      if(!zarvisPttActive)setZarvisState('ready','Gemini Live ready — hold to talk');
+    }
+  }
+}
+
+function handleZarvisRealtimeEvent(payload,event){
+  if(zarvisLiveMode)return handleZarvisLiveEvent(payload,event);
+  switch(payload.type){
+    case 'session.created':
+      sendZarvisEvent({type:'session.update',session:{type:'realtime',instructions:'You are Z.A.R.V.I.S., a concise and helpful AI workforce voice assistant. Reply in the user language. Never claim that spoken text approves a mutating action.'}},event?.target);
+      zarvisSessionConfigured=true;
+      if(!zarvisPttActive)setZarvisState('ready','Voice ready — hold to talk');
+      break;
+    case 'input_audio_buffer.speech_started':
+      zarvisTranscriptBuffer='';zarvisReplyBuffer='';stopZarvisPlayback();setZarvisState('listening','Listening…');break;
+    case 'input_audio_buffer.speech_stopped':
+      setZarvisState('transcribing','Transcribing…');break;
+    case 'conversation.item.input_audio_transcription.delta':
+      if(payload.delta){zarvisTranscriptBuffer+=payload.delta;$('zarvisTranscript').textContent=zarvisTranscriptBuffer;}break;
+    case 'conversation.item.input_audio_transcription.completed':
+      zarvisTranscriptBuffer=payload.transcript||payload.text||zarvisTranscriptBuffer;$('zarvisTranscript').textContent=zarvisTranscriptBuffer||'—';setZarvisState('thinking','Z.A.R.V.I.S. is thinking…');break;
+    case 'response.audio.delta':
+    case 'response.output_audio.delta':
+      setZarvisState('speaking','Z.A.R.V.I.S. is speaking…');$('zarvisCancel').disabled=false;void queueZarvisAudio(payload.delta,ZARVIS_SAMPLE_RATE);break;
+    case 'response.audio_transcript.delta':
+    case 'response.output_audio_transcript.delta':
+      if(payload.delta){zarvisReplyBuffer+=payload.delta;$('zarvisReply').textContent=zarvisReplyBuffer;}break;
+    case 'response.audio_transcript.done':
+    case 'response.output_audio_transcript.done':
+      zarvisReplyBuffer=payload.transcript||payload.text||zarvisReplyBuffer;$('zarvisReply').textContent=zarvisReplyBuffer||$('zarvisReply').textContent;break;
+    case 'approval.required':
+    case 'zarvis.approval_required':
+      setZarvisState('approval_required','Approval required — review in the task panel');break;
+    case 'response.done':
+      $('zarvisCancel').disabled=true;if(!zarvisPttActive)setZarvisState('ready','Voice ready — hold to talk');break;
+    case 'error':
+      setZarvisState('error',payload.error?.message||'Voice session error');break;
+    default:break;
+  }
+}
 
 async function ensureZarvisAudioContext(){if(zarvisAudioContext&&zarvisAudioContext.state!=='closed')return;const AudioContextCtor=globalThis.AudioContext||globalThis.webkitAudioContext;if(!AudioContextCtor)throw new Error('Web Audio is not supported in this browser');zarvisAudioContext=new AudioContextCtor({latencyHint:'interactive'});}
-async function ensureZarvisTransport(){if(zarvisSocket?.readyState===WebSocket.OPEN)return;if(zarvisTransportPromise)return zarvisTransportPromise;zarvisTransportPromise=(async()=>{setZarvisState('arming','Requesting secure voice ticket…');await ensureZarvisAudioContext();const session=await api('/api/v1/zarvis/voice/session',{method:'POST',body:{}});$('zarvisRuntime').textContent=session.model||'voice';zarvisSocket=await VC.openRealtimeSocket(session,{onEvent:handleZarvisRealtimeEvent,onError:()=>setZarvisState('error','Unable to connect to the voice gateway'),onClose:()=>{zarvisSessionConfigured=false;stopZarvisPlayback();void stopZarvisMicrophone();zarvisSocket=null;if(zarvisAvailable)setZarvisState('disconnected','Voice disconnected — hold to reconnect');}});})();try{await zarvisTransportPromise;}finally{zarvisTransportPromise=null;}}
-async function startZarvisMicrophone(){if(zarvisCapture)return;await ensureZarvisAudioContext();if(zarvisAudioContext.state==='suspended')await zarvisAudioContext.resume();zarvisCapture=await VC.createAudioCapture({audioContext:zarvisAudioContext,workletUrl:'/zarvis-voice-worklet.js',processorName:'zworkforce-voice-capture',onSamples:(data)=>{if(!zarvisPttActive||!zarvisSessionConfigured||zarvisSocket?.readyState!==WebSocket.OPEN)return;setZarvisLevel(VC.rms(data));const bytes=VC.resampleToPcm16(data,zarvisAudioContext.sampleRate,ZARVIS_SAMPLE_RATE);if(bytes.length)sendZarvisEvent({type:'input_audio_buffer.append',audio:VC.bytesToBase64(bytes)});}});}
+
+async function ensureZarvisTransport(){
+  if(zarvisSocket?.readyState===WebSocket.OPEN)return;
+  if(zarvisTransportPromise)return zarvisTransportPromise;
+  zarvisTransportPromise=(async()=>{
+    await ensureZarvisAudioContext();
+    if(zarvisLiveConfig?.live_enabled){
+      setZarvisState('arming','Connecting Gemini 3.1 Flash Live…');
+      const liveSession=await api('/api/v1/zarvis/voice/live-token',{method:'POST',body:{}});
+      zarvisLiveMode=true;
+      $('zarvisRuntime').textContent=liveSession.model||'gemini-live';
+      zarvisSocket=await VC.openGeminiLiveSocket(liveSession,{
+        onEvent:handleZarvisRealtimeEvent,
+        onError:()=>setZarvisState('error','Unable to connect to Gemini Live API'),
+        onClose:()=>{zarvisSessionConfigured=false;stopZarvisPlayback();void stopZarvisMicrophone();zarvisSocket=null;if(zarvisAvailable)setZarvisState('disconnected','Live disconnected — hold to reconnect');}
+      });
+      const resumeHandle=sessionStorage.getItem(getLiveResumeKey());
+      const setupFrame={
+        setup:{
+          model:`models/${liveSession.model||'gemini-3.1-flash-live-preview'}`,
+          generationConfig:{
+            responseModalities:['AUDIO'],
+            speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:liveSession.voice||'Charon'}}},
+            thinkingConfig:{thinkingLevel:liveSession.thinking_level||'minimal'}
+          },
+          systemInstruction:{parts:[{text:liveSession.system_prompt||'You are Z.A.R.V.I.S., a direct and helpful AI workforce assistant.'}]},
+          tools:getZarvisLiveTools(),
+          inputAudioTranscription:{},
+          outputAudioTranscription:{},
+          sessionResumption:resumeHandle?{handle:resumeHandle}:{},
+          contextWindowCompression:{triggerTokens:10000,slidingWindow:{targetTokens:2048}}
+        }
+      };
+      sendZarvisEvent(setupFrame);
+    }else{
+      setZarvisState('arming','Requesting secure voice ticket…');
+      zarvisLiveMode=false;
+      const session=await api('/api/v1/zarvis/voice/session',{method:'POST',body:{}});
+      $('zarvisRuntime').textContent=session.model||'voice';
+      zarvisSocket=await VC.openRealtimeSocket(session,{
+        onEvent:handleZarvisRealtimeEvent,
+        onError:()=>setZarvisState('error','Unable to connect to the voice gateway'),
+        onClose:()=>{zarvisSessionConfigured=false;stopZarvisPlayback();void stopZarvisMicrophone();zarvisSocket=null;if(zarvisAvailable)setZarvisState('disconnected','Voice disconnected — hold to reconnect');}
+      });
+    }
+  })();
+  try{await zarvisTransportPromise;}finally{zarvisTransportPromise=null;}
+}
+
+async function startZarvisMicrophone(){
+  if(zarvisCapture)return;
+  await ensureZarvisAudioContext();
+  if(zarvisAudioContext.state==='suspended')await zarvisAudioContext.resume();
+  zarvisCapture=await VC.createAudioCapture({
+    audioContext:zarvisAudioContext,
+    workletUrl:'/zarvis-voice-worklet.js',
+    processorName:'zworkforce-voice-capture',
+    onSamples:(data)=>{
+      if(!zarvisPttActive||!zarvisSessionConfigured||zarvisSocket?.readyState!==WebSocket.OPEN)return;
+      setZarvisLevel(VC.rms(data));
+      const bytes=VC.resampleToPcm16(data,zarvisAudioContext.sampleRate,ZARVIS_SAMPLE_RATE);
+      if(!bytes.length)return;
+      if(zarvisLiveMode){
+        sendZarvisEvent({realtimeInput:{mediaChunks:[{mimeType:'audio/pcm;rate=16000',data:VC.bytesToBase64(bytes)}]}});
+      }else{
+        sendZarvisEvent({type:'input_audio_buffer.append',audio:VC.bytesToBase64(bytes)});
+      }
+    }
+  });
+}
+
 async function stopZarvisMicrophone(){setZarvisLevel(0);zarvisCapture?.stop();zarvisCapture=null;}
-async function beginZarvisPtt(){if(zarvisPttActive||!zarvisAvailable||!state.key)return;const generation=++zarvisPttGeneration;zarvisPttActive=true;setZarvisState(zarvisStateMachine.value==='speaking'?'interrupted':'arming','Opening microphone…');try{await ensureZarvisTransport();if(!zarvisPttActive||generation!==zarvisPttGeneration)return;cancelZarvisResponse();await startZarvisMicrophone();if(!zarvisPttActive||generation!==zarvisPttGeneration){await stopZarvisMicrophone();return;}setZarvisState('listening','Listening… release to send');}catch(error){if(generation!==zarvisPttGeneration)return;zarvisPttActive=false;zarvisPttGeneration+=1;await stopZarvisMicrophone();setZarvisState('error',error instanceof Error?error.message:'Unable to start voice');}}
-async function endZarvisPtt(){if(!zarvisPttActive)return;zarvisPttActive=false;zarvisPttGeneration+=1;sendZarvisSilenceBurst();await stopZarvisMicrophone();if(zarvisSessionConfigured)setZarvisState('transcribing','Transcribing…');else setZarvisState('ready','Voice ready — hold to talk');}
-async function stopZarvisVoiceTransport(){zarvisPttActive=false;zarvisPttGeneration+=1;zarvisSessionConfigured=false;zarvisTransportPromise=null;await stopZarvisMicrophone();stopZarvisPlayback();const currentSocket=zarvisSocket;zarvisSocket=null;if(currentSocket&&currentSocket.readyState<WebSocket.CLOSING)currentSocket.close(1000,'dashboard_stop');if(zarvisAudioContext&&zarvisAudioContext.state!=='closed')await zarvisAudioContext.close();zarvisAudioContext=null;zarvisPlayhead=0;}
-async function refreshZarvisVoiceHealth(){const ptt=$('zarvisPtt');if(!state.key){zarvisAvailable=false;ptt.disabled=true;$('zarvisRuntime').textContent='offline';setZarvisState('idle','Connect to enable voice');return;}try{const voice=await api('/api/v1/zarvis/voice');zarvisAvailable=Boolean(voice.enabled&&voice.configured);ptt.disabled=!zarvisAvailable;$('zarvisRuntime').textContent=voice.model||'offline';if(zarvisAvailable&&zarvisSocket?.readyState!==WebSocket.OPEN)setZarvisState('ready','Voice available — hold to talk');else if(!zarvisAvailable)setZarvisState('idle',!voice.enabled?'Voice is disabled in configuration':'Voice is enabled but not configured — check voice gateway and service token');}catch(error){zarvisAvailable=false;ptt.disabled=true;$('zarvisRuntime').textContent='unavailable';setZarvisState('error',error instanceof Error?error.message:'Voice unavailable');}}
+
+async function beginZarvisPtt(){
+  if(zarvisPttActive||!zarvisAvailable||!state.key)return;
+  const generation=++zarvisPttGeneration;
+  zarvisPttActive=true;
+  zarvisTranscriptBuffer='';
+  zarvisReplyBuffer='';
+  setZarvisState(zarvisStateMachine.value==='speaking'?'interrupted':'arming','Opening microphone…');
+  try{
+    await ensureZarvisTransport();
+    if(!zarvisPttActive||generation!==zarvisPttGeneration)return;
+    cancelZarvisResponse();
+    await startZarvisMicrophone();
+    if(!zarvisPttActive||generation!==zarvisPttGeneration){await stopZarvisMicrophone();return;}
+    setZarvisState('listening','Listening… release to send');
+  }catch(error){
+    if(generation!==zarvisPttGeneration)return;
+    zarvisPttActive=false;
+    zarvisPttGeneration+=1;
+    await stopZarvisMicrophone();
+    setZarvisState('error',error instanceof Error?error.message:'Unable to start voice');
+  }
+}
+
+async function endZarvisPtt(){
+  if(!zarvisPttActive)return;
+  zarvisPttActive=false;
+  zarvisPttGeneration+=1;
+  if(zarvisLiveMode){
+    // In Gemini Live mode, streaming audio ends on mic release.
+    // Realtime input audioStreamEnd signal informs the model that speaking has finished.
+    sendZarvisEvent({realtimeInput:{audioStreamEnd:true}});
+  }else{
+    sendZarvisSilenceBurst();
+  }
+  await stopZarvisMicrophone();
+  if(zarvisSessionConfigured)setZarvisState('transcribing','Transcribing…');
+  else setZarvisState('ready','Voice ready — hold to talk');
+}
+
+async function stopZarvisVoiceTransport(){
+  zarvisPttActive=false;
+  zarvisPttGeneration+=1;
+  zarvisSessionConfigured=false;
+  zarvisTransportPromise=null;
+  try{sessionStorage.removeItem(getLiveResumeKey());}catch{}
+  await stopZarvisMicrophone();
+  stopZarvisPlayback();
+  const currentSocket=zarvisSocket;
+  zarvisSocket=null;
+  if(currentSocket&&currentSocket.readyState<WebSocket.CLOSING)currentSocket.close(1000,'dashboard_stop');
+  if(zarvisAudioContext&&zarvisAudioContext.state!=='closed')await zarvisAudioContext.close();
+  zarvisAudioContext=null;
+  zarvisPlayhead=0;
+}
+
+async function refreshZarvisVoiceHealth(){
+  const ptt=$('zarvisPtt');
+  if(!state.key){
+    zarvisAvailable=false;
+    ptt.disabled=true;
+    $('zarvisRuntime').textContent='offline';
+    setZarvisState('idle','Connect to enable voice');
+    return;
+  }
+  try{
+    const voice=await api('/api/v1/zarvis/voice');
+    zarvisLiveConfig=voice;
+    zarvisAvailable=Boolean((voice.enabled&&voice.configured)||voice.live_enabled);
+    ptt.disabled=!zarvisAvailable;
+    $('zarvisRuntime').textContent=voice.live_enabled?(voice.live_model||'gemini-live'):(voice.model||'offline');
+    if(zarvisAvailable&&zarvisSocket?.readyState!==WebSocket.OPEN){
+      setZarvisState('ready',voice.live_enabled?'Gemini Live ready — hold to talk':'Voice available — hold to talk');
+    }else if(!zarvisAvailable){
+      setZarvisState('idle',!voice.enabled&&!voice.live_enabled?'Voice is disabled in configuration':'Voice is enabled but not configured');
+    }
+  }catch(error){
+    zarvisAvailable=false;
+    ptt.disabled=true;
+    $('zarvisRuntime').textContent='unavailable';
+    setZarvisState('error',error instanceof Error?error.message:'Voice unavailable');
+  }
+}
 
 const zarvisPttController=VC.bindPushToTalk({button:$('zarvisPtt'),keyTarget:window,onStart:()=>void beginZarvisPtt(),onStop:()=>void endZarvisPtt(),onCancel:cancelZarvisResponse});
 $('zarvisCancel').addEventListener('click',cancelZarvisResponse);
