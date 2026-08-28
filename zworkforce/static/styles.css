@@ -6,7 +6,7 @@
   --border-focus: rgba(94, 234, 212, 0.45);
   --text-main: #f1f5f9;
   --text-muted: #94a3b8;
-  --text-dim: #64748b;
+  --text-dim: #94a3b8;
   --accent-cyan: #06b6d4;
   --accent-indigo: #6366f1;
   --accent-mint: #10b981;
@@ -69,6 +69,7 @@ h2 {
   font-size: 11px;
   font-weight: 700;
   color: #5eead4;
+  -webkit-text-fill-color: #5eead4;
   background: rgba(45, 212, 191, 0.12);
   border: 1px solid rgba(45, 212, 191, 0.28);
   border-radius: 999px;
