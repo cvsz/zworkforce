@@ -19,6 +19,7 @@ _ARRAY_JSON_FIELDS = {
     "scopes_json", "depends_on_json", "cases_json", "variants_json", "artifact_ids_json",
 }
 _POSTGRES_SCHEMA_LOCK_KEY = 0x5A574F524B
+_ALLOWED_PRAGMA_TABLES = frozenset({"workflow_runs3", "outbox3", "agents", "tasks", "usage_events", "budgets", "audit_events"})
 
 
 def utcnow() -> str:
@@ -55,11 +56,9 @@ class DatabaseBase:
     @contextmanager
     def connection(self):
         if self.backend_kind == "postgres":
-            connection = connect_postgres(self.target)
-            try:
+            pool = get_postgres_pool(self.target, min_size=1, max_size=10)
+            with pool.connection() as connection:
                 yield connection
-            finally:
-                connection.close()
             return
         c = sqlite3.connect(self.path, timeout=30, isolation_level=None)
         c.row_factory = sqlite3.Row
@@ -106,6 +105,8 @@ class DatabaseBase:
                 (table, column),
             ).fetchone()
             return bool(row)
+        if table not in _ALLOWED_PRAGMA_TABLES:
+            raise ValueError(f"table {table} is not allowed for PRAGMA introspection")
         rows = c.execute(f"PRAGMA table_info({table})").fetchall()
         return any(row[1] == column for row in rows)
 

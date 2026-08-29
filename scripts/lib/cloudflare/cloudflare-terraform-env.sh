@@ -107,6 +107,9 @@ cloudflare_load_terraform_env() {
   export TF_VAR_zeaz_one_support_hostname="${ZEAZ_ONE_SUPPORT_HOSTNAME:-support.zeaz.dev}"
   export TF_VAR_zeaz_one_support_origin="${ZEAZ_ONE_SUPPORT_ORIGIN:-http://127.0.0.1:18083}"
 
+  export TF_VAR_zgw_hostname="${ZGW_HOSTNAME:-zgw.zeaz.dev}"
+  export TF_VAR_zgw_ssh_target="${ZGW_SSH_TARGET:-ssh://cvsz@192.168.74.134:22}"
+
   unset TF_VAR_zdash_access_allowed_emails || true
   if [[ -n "${ZDASH_ACCESS_ALLOWED_EMAILS:-}" ]]; then
     export TF_VAR_zdash_access_allowed_emails="$ZDASH_ACCESS_ALLOWED_EMAILS"

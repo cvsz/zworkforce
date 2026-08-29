@@ -107,7 +107,7 @@ app = FastAPI(
 # Add middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if config.debug else ["http://localhost:*"],
+    allow_origins=["http://localhost:*", "http://127.0.0.1:*"] if config.debug else ["http://localhost:*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

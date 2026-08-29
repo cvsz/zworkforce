@@ -1,12 +1,19 @@
 locals {
   tunnel_cname = "${var.cloudflare_tunnel_id}.cfargotunnel.com"
 
-  ingress = [
-    for key in sort(keys(var.app_routes)) : {
-      hostname = var.app_routes[key].hostname
-      service  = var.app_routes[key].service
-    }
+  ssh_ingress = [
+    { hostname = var.zgw_hostname, service = var.zgw_ssh_target }
   ]
+
+  ingress = concat(
+    [
+      for key in sort(keys(var.app_routes)) : {
+        hostname = var.app_routes[key].hostname
+        service  = var.app_routes[key].service
+      }
+    ],
+    local.ssh_ingress
+  )
 }
 
 resource "cloudflare_dns_record" "app_routes" {

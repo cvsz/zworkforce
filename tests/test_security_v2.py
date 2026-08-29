@@ -3,6 +3,7 @@ from pathlib import Path
 import sys
 import unittest
 
+sys.path.insert(0, str(Path(__file__).parent))
 from common import stack
 from zworkforce.config import BootstrapKey
 from zworkforce.security import AuthManager, _hash_secret

@@ -5,6 +5,7 @@ AI Model Coder CLI v1.10.0
 """
 
 import subprocess
+from pathlib import Path
 from typing import Optional
 
 import anthropic
@@ -75,9 +76,14 @@ def diff_review(diff: str, api_key: str, model: str) -> str:
 
 def explain_blame(file: str, line_start: int, line_end: int,
                   cwd: str, api_key: str, model: str) -> str:
-    blame = _git(f"git log --oneline {file}", cwd)
+    if not file or file.startswith("/") or ".." in file:
+        return "(invalid file path)"
+    blame = _git(f"git log --oneline -- {file}", cwd)
     try:
-        with open(f"{cwd}/{file}") as f:
+        safe_path = (Path(cwd) / file).resolve()
+        if not safe_path.is_relative_to(Path(cwd).resolve()):
+            return "(file path escapes working directory)"
+        with open(safe_path) as f:
             code = "\n".join(f.readlines()[line_start-1:line_end])
     except Exception:
         code = "(could not read file)"

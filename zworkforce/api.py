@@ -42,6 +42,14 @@ def _sanitize_header_value(value: str) -> str:
     return value.replace("\r", "").replace("\n", "")
 
 
+def _sanitize_error(error: str) -> str:
+    import re
+    sanitized = re.sub(r"/[^\s:]+\.py:\d+", "<file>", error)
+    sanitized = re.sub(r"Traceback \(most recent call last\):.*", "internal error", sanitized, flags=re.DOTALL)
+    sanitized = re.sub(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", "<uuid>", sanitized)
+    return sanitized[:500] if sanitized else "internal server error"
+
+
 class App:
     def __init__(self, settings, db, engine, auth: AuthManager, provider):
         self.settings = settings
@@ -581,9 +589,9 @@ class App:
                         return self._json(200,app.db.get_tenant_economics(tenant_id))
                     return self._error(404,"not_found","not found")
                 except (ValueError,TypeError,SkillError,PolicyError) as exc:
-                    return self._error(400,"invalid_request",str(exc))
+                    return self._error(400,"invalid_request",_sanitize_error(str(exc)))
                 except Exception as exc:
-                    return self._error(500,"internal_error","internal server error",str(exc))
+                    return self._error(500,"internal_error","internal server error",_sanitize_error(str(exc)))
         return Handler
 
 
