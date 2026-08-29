@@ -1,0 +1,31 @@
+apiVersion: release.zeaz.dev/v1alpha1
+kind: StagingReview
+metadata:
+  name: <release-id>
+spec:
+  reviewer:
+    identity: <name-or-handle>
+    role: <operations|security|release>
+  reviewedAt: <ISO-8601>
+  revision:
+    repository: cvsz/z-platform
+    commitSha: <40-character-sha>
+    environment: staging
+    evidenceRef: <artifact-reference>
+    evidenceDigest: <sha256:digest>
+  findings:
+    - id: <finding-id>
+      severity: <critical|high|medium|low|info>
+      area: <component-or-control>
+      description: <description>
+      evidence: <reference>
+      owner: <owner>
+      status: <open|accepted|resolved>
+  decision:
+    externalState: <VERIFIED_EXTERNAL|PENDING_EXTERNAL|EXTERNAL_VERIFICATION_FAILED>
+    recommendation: <APPROVE|REJECT|CONDITIONAL>
+    rationale: <rationale>
+    conditions: <conditions-or-none>
+  attestation:
+    approvalRef: <auditable-reference>
+    signedAt: <ISO-8601>

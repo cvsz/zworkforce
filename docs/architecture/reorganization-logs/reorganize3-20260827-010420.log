@@ -1,0 +1,63 @@
+[2026-08-27T01:04:20] === Starting reorganization phase 3: phase=f1 dry_run=false force=false cleanse_secrets=false ===
+[2026-08-27T01:04:20] Phase F1: Scripts and tools
+[2026-08-27T01:04:20] MOVING: /home/cvsz/clean-os.sh -> tools/scripts/clean-os.sh
+[2026-08-27T01:04:20] VERIFIED: Checksum match for /home/cvsz/clean-os.sh
+[2026-08-27T01:04:20] REMOVED: /home/cvsz/clean-os.sh
+[2026-08-27T01:04:20] MOVING: /home/cvsz/clean-os-v2.sh -> tools/scripts/clean-os-v2.sh
+[2026-08-27T01:04:20] VERIFIED: Checksum match for /home/cvsz/clean-os-v2.sh
+[2026-08-27T01:04:20] REMOVED: /home/cvsz/clean-os-v2.sh
+[2026-08-27T01:04:20] MOVING: /home/cvsz/freedns_update.sh -> tools/scripts/freedns_update.sh
+[2026-08-27T01:04:21] VERIFIED: Checksum match for /home/cvsz/freedns_update.sh
+[2026-08-27T01:04:21] REMOVED: /home/cvsz/freedns_update.sh
+[2026-08-27T01:04:21] MOVING: /home/cvsz/g-cvsz.sh -> tools/scripts/g-cvsz.sh
+[2026-08-27T01:04:21] VERIFIED: Checksum match for /home/cvsz/g-cvsz.sh
+[2026-08-27T01:04:21] REMOVED: /home/cvsz/g-cvsz.sh
+[2026-08-27T01:04:21] MOVING: /home/cvsz/install_dashscope.sh -> tools/scripts/install_dashscope.sh
+[2026-08-27T01:04:21] VERIFIED: Checksum match for /home/cvsz/install_dashscope.sh
+[2026-08-27T01:04:21] REMOVED: /home/cvsz/install_dashscope.sh
+[2026-08-27T01:04:21] MOVING: /home/cvsz/install-clean-os.sh -> tools/scripts/install-clean-os.sh
+[2026-08-27T01:04:21] VERIFIED: Checksum match for /home/cvsz/install-clean-os.sh
+[2026-08-27T01:04:21] REMOVED: /home/cvsz/install-clean-os.sh
+[2026-08-27T01:04:21] MOVING: /home/cvsz/migrate-zarvis-to-sdb.sh -> tools/scripts/migrate-zarvis-to-sdb.sh
+[2026-08-27T01:04:21] VERIFIED: Checksum match for /home/cvsz/migrate-zarvis-to-sdb.sh
+[2026-08-27T01:04:21] REMOVED: /home/cvsz/migrate-zarvis-to-sdb.sh
+[2026-08-27T01:04:22] MOVING: /home/cvsz/omega-core-ssh-repair.sh -> tools/scripts/omega-core-ssh-repair.sh
+[2026-08-27T01:04:22] VERIFIED: Checksum match for /home/cvsz/omega-core-ssh-repair.sh
+[2026-08-27T01:04:22] REMOVED: /home/cvsz/omega-core-ssh-repair.sh
+[2026-08-27T01:04:22] MOVING: /home/cvsz/omega-ssh-linux.sh -> tools/scripts/omega-ssh-linux.sh
+[2026-08-27T01:04:22] VERIFIED: Checksum match for /home/cvsz/omega-ssh-linux.sh
+[2026-08-27T01:04:22] REMOVED: /home/cvsz/omega-ssh-linux.sh
+[2026-08-27T01:04:22] MOVING: /home/cvsz/oneclick-docker-recovery.sh -> tools/scripts/oneclick-docker-recovery.sh
+[2026-08-27T01:04:22] VERIFIED: Checksum match for /home/cvsz/oneclick-docker-recovery.sh
+[2026-08-27T01:04:22] REMOVED: /home/cvsz/oneclick-docker-recovery.sh
+[2026-08-27T01:04:22] MOVING: /home/cvsz/scan-stack-duplicates.sh -> tools/scripts/scan-stack-duplicates.sh
+[2026-08-27T01:04:22] VERIFIED: Checksum match for /home/cvsz/scan-stack-duplicates.sh
+[2026-08-27T01:04:22] REMOVED: /home/cvsz/scan-stack-duplicates.sh
+[2026-08-27T01:04:22] MOVING: /home/cvsz/ssh-setup.sh -> tools/scripts/ssh-setup.sh
+[2026-08-27T01:04:23] VERIFIED: Checksum match for /home/cvsz/ssh-setup.sh
+[2026-08-27T01:04:23] REMOVED: /home/cvsz/ssh-setup.sh
+[2026-08-27T01:04:23] MOVING: /home/cvsz/sync-z-world.sh -> tools/scripts/sync-z-world.sh
+[2026-08-27T01:04:23] VERIFIED: Checksum match for /home/cvsz/sync-z-world.sh
+[2026-08-27T01:04:23] REMOVED: /home/cvsz/sync-z-world.sh
+[2026-08-27T01:04:23] MOVING: /home/cvsz/trace-usdt.sh -> tools/scripts/trace-usdt.sh
+[2026-08-27T01:04:23] VERIFIED: Checksum match for /home/cvsz/trace-usdt.sh
+[2026-08-27T01:04:23] REMOVED: /home/cvsz/trace-usdt.sh
+[2026-08-27T01:04:23] MOVING: /home/cvsz/uv.sh -> tools/scripts/uv.sh
+[2026-08-27T01:04:23] VERIFIED: Checksum match for /home/cvsz/uv.sh
+[2026-08-27T01:04:23] REMOVED: /home/cvsz/uv.sh
+[2026-08-27T01:04:23] MOVING: /home/cvsz/zarvis-compose.sh -> tools/scripts/zarvis-compose.sh
+[2026-08-27T01:04:23] VERIFIED: Checksum match for /home/cvsz/zarvis-compose.sh
+[2026-08-27T01:04:23] REMOVED: /home/cvsz/zarvis-compose.sh
+[2026-08-27T01:04:23] MOVING: /home/cvsz/zarvis-oneclick.sh -> tools/scripts/zarvis-oneclick.sh
+[2026-08-27T01:04:23] VERIFIED: Checksum match for /home/cvsz/zarvis-oneclick.sh
+[2026-08-27T01:04:23] REMOVED: /home/cvsz/zarvis-oneclick.sh
+[2026-08-27T01:04:24] MOVING: /home/cvsz/zarvis-oneclick.sh.old.20260806-211920 -> tools/scripts/zarvis-oneclick.sh.old.20260806-211920
+[2026-08-27T01:04:24] VERIFIED: Checksum match for /home/cvsz/zarvis-oneclick.sh.old.20260806-211920
+[2026-08-27T01:04:24] REMOVED: /home/cvsz/zarvis-oneclick.sh.old.20260806-211920
+[2026-08-27T01:04:24] MOVING: /home/cvsz/find_26de_outgoing_fast.py -> tools/scripts/find_26de_outgoing_fast.py
+[2026-08-27T01:04:24] VERIFIED: Checksum match for /home/cvsz/find_26de_outgoing_fast.py
+[2026-08-27T01:04:24] REMOVED: /home/cvsz/find_26de_outgoing_fast.py
+[2026-08-27T01:04:24] MOVING: /home/cvsz/trace_26de_usdt.py -> tools/scripts/trace_26de_usdt.py
+[2026-08-27T01:04:24] VERIFIED: Checksum match for /home/cvsz/trace_26de_usdt.py
+[2026-08-27T01:04:24] REMOVED: /home/cvsz/trace_26de_usdt.py
+[2026-08-27T01:04:24] === Reorganization phase 3 complete ===

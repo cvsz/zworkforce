@@ -1,6 +1,6 @@
 # ZChat
 
-ZChat is the platform chat surface migrated from `cvsz/z-platform/apps/zchat`.
+ZChat is the platform chat surface migrated from `cvsz/zeaz-platform/apps/zchat`.
 
 This version keeps the browser UI thin and routes model calls through the platform AI Gateway. Browser code must never contain upstream provider keys, direct provider base URLs, or tenant-wide service credentials.
 

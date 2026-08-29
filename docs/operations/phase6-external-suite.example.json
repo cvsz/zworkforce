@@ -1,0 +1,19 @@
+{
+  "releaseSha": "REPLACE_WITH_FULL_RELEASE_SHA",
+  "checks": [
+    {"id":"observability.dashboard","mode":"probe","url":"https://staging.example.invalid/health","expectedStatus":200,"bodyIncludes":"ok"},
+    {"id":"observability.traces","mode":"probe","url":"https://staging.example.invalid/trace-verification","expectedStatus":200},
+    {"id":"observability.alert_delivery","mode":"command","command":"bash scripts/verify-alert-delivery.sh"},
+    {"id":"backup.external_restore","mode":"command","command":"bash scripts/verify-external-restore.sh"},
+    {"id":"ai.streaming","mode":"probe","url":"https://staging.example.invalid/v1/chat/completions","method":"POST","expectedStatus":200,"body":{"model":"approved-model","stream":true,"messages":[{"role":"user","content":"health check"}]}},
+    {"id":"ai.upload","mode":"command","command":"bash scripts/verify-ai-upload.sh"},
+    {"id":"ai.multi_provider","mode":"command","command":"bash scripts/verify-ai-multi-provider.sh"},
+    {"id":"ai.failover","mode":"command","command":"bash scripts/verify-ai-failover.sh"},
+    {"id":"browser.bundle_scan","mode":"scan","paths":["artifacts/browser/app.js"]},
+    {"id":"browser.har_scan","mode":"scan","paths":["artifacts/browser/session.har"]},
+    {"id":"zchat.keyboard","status":"verified","reviewer":"REPLACE_WITH_REVIEWER","reviewedAt":"REPLACE_WITH_ISO_TIMESTAMP","evidenceRef":"REPLACE_WITH_NON_SECRET_EVIDENCE_REFERENCE","notes":"Record keyboard-only navigation coverage, focus order, dialogs, menus, composer, send, retry, logout, and observed defects."},
+    {"id":"zchat.screen_reader","status":"verified","reviewer":"REPLACE_WITH_REVIEWER","reviewedAt":"REPLACE_WITH_ISO_TIMESTAMP","evidenceRef":"REPLACE_WITH_NON_SECRET_EVIDENCE_REFERENCE","notes":"Record browser and screen-reader versions, announced names and states, live-region behavior, errors, streaming output, and logout."},
+    {"id":"zchat.responsive","status":"verified","reviewer":"REPLACE_WITH_REVIEWER","reviewedAt":"REPLACE_WITH_ISO_TIMESTAMP","evidenceRef":"REPLACE_WITH_NON_SECRET_EVIDENCE_REFERENCE","notes":"Record target devices and viewport sizes, orientation changes, keyboard overlap, scrolling, upload UI, model picker, and session controls."},
+    {"id":"zchat.session_provider","mode":"probe","url":"https://staging.example.invalid/api/session","expectedStatus":200}
+  ]
+}

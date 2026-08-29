@@ -80,8 +80,10 @@ _FORBIDDEN_NODES = (
 
 _FORBIDDEN_ATTRS = frozenset([
     "os", "sys", "subprocess", "socket", "shutil", "pathlib",
-    "open", "eval", "exec", "__import__", "compile", "globals", 
+    "open", "eval", "exec", "__import__", "compile", "globals",
     "locals", "vars", "dir", "getattr", "setattr", "delattr",
+    "__class__", "__bases__", "__subclasses__", "__mro__", "__base__",
+    "__dict__", "__globals__", "__builtins__", "__import__",
 ])
 
 

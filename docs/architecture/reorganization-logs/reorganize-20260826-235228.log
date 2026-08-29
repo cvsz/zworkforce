@@ -1,0 +1,27 @@
+[2026-08-26T23:52:28] === Starting reorganization: phase=h4 dry_run=false force=true ===
+[2026-08-26T23:52:28] Phase H4: Move standalone apps & tools (requires operator approval)
+[2026-08-26T23:52:28] MOVING: /home/cvsz/zkids-zai → /home/cvsz/apps/zkids-zai
+[2026-08-26T23:52:28] VERIFIED: Checksum match for zkids-zai
+[2026-08-26T23:52:28] REMOVED: /home/cvsz/zkids-zai
+[2026-08-26T23:52:28] MOVING: /home/cvsz/zpay-android → /home/cvsz/apps/zpay-android
+[2026-08-26T23:52:36] VERIFIED: Checksum match for zpay-android
+[2026-08-26T23:52:36] REMOVED: /home/cvsz/zpay-android
+[2026-08-26T23:52:36] MOVING: /home/cvsz/zdash → /home/cvsz/apps/zdash
+[2026-08-26T23:53:22] VERIFIED: Checksum match for zdash
+[2026-08-26T23:53:25] REMOVED: /home/cvsz/zdash
+[2026-08-26T23:53:25] MOVING: /home/cvsz/zpwsh → /home/cvsz/tools/zpwsh
+[2026-08-26T23:53:25] VERIFIED: Checksum match for zpwsh
+[2026-08-26T23:53:25] REMOVED: /home/cvsz/zpwsh
+[2026-08-26T23:53:25] MOVING: /home/cvsz/autoc → /home/cvsz/tools/autoc
+[2026-08-26T23:53:31] VERIFIED: Checksum match for autoc
+[2026-08-26T23:53:31] REMOVED: /home/cvsz/autoc
+[2026-08-26T23:53:31] MOVING: /home/cvsz/openclaw → /home/cvsz/tools/openclaw
+[2026-08-26T23:54:13] VERIFIED: Checksum match for openclaw
+[2026-08-26T23:54:14] REMOVED: /home/cvsz/openclaw
+[2026-08-26T23:54:14] MOVING: /home/cvsz/qwen-gen → /home/cvsz/tools/qwen-gen
+[2026-08-26T23:54:17] VERIFIED: Checksum match for qwen-gen
+[2026-08-26T23:54:17] REMOVED: /home/cvsz/qwen-gen
+[2026-08-26T23:54:18] MOVING: /home/cvsz/zwiki → /home/cvsz/tools/zwiki
+[2026-08-26T23:54:18] VERIFIED: Checksum match for zwiki
+[2026-08-26T23:54:18] REMOVED: /home/cvsz/zwiki
+[2026-08-26T23:54:18] === Reorganization complete ===

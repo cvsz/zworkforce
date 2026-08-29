@@ -1,0 +1,12 @@
+[2026-08-26T23:51:28] === Starting reorganization: phase=h3 dry_run=false force=true ===
+[2026-08-26T23:51:28] Phase H3: Move separate platforms (requires operator approval)
+[2026-08-26T23:51:28] SKIP: /home/cvsz/zaff does not exist
+[2026-08-26T23:51:28] SKIP: /home/cvsz/zworkforce does not exist
+[2026-08-26T23:51:28] SKIP: /home/cvsz/zeaz does not exist
+[2026-08-26T23:51:28] MOVING: /home/cvsz/zeto → /home/cvsz/platforms/zeto
+[2026-08-26T23:51:33] VERIFIED: Checksum match for zeto
+[2026-08-26T23:51:33] REMOVED: /home/cvsz/zeto
+[2026-08-26T23:51:34] MOVING: /home/cvsz/zknowbase → /home/cvsz/platforms/zknowbase
+[2026-08-26T23:52:13] VERIFIED: Checksum match for zknowbase
+[2026-08-26T23:52:15] REMOVED: /home/cvsz/zknowbase
+[2026-08-26T23:52:15] === Reorganization complete ===

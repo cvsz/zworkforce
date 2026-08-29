@@ -1,0 +1,35 @@
+{
+  "id": "node-service",
+  "name": "Node Service",
+  "version": "0.1.0",
+  "owner": "platform",
+  "description": "Minimal service scaffold with no secrets or deployment identifiers.",
+  "files": [
+    {
+      "path": "package.json",
+      "owner": "generator",
+      "required": true
+    },
+    {
+      "path": "src/server.mjs",
+      "owner": "generator",
+      "required": true
+    },
+    {
+      "path": "README.md",
+      "owner": "generator",
+      "required": true
+    }
+  ],
+  "prohibited": [
+    ".env",
+    "*.pem",
+    "*.key",
+    "wrangler.toml",
+    "terraform.tfvars"
+  ],
+  "requires_approval_for": [
+    "deploy",
+    "shell"
+  ]
+}

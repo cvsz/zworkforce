@@ -12,9 +12,12 @@ class MigrationMixin:
             marker = c.execute("SELECT value FROM schema_meta WHERE key='v1_copy_complete'").fetchone()
             if marker:
                 return
-            now = utcnow()
-            c.execute("BEGIN IMMEDIATE")
+            if self.backend_kind == "postgres":
+                c.execute("SELECT pg_advisory_xact_lock(?)", (_POSTGRES_SCHEMA_LOCK_KEY,))
+            else:
+                c.execute("BEGIN IMMEDIATE")
             try:
+                now = utcnow()
                 for row in c.execute("SELECT * FROM agents").fetchall():
                     r = dict(row)
                     allowed = ["calculator", "workspace_list", "workspace_read", "http_get", "agent_delegate"]

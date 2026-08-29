@@ -1,0 +1,7 @@
+[2026-08-26T23:44:36] === Starting reorganization: phase=h2 dry_run=false force=false ===
+[2026-08-26T23:44:36] Phase H2: Archive migration sources (requires operator approval)
+[2026-08-26T23:44:36] SKIP: /home/cvsz/zc has 46 uncommitted changes (use --force to override)
+[2026-08-26T23:44:36] SKIP: /home/cvsz/zcoder has 7 uncommitted changes (use --force to override)
+[2026-08-26T23:44:36] SKIP: /home/cvsz/z-prov has 37 uncommitted changes (use --force to override)
+[2026-08-26T23:44:36] SKIP: /home/cvsz/zai-coder has 15 uncommitted changes (use --force to override)
+[2026-08-26T23:44:36] === Reorganization complete ===

@@ -1,0 +1,190 @@
+name: validate
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  secret-patterns:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Reject obvious credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Match concrete provider token shapes, not documentation ellipses
+          # or the repository's own redaction/test fixtures.
+          pattern='sk-ant-(api|admin|oat)[0-9]{2}-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|BEGIN (RSA|EC|OPENSSH) PRIVATE KEY|hf_[A-Za-z0-9]{20,}|nvapi-[A-Za-z0-9_-]{20,}'
+          if git grep -nE -e "$pattern" -- . ':(exclude).github/workflows/validate.yml' ':(exclude)docs/**' ':(exclude)**/.env.example'; then
+            echo "Potential credential pattern found."
+            exit 1
+          fi
+      - name: Reject public browser credential exposure
+        shell: bash
+        run: |
+          set -euo pipefail
+          public_pattern='(VITE_|NEXT_PUBLIC_|PUBLIC_).*(Z_PLATFORM_SERVICE_TOKEN|AI_GATEWAY_PROVIDER_TOKEN|UPSTREAM_API_KEY|PROVIDER_TOKEN)'
+          if git grep -nE -e "$public_pattern" -- 'apps/**' ':(exclude)apps/**/*.test.*' ':(exclude)apps/**/README*'; then
+            echo "Provider or service credential is exposed through a public browser environment variable."
+            exit 1
+          fi
+          browser_secret_pattern='Z_PLATFORM_SERVICE_TOKEN|AI_GATEWAY_PROVIDER_TOKEN|UPSTREAM_API_KEY|PROVIDER_TOKEN'
+          if git grep -nE -e "$browser_secret_pattern" -- 'apps/**/public/**'; then
+            echo "Server-only credential identifier found in browser-delivered assets."
+            exit 1
+          fi
+
+  node:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 11.4.0
+      - name: Install dependencies
+        run: pnpm install --ignore-scripts
+      - name: Test runnable Node workspaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          for workspace in packages/contracts apps/zaicoder/web services/ai-gateway services/agent-orchestrator services/agent-provider services/workspace-runtime services/billing-ledger apps/zchat apps/zow apps/zwallet tools/zai-factory; do
+            if [ ! -f "$workspace/package.json" ]; then
+              echo "skip $workspace: no package.json"
+              continue
+            fi
+            if find "$workspace" -path '*/node_modules' -prune -o -name '*.test.mjs' -print -quit | grep -q .; then
+              (cd "$workspace" && npm test --if-present)
+            else
+              echo "skip $workspace: no node test files"
+            fi
+          done
+      - name: Audit Node manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r manifest; do
+            workspace="$(dirname "$manifest")"
+            echo "auditing $workspace"
+            (cd "$workspace" && npm install --package-lock-only --ignore-scripts --no-audit >/dev/null && npm audit --audit-level=high --omit=dev)
+          done < <(find apps packages services tools -name package.json -not -path '*/node_modules/*' | sort)
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Test and audit ZAI Coder backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -d apps/zaicoder/backend ]; then exit 0; fi
+          cd apps/zaicoder/backend
+          python -m pip install --upgrade pip pip-audit
+          python -m pip install -e . -r requirements-dev.txt
+          python -m pytest
+          pip-audit -r requirements-dev.txt
+
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate Compose configuration
+        env:
+          Z_PLATFORM_SERVICE_TOKEN: ci-placeholder-not-a-secret
+          ZC_API_TOKEN: ci-placeholder-not-a-secret
+        run: docker compose config --quiet
+      - name: Build local deployment images
+        env:
+          Z_PLATFORM_SERVICE_TOKEN: ci-placeholder-not-a-secret
+          ZC_API_TOKEN: ci-placeholder-not-a-secret
+        run: docker compose build
+
+  deployed-smoke:
+    runs-on: ubuntu-latest
+    env:
+      Z_PLATFORM_SERVICE_TOKEN: ci-readiness-token
+      ZC_API_TOKEN: ci-readiness-token
+      AGENT_TEST_FAILURE_INJECTION: "true"
+      STAGING_SMOKE_TEST_FAILURE_RETRY: "true"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Start isolated Compose deployment
+        run: docker compose up -d --build
+      - name: Wait for every service to become healthy
+        shell: bash
+        run: |
+          set -euo pipefail
+          services=(ai-gateway agent-orchestrator agent-provider workspace-runtime billing-ledger zwallet zchat)
+          for attempt in $(seq 1 60); do
+            unhealthy=()
+            for service in "${services[@]}"; do
+              container_id="$(docker compose ps -q "$service")"
+              if [ -z "$container_id" ]; then
+                unhealthy+=("$service:missing")
+                continue
+              fi
+              health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container_id")"
+              [ "$health" = healthy ] || unhealthy+=("$service:$health")
+            done
+            [ "${#unhealthy[@]}" -eq 0 ] && exit 0
+            echo "waiting for: ${unhealthy[*]}"
+            sleep 2
+          done
+          docker compose ps
+          docker compose logs
+          exit 1
+      - name: Run deployed readiness contracts
+        run: node scripts/staging-smoke.mjs | tee staging-smoke-result.json
+      - name: Upload deployed smoke evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: staging-smoke-evidence
+          path: staging-smoke-result.json
+          if-no-files-found: error
+      - name: Dump service logs on failure
+        if: failure()
+        run: docker compose logs
+      - name: Stop deployment
+        if: always()
+        run: docker compose down -v
+
+  sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: z-platform.spdx.json
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: z-platform-sbom
+          path: z-platform.spdx.json
+          if-no-files-found: error
+      - name: Attest SBOM provenance
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: z-platform.spdx.json

@@ -46,7 +46,7 @@ class CloudflareIngressTests(unittest.TestCase):
         self.assertIn("Retiring this", terraform)
         self.assertIn('output "zwf_api_url"', terraform)
         self.assertIn('output "zslog_url"', terraform)
-        self.assertIn("local.zworkforce_ingress", outputs)
+        self.assertIn("local.ingress", outputs)
         self.assertIn(
             "hostname: zwf-api.zeaz.dev\n    service: http://127.0.0.1:9570",
             ingress,

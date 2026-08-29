@@ -1,0 +1,43 @@
+apiVersion: release.zeaz.dev/v1alpha1
+kind: ExternalVerification
+metadata:
+  name: <release-id>
+spec:
+  repository: cvsz/z-platform
+  environment: staging
+  revision:
+    commitSha: <40-character-sha>
+    imageDigests:
+      gateway: <sha256:digest>
+      api: <sha256:digest>
+      worker: <sha256:digest>
+      web: <sha256:digest>
+  execution:
+    githubRunId: <run-id>
+    githubRunUrl: <run-url>
+    startedAt: <ISO-8601>
+    completedAt: <ISO-8601>
+    actor: <identity>
+  checks:
+    health: <passed|failed>
+    authentication: <passed|failed>
+    authorization: <passed|failed>
+    providerConnectivity: <passed|failed>
+    jobLifecycle: <passed|failed>
+    cancellation: <passed|failed>
+    idempotency: <passed|failed>
+    failurePaths: <passed|failed>
+    rateLimits: <passed|failed>
+    auditExport: <passed|failed>
+    secretExposure: <passed|failed>
+  evidence:
+    report: <artifact-reference>
+    deploymentLogs: <reference>
+    testReport: <reference>
+    redactionReport: <reference>
+    digest: <sha256:digest>
+status:
+  state: PENDING_EXTERNAL
+  findings: []
+  reviewer: <name-or-handle>
+  reviewedAt: <ISO-8601>

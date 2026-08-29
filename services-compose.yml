@@ -1,0 +1,258 @@
+name: z-platform
+
+x-node-service: &node-service
+  restart: unless-stopped
+  init: true
+  networks:
+    - z-platform-internal
+  security_opt:
+    - no-new-privileges:true
+  read_only: true
+  tmpfs:
+    - /tmp
+
+services:
+  agent-provider:
+    <<: *node-service
+    build:
+      context: .
+      dockerfile: deploy/docker/node-service.Dockerfile
+      args:
+        SERVICE_PATH: services/agent-provider
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8800
+      DATA_DIR: /data
+      Z_PLATFORM_SERVICE_TOKEN: ${Z_PLATFORM_SERVICE_TOKEN:?set Z_PLATFORM_SERVICE_TOKEN in .env}
+      AGENT_TEST_FAILURE_INJECTION: ${AGENT_TEST_FAILURE_INJECTION:-false}
+    volumes:
+      - agent-provider-data:/data
+    ports:
+      - "127.0.0.1:${AGENT_PROVIDER_PORT:-8800}:8800"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8800/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  billing-ledger:
+    <<: *node-service
+    build:
+      context: .
+      dockerfile: deploy/docker/node-service.Dockerfile
+      args:
+        SERVICE_PATH: services/billing-ledger
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8700
+      Z_PLATFORM_SERVICE_TOKEN: ${Z_PLATFORM_SERVICE_TOKEN:?set Z_PLATFORM_SERVICE_TOKEN in .env}
+    ports:
+      - "127.0.0.1:${BILLING_LEDGER_PORT:-8700}:8700"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8700/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  workspace-runtime:
+    <<: *node-service
+    build:
+      context: .
+      dockerfile: deploy/docker/node-service.Dockerfile
+      args:
+        SERVICE_PATH: services/workspace-runtime
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8600
+      Z_PLATFORM_SERVICE_TOKEN: ${Z_PLATFORM_SERVICE_TOKEN:?set Z_PLATFORM_SERVICE_TOKEN in .env}
+    ports:
+      - "127.0.0.1:${WORKSPACE_RUNTIME_PORT:-8600}:8600"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8600/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  agent-orchestrator:
+    <<: *node-service
+    build:
+      context: .
+      dockerfile: deploy/docker/node-service.Dockerfile
+      args:
+        SERVICE_PATH: services/agent-orchestrator
+    depends_on:
+      agent-provider:
+        condition: service_healthy
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8500
+      Z_PLATFORM_SERVICE_TOKEN: ${Z_PLATFORM_SERVICE_TOKEN:?set Z_PLATFORM_SERVICE_TOKEN in .env}
+      AGENT_ORCHESTRATOR_PROVIDER_MODE: production
+      AGENT_JOB_STORE_URL: http://agent-provider:8800
+      AGENT_QUEUE_URL: http://agent-provider:8800
+      AGENT_AUDIT_URL: http://agent-provider:8800
+      AGENT_IDENTITY_URL: http://agent-provider:8800
+      AGENT_SANDBOX_URL: http://agent-provider:8800
+      AGENT_EXTERNAL_TRAFFIC_ENABLED: "false"
+    ports:
+      - "127.0.0.1:${AGENT_ORCHESTRATOR_PORT:-8500}:8500"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8500/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  ai-gateway:
+    <<: *node-service
+    build:
+      context: .
+      dockerfile: deploy/docker/ai-gateway.Dockerfile
+    depends_on:
+      billing-ledger:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8400
+      Z_PLATFORM_SERVICE_TOKEN: ${Z_PLATFORM_SERVICE_TOKEN:?set Z_PLATFORM_SERVICE_TOKEN in .env}
+      REDIS_URL: redis://redis:6379/0
+      UPSTREAM_BASE_URL: ${UPSTREAM_BASE_URL:-}
+      UPSTREAM_PROVIDER: ${UPSTREAM_PROVIDER:-openai-compatible}
+      CORS_ORIGIN: ${AI_GATEWAY_CORS_ORIGIN:-}
+      AI_GATEWAY_RATE_LIMIT_WINDOW_MS: ${AI_GATEWAY_RATE_LIMIT_WINDOW_MS:-60000}
+      AI_GATEWAY_RATE_LIMIT_MAX: ${AI_GATEWAY_RATE_LIMIT_MAX:-60}
+      LOG_LEVEL: info
+    ports:
+      - "127.0.0.1:${AI_GATEWAY_PORT:-8400}:8400"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8400/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  zwallet:
+    <<: *node-service
+    build:
+      context: .
+      dockerfile: deploy/docker/node-service.Dockerfile
+      args:
+        SERVICE_PATH: apps/zwallet
+    depends_on:
+      billing-ledger:
+        condition: service_healthy
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3040
+      Z_PLATFORM_SERVICE_TOKEN: ${Z_PLATFORM_SERVICE_TOKEN:?set Z_PLATFORM_SERVICE_TOKEN in .env}
+      Z_PLATFORM_BILLING_LEDGER_URL: http://billing-ledger:8700
+    ports:
+      - "127.0.0.1:${ZWALLET_PORT:-3040}:3040"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3040/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  zchat:
+    <<: *node-service
+    build:
+      context: .
+      dockerfile: deploy/docker/node-service.Dockerfile
+      args:
+        SERVICE_PATH: apps/zchat
+    depends_on:
+      ai-gateway:
+        condition: service_healthy
+      zc-api:
+        condition: service_healthy
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3021
+      Z_PLATFORM_SERVICE_TOKEN: ${Z_PLATFORM_SERVICE_TOKEN:?set Z_PLATFORM_SERVICE_TOKEN in .env}
+      Z_PLATFORM_AI_GATEWAY_URL: http://ai-gateway:8400
+      PHASE6_API_URL: ${PHASE6_API_URL:-http://phase6-api:8300}
+      PHASE6_API_TOKEN: ${PHASE6_API_TOKEN:-}
+      ZC_API_URL: ${ZC_API_URL:-http://zc-api:8420}
+      ZC_API_TOKEN: ${ZC_API_TOKEN:?set ZC_API_TOKEN in .env}
+      ZCHAT_SESSION_TTL_SECONDS: ${ZCHAT_SESSION_TTL_SECONDS:-3600}
+    ports:
+      - "127.0.0.1:${ZCHAT_PORT:-3021}:3021"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3021/health/live').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  zc-api:
+    build:
+      context: .
+      dockerfile: services/zc/Dockerfile
+    restart: unless-stopped
+    init: true
+    networks:
+      - z-platform-internal
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      ENVIRONMENT: ${ZC_ENVIRONMENT:-production}
+      API_HOST: 0.0.0.0
+      API_PORT: 8420
+      ZC_API_TOKEN: ${ZC_API_TOKEN:?set ZC_API_TOKEN in .env}
+      REDIS_URL: redis://redis:6379/1
+      REDIS_ENABLED: ${ZC_REDIS_ENABLED:-true}
+      UPLOAD_TEMP_DIR: /data/uploads
+      ZC_LOG_LEVEL: ${ZC_LOG_LEVEL:-INFO}
+    volumes:
+      - zc_data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8420/v1/wire/health/live').read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  agent-control-panel:
+    <<: *node-service
+    build:
+      context: .
+      dockerfile: deploy/docker/next-service.Dockerfile
+      args:
+        SERVICE_PATH: apps/agent-control-panel
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+    ports:
+      - "127.0.0.1:3000:3000"
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    networks:
+      - z-platform-internal
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+networks:
+  z-platform-internal:
+    driver: bridge
+
+volumes:
+  agent-provider-data:
+  redis_data:
+  zc_data:

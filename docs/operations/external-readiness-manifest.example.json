@@ -1,0 +1,116 @@
+{
+  "schemaVersion": "1.0.0",
+  "releaseSha": "REPLACE_WITH_FULL_40_CHARACTER_RELEASE_SHA",
+  "checks": [
+    {
+      "id": "observability.dashboard",
+      "mode": "probe",
+      "url": "https://staging-observability-host/health",
+      "expectedStatus": 200
+    },
+    {
+      "id": "observability.traces",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "REPLACE_WITH_REVIEWER",
+      "reviewedAt": "2026-07-14T00:00:00Z",
+      "evidenceRef": "REPLACE_WITH_NON_SECRET_EVIDENCE_REFERENCE"
+    },
+    {
+      "id": "observability.alert_delivery",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "REPLACE_WITH_REVIEWER",
+      "reviewedAt": "2026-07-14T00:00:00Z",
+      "evidenceRef": "REPLACE_WITH_NON_SECRET_EVIDENCE_REFERENCE"
+    },
+    {
+      "id": "backup.external_restore",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "REPLACE_WITH_REVIEWER",
+      "reviewedAt": "2026-07-14T00:00:00Z",
+      "evidenceRef": "REPLACE_WITH_NON_SECRET_EVIDENCE_REFERENCE"
+    },
+    {
+      "id": "ai.streaming",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "REPLACE_WITH_REVIEWER",
+      "reviewedAt": "2026-07-14T00:00:00Z",
+      "evidenceRef": "REPLACE_WITH_NON_SECRET_EVIDENCE_REFERENCE"
+    },
+    {
+      "id": "ai.upload",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "REPLACE_WITH_REVIEWER",
+      "reviewedAt": "2026-07-14T00:00:00Z",
+      "evidenceRef": "REPLACE_WITH_NON_SECRET_EVIDENCE_REFERENCE"
+    },
+    {
+      "id": "ai.multi_provider",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "REPLACE_WITH_REVIEWER",
+      "reviewedAt": "2026-07-14T00:00:00Z",
+      "evidenceRef": "REPLACE_WITH_NON_SECRET_EVIDENCE_REFERENCE"
+    },
+    {
+      "id": "ai.failover",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "REPLACE_WITH_REVIEWER",
+      "reviewedAt": "2026-07-14T00:00:00Z",
+      "evidenceRef": "REPLACE_WITH_NON_SECRET_EVIDENCE_REFERENCE"
+    },
+    {
+      "id": "browser.bundle_scan",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "REPLACE_WITH_REVIEWER",
+      "reviewedAt": "2026-07-14T00:00:00Z",
+      "evidenceRef": "REPLACE_WITH_NON_SECRET_EVIDENCE_REFERENCE"
+    },
+    {
+      "id": "browser.har_scan",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "REPLACE_WITH_REVIEWER",
+      "reviewedAt": "2026-07-14T00:00:00Z",
+      "evidenceRef": "REPLACE_WITH_NON_SECRET_EVIDENCE_REFERENCE"
+    },
+    {
+      "id": "zchat.keyboard",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "REPLACE_WITH_REVIEWER",
+      "reviewedAt": "2026-07-14T00:00:00Z",
+      "evidenceRef": "REPLACE_WITH_NON_SECRET_EVIDENCE_REFERENCE"
+    },
+    {
+      "id": "zchat.screen_reader",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "REPLACE_WITH_REVIEWER",
+      "reviewedAt": "2026-07-14T00:00:00Z",
+      "evidenceRef": "REPLACE_WITH_NON_SECRET_EVIDENCE_REFERENCE"
+    },
+    {
+      "id": "zchat.responsive",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "REPLACE_WITH_REVIEWER",
+      "reviewedAt": "2026-07-14T00:00:00Z",
+      "evidenceRef": "REPLACE_WITH_NON_SECRET_EVIDENCE_REFERENCE"
+    },
+    {
+      "id": "zchat.session_provider",
+      "mode": "attestation",
+      "status": "verified",
+      "reviewer": "REPLACE_WITH_REVIEWER",
+      "reviewedAt": "2026-07-14T00:00:00Z",
+      "evidenceRef": "REPLACE_WITH_NON_SECRET_EVIDENCE_REFERENCE"
+    }
+  ]
+}

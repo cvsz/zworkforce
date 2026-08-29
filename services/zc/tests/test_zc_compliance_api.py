@@ -132,9 +132,7 @@ def test_request_does_not_retry_403(monkeypatch):
         import urllib.error
         body = json.dumps({"error": {"type": "permission_error",
                                      "message": "Missing required scopes."}}).encode()
-        raise urllib.error.HTTPError(req.full_url, 403, "forbidden", {}, None).__class__(
-            req.full_url, 403, "forbidden", {}, None
-        ) if False else _http_error(req.full_url, 403, body)
+        return _http_error(req.full_url, 403, body)
 
     def _http_error(url, code, body):
         import io

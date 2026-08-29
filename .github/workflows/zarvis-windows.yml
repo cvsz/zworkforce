@@ -1,0 +1,199 @@
+name: ZARVIS Windows Client
+
+on:
+  pull_request:
+    paths:
+      - "apps/zarvis-windows/**"
+      - "scripts/zarvis-windows-release.sh"
+      - ".github/workflows/zarvis-windows.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/zarvis-windows/**"
+      - "scripts/zarvis-windows-release.sh"
+      - ".github/workflows/zarvis-windows.yml"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: SemVer client version
+        required: true
+        default: "0.1.0"
+        type: string
+      publish_release:
+        description: Publish a public GitHub Release
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      PROJECT: apps/zarvis-windows/src/ZARVIS.Windows/ZARVIS.Windows.csproj
+      TEST_PROJECT: apps/zarvis-windows/tests/ZARVIS.Windows.Tests/ZARVIS.Windows.Tests.csproj
+      ARTIFACT_DIR: apps/zarvis-windows/artifacts
+      PUBLISH_DIR: apps/zarvis-windows/artifacts/publish
+      VERSION: ${{ inputs.version || format('0.1.{0}', github.run_number) }}
+      SIGNING_CERTIFICATE_BASE64: ${{ secrets.WINDOWS_SIGNING_CERT_PFX_BASE64 }}
+      SIGNING_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERT_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Validate version
+        shell: pwsh
+        run: |
+          if ($env:VERSION -notmatch '^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$') {
+            throw "Invalid version: $env:VERSION"
+          }
+
+      - name: Restore and test
+        shell: pwsh
+        run: |
+          dotnet restore $env:PROJECT
+          dotnet restore $env:TEST_PROJECT
+          dotnet test $env:TEST_PROJECT -c Release --no-restore `
+            --logger "trx;LogFileName=zarvis-windows-tests.trx"
+
+      - name: Publish self-contained client
+        shell: pwsh
+        run: |
+          New-Item $env:PUBLISH_DIR -ItemType Directory -Force | Out-Null
+          dotnet publish $env:PROJECT -c Release -r win-x64 --self-contained true `
+            -p:Version=$env:VERSION `
+            -p:FileVersion=$env:VERSION `
+            -p:AssemblyVersion=$env:VERSION `
+            -o $env:PUBLISH_DIR
+          if (-not (Test-Path "$env:PUBLISH_DIR\ZARVIS.exe")) {
+            throw "ZARVIS.exe was not produced."
+          }
+
+      - name: Import optional signing certificate
+        id: signing
+        if: ${{ env.SIGNING_CERTIFICATE_BASE64 != '' }}
+        shell: pwsh
+        run: |
+          $path = Join-Path $env:RUNNER_TEMP 'zarvis-signing.pfx'
+          [IO.File]::WriteAllBytes($path, [Convert]::FromBase64String($env:SIGNING_CERTIFICATE_BASE64))
+          "certificate=$path" >> $env:GITHUB_OUTPUT
+          "enabled=true" >> $env:GITHUB_OUTPUT
+
+      - name: Sign ZARVIS.exe
+        if: ${{ steps.signing.outputs.enabled == 'true' }}
+        shell: pwsh
+        run: |
+          $signtool = (Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" `
+            -Filter signtool.exe -Recurse | Sort-Object FullName -Descending | Select-Object -First 1).FullName
+          & $signtool sign /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com `
+            /f "${{ steps.signing.outputs.certificate }}" /p $env:SIGNING_CERTIFICATE_PASSWORD `
+            "$env:PUBLISH_DIR\ZARVIS.exe"
+          if ($LASTEXITCODE -ne 0) { throw "Client signing failed." }
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          & $iscc `
+            "/DMyAppVersion=$env:VERSION" `
+            "/DSourceDir=$((Resolve-Path $env:PUBLISH_DIR).Path)" `
+            "/DOutputDir=$((Resolve-Path $env:ARTIFACT_DIR).Path)" `
+            "apps\zarvis-windows\installer\ZARVIS.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Installer build failed." }
+
+      - name: Sign installer
+        if: ${{ steps.signing.outputs.enabled == 'true' }}
+        shell: pwsh
+        run: |
+          $signtool = (Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" `
+            -Filter signtool.exe -Recurse | Sort-Object FullName -Descending | Select-Object -First 1).FullName
+          $installer = Get-ChildItem $env:ARTIFACT_DIR -Filter 'ZARVIS-Setup-*-win-x64.exe' | Select-Object -First 1
+          & $signtool sign /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com `
+            /f "${{ steps.signing.outputs.certificate }}" /p $env:SIGNING_CERTIFICATE_PASSWORD `
+            $installer.FullName
+          if ($LASTEXITCODE -ne 0) { throw "Installer signing failed." }
+
+      - name: Build release manifest and checksums
+        shell: pwsh
+        run: |
+          Copy-Item "$env:PUBLISH_DIR\ZARVIS.exe" "$env:ARTIFACT_DIR\ZARVIS-$env:VERSION-win-x64.exe"
+          $files = Get-ChildItem $env:ARTIFACT_DIR -File |
+            Where-Object { $_.Extension -eq '.exe' } |
+            Sort-Object Name
+          $lines = foreach ($file in $files) {
+            $hash = (Get-FileHash $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $($file.Name)"
+          }
+          $lines | Set-Content "$env:ARTIFACT_DIR\SHA256SUMS.txt" -Encoding ascii
+          $manifest = [ordered]@{
+            schema_version = 'zarvis.windows-release.v1'
+            version = $env:VERSION
+            source_sha = '${{ github.sha }}'
+            generated_at = [DateTimeOffset]::UtcNow.ToString('O')
+            architecture = 'win-x64'
+            self_contained = $true
+            transport = 'windows-openssh-local-forward'
+            server_public_ingress = $false
+            signed = '${{ steps.signing.outputs.enabled }}' -eq 'true'
+            files = @($files | ForEach-Object {
+              [ordered]@{
+                name = $_.Name
+                bytes = $_.Length
+                sha256 = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+              }
+            })
+          }
+          $manifest | ConvertTo-Json -Depth 8 |
+            Set-Content "$env:ARTIFACT_DIR\release-manifest.json" -Encoding utf8
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: zarvis-windows-${{ env.VERSION }}-${{ github.sha }}
+          path: |
+            apps/zarvis-windows/artifacts/*.exe
+            apps/zarvis-windows/artifacts/*.txt
+            apps/zarvis-windows/artifacts/*.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Attest release files
+        if: ${{ github.event_name != 'pull_request' }}
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            apps/zarvis-windows/artifacts/*.exe
+            apps/zarvis-windows/artifacts/SHA256SUMS.txt
+            apps/zarvis-windows/artifacts/release-manifest.json
+
+      - name: Publish public release
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "zarvis-windows-v$env:VERSION"
+          $assets = Get-ChildItem $env:ARTIFACT_DIR -File |
+            Where-Object { $_.Extension -in '.exe', '.txt', '.json' } |
+            ForEach-Object FullName
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag @assets --repo $env:GITHUB_REPOSITORY --clobber
+          } else {
+            gh release create $tag @assets --repo $env:GITHUB_REPOSITORY `
+              --title "Z.A.R.V.I.S. Windows $env:VERSION" `
+              --notes "Owner-only Windows 11 client. Verify SHA256SUMS.txt before installation."
+          }

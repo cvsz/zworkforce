@@ -3,7 +3,7 @@
 
 # === Core Async Framework ===
 fastapi>=0.115.0
-uvicorn[standard]>=0.32.0
+uvicorn[standard]>=0.52.3
 python-multipart>=0.0.9
 aiofiles>=24.1.0
 aiohttp>=3.10.0
@@ -19,11 +19,11 @@ msgspec>=0.18.0
 
 # === Delta Sync & Compression ===
 bsdiff4>=1.2.0
-zstandard>=0.23.0
+zstandard>=0.25.0
 
 # === Redis Client (Async) ===
 redis>=5.2.0
-hiredis>=3.4.0
+hiredis>=3.4.1
 
 # === Observability (OpenTelemetry) ===
 opentelemetry-api>=1.27.0

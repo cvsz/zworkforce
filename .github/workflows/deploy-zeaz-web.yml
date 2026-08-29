@@ -1,0 +1,90 @@
+name: Deploy ZEAZ website
+on:
+  push:
+    branches: [main]
+    paths: ["apps/zeaz-web/**", ".github/workflows/deploy-zeaz-web.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: zeaz-web-production
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22.16.0"
+          package-manager-cache: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with: { version: "11.4.0" }
+      - run: pnpm --dir apps/zeaz-web build
+      - run: pnpm --dir apps/zeaz-web lint
+      - run: pnpm --dir apps/zeaz-web test
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      ADMIN_API_TOKEN: ${{ secrets.ZEAZ_WEB_ADMIN_API_TOKEN }}
+      IP_HASH_SALT: ${{ secrets.ZEAZ_WEB_IP_HASH_SALT }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      NOTIFICATION_EMAIL: ${{ secrets.ZEAZ_WEB_NOTIFICATION_EMAIL }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22.16.0"
+          package-manager-cache: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with: { version: "11.4.0" }
+      - name: Assemble and validate website
+        run: pnpm --dir apps/zeaz-web build
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID ADMIN_API_TOKEN IP_HASH_SALT; do
+            [[ -n "${!name:-}" ]] || { echo "Missing production secret: $name" >&2; exit 1; }
+          done
+          [[ ${#ADMIN_API_TOKEN} -ge 32 ]] && [[ ${#IP_HASH_SALT} -ge 32 ]]
+      - name: Create or reuse D1
+        id: d1
+        shell: bash
+        run: |
+          set -euo pipefail
+          W="pnpm dlx wrangler@4.114.0"
+          id="$($W d1 list --json | jq -r '.[] | select(.name=="zeaz-web") | (.uuid // .id)' | head -n1)"
+          if [[ -z "$id" || "$id" == null ]]; then $W d1 create zeaz-web; id="$($W d1 list --json | jq -r '.[] | select(.name=="zeaz-web") | (.uuid // .id)' | head -n1)"; fi
+          [[ "$id" =~ ^[0-9a-fA-F-]{36}$ ]]
+          echo "database_id=$id" >> "$GITHUB_OUTPUT"
+      - name: Render configuration
+        env: { ZEAZ_WEB_D1_DATABASE_ID: "${{ steps.d1.outputs.database_id }}" }
+        run: node apps/zeaz-web/scripts/render-wrangler.mjs
+      - name: Apply migrations
+        run: pnpm dlx wrangler@4.114.0 d1 migrations apply zeaz-web --remote --config apps/zeaz-web/wrangler.generated.jsonc
+      - name: Configure secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          C=apps/zeaz-web/wrangler.generated.jsonc
+          printf %s "$ADMIN_API_TOKEN" | pnpm dlx wrangler@4.114.0 secret put ADMIN_API_TOKEN --config "$C"
+          printf %s "$IP_HASH_SALT" | pnpm dlx wrangler@4.114.0 secret put IP_HASH_SALT --config "$C"
+          [[ -z "${RESEND_API_KEY:-}" ]] || printf %s "$RESEND_API_KEY" | pnpm dlx wrangler@4.114.0 secret put RESEND_API_KEY --config "$C"
+          [[ -z "${NOTIFICATION_EMAIL:-}" ]] || printf %s "$NOTIFICATION_EMAIL" | pnpm dlx wrangler@4.114.0 secret put NOTIFICATION_EMAIL --config "$C"
+      - name: Deploy
+        run: pnpm dlx wrangler@4.114.0 deploy --config apps/zeaz-web/wrangler.generated.jsonc
+      - name: Verify production
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 12); do
+            p="$(curl -fsS https://www.zeaz.dev/api/health || true)"
+            jq -e '.status=="ok" and .service=="zeaz-web" and .database==true' <<<"$p" >/dev/null 2>&1 && exit 0
+            sleep 5
+          done
+          exit 1

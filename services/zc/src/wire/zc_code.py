@@ -73,6 +73,40 @@ import time
 import uuid
 from pathlib import Path
 from typing import Callable, Optional, List
+import ipaddress
+import socket
+from urllib.parse import urlparse
+
+try:
+    from wire.zc_sandbox import SandboxViolation
+except ImportError:
+    SandboxViolation = Exception
+
+
+class ToolError(Exception):
+    """Raised when a tool input violates a safety boundary."""
+
+
+def _safe_path(inputs_path: str, cwd: str) -> Path:
+    """Resolve a tool-supplied path and confine it to the session working dir.
+
+    An LLM can otherwise pass ``"../../etc/passwd"`` or an absolute path to
+    read or write arbitrary files. This helper resolves the path against cwd,
+    rejects null bytes and shell/escape patterns, and raises ToolError if the
+    result would escape cwd.
+    """
+    if inputs_path is None:
+        raise ToolError("path is required")
+    if "\x00" in inputs_path:
+        raise ToolError("path contains null byte")
+    suspicious = ("..", "~", "$", "|", ";", "&", ">", "<")
+    if any(token in inputs_path for token in suspicious):
+        raise ToolError(f"suspicious path rejected: {inputs_path!r}")
+    resolved = (Path(cwd) / inputs_path).resolve()
+    if not resolved.is_relative_to(Path(cwd).resolve()):
+        raise ToolError("path escapes working directory")
+    return resolved
+
 
 # ── Storage paths ──────────────────────────────────────────────────────────
 SESSIONS_DIR  = Path(os.path.expanduser("~/.ai-coder/code_sessions"))
@@ -87,6 +121,28 @@ SETTINGS_JSON = Path(".zc/settings.json")
 
 for d in (SESSIONS_DIR, HOOKS_DIR):
     d.mkdir(parents=True, exist_ok=True)
+
+
+ALLOWED_BINARIES = {
+    "cat", "ls", "grep", "find", "head", "tail", "wc", "diff",
+    "sort", "uniq", "sed", "awk", "python3", "node",
+    "which", "file", "stat", "echo", "printf", "date", "pwd",
+    "true", "false", "test", "exit", "return",
+}
+ALLOWED_GIT_SUBCMDS = {"status", "diff", "log", "blame"}
+
+
+def _check_command_allowlist(cmd: str) -> None:
+    tokens = shlex.split(cmd)
+    if not tokens:
+        return
+    primary = Path(tokens[0]).name
+    if primary == "git":
+        git_sub = tokens[1] if len(tokens) > 1 else ""
+        if git_sub not in ALLOWED_GIT_SUBCMDS:
+            raise SandboxViolation(f"git subcommand '{git_sub}' is not in the allowlist")
+    elif primary not in ALLOWED_BINARIES:
+        raise SandboxViolation(f"command '{primary}' is not in the allowlist")
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -319,14 +375,20 @@ class HooksEngine:
         stdin_data = json.dumps(payload)
         for handler in handlers:
             cmd  = handler.get("command", "")
-            env  = {**os.environ, **handler.get("env", {})}
+            handler_env = handler.get("env", {})
             if not cmd:
                 continue
             try:
                 cmd_args = shlex.split(cmd) if isinstance(cmd, str) else cmd
+                minimal_env = {
+                    "PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"),
+                    "HOME": os.environ.get("HOME", "/tmp"),
+                    "TMPDIR": os.environ.get("TMPDIR", "/tmp"),
+                }
+                minimal_env.update({k: str(v) for k, v in handler_env.items() if isinstance(k, str)})
                 result = subprocess.run(
                     cmd_args, shell=False, input=stdin_data,
-                    capture_output=True, text=True, timeout=30, env=env,
+                    capture_output=True, text=True, timeout=30, env=minimal_env,
                 )
                 if result.returncode == 2:
                     msg = result.stdout.strip() or result.stderr.strip()
@@ -710,13 +772,47 @@ class CodeAgent:
         except Exception as e:
             return {"error": str(e)}
 
+    @staticmethod
+    def _validate_webfetch_url(url: str) -> bool:
+        if len(url) > 4096:
+            return False
+        try:
+            parsed = urlparse(url)
+        except Exception:
+            return False
+        if parsed.scheme not in ("http", "https"):
+            return False
+        if parsed.username or parsed.password:
+            return False
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+        try:
+            addrinfos = socket.getaddrinfo(hostname, None)
+            for family, _, _, _, sockaddr in addrinfos:
+                ip = ipaddress.ip_address(sockaddr[0])
+                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved:
+                    return False
+        except (socket.gaierror, ValueError):
+            return False
+        return True
+
+    class _NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            if not CodeAgent._validate_webfetch_url(newurl):
+                return None
+            return super().redirect_request(req, fp, code, msg, headers, newurl)
+
     # No CircuitBreaker: WebFetch targets a different, arbitrary URL each
     # time (agent-chosen), not one fixed downstream dependency.
     @retry(max_attempts=2, base_delay=1.0, max_delay=5.0)
     def _webfetch_retrying(self, url: str) -> str:
+        if not self._validate_webfetch_url(url):
+            raise ValueError("SSRF protection: blocked disallowed URL")
         req = urllib.request.Request(url, headers={"User-Agent": "ai-coder-agent/1.8"})
+        opener = urllib.request.build_opener(self._NoRedirect())
         try:
-            with urllib.request.urlopen(req, timeout=15) as r:
+            with opener.open(req, timeout=15) as r:
                 return r.read().decode("utf-8", errors="replace")[:4000]
         except (urllib.error.HTTPError, TimeoutError, ConnectionError, OSError) as e:
             raise_for_http_error(e)
@@ -804,17 +900,17 @@ class CodeAgent:
         cwd = session.cwd
         try:
             if name == "Read":
-                p = Path(cwd) / inputs["path"]
+                p = _safe_path(inputs["path"], cwd)
                 return p.read_text()[:8000]
 
             elif name == "Write":
-                p = Path(cwd) / inputs["path"]
+                p = _safe_path(inputs["path"], cwd)
                 p.parent.mkdir(parents=True, exist_ok=True)
                 p.write_text(inputs["content"])
                 return f"Written {len(inputs['content'])} chars to {inputs['path']}"
 
             elif name == "Edit":
-                p = Path(cwd) / inputs["path"]
+                p = _safe_path(inputs["path"], cwd)
                 content = p.read_text()
                 new = content.replace(inputs["old_string"], inputs["new_string"], 1)
                 if new == content:
@@ -825,9 +921,9 @@ class CodeAgent:
             elif name == "Bash":
                 cmd = inputs["command"]
                 timeout = inputs.get("timeout", 30)
-                if os.environ.get("AI_CODER_SANDBOX") == "1":
+                if os.environ.get("AI_CODER_SANDBOX") != "0":
                     try:
-                        from wire.zc_sandbox import SandboxViolation, enforce
+                        from wire.zc_sandbox import enforce
                         roots = json.loads(os.environ.get("AI_CODER_SANDBOX_ROOTS", "[]"))
                         allow_net = os.environ.get("AI_CODER_SANDBOX_NET") == "1"
                         enforce(cmd, cwd, allow_net=allow_net, extra_roots=roots)
@@ -835,6 +931,8 @@ class CodeAgent:
                         return f"[SANDBOX BLOCKED] {e}"
                     except ImportError:
                         pass
+                    if os.environ.get("AI_CODER_SANDBOX_ALLOW_ALL") != "1":
+                        _check_command_allowlist(cmd)
                 r = subprocess.run(["/bin/bash", "-c", cmd], shell=False, cwd=cwd,
                                    capture_output=True, text=True, timeout=timeout)
                 out = r.stdout.strip()
@@ -845,14 +943,14 @@ class CodeAgent:
 
             elif name == "Glob":
                 pattern = inputs["pattern"]
-                base    = Path(cwd) / inputs.get("path", ".")
+                base    = _safe_path(inputs.get("path", "."), cwd)
                 matches = sorted(base.glob(pattern))
                 return "\n".join(str(m.relative_to(cwd)) for m in matches[:100])
 
             elif name == "Grep":
                 import re
                 pattern = inputs["pattern"]
-                base    = Path(cwd) / inputs.get("path", ".")
+                base    = _safe_path(inputs.get("path", "."), cwd)
                 include = inputs.get("include", "*")
                 results = []
                 for f in base.rglob(include):
@@ -867,7 +965,7 @@ class CodeAgent:
                 return "\n".join(results[:200]) or "(no matches)"
 
             elif name == "LS":
-                p = Path(cwd) / inputs.get("path", ".")
+                p = _safe_path(inputs.get("path", "."), cwd)
                 return "\n".join(sorted(str(c.name) for c in p.iterdir()))
 
             elif name == "WebSearch":

@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "1.0.0",
+  "_note": "releaseSha must be set to the exact merge commit SHA after a passing CI run is recorded for that commit. Do not set releaseSha until the CI run for that SHA is complete.",
+  "identityProvider": {
+    "status": "approved",
+    "providerClass": "Cloudflare Access with external OIDC identity provider",
+    "claimMappingReference": "policy:identity-claims-v1"
+  },
+  "secretManager": {
+    "status": "approved",
+    "providerClass": "GitHub Environment secrets for staging; external managed secret manager required for production runtime"
+  },
+  "managedDataServices": {
+    "status": "approved",
+    "databaseClass": "Managed PostgreSQL with encrypted storage and point-in-time recovery",
+    "queueClass": "Managed Redis-compatible durable queue",
+    "objectStorageClass": "S3-compatible encrypted object storage",
+    "regionPolicy": "policy:thailand-primary-singapore-fallback-v1"
+  },
+  "backup": {
+    "status": "approved",
+    "targetClass": "Encrypted S3-compatible external backup target",
+    "retentionPolicyReference": "policy:backup-retention-30d-v1"
+  },
+  "observability": {
+    "status": "approved",
+    "platformClass": "Prometheus-compatible metrics, Loki-compatible logs, OpenTelemetry traces",
+    "alertRouteClass": "GitHub issue plus operator notification channel"
+  },
+  "aiPolicy": {
+    "status": "approved",
+    "allowlistReference": "policy:ai-provider-allowlist-v1",
+    "quotaPolicyReference": "policy:ai-quota-budget-v1",
+    "failoverPolicyReference": "policy:ai-failover-v1",
+    "dataGovernanceReference": "policy:ai-data-governance-v1"
+  },
+  "billing": {
+    "status": "approved",
+    "currency": "THB",
+    "jurisdiction": "TH",
+    "merchantResponsibility": "ZEAZDEV Company Limited",
+    "paymentProcessorClass": "Operator-selected PCI-compliant payment processor"
+  }
+}

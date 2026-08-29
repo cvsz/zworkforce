@@ -1,0 +1,15 @@
+[2026-08-26T23:45:04] === Starting reorganization: phase=h2 dry_run=false force=true ===
+[2026-08-26T23:45:04] Phase H2: Archive migration sources (requires operator approval)
+[2026-08-26T23:45:04] MOVING: /home/cvsz/zc → /home/cvsz/migration-sources/zc
+[2026-08-26T23:45:27] VERIFIED: Checksum match for zc
+[2026-08-26T23:45:28] REMOVED: /home/cvsz/zc
+[2026-08-26T23:45:28] MOVING: /home/cvsz/zcoder → /home/cvsz/migration-sources/zcoder
+[2026-08-26T23:46:11] VERIFIED: Checksum match for zcoder
+[2026-08-26T23:46:12] REMOVED: /home/cvsz/zcoder
+[2026-08-26T23:46:12] MOVING: /home/cvsz/z-prov → /home/cvsz/migration-sources/z-prov
+[2026-08-26T23:46:31] VERIFIED: Checksum match for z-prov
+[2026-08-26T23:46:32] REMOVED: /home/cvsz/z-prov
+[2026-08-26T23:46:32] MOVING: /home/cvsz/zai-coder → /home/cvsz/migration-sources/zai-coder
+[2026-08-26T23:46:42] VERIFIED: Checksum match for zai-coder
+[2026-08-26T23:46:42] REMOVED: /home/cvsz/zai-coder
+[2026-08-26T23:46:42] === Reorganization complete ===

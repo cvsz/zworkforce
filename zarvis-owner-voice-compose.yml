@@ -1,0 +1,194 @@
+name: zarvis-owner-voice
+
+x-hardened: &hardened
+  restart: unless-stopped
+  init: true
+  networks: [zarvis-voice-internal]
+  security_opt: ["no-new-privileges:true"]
+
+services:
+  ollama:
+    <<: *hardened
+    image: ${OLLAMA_IMAGE:-ollama/ollama:0.32.3}
+    volumes:
+      - zarvis_voice_ollama:/root/.ollama
+    ports:
+      - "127.0.0.1:${OLLAMA_PORT:-11434}:11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  zarvis-orchestrator:
+    <<: *hardened
+    build:
+      context: .
+      dockerfile: deploy/docker/node-service.Dockerfile
+      args:
+        SERVICE_PATH: services/zarvis-orchestrator
+    read_only: true
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8094
+      ZARVIS_ORCHESTRATOR_SERVICE_TOKEN: ${ZARVIS_ORCHESTRATOR_SERVICE_TOKEN:?required}
+      ZARVIS_DATA_DIR: /var/lib/zarvis
+      ZARVIS_GITHUB_TIMEOUT_MS: 5000
+    volumes:
+      - zarvis_voice_sessions:/var/lib/zarvis
+    ports:
+      - "127.0.0.1:${ZARVIS_ORCHESTRATOR_PORT:-8094}:8094"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8094/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  voice-agent:
+    <<: *hardened
+    build:
+      context: ./services/voice-agent
+      dockerfile: Dockerfile
+      args:
+        SPEECH_TO_SPEECH_VERSION: ${SPEECH_TO_SPEECH_VERSION:-0.2.11}
+        QWENTTS_CPP_VERSION: ${QWENTTS_CPP_VERSION:-0.3.1+cpu}
+        QWENTTS_WHEEL_INDEX: ${QWENTTS_WHEEL_INDEX:-https://huggingface.co/datasets/andito/qwentts-cpp-python-wheels/tree/main/whl/cpu}
+    environment:
+      VOICE_AGENT_PORT: 8765
+      VOICE_LLM_MODEL: ${VOICE_LLM_MODEL:-qwen3:8b}
+      VOICE_LLM_BASE_URL: http://ollama:11434/v1
+      VOICE_LLM_API_KEY: ${Z_PLATFORM_SERVICE_TOKEN:?required}
+      VOICE_STT_BACKEND: ${VOICE_STT_BACKEND:-faster-whisper}
+      VOICE_STT_MODEL: ${VOICE_STT_MODEL:-small}
+      VOICE_STT_DEVICE: ${VOICE_STT_DEVICE:-auto}
+      VOICE_STT_COMPUTE_TYPE: ${VOICE_STT_COMPUTE_TYPE:-auto}
+      VOICE_STT_LANGUAGE: ${VOICE_STT_LANGUAGE:-th}
+      VOICE_TTS_BACKEND: ${VOICE_TTS_BACKEND:-qwen3}
+      VOICE_TTS_MODEL: ${VOICE_TTS_MODEL:-Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice}
+      VOICE_TTS_SPEAKER: ${VOICE_TTS_SPEAKER:-Aiden}
+      VOICE_TTS_LANGUAGE: ${VOICE_TTS_LANGUAGE:-auto}
+      VOICE_TTS_DEVICE: ${VOICE_TTS_DEVICE:-cpu}
+      VOICE_TTS_BACKEND_ENGINE: ${VOICE_TTS_BACKEND_ENGINE:-ggml}
+      VOICE_TTS_QUANTIZATION: ${VOICE_TTS_QUANTIZATION:-Q4_K_M}
+      VOICE_NUM_PIPELINES: ${VOICE_NUM_PIPELINES:-1}
+      VOICE_VAD_THRESHOLD: ${VOICE_VAD_THRESHOLD:-0.6}
+      VOICE_MIN_SPEECH_MS: ${VOICE_MIN_SPEECH_MS:-250}
+      VOICE_MIN_SILENCE_MS: ${VOICE_MIN_SILENCE_MS:-500}
+      VOICE_QWEN3_NON_STREAMING: ${VOICE_QWEN3_NON_STREAMING:-True}
+      VOICE_LOG_LEVEL: ${VOICE_LOG_LEVEL:-info}
+      HF_TOKEN: ${HF_TOKEN:-}
+    volumes:
+      - zarvis_voice_models:/models
+    depends_on:
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "/app/healthcheck.py"]
+      interval: 15s
+      timeout: 5s
+      retries: 120
+      start_period: ${VOICE_AGENT_HEALTH_START_PERIOD:-30m}
+
+  voice-gateway:
+    <<: *hardened
+    build:
+      context: ./services/voice-gateway
+      dockerfile: Dockerfile
+    read_only: true
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8450
+      Z_PLATFORM_SERVICE_TOKEN: ${Z_PLATFORM_SERVICE_TOKEN:?required}
+      VOICE_TICKET_SECRET: ${VOICE_TICKET_SECRET:?required}
+      VOICE_AGENT_URL: http://voice-agent:8765
+      VOICE_PUBLIC_WS_URL: ${VOICE_PUBLIC_WS_URL:-wss://voice.zarvis.zeaz.dev/v1/realtime}
+      VOICE_TICKET_TTL_SECONDS: 60
+      VOICE_MAX_SESSIONS: ${VOICE_MAX_SESSIONS:-2}
+      VOICE_MAX_SESSIONS_PER_IP: 1
+      VOICE_ALLOW_ANONYMOUS: "false"
+    ports:
+      - "127.0.0.1:${VOICE_GATEWAY_PORT:-8450}:8450"
+    depends_on:
+      voice-agent:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8450/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  zvoice:
+    <<: *hardened
+    build:
+      context: ./apps/zvoice
+      dockerfile: Dockerfile
+    read_only: true
+    tmpfs: ["/tmp:size=16m,mode=1777"]
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3022
+      Z_PLATFORM_SERVICE_TOKEN: ${Z_PLATFORM_SERVICE_TOKEN:?required}
+      Z_PLATFORM_VOICE_GATEWAY_URL: http://voice-gateway:8450
+      VOICE_LLM_MODEL: ${VOICE_LLM_MODEL:-qwen3:8b}
+      ZVOICE_ALLOW_ANONYMOUS: "false"
+      ZVOICE_ZARVIS_MODE: "true"
+      ZARVIS_EDGE_SHARED_SECRET: ${ZARVIS_EDGE_SHARED_SECRET:?required}
+      ZARVIS_ORCHESTRATOR_URL: http://zarvis-orchestrator:8094
+      ZARVIS_ORCHESTRATOR_SERVICE_TOKEN: ${ZARVIS_ORCHESTRATOR_SERVICE_TOKEN:?required}
+      ZARVIS_LOCAL_LLM_BASE_URL: http://ollama:11434/v1
+      ZARVIS_LOCAL_LLM_MODEL: ${VOICE_LLM_MODEL:-qwen3:8b}
+      ZARVIS_LOCAL_LLM_API_KEY: ${Z_PLATFORM_SERVICE_TOKEN:?required}
+      ZARVIS_LOCAL_LLM_TIMEOUT_MS: ${ZARVIS_LOCAL_LLM_TIMEOUT_MS:-45000}
+    depends_on:
+      voice-gateway:
+        condition: service_healthy
+      zarvis-orchestrator:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3022/health/live').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  zarvis-owner-voice-edge:
+    <<: *hardened
+    image: node:24-alpine
+    working_dir: /workspace/services/zarvis-owner-voice-edge
+    command: ["node", "server.mjs"]
+    read_only: true
+    tmpfs: ["/tmp:size=8m,mode=1777"]
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3023
+      ZVOICE_UPSTREAM_URL: http://zvoice:3022
+      ZARVIS_EDGE_SHARED_SECRET: ${ZARVIS_EDGE_SHARED_SECRET:?required}
+    volumes:
+      - ./:/workspace:ro
+    ports:
+      - "127.0.0.1:${ZARVIS_OWNER_VOICE_EDGE_PORT:-3023}:3023"
+    depends_on:
+      zvoice:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3023/edge-healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+networks:
+  zarvis-voice-internal:
+    internal: true
+
+volumes:
+  zarvis_voice_ollama:
+  zarvis_voice_models:
+  zarvis_voice_sessions:

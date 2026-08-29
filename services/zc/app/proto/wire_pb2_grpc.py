@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-import wire_pb2 as wire__pb2
+from app.proto import wire_pb2 as app_dot_proto_dot_wire__pb2
 
 GRPC_GENERATED_VERSION = '1.82.1'
 GRPC_VERSION = grpc.__version__
@@ -18,7 +18,7 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + ' but the generated code in wire_pb2_grpc.py depends on'
+        + ' but the generated code in app/proto/wire_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
@@ -36,28 +36,28 @@ class WireServiceStub:
         """
         self.InitUpload = channel.unary_unary(
                 '/wire.v1.WireService/InitUpload',
-                request_serializer=wire__pb2.UploadInitRequest.SerializeToString,
-                response_deserializer=wire__pb2.UploadInitResponse.FromString,
+                request_serializer=app_dot_proto_dot_wire__pb2.UploadInitRequest.SerializeToString,
+                response_deserializer=app_dot_proto_dot_wire__pb2.UploadInitResponse.FromString,
                 _registered_method=True)
         self.UploadChunk = channel.unary_unary(
                 '/wire.v1.WireService/UploadChunk',
-                request_serializer=wire__pb2.ChunkUploadRequest.SerializeToString,
-                response_deserializer=wire__pb2.ChunkUploadResponse.FromString,
+                request_serializer=app_dot_proto_dot_wire__pb2.ChunkUploadRequest.SerializeToString,
+                response_deserializer=app_dot_proto_dot_wire__pb2.ChunkUploadResponse.FromString,
                 _registered_method=True)
         self.StreamUploadProgress = channel.unary_stream(
                 '/wire.v1.WireService/StreamUploadProgress',
-                request_serializer=wire__pb2.UploadProgressRequest.SerializeToString,
-                response_deserializer=wire__pb2.UploadProgressStream.FromString,
+                request_serializer=app_dot_proto_dot_wire__pb2.UploadProgressRequest.SerializeToString,
+                response_deserializer=app_dot_proto_dot_wire__pb2.UploadProgressStream.FromString,
                 _registered_method=True)
         self.SyncDelta = channel.unary_unary(
                 '/wire.v1.WireService/SyncDelta',
-                request_serializer=wire__pb2.DeltaSyncRequest.SerializeToString,
-                response_deserializer=wire__pb2.DeltaSyncResponse.FromString,
+                request_serializer=app_dot_proto_dot_wire__pb2.DeltaSyncRequest.SerializeToString,
+                response_deserializer=app_dot_proto_dot_wire__pb2.DeltaSyncResponse.FromString,
                 _registered_method=True)
         self.HealthCheck = channel.unary_unary(
                 '/wire.v1.WireService/HealthCheck',
-                request_serializer=wire__pb2.HealthCheckRequest.SerializeToString,
-                response_deserializer=wire__pb2.HealthCheckResponse.FromString,
+                request_serializer=app_dot_proto_dot_wire__pb2.HealthCheckRequest.SerializeToString,
+                response_deserializer=app_dot_proto_dot_wire__pb2.HealthCheckResponse.FromString,
                 _registered_method=True)
 
 
@@ -104,28 +104,28 @@ def add_WireServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'InitUpload': grpc.unary_unary_rpc_method_handler(
                     servicer.InitUpload,
-                    request_deserializer=wire__pb2.UploadInitRequest.FromString,
-                    response_serializer=wire__pb2.UploadInitResponse.SerializeToString,
+                    request_deserializer=app_dot_proto_dot_wire__pb2.UploadInitRequest.FromString,
+                    response_serializer=app_dot_proto_dot_wire__pb2.UploadInitResponse.SerializeToString,
             ),
             'UploadChunk': grpc.unary_unary_rpc_method_handler(
                     servicer.UploadChunk,
-                    request_deserializer=wire__pb2.ChunkUploadRequest.FromString,
-                    response_serializer=wire__pb2.ChunkUploadResponse.SerializeToString,
+                    request_deserializer=app_dot_proto_dot_wire__pb2.ChunkUploadRequest.FromString,
+                    response_serializer=app_dot_proto_dot_wire__pb2.ChunkUploadResponse.SerializeToString,
             ),
             'StreamUploadProgress': grpc.unary_stream_rpc_method_handler(
                     servicer.StreamUploadProgress,
-                    request_deserializer=wire__pb2.UploadProgressRequest.FromString,
-                    response_serializer=wire__pb2.UploadProgressStream.SerializeToString,
+                    request_deserializer=app_dot_proto_dot_wire__pb2.UploadProgressRequest.FromString,
+                    response_serializer=app_dot_proto_dot_wire__pb2.UploadProgressStream.SerializeToString,
             ),
             'SyncDelta': grpc.unary_unary_rpc_method_handler(
                     servicer.SyncDelta,
-                    request_deserializer=wire__pb2.DeltaSyncRequest.FromString,
-                    response_serializer=wire__pb2.DeltaSyncResponse.SerializeToString,
+                    request_deserializer=app_dot_proto_dot_wire__pb2.DeltaSyncRequest.FromString,
+                    response_serializer=app_dot_proto_dot_wire__pb2.DeltaSyncResponse.SerializeToString,
             ),
             'HealthCheck': grpc.unary_unary_rpc_method_handler(
                     servicer.HealthCheck,
-                    request_deserializer=wire__pb2.HealthCheckRequest.FromString,
-                    response_serializer=wire__pb2.HealthCheckResponse.SerializeToString,
+                    request_deserializer=app_dot_proto_dot_wire__pb2.HealthCheckRequest.FromString,
+                    response_serializer=app_dot_proto_dot_wire__pb2.HealthCheckResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -153,8 +153,8 @@ class WireService:
             request,
             target,
             '/wire.v1.WireService/InitUpload',
-            wire__pb2.UploadInitRequest.SerializeToString,
-            wire__pb2.UploadInitResponse.FromString,
+            app_dot_proto_dot_wire__pb2.UploadInitRequest.SerializeToString,
+            app_dot_proto_dot_wire__pb2.UploadInitResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -180,8 +180,8 @@ class WireService:
             request,
             target,
             '/wire.v1.WireService/UploadChunk',
-            wire__pb2.ChunkUploadRequest.SerializeToString,
-            wire__pb2.ChunkUploadResponse.FromString,
+            app_dot_proto_dot_wire__pb2.ChunkUploadRequest.SerializeToString,
+            app_dot_proto_dot_wire__pb2.ChunkUploadResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -207,8 +207,8 @@ class WireService:
             request,
             target,
             '/wire.v1.WireService/StreamUploadProgress',
-            wire__pb2.UploadProgressRequest.SerializeToString,
-            wire__pb2.UploadProgressStream.FromString,
+            app_dot_proto_dot_wire__pb2.UploadProgressRequest.SerializeToString,
+            app_dot_proto_dot_wire__pb2.UploadProgressStream.FromString,
             options,
             channel_credentials,
             insecure,
@@ -234,8 +234,8 @@ class WireService:
             request,
             target,
             '/wire.v1.WireService/SyncDelta',
-            wire__pb2.DeltaSyncRequest.SerializeToString,
-            wire__pb2.DeltaSyncResponse.FromString,
+            app_dot_proto_dot_wire__pb2.DeltaSyncRequest.SerializeToString,
+            app_dot_proto_dot_wire__pb2.DeltaSyncResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -261,8 +261,8 @@ class WireService:
             request,
             target,
             '/wire.v1.WireService/HealthCheck',
-            wire__pb2.HealthCheckRequest.SerializeToString,
-            wire__pb2.HealthCheckResponse.FromString,
+            app_dot_proto_dot_wire__pb2.HealthCheckRequest.SerializeToString,
+            app_dot_proto_dot_wire__pb2.HealthCheckResponse.FromString,
             options,
             channel_credentials,
             insecure,

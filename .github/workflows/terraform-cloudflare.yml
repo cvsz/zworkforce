@@ -1,0 +1,30 @@
+name: terraform-cloudflare
+
+on:
+  pull_request:
+    paths:
+      - "infrastructure/terraform/cloudflare/**"
+      - ".github/workflows/terraform-cloudflare.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.10.5
+
+      - name: Format
+        run: terraform -chdir=infrastructure/terraform/cloudflare fmt -check -recursive
+
+      - name: Initialize without backend
+        run: terraform -chdir=infrastructure/terraform/cloudflare init -backend=false
+
+      - name: Validate
+        run: terraform -chdir=infrastructure/terraform/cloudflare validate

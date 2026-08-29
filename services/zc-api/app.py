@@ -393,5 +393,5 @@ async def supabase_read(limit: int = Query(default=25, ge=1, le=100), _: None = 
     return await supabase_read_rows(limit)
 
 @app.get("/metrics")
-async def metrics():
-    return Response(generate_latest(), media_type="text/plain; version=0.0.4")
+async def metrics(_: None = Depends(auth)):
+    return Response(generate_latest(), media_type="text/plain; version=0.0.4; charset=utf-8")

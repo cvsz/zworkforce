@@ -1,0 +1,96 @@
+name: ZARVIS Local
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  local-stack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Run focused local tests
+        run: |
+          npm test --prefix services/zarvis-action-gateway
+          npm test --prefix services/zarvis-proactive
+      - name: Create ephemeral local secrets
+        shell: bash
+        run: |
+          umask 077
+          cat > .env.zarvis.local <<'EOF'
+          ZARVIS_ACTION_PORT=8098
+          ZARVIS_ACTION_WORKER_INTERVAL_MS=250
+          ZARVIS_PROACTIVE_PORT=8099
+          ZARVIS_PROACTIVE_WORKER_INTERVAL_MS=300000
+          ZARVIS_PROACTIVE_CHECK_TIMEOUT_MS=500
+          ZARVIS_ACTION_HEALTH_URL=http://127.0.0.1:65534/healthz
+          ZARVIS_LOCAL_OWNER_TOKEN=oooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo
+          ZARVIS_ACTION_WORKER_TOKEN=wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww
+          ZARVIS_PROACTIVE_WORKER_TOKEN=pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+          EOF
+      - name: Validate local Compose configuration
+        run: docker compose --env-file .env.zarvis.local -f compose.zarvis-local.yml config --quiet
+      - name: Start loopback-only local deployment
+        run: docker compose --env-file .env.zarvis.local -f compose.zarvis-local.yml up -d
+      - name: Wait for local health
+        shell: bash
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 50); do
+            if curl --fail --silent http://127.0.0.1:8098/healthz >/dev/null \
+              && curl --fail --silent http://127.0.0.1:8099/healthz >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker compose --env-file .env.zarvis.local -f compose.zarvis-local.yml logs --no-color
+          exit 1
+      - name: Verify loopback sockets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for port in 8098 8099; do
+            sockets="$(ss -ltnH "sport = :${port}")"
+            echo "$sockets"
+            echo "$sockets" | grep -E "127\\.0\\.0\\.1:${port}|\\[::1\\]:${port}"
+            if echo "$sockets" | grep -E "0\\.0\\.0\\.0:${port}|\\[::\\]:${port}"; then
+              echo "Port ${port} is exposed beyond loopback."
+              exit 1
+            fi
+          done
+      - name: Run local action lifecycle smoke
+        shell: bash
+        run: |
+          set -a
+          source .env.zarvis.local
+          set +a
+          node scripts/zarvis-local-smoke.mjs | tee zarvis-local-action-smoke.json
+      - name: Run proactive suggestion and handoff smoke
+        shell: bash
+        run: |
+          set -a
+          source .env.zarvis.local
+          set +a
+          node scripts/zarvis-proactive-smoke.mjs | tee zarvis-local-proactive-smoke.json
+      - name: Upload local evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: zarvis-local-stack-evidence
+          path: |
+            zarvis-local-action-smoke.json
+            zarvis-local-proactive-smoke.json
+          if-no-files-found: error
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose --env-file .env.zarvis.local -f compose.zarvis-local.yml logs --no-color
+      - name: Stop local deployment
+        if: always()
+        run: docker compose --env-file .env.zarvis.local -f compose.zarvis-local.yml down -v

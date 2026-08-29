@@ -1,0 +1,253 @@
+name: phase6-external-suite
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Full immutable release SHA
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  attestations: write
+  id-token: write
+
+jobs:
+  capture-browser:
+    name: Capture release-bound browser evidence
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      RELEASE_SHA: ${{ inputs.release_sha }}
+      ZCHAT_STAGING_URL: ${{ vars.ZCHAT_STAGING_URL }}
+      STAGING_CF_ACCESS_CLIENT_ID: ${{ secrets.STAGING_CF_ACCESS_CLIENT_ID }}
+      STAGING_CF_ACCESS_CLIENT_SECRET: ${{ secrets.STAGING_CF_ACCESS_CLIENT_SECRET }}
+    steps:
+      - name: Validate immutable SHA
+        shell: bash
+        run: '[[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]'
+      - name: Verify release SHA exists in repository
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          status="$(curl -sS -o /tmp/release-commit.json -w '%{http_code}' \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${RELEASE_SHA}")"
+          test "$status" = 200
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.release_sha }}
+          fetch-depth: 1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install locked browser tooling
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+      - name: Capture and sanitize deployed browser evidence
+        run: node scripts/capture-zchat-browser-evidence.mjs
+      - name: Remove commit lookup response
+        if: always()
+        run: rm -f /tmp/release-commit.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: phase6-browser-evidence-${{ inputs.release_sha }}
+          path: artifacts/browser/
+          if-no-files-found: error
+          retention-days: 90
+
+  verify:
+    name: Execute Phase 6 external suite
+    needs: capture-browser
+    runs-on: self-hosted
+    environment: staging
+    env:
+      RELEASE_SHA: ${{ inputs.release_sha }}
+      STAGING_REVIEWER: ${{ vars.STAGING_REVIEWER }}
+      STAGING_BEARER_TOKEN: ${{ secrets.STAGING_BEARER_TOKEN }}
+      STAGING_CF_ACCESS_CLIENT_ID: ${{ secrets.STAGING_CF_ACCESS_CLIENT_ID }}
+      STAGING_CF_ACCESS_CLIENT_SECRET: ${{ secrets.STAGING_CF_ACCESS_CLIENT_SECRET }}
+      STAGING_ALLOWED_ORIGINS: ${{ vars.STAGING_ALLOWED_ORIGINS }}
+      ALERT_TEST_URL: ${{ secrets.ALERT_TEST_URL }}
+      ALERT_DELIVERY_STATUS_URL: ${{ secrets.ALERT_DELIVERY_STATUS_URL }}
+      BACKUP_CREATE_COMMAND: ${{ secrets.BACKUP_CREATE_COMMAND }}
+      BACKUP_RESTORE_COMMAND: ${{ secrets.BACKUP_RESTORE_COMMAND }}
+      BACKUP_VERIFY_COMMAND: ${{ secrets.BACKUP_VERIFY_COMMAND }}
+      AI_UPLOAD_URL: ${{ secrets.AI_UPLOAD_URL }}
+      AI_PROVIDER_ENDPOINTS: ${{ secrets.AI_PROVIDER_ENDPOINTS }}
+      AI_FAILOVER_URL: ${{ secrets.AI_FAILOVER_URL }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      SUPABASE_BACKUP_BUCKET: ${{ secrets.SUPABASE_BACKUP_BUCKET }}
+      SUPABASE_BACKUP_PREFIX: ${{ secrets.SUPABASE_BACKUP_PREFIX }}
+      BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+      BACKUP_SOURCE_URL: ${{ secrets.BACKUP_SOURCE_URL }}
+      BACKUP_RESTORE_URL: ${{ secrets.BACKUP_RESTORE_URL }}
+      BACKUP_VERIFY_URL: ${{ secrets.BACKUP_VERIFY_URL }}
+    steps:
+      - name: Validate immutable SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "release_sha must be a full lowercase SHA"; exit 2; }
+
+      - name: Verify release SHA exists in repository
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+        run: |
+          set -euo pipefail
+          response_file="$(mktemp)"
+          if ! status="$(curl -sS -o "$response_file" -w '%{http_code}' -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${RELEASE_SHA}")"; then
+            echo "release_sha lookup failed"
+            cat "$response_file"
+            exit 2
+          fi
+          if [ "$status" != 200 ]; then
+            echo "release_sha must reference a commit in ${GITHUB_REPOSITORY}"
+            cat "$response_file"
+            exit 2
+          fi
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.release_sha }}
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Verify checked-out revision
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$RELEASE_SHA"
+
+      - name: Validate protected runtime inputs are present
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            STAGING_REVIEWER
+            STAGING_CF_ACCESS_CLIENT_ID
+            STAGING_CF_ACCESS_CLIENT_SECRET
+            ALERT_TEST_URL
+            ALERT_DELIVERY_STATUS_URL
+            BACKUP_CREATE_COMMAND
+            BACKUP_RESTORE_COMMAND
+            BACKUP_VERIFY_COMMAND
+            AI_UPLOAD_URL
+            AI_PROVIDER_ENDPOINTS
+            AI_FAILOVER_URL
+            SUPABASE_URL
+            SUPABASE_SECRET_KEY
+            SUPABASE_BACKUP_BUCKET
+            SUPABASE_BACKUP_PREFIX
+            BACKUP_ENCRYPTION_KEY
+            BACKUP_SOURCE_URL
+            BACKUP_RESTORE_URL
+            BACKUP_VERIFY_URL
+          )
+          missing=()
+          for name in "${required[@]}"; do
+            [[ -n "${!name:-}" ]] || missing+=("$name")
+          done
+          if ((${#missing[@]})); then
+            printf 'Missing staging variables/secrets: %s\n' "${missing[*]}" >&2
+            exit 2
+          fi
+
+      - name: Materialize protected suite configuration
+        shell: bash
+        env:
+          CONFIG_JSON: ${{ secrets.PHASE6_EXTERNAL_SUITE_CONFIG_JSON }}
+        run: |
+          set -euo pipefail
+          test -n "$CONFIG_JSON" || { echo "PHASE6_EXTERNAL_SUITE_CONFIG_JSON is required"; exit 2; }
+          umask 077
+          printf '%s' "$CONFIG_JSON" > /tmp/phase6-external-suite.json
+          node -e 'JSON.parse(require("fs").readFileSync("/tmp/phase6-external-suite.json","utf8"))'
+
+      - name: Enforce real-only configuration and runtime policy
+        run: node scripts/validate-phase6-real-inputs.mjs /tmp/phase6-external-suite.json
+
+      - name: Download release-bound browser evidence
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: phase6-browser-evidence-${{ inputs.release_sha }}
+          path: artifacts/browser
+
+      - name: Validate browser evidence files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s artifacts/browser/app.js
+          test -s artifacts/browser/session.har
+          test "$(jq -r '.releaseSha' artifacts/browser/browser-evidence.json)" = "$RELEASE_SHA"
+          test "$(jq -r '.runtimeReleaseVerified' artifacts/browser/browser-evidence.json)" = true
+
+      - name: Validate deployed browser evidence is real
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const net = require('net');
+          const bundle = fs.readFileSync('artifacts/browser/app.js', 'utf8');
+          const har = JSON.parse(fs.readFileSync('artifacts/browser/session.har', 'utf8'));
+          if (bundle.length < 1024) throw new Error('browser bundle is too small to be a deployed application artifact');
+          const entries = har?.log?.entries;
+          if (!Array.isArray(entries) || entries.length === 0) throw new Error('HAR must contain at least one network entry');
+          const urls = entries.map((entry) => entry?.request?.url).filter(Boolean);
+          if (!urls.length) throw new Error('HAR contains no request URLs');
+          const placeholder = /pending|placeholder|replace[_-]?with|example\.(com|org|net|invalid)|localhost|127\.0\.0\.1|0\.0\.0\.0|dummy|fake|sample/i;
+          for (const value of urls) {
+            const url = new URL(value);
+            if (url.protocol !== 'https:') throw new Error(`HAR contains non-HTTPS request: ${url.origin}`);
+            if (net.isIP(url.hostname) || !url.hostname.includes('.')) throw new Error(`HAR contains non-FQDN request: ${url.hostname}`);
+            if (placeholder.test(value)) throw new Error(`HAR contains placeholder/local request: ${url.hostname}`);
+          }
+          if (new Set(urls.map((value) => new URL(value).origin)).size < 1) throw new Error('HAR has no external origin');
+          console.log(JSON.stringify({ result: 'REAL_BROWSER_EVIDENCE_VALIDATED', entries: entries.length }));
+          NODE
+
+      - name: Execute external verification
+        run: node scripts/phase6-external-suite.mjs /tmp/phase6-external-suite.json phase6-external-evidence
+
+      - name: Upload evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: phase6-external-evidence-${{ inputs.release_sha }}
+          path: phase6-external-evidence/phase6-external-evidence.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Attest evidence
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: phase6-external-evidence/phase6-external-evidence.json
+
+      - name: Publish summary
+        shell: bash
+        run: |
+          {
+            echo '## Phase 6 external verification'
+            echo
+            echo "Release: \`$RELEASE_SHA\`"
+            echo
+            jq -r '"Result: **" + .result + "**", "Checks: " + ((.checks|length)|tostring)' phase6-external-evidence/phase6-external-evidence.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove protected inputs
+        if: always()
+        shell: bash
+        run: |
+          rm -f /tmp/phase6-external-suite.json
+          rm -rf artifacts/browser

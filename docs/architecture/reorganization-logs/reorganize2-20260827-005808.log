@@ -1,0 +1,50 @@
+[2026-08-27T00:58:08] === Starting reorganization phase 2: phase=r1 dry_run=false force=false ===
+[2026-08-27T00:58:08] Phase R1: Safe moves (non-git or 0 changes)
+[2026-08-27T00:58:08] MOVING: /home/cvsz/ads -> /home/cvsz/platforms/ads
+[2026-08-27T00:58:08] VERIFIED: Checksum match for ads
+[2026-08-27T00:58:08] REMOVED: /home/cvsz/ads
+[2026-08-27T00:58:08] MOVING: /home/cvsz/aicoder -> /home/cvsz/platforms/aicoder
+[2026-08-27T00:58:09] VERIFIED: Checksum match for aicoder
+[2026-08-27T00:58:09] REMOVED: /home/cvsz/aicoder
+[2026-08-27T00:58:09] MOVING: /home/cvsz/github-private-control -> /home/cvsz/tools/github-private-control
+[2026-08-27T00:58:09] VERIFIED: Checksum match for github-private-control
+[2026-08-27T00:58:09] REMOVED: /home/cvsz/github-private-control
+[2026-08-27T00:58:09] MOVING: /home/cvsz/litellm -> /home/cvsz/tools/litellm
+[2026-08-27T00:58:10] VERIFIED: Checksum match for litellm
+[2026-08-27T00:58:10] REMOVED: /home/cvsz/litellm
+[2026-08-27T00:58:10] MOVING: /home/cvsz/llm-wiki-app -> /home/cvsz/apps/llm-wiki-app
+[2026-08-27T00:58:11] VERIFIED: Checksum match for llm-wiki-app
+[2026-08-27T00:58:11] REMOVED: /home/cvsz/llm-wiki-app
+[2026-08-27T00:58:11] SKIP: /home/cvsz/llm_wiki has 3 uncommitted changes (use --force to override)
+[2026-08-27T00:58:11] MOVING: /home/cvsz/raw -> /home/cvsz/archives/raw
+[2026-08-27T00:58:11] VERIFIED: Checksum match for raw
+[2026-08-27T00:58:11] REMOVED: /home/cvsz/raw
+[2026-08-27T00:58:11] MOVING: /home/cvsz/wiki -> /home/cvsz/archives/wiki
+[2026-08-27T00:58:11] VERIFIED: Checksum match for wiki
+[2026-08-27T00:58:11] REMOVED: /home/cvsz/wiki
+[2026-08-27T00:58:11] MOVING: /home/cvsz/cloudflare -> /home/cvsz/tools/cloudflare
+[2026-08-27T00:58:11] VERIFIED: Checksum match for cloudflare
+[2026-08-27T00:58:11] REMOVED: /home/cvsz/cloudflare
+[2026-08-27T00:58:11] SKIP: /home/cvsz/computer has 7 uncommitted changes (use --force to override)
+[2026-08-27T00:58:12] MOVING: /home/cvsz/freebuff -> /home/cvsz/archives/freebuff
+[2026-08-27T00:58:20] VERIFIED: Checksum match for freebuff
+[2026-08-27T00:58:21] REMOVED: /home/cvsz/freebuff
+[2026-08-27T00:58:21] MOVING: /home/cvsz/go -> /home/cvsz/tools/go
+[2026-08-27T00:58:21] VERIFIED: Checksum match for go
+[2026-08-27T00:58:21] REMOVED: /home/cvsz/go
+[2026-08-27T00:58:21] MOVING: /home/cvsz/google-cloud-sdk -> /home/cvsz/tools/google-cloud-sdk
+[2026-08-27T01:01:15] VERIFIED: Checksum match for google-cloud-sdk
+[2026-08-27T01:01:20] REMOVED: /home/cvsz/google-cloud-sdk
+[2026-08-27T01:01:21] MOVING: /home/cvsz/hercules-copy -> /home/cvsz/archives/hercules-copy
+[2026-08-27T01:01:39] VERIFIED: Checksum match for hercules-copy
+[2026-08-27T01:01:40] REMOVED: /home/cvsz/hercules-copy
+[2026-08-27T01:01:40] MOVING: /home/cvsz/kbank-edc -> /home/cvsz/archives/kbank-edc
+[2026-08-27T01:01:41] VERIFIED: Checksum match for kbank-edc
+[2026-08-27T01:01:41] REMOVED: /home/cvsz/kbank-edc
+[2026-08-27T01:01:41] MOVING: /home/cvsz/snap -> /home/cvsz/archives/snap
+[2026-08-27T01:01:42] VERIFIED: Checksum match for snap
+[2026-08-27T01:01:42] REMOVED: /home/cvsz/snap
+[2026-08-27T01:01:43] MOVING: /home/cvsz/bin -> /home/cvsz/tools/bin
+[2026-08-27T01:01:44] VERIFIED: Checksum match for bin
+[2026-08-27T01:01:44] REMOVED: /home/cvsz/bin
+[2026-08-27T01:01:44] === Reorganization phase 2 complete ===

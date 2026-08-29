@@ -1,0 +1,35 @@
+name: readiness-tooling
+
+on:
+  pull_request:
+    paths:
+      - "scripts/external-readiness.mjs"
+      - "scripts/external-readiness.test.mjs"
+      - "docs/operations/external-readiness-manifest.example.json"
+      - ".github/workflows/external-staging-readiness.yml"
+      - ".github/workflows/readiness-tooling.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/external-readiness.mjs"
+      - "scripts/external-readiness.test.mjs"
+      - "docs/operations/external-readiness-manifest.example.json"
+      - ".github/workflows/external-staging-readiness.yml"
+      - ".github/workflows/readiness-tooling.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Run readiness tooling tests
+        run: node --test scripts/external-readiness.test.mjs
+      - name: Validate example manifest JSON
+        run: node -e 'JSON.parse(require("node:fs").readFileSync("docs/operations/external-readiness-manifest.example.json", "utf8"))'

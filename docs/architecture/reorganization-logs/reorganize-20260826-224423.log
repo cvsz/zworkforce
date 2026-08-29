@@ -1,0 +1,10 @@
+[2026-08-26T22:44:23] === Starting reorganization: phase=h1 dry_run=false force=false ===
+[2026-08-26T22:44:23] Phase H1: Safe moves (0 uncommitted changes)
+[2026-08-26T22:44:23] MOVING: /home/cvsz/z-world → /home/cvsz/platforms/z-world
+[2026-08-26T22:44:23] VERIFIED: Checksum match for z-world
+[2026-08-26T22:44:23] REMOVED: /home/cvsz/z-world
+[2026-08-26T22:44:23] MOVING: /home/cvsz/zaffiliate → /home/cvsz/platforms/zaffiliate
+[2026-08-26T22:44:27] VERIFIED: Checksum match for zaffiliate
+[2026-08-26T22:44:27] REMOVED: /home/cvsz/zaffiliate
+[2026-08-26T22:44:27] SKIP: /home/cvsz/zeaz-ai-command-center has 4 uncommitted changes (use --force to override)
+[2026-08-26T22:44:27] MOVING: /home/cvsz/zeaz-autonomous-security-agent → /home/cvsz/archives/zeaz-autonomous-security-agent

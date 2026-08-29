@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "source": {
+    "repository": "cvsz/zeaz-platform",
+    "path": "apps/zai-factory/skills-vault/catalog.json",
+    "catalog_generated_at": "2026-06-22T22:13:50.330Z",
+    "total_source_skills": 306
+  },
+  "curated_skills": [
+    {"id":"ai-engineer","source_path":"skills/ai-engineer/SKILL.md","purpose":"AI application and agent implementation"},
+    {"id":"api-design-principles","source_path":"skills/api-design-principles/SKILL.md","purpose":"Platform API design review"},
+    {"id":"backend-architect","source_path":"skills/backend-architect/SKILL.md","purpose":"Service architecture"},
+    {"id":"observability-engineer","source_path":"skills/observability-engineer/SKILL.md","purpose":"Metrics, logs and tracing"},
+    {"id":"comprehensive-review-full-review","source_path":"skills/comprehensive-review-full-review/SKILL.md","purpose":"Release review"},
+    {"id":"framework-migration-code-migrate","source_path":"skills/framework-migration-code-migrate/SKILL.md","purpose":"Incremental migration"}
+  ],
+  "import_policy": "Fetch a selected skill only after license, dependency, secret, and runtime review."
+}

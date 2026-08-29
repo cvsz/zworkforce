@@ -1,0 +1,10 @@
+# Merge these rules into the locally managed cloudflared ingress file.
+# They must appear before any wildcard rule.
+- hostname: grafana.zeaz.dev
+  service: http://127.0.0.1:80
+- hostname: prometheus.zeaz.dev
+  service: http://127.0.0.1:80
+- hostname: zchat-staging.zeaz.dev
+  service: http://127.0.0.1:3021
+- hostname: zchat-web.zeaz.dev
+  service: http://127.0.0.1:3021

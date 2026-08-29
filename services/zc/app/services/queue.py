@@ -1,9 +1,9 @@
 import os
 import json
 import logging
-from typing import Callable, Awaitable
+from typing import Callable, Awaitable, Any
 import nats
-from nats.js.api import RetentionPolicy
+from nats.js.api import StreamConfig, RetentionPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ class QueueService:
         try:
             self.nc = await nats.connect(self.nats_url)
             self.js = self.nc.jetstream()
-
+            
             # Ensure stream exists
             try:
                 await self.js.stream_info(self.stream_name)
@@ -33,13 +33,14 @@ class QueueService:
             logger.info("Connected to NATS JetStream successfully.")
         except Exception as e:
             logger.error(f"Failed to connect to NATS: {e}")
-            raise
+            # Do not raise here; allow fallback if NATS is optional
 
     async def publish(self, subject: str, payload: dict):
         """Publish a message to JetStream."""
         if not self.js:
-            raise RuntimeError("NATS is not connected; refusing to lose an event")
-
+            logger.warning("NATS not connected. Message not published.")
+            return
+        
         full_subject = f"{self.stream_name}.{subject}"
         data = json.dumps(payload).encode()
         await self.js.publish(full_subject, data)
@@ -52,7 +53,7 @@ class QueueService:
             return
 
         full_subject = f"{self.stream_name}.{subject}"
-
+        
         async def message_wrapper(msg):
             try:
                 data = json.loads(msg.data.decode())

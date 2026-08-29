@@ -57,14 +57,14 @@ class RateLimiter:
         self.redis = redis_client
         self.capacity = capacity
         self.refill_rate = refill_rate # tokens per second
-
+    
     async def acquire(self, key: str, tokens: int = 1) -> bool:
         if not self.redis:
             return True # Fallback if no redis
-
+        
         import time
         now = time.time()
-
+        
         # Simple lua script for token bucket
         lua_script = """
         local key = KEYS[1]
@@ -98,7 +98,7 @@ class RateLimiter:
             return 0
         end
         """
-
+        
         result = await self.redis.eval(lua_script, 1, key, self.capacity, self.refill_rate, tokens, now)
         if not result:
             raise RateLimitExceeded("Rate limit exceeded")
@@ -112,7 +112,7 @@ class Bulkhead:
     def __init__(self, max_concurrent: int):
         self.max_concurrent = max_concurrent
         self._semaphore = asyncio.Semaphore(max_concurrent)
-
+        
     async def __aenter__(self):
         # We use a zero timeout trick to fail fast if locked
         try:
@@ -120,6 +120,6 @@ class Bulkhead:
         except asyncio.TimeoutError:
             raise BulkheadExhausted("Bulkhead capacity exhausted")
         return self
-
+        
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         self._semaphore.release()

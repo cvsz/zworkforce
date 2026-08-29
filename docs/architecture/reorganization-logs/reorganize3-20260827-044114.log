@@ -1,0 +1,19 @@
+[2026-08-27T04:41:14] === Starting reorganization phase 3: phase=f2 dry_run=false force=false cleanse_secrets=true ===
+[2026-08-27T04:41:14] Phase F2: Documentation, reports, images, archives
+[2026-08-27T04:41:14] SKIP: /home/cvsz/full-repo-list-cvsz.md does not exist
+[2026-08-27T04:41:14] SKIP: /home/cvsz/purpose.md does not exist
+[2026-08-27T04:41:14] SKIP: /home/cvsz/schema.md does not exist
+[2026-08-27T04:41:14] SKIP: /home/cvsz/rotate.md does not exist
+[2026-08-27T04:41:14] SKIP: /home/cvsz/ps.txt does not exist
+[2026-08-27T04:41:14] SKIP: /home/cvsz/find_26de_outgoing_fast.log does not exist
+[2026-08-27T04:41:14] SKIP: /home/cvsz/trace_26de_usdt.log does not exist
+[2026-08-27T04:41:14] SKIP: /home/cvsz/stack-duplicate-report-20260812-084755.txt does not exist
+[2026-08-27T04:41:14] SKIP: /home/cvsz/loe.jpg does not exist
+[2026-08-27T04:41:14] SKIP: /home/cvsz/loe2.jpg does not exist
+[2026-08-27T04:41:14] SKIP: /home/cvsz/zeaz-ai-command-center-v3.4.1.zip does not exist
+[2026-08-27T04:41:14] Cleansing sensitive files as requested
+[2026-08-27T04:41:14] REMOVING: /home/cvsz/extracted_keys.txt
+[2026-08-27T04:41:14] REMOVED: /home/cvsz/extracted_keys.txt
+[2026-08-27T04:41:14] REMOVING: /home/cvsz/scan_keys.py
+[2026-08-27T04:41:14] REMOVED: /home/cvsz/scan_keys.py
+[2026-08-27T04:41:14] === Reorganization phase 3 complete ===

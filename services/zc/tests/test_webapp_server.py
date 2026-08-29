@@ -11,7 +11,6 @@ from pathlib import Path
 
 import pytest
 import httpx
-import fastapi.routing
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -21,16 +20,10 @@ import webapp.backend.server as server  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
-def _isolate_state(monkeypatch):
+def _isolate_state():
     """Each test gets an empty session store and a fresh rate-limit
     bucket, so tests can't leak state into each other via the
     process-local dicts server.py uses."""
-    async def run_inline(call, *args, **kwargs):
-        return call(*args, **kwargs)
-
-    # This test host cannot wake event-loop callbacks from worker threads.
-    # Route callables are deterministic local functions, so execute them inline.
-    monkeypatch.setattr(fastapi.routing, "run_in_threadpool", run_inline)
     server._sessions.clear()
     server._rate_buckets.clear()
     yield

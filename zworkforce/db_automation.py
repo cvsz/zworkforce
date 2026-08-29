@@ -533,6 +533,7 @@ class AutomationMixin:
         return claimed
 
     def finish_outbox(self, item_id: str, success: bool, error: str = "", retry_seconds: int = 60, owner: str | None = None) -> bool:
+        MAX_OUTBOX_ATTEMPTS = 20
         with self.connection() as c:
             owner_clause = " AND status='processing' AND claim_owner=?" if owner else ""
             owner_args = (owner,) if owner else ()
@@ -542,11 +543,18 @@ class AutomationMixin:
                     (utcnow(), item_id) + owner_args,
                 )
             else:
-                retry_at = (datetime.now(timezone.utc) + timedelta(seconds=max(1, retry_seconds))).isoformat(timespec="seconds")
-                result = c.execute(
-                    "UPDATE outbox3 SET status='pending',attempts=attempts+1,last_error=?,next_attempt_at=?,claim_owner=NULL,claim_expires_at=NULL WHERE id=?" + owner_clause,
-                    (error[:2000], retry_at, item_id) + owner_args,
-                )
+                attempts = int(c.execute("SELECT attempts FROM outbox3 WHERE id=?", (item_id,)).fetchone()[0] or 0) + 1
+                if attempts >= MAX_OUTBOX_ATTEMPTS:
+                    result = c.execute(
+                        "UPDATE outbox3 SET status='dead_letter',attempts=?,last_error=?,claim_owner=NULL,claim_expires_at=NULL WHERE id=?" + owner_clause,
+                        (attempts, error[:2000], item_id) + owner_args,
+                    )
+                else:
+                    retry_at = (datetime.now(timezone.utc) + timedelta(seconds=max(1, retry_seconds))).isoformat(timespec="seconds")
+                    result = c.execute(
+                        "UPDATE outbox3 SET status='pending',attempts=?,last_error=?,next_attempt_at=?,claim_owner=NULL,claim_expires_at=NULL WHERE id=?" + owner_clause,
+                        (attempts, error[:2000], retry_at, item_id) + owner_args,
+                    )
             return bool(result.rowcount)
 
     # ----- Semantic memory vectors -----

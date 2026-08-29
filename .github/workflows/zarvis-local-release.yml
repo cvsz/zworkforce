@@ -1,0 +1,226 @@
+name: ZARVIS Local Release
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  local-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Run focused release regressions
+        run: |
+          npm test --prefix packages/contracts
+          npm test --prefix services/zarvis-action-gateway
+          npm test --prefix services/zarvis-proactive
+
+      - name: Create masked ephemeral release secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          owner_token="$(openssl rand -hex 32)"
+          action_worker_token="$(openssl rand -hex 32)"
+          proactive_worker_token="$(openssl rand -hex 32)"
+          echo "::add-mask::${owner_token}"
+          echo "::add-mask::${action_worker_token}"
+          echo "::add-mask::${proactive_worker_token}"
+          cat > .env.zarvis.local <<EOF
+          ZARVIS_ACTION_PORT=8098
+          ZARVIS_ACTION_WORKER_INTERVAL_MS=300000
+          ZARVIS_PROACTIVE_PORT=8099
+          ZARVIS_PROACTIVE_WORKER_INTERVAL_MS=300000
+          ZARVIS_PROACTIVE_CHECK_TIMEOUT_MS=500
+          ZARVIS_ACTION_HEALTH_URL=http://127.0.0.1:65534/healthz
+          ZARVIS_LOCAL_OWNER_TOKEN=${owner_token}
+          ZARVIS_ACTION_WORKER_TOKEN=${action_worker_token}
+          ZARVIS_PROACTIVE_WORKER_TOKEN=${proactive_worker_token}
+          EOF
+          mkdir -p zarvis-local-release-evidence
+
+      - name: Validate hardened local Compose
+        run: docker compose --env-file .env.zarvis.local -f compose.zarvis-local.yml config --quiet
+
+      - name: Start local release stack
+        run: docker compose --env-file .env.zarvis.local -f compose.zarvis-local.yml up -d
+
+      - name: Wait for loopback health
+        shell: bash
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8098/healthz >/dev/null \
+              && curl --fail --silent http://127.0.0.1:8099/healthz >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker compose --env-file .env.zarvis.local -f compose.zarvis-local.yml logs --no-color
+          exit 1
+
+      - name: Load initial release environment
+        shell: bash
+        run: |
+          set -a
+          source .env.zarvis.local
+          set +a
+          {
+            echo "ZARVIS_ACTION_PORT=${ZARVIS_ACTION_PORT}"
+            echo "ZARVIS_PROACTIVE_PORT=${ZARVIS_PROACTIVE_PORT}"
+            echo "ZARVIS_LOCAL_OWNER_TOKEN=${ZARVIS_LOCAL_OWNER_TOKEN}"
+            echo "ZARVIS_ACTION_WORKER_TOKEN=${ZARVIS_ACTION_WORKER_TOKEN}"
+            echo "ZARVIS_PROACTIVE_WORKER_TOKEN=${ZARVIS_PROACTIVE_WORKER_TOKEN}"
+          } >> "$GITHUB_ENV"
+
+      - name: Verify sockets and container resource controls
+        run: node scripts/zarvis-local-container-evidence.mjs > zarvis-local-release-evidence/zarvis-local-container-evidence.json
+
+      - name: Run automated local owner acceptance and SLO sampling
+        run: node scripts/zarvis-local-release-acceptance.mjs > zarvis-local-release-evidence/zarvis-local-release-acceptance.json
+
+      - name: Run local security red-team suite
+        run: node scripts/zarvis-local-red-team.mjs > zarvis-local-release-evidence/zarvis-local-red-team.json
+
+      - name: Run worker interruption and restart recovery drill
+        run: node scripts/zarvis-local-restart-drill.mjs zarvis-local-release-evidence/zarvis-local-release-acceptance.json > zarvis-local-release-evidence/zarvis-local-restart-drill.json
+
+      - name: Back up local durable volumes
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/zarvis-local-backup.sh zarvis-local-release-evidence/backup > zarvis-local-release-evidence/zarvis-local-backup-operation.json
+          cp zarvis-local-release-evidence/backup/zarvis-local-backup-manifest.json zarvis-local-release-evidence/zarvis-local-backup-manifest.json
+
+      - name: Destroy local stack and volumes
+        run: docker compose --env-file .env.zarvis.local -f compose.zarvis-local.yml down -v
+
+      - name: Restore local durable volumes
+        shell: bash
+        run: bash scripts/zarvis-local-restore.sh zarvis-local-release-evidence/backup > zarvis-local-release-evidence/zarvis-local-restore-operation.json
+
+      - name: Start restored local stack
+        run: docker compose --env-file .env.zarvis.local -f compose.zarvis-local.yml up -d
+
+      - name: Wait for restored health
+        shell: bash
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8098/healthz >/dev/null \
+              && curl --fail --silent http://127.0.0.1:8099/healthz >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker compose --env-file .env.zarvis.local -f compose.zarvis-local.yml logs --no-color
+          exit 1
+
+      - name: Verify restored lifecycle state
+        run: node scripts/zarvis-local-verify-restore.mjs zarvis-local-release-evidence/zarvis-local-release-acceptance.json > zarvis-local-release-evidence/zarvis-local-restore-verification.json
+
+      - name: Rotate all local credentials and recreate services
+        shell: bash
+        run: |
+          set -euo pipefail
+          export OLD_ZARVIS_LOCAL_OWNER_TOKEN="$ZARVIS_LOCAL_OWNER_TOKEN"
+          export OLD_ZARVIS_ACTION_WORKER_TOKEN="$ZARVIS_ACTION_WORKER_TOKEN"
+          export OLD_ZARVIS_PROACTIVE_WORKER_TOKEN="$ZARVIS_PROACTIVE_WORKER_TOKEN"
+          new_owner_token="$(openssl rand -hex 32)"
+          new_action_worker_token="$(openssl rand -hex 32)"
+          new_proactive_worker_token="$(openssl rand -hex 32)"
+          echo "::add-mask::${new_owner_token}"
+          echo "::add-mask::${new_action_worker_token}"
+          echo "::add-mask::${new_proactive_worker_token}"
+          umask 077
+          cat > .env.zarvis.local <<EOF
+          ZARVIS_ACTION_PORT=8098
+          ZARVIS_ACTION_WORKER_INTERVAL_MS=300000
+          ZARVIS_PROACTIVE_PORT=8099
+          ZARVIS_PROACTIVE_WORKER_INTERVAL_MS=300000
+          ZARVIS_PROACTIVE_CHECK_TIMEOUT_MS=500
+          ZARVIS_ACTION_HEALTH_URL=http://127.0.0.1:65534/healthz
+          ZARVIS_LOCAL_OWNER_TOKEN=${new_owner_token}
+          ZARVIS_ACTION_WORKER_TOKEN=${new_action_worker_token}
+          ZARVIS_PROACTIVE_WORKER_TOKEN=${new_proactive_worker_token}
+          EOF
+          set -a
+          source .env.zarvis.local
+          set +a
+          docker compose --env-file .env.zarvis.local -f compose.zarvis-local.yml up -d --force-recreate
+          recovered=false
+          for _ in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8098/healthz >/dev/null \
+              && curl --fail --silent http://127.0.0.1:8099/healthz >/dev/null; then
+              recovered=true
+              break
+            fi
+            sleep 1
+          done
+          [[ "$recovered" == true ]] || { docker compose --env-file .env.zarvis.local -f compose.zarvis-local.yml logs --no-color; exit 1; }
+          node scripts/zarvis-local-verify-rotation.mjs > zarvis-local-release-evidence/zarvis-local-rotation-verification.json
+          {
+            echo "OLD_ZARVIS_LOCAL_OWNER_TOKEN=${OLD_ZARVIS_LOCAL_OWNER_TOKEN}"
+            echo "OLD_ZARVIS_ACTION_WORKER_TOKEN=${OLD_ZARVIS_ACTION_WORKER_TOKEN}"
+            echo "OLD_ZARVIS_PROACTIVE_WORKER_TOKEN=${OLD_ZARVIS_PROACTIVE_WORKER_TOKEN}"
+            echo "ZARVIS_LOCAL_OWNER_TOKEN=${ZARVIS_LOCAL_OWNER_TOKEN}"
+            echo "ZARVIS_ACTION_WORKER_TOKEN=${ZARVIS_ACTION_WORKER_TOKEN}"
+            echo "ZARVIS_PROACTIVE_WORKER_TOKEN=${ZARVIS_PROACTIVE_WORKER_TOKEN}"
+          } >> "$GITHUB_ENV"
+
+      - name: Build immutable evidence manifest
+        run: node scripts/zarvis-local-build-manifest.mjs zarvis-local-release-evidence > zarvis-local-release-evidence/zarvis-local-release-manifest.json
+
+      - name: Verify evidence contains no configured credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          for variable in \
+            OLD_ZARVIS_LOCAL_OWNER_TOKEN \
+            OLD_ZARVIS_ACTION_WORKER_TOKEN \
+            OLD_ZARVIS_PROACTIVE_WORKER_TOKEN \
+            ZARVIS_LOCAL_OWNER_TOKEN \
+            ZARVIS_ACTION_WORKER_TOKEN \
+            ZARVIS_PROACTIVE_WORKER_TOKEN; do
+            secret="${!variable}"
+            if grep -R --binary-files=without-match -F "$secret" zarvis-local-release-evidence; then
+              echo "Release evidence contains a configured credential."
+              exit 1
+            fi
+          done
+
+      - name: Upload local release evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: zarvis-local-release-evidence-${{ github.sha }}
+          path: |
+            zarvis-local-release-evidence/*.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Attest release evidence manifest
+        if: github.event_name != 'pull_request'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: zarvis-local-release-evidence/zarvis-local-release-manifest.json
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose --env-file .env.zarvis.local -f compose.zarvis-local.yml logs --no-color || true
+
+      - name: Stop local release stack
+        if: always()
+        run: docker compose --env-file .env.zarvis.local -f compose.zarvis-local.yml down -v || true

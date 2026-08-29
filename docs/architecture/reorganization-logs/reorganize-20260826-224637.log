@@ -1,0 +1,16 @@
+[2026-08-26T22:46:37] === Starting reorganization: phase=h1 dry_run=false force=false ===
+[2026-08-26T22:46:37] Phase H1: Safe moves (0 uncommitted changes)
+[2026-08-26T22:46:37] SKIP: /home/cvsz/z-world does not exist
+[2026-08-26T22:46:37] SKIP: /home/cvsz/zaffiliate does not exist
+[2026-08-26T22:46:37] SKIP: /home/cvsz/zeaz-ai-command-center has 4 uncommitted changes (use --force to override)
+[2026-08-26T22:46:37] SKIP: /home/cvsz/archives/zeaz-autonomous-security-agent already exists
+[2026-08-26T22:46:37] MOVING: /home/cvsz/zeaz-one-complete → /home/cvsz/archives/zeaz-one-complete
+[2026-08-26T22:46:37] VERIFIED: Checksum match for zeaz-one-complete
+[2026-08-26T22:46:37] REMOVED: /home/cvsz/zeaz-one-complete
+[2026-08-26T22:46:37] MOVING: /home/cvsz/zloop_orig → /home/cvsz/archives/zloop_orig
+[2026-08-26T22:46:37] VERIFIED: Checksum match for zloop_orig
+[2026-08-26T22:46:37] REMOVED: /home/cvsz/zloop_orig
+[2026-08-26T22:46:37] MOVING: /home/cvsz/zkid → /home/cvsz/apps/zkid
+[2026-08-26T22:47:09] VERIFIED: Checksum match for zkid
+[2026-08-26T22:47:10] REMOVED: /home/cvsz/zkid
+[2026-08-26T22:47:10] === Reorganization complete ===
