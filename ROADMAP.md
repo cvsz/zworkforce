@@ -58,42 +58,16 @@ skills, tamper-evident audit, outcome economics and hardened operations.
   release governance, API tests, Node workspace tests, and Windows restore
   checks.
 
-## v3.0.3 — repository candidate prepared
+## v3.0.4 — repository candidate prepared
 
-- Pruned duplicated/obsolete Z.A.R.V.I.S. product surfaces from the consolidated
-  package boundary.
-- Enforced owner-only Windows ACLs for generated API-key secret files.
-- Fixed release publishing when trusted Windows MSIX signing secrets are absent.
-- Added `docs/GITHUB-OPERATIONS.md` for branch, check, alert, release, package,
-  GHCR, and cleanup operations.
-- Added `docs/PROMETA-MASTER.md` as the master agent, skill and prompt-metadata
-  operating model.
-- Refreshed the native WinUI zWorkforce shell and Overview control-plane UI.
-- Promoted package/module/Makefile/dashboard/Compose/Kubernetes/manual container
-  publishing metadata and release documentation to the `3.0.3` candidate.
-- Added a dedicated `documentation-contract` CI job for Markdown link and
-  repository-policy validation.
-- Added `.github/rulesets/main.json` as an API-compatible desired-state default
-  branch protection contract and `tests/test_repository_policy.py` to prevent
-  required-check drift.
-- Excluded path-filtered ZARVIS jobs from global required contexts to avoid
-  blocking unrelated pull requests with checks that are never emitted.
-- Strengthened `scripts/verify_release.py` to validate GitHub operations,
-  package publishing guards, ruleset policy, production evidence paths,
-  dashboard/Makefile/deployment version consistency, and required release files.
-- Added `docs/PRODUCTION-EVIDENCE.md` to separate CI evidence from real external
-  PostgreSQL/PITR, identity, provider, storage, observability, Windows, and
-  release-decision evidence.
-- Consolidated sub-packages `packages/zsp-aitool` (Shopee Affiliate AI Studio & HyperFrames), `packages/zider` (AI Browser Companion), `packages/zeto` (ProMeta Content Factory & Super Agent Office Suite), and `packages/zarvis` (Realtime Voice Assistant).
-- Added master orchestrator and compiled Go CLI toolchain (`control.sh` & `cmd/zctl/`) with service matrix health checks, zero-leak secret masking, and 140-test automated verification.
+- Corrected production image and HA healthcheck defects from v3.0.3.
+- Applied critical and high security remediations: path traversal confinement, SSRF protection, sandbox escape prevention, CORS hardening, PostgreSQL TLS enforcement, connection pooling, outbox dead-letter queue, and redirect blocking.
+- Strengthened release governance documentation and evidence tracking.
+- Added `docs/PROMETA-MASTER.md` as the master agent, skill and prompt-metadata operating model.
 
-The immutable `v3.0.3` tag is intentionally **not** created as part of repository
-candidate preparation. It is authorized only after the candidate is merged to
-`main`, all mandatory checks and reviews are green, the desired GitHub ruleset
-is reconciled server-side, mandatory external evidence is recorded, and a GO
-decision is approved.
+The immutable `v3.0.4` tag is intentionally **not** created as part of repository candidate preparation. It is authorized only after the candidate is merged to `main`, all mandatory checks and reviews are green, the desired GitHub ruleset is reconciled server-side, mandatory external evidence is recorded, and a GO decision is approved.
 
-### v3.0.3 release-scope authority
+### v3.0.4 release-scope authority
 
 For release triage, the current-release boundary is defined by this `v3.0.3`
 section together with `planning/exec-planning-zwf.md` and

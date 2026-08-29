@@ -64,5 +64,9 @@ ingress:
   - hostname: laps.zeaz.dev
     service: http://127.0.0.1:8080
 
+  # 8. SSH Gateway
+  - hostname: zgw.zeaz.dev
+    service: ssh://cvsz@192.168.74.134:22
+
   # Catch-all terminal rule
   - service: http_status:404

@@ -111,6 +111,19 @@ def check_filesystem(command: str, allowed_roots: list) -> Optional[str]:
             if not _is_allowed(path_tok):
                 return f"'{m.group(1)}' targets '{path_tok}' outside the sandbox root(s)"
 
+    # tee, touch, mkdir targeting absolute paths outside roots
+    for m in re.finditer(r"\b(tee|touch|mkdir)\b[^|;&]*", command):
+        for path_tok in re.findall(r"(?:^|\s)(/[^\s]+|~[^\s]*)", m.group(0)):
+            if not _is_allowed(path_tok):
+                return f"'{m.group(1)}' targets '{path_tok}' outside the sandbox root(s)"
+
+    # sed -i targeting absolute paths outside roots
+    for m in re.finditer(r"\bsed\b[^|;&]*", command):
+        if re.search(r"\s-i\s", m.group(0)):
+            for path_tok in re.findall(r"(?:^|\s)(/[^\s]+|~[^\s]*)", m.group(0)):
+                if not _is_allowed(path_tok):
+                    return f"'sed -i' targets '{path_tok}' outside the sandbox root(s)"
+
     return None
 
 

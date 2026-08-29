@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import ipaddress
 import json
 import socket
 import time
@@ -12,6 +13,11 @@ from typing import Any
 
 
 class OutboxError(RuntimeError): pass
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise OutboxError(f"outbox does not follow redirects (HTTP {code})")
 
 
 class OutboxDispatcher:
@@ -46,6 +52,7 @@ class OutboxDispatcher:
     def tick(self,limit:int=100,owner_id:str|None=None)->dict[str,int]:
         stats={"delivered":0,"failed":0}
         owner_id=owner_id or self.owner_id
+        opener=urllib.request.build_opener(_NoRedirect())
         for item in self.db.claim_outbox(owner_id,self.claim_lease_seconds,self._claim_limit(limit)):
             raw=json.dumps(item.get("payload") or {},separators=(",",":"),ensure_ascii=False,sort_keys=True).encode("utf-8")
             headers={"Content-Type":"application/json","User-Agent":"zWorkforce-outbox/3","X-ZWorkforce-Topic":item["topic"],"X-ZWorkforce-Tenant":item["tenant_id"],"X-ZWorkforce-Delivery-ID":item["id"]}
@@ -54,7 +61,7 @@ class OutboxDispatcher:
             try:
                 self._validate_destination(item["destination"])
                 req=urllib.request.Request(item["destination"],data=raw,headers=headers,method="POST")
-                with urllib.request.urlopen(req,timeout=self.timeout_seconds) as response:
+                with opener.open(req,timeout=self.timeout_seconds) as response:
                     response.read(4096)
                     if response.status<200 or response.status>=300:raise RuntimeError(f"destination HTTP {response.status}")
                 if self.db.finish_outbox(item["id"],True,owner=owner_id):stats["delivered"]+=1

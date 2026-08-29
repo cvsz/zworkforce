@@ -12,6 +12,11 @@ class Settings(BaseModel):
     gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
     deepseek_api_key: str = os.getenv("DEEPSEEK_API_KEY", "")
     upload_dir: str = os.getenv("ZIDER_UPLOAD_DIR", "/tmp/zider_uploads")
+    allowed_origins: list[str] = [
+        o.strip()
+        for o in os.getenv("ZIDER_ALLOWED_ORIGINS", "https://zider.zeaz.dev,http://localhost:*").split(",")
+        if o.strip()
+    ]
 
 settings = Settings()
 os.makedirs(settings.upload_dir, exist_ok=True)

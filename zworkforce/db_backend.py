@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 import re
 from typing import Any, Iterator, Sequence
+from contextlib import contextmanager
 
 
 def is_postgres_target(target: str) -> bool:
@@ -104,21 +105,51 @@ class PostgresConnection:
     def __init__(self, connection):
         self._connection = connection
 
-    def execute(self, sql: str, params: Sequence[Any] | None = None):
-        sql = postgres_sql(sql)
-        if not sql:
-            return EmptyResult()
-        cursor = self._connection.execute(sql, tuple(params or ()))
-        return PostgresResult(cursor)
+    def execute(self, sql, params=None):
+        sql = rewrite_qmark(sql)
+        return self._connection.execute(sql, params or ())
 
-    def executescript(self, script: str):
-        for statement in postgres_schema(script).split(";"):
-            if statement.strip():
-                self.execute(statement)
-        return EmptyResult()
+    def fetchone(self):
+        return self._connection.fetchone()
+
+    def fetchall(self):
+        return self._connection.fetchall()
 
     def close(self):
-        self._connection.close()
+        try:
+            self._connection.close()
+        except Exception:
+            pass
+
+
+class PostgresPool:
+    def __init__(self, dsn: str, min_size: int = 1, max_size: int = 10):
+        import psycopg
+        from psycopg.rows import tuple_row
+        self._dsn = dsn
+        self._min_size = max(1, min_size)
+        self._max_size = max(1, max_size)
+        self._pool = psycopg.ConnectionPool(
+            dsn, min_size=self._min_size, max_size=self._max_size,
+            autocommit=True, row_factory=tuple_row,
+        )
+
+    @contextmanager
+    def connection(self):
+        with self._pool.connection() as conn:
+            yield PostgresConnection(conn)
+
+    def close(self):
+        self._pool.close()
+
+
+_postgres_pools: dict[str, PostgresPool] = {}
+
+
+def get_postgres_pool(dsn: str, min_size: int = 1, max_size: int = 10) -> PostgresPool:
+    if dsn not in _postgres_pools:
+        _postgres_pools[dsn] = PostgresPool(dsn, min_size=min_size, max_size=max_size)
+    return _postgres_pools[dsn]
 
 
 def connect_postgres(dsn: str):
@@ -127,5 +158,10 @@ def connect_postgres(dsn: str):
         from psycopg.rows import tuple_row
     except ImportError as exc:
         raise RuntimeError("PostgreSQL backend requires psycopg; install zworkforce[postgres]") from exc
+    if "sslmode=" not in dsn:
+        if dsn.startswith(("postgresql://localhost", "postgres://localhost", "postgresql://127.0.0.1", "postgres://127.0.0.1")):
+            dsn += "?sslmode=prefer"
+        else:
+            dsn += "?sslmode=require"
     connection = psycopg.connect(dsn, autocommit=True, row_factory=tuple_row)
     return PostgresConnection(connection)

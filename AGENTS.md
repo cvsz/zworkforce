@@ -1,9 +1,9 @@
 # AGENTS.md
 
 ## Release status
-Repository release candidate: `v3.0.3`.
+Repository release candidate: `v3.0.4`.
 
-`v3.0.3` repository work and production-environment completion are separate gates. The repository candidate may be complete while operator-owned external evidence in `docs/PRODUCTION-EVIDENCE.md` remains pending. Do not create/tag the immutable `v3.0.3` release until repository policy, exact-candidate checks/reviews, mandatory external evidence and the GO decision permit it.
+`v3.0.4` repository work and production-environment completion are separate gates. The repository candidate may be complete while operator-owned external evidence in `docs/PRODUCTION-EVIDENCE.md` remains pending. Do not create/tag the immutable `v3.0.4` release until repository policy, exact-candidate checks/reviews, mandatory external evidence and the GO decision permit it.
 
 Forward feature plans under `planning/` (including Z.A.R.V.I.S., Zeto, Zider, zsp-aitool, router, Hermes/Spawn and Skywork-inspired workspace upgrades) are not automatically `v3.0.3` release blockers. Treat an item as a current-release blocker only when `ROADMAP.md`, `planning/exec-planning-zwf.md`, `docs/PRODUCTION-EVIDENCE.md`, a failing required check/security finding, or an explicit master-plan requirement binds it to the `v3.0.3` candidate. Never mark forward work complete merely to make release status green.
 

@@ -77,9 +77,11 @@ export TF_VAR_zeaz_one_hostname="${ZEAZ_ONE_HOSTNAME:-one.zeaz.dev}"
 export TF_VAR_zeaz_one_origin="${ZEAZ_ONE_ORIGIN:-http://127.0.0.1:18081}"
 export TF_VAR_zeaz_one_api_hostname="${ZEAZ_ONE_API_HOSTNAME:-api.zeaz.dev}"
 export TF_VAR_zeaz_one_api_origin="${ZEAZ_ONE_API_ORIGIN:-http://127.0.0.1:18084}"
-export TF_VAR_zeaz_one_support_hostname="${ZEAZ_ONE_SUPPORT_HOSTNAME:-support.zeaz.dev}"
-export TF_VAR_zeaz_one_support_origin="${ZEAZ_ONE_SUPPORT_ORIGIN:-http://127.0.0.1:18083}"
-if [[ -n "${ZDASH_ACCESS_ALLOWED_EMAILS:-}" ]]; then
+  export TF_VAR_zeaz_one_support_hostname="${ZEAZ_ONE_SUPPORT_HOSTNAME:-support.zeaz.dev}"
+  export TF_VAR_zeaz_one_support_origin="${ZEAZ_ONE_SUPPORT_ORIGIN:-http://127.0.0.1:18083}"
+  export TF_VAR_zgw_hostname="${ZGW_HOSTNAME:-zgw.zeaz.dev}"
+  export TF_VAR_zgw_ssh_target="${ZGW_SSH_TARGET:-ssh://cvsz@192.168.74.134:22}"
+  if [[ -n "${ZDASH_ACCESS_ALLOWED_EMAILS:-}" ]]; then
   export TF_VAR_zdash_access_allowed_emails="$ZDASH_ACCESS_ALLOWED_EMAILS"
 fi
 

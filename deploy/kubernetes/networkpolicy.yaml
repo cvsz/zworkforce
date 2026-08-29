@@ -21,5 +21,37 @@ spec:
     - ports:
         - protocol: TCP
           port: 9569
-# Add environment-specific egress policies for PostgreSQL, model providers,
-# OTLP collectors and approved tool destinations. Default deny is intentional.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zworkforce-api-egress
+  namespace: zworkforce
+spec:
+  podSelector:
+    matchLabels:
+      app: zworkforce-api
+  policyTypes: ["Egress"]
+  egress:
+    - to: [{ipBlock: {cidr: "10.0.0.0/8"}}]
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to: [{ipBlock: {cidr: "10.0.0.0/8"}}]
+      ports:
+        - protocol: TCP
+          port: 6379
+    - to: [{ipBlock: {cidr: "0.0.0.0/0"}}]
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 80
+    - to: [{namespaceSelector: {}}]
+      ports:
+        - protocol: TCP
+          port: 53
+        - protocol: UDP
+          port: 53
+  # Add environment-specific egress policies for PostgreSQL, model providers,
+  # OTLP collectors and approved tool destinations. Default deny is intentional.
