@@ -13,19 +13,22 @@ from .db_workspace import WorkspaceMixin
 from .db_workspace_context import WorkspaceContextMixin
 from .db_workspace_grants import WorkspaceGrantMixin
 from .db_workspace_worktrees import WorkspaceWorktreeMixin
+from .db_realtime import DashboardEventMixin
 from .db_schema_browser_effects import BROWSER_EFFECT_SCHEMA_SQL
 from .db_schema_workspace_grants import WORKSPACE_GRANT_SCHEMA_SQL
 from .db_schema_workspace_worktrees import WORKSPACE_WORKTREE_SCHEMA_SQL
+from .db_schema_realtime import DASHBOARD_EVENT_SCHEMA_SQL
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 
-class Database(WorkspaceWorktreeMixin, WorkspaceGrantMixin, WorkspaceContextMixin, WorkspaceMixin, EvidenceMixin, BrowserEffectMixin, ArtifactContentMixin, AutomationMixin, TaskMixin, FinOpsMixin, GovernanceMixin, MigrationMixin, DatabaseBase):
+class Database(WorkspaceWorktreeMixin, WorkspaceGrantMixin, WorkspaceContextMixin, WorkspaceMixin, EvidenceMixin, BrowserEffectMixin, ArtifactContentMixin, AutomationMixin, TaskMixin, FinOpsMixin, GovernanceMixin, DashboardEventMixin, MigrationMixin, DatabaseBase):
     def _initialize_schema(self, c) -> None:
         super()._initialize_schema(c)
         c.executescript(WORKSPACE_GRANT_SCHEMA_SQL)
         c.executescript(WORKSPACE_WORKTREE_SCHEMA_SQL)
         c.executescript(BROWSER_EFFECT_SCHEMA_SQL)
+        c.executescript(DASHBOARD_EVENT_SCHEMA_SQL)
         c.execute(
             "INSERT INTO schema_meta(key,value) VALUES('schema_version',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
             (str(SCHEMA_VERSION),),
@@ -39,9 +42,9 @@ class Database(WorkspaceWorktreeMixin, WorkspaceGrantMixin, WorkspaceContextMixi
         except Exception:
             return False
 
-    def record_provider_success(self, name: str, latency_ms: float) -> None:
+    def record_provider_success(self, name: str, latency_ms: float, tenant_id: str | None = None) -> None:
         if self.backend_kind != "postgres":
-            return super().record_provider_success(name, latency_ms)
+            return super().record_provider_success(name, latency_ms, tenant_id)
         now = utcnow()
         with self.connection() as c:
             c.execute(
@@ -52,10 +55,18 @@ class Database(WorkspaceWorktreeMixin, WorkspaceGrantMixin, WorkspaceContextMixi
                 open_until=NULL,updated_at=excluded.updated_at""",
                 (name, latency_ms, now, now),
             )
+        if tenant_id:
+            self.append_dashboard_event(
+                tenant_id,
+                "provider.changed",
+                "provider",
+                name,
+                {"summary": {"provider": name, "available": True, "latency_ms": latency_ms}},
+            )
 
-    def record_provider_failure(self, name: str, latency_ms: float, error: str, threshold: int, circuit_seconds: int) -> None:
+    def record_provider_failure(self, name: str, latency_ms: float, error: str, threshold: int, circuit_seconds: int, tenant_id: str | None = None) -> None:
         if self.backend_kind != "postgres":
-            return super().record_provider_failure(name, latency_ms, error, threshold, circuit_seconds)
+            return super().record_provider_failure(name, latency_ms, error, threshold, circuit_seconds, tenant_id)
         now = utcnow()
         with self.connection() as c:
             row = c.execute("SELECT consecutive_failures FROM provider_health2 WHERE name=?", (name,)).fetchone()
@@ -68,6 +79,14 @@ class Database(WorkspaceWorktreeMixin, WorkspaceGrantMixin, WorkspaceContextMixi
                 last_latency_ms=excluded.last_latency_ms,last_error=excluded.last_error,last_failure_at=excluded.last_failure_at,
                 open_until=excluded.open_until,updated_at=excluded.updated_at""",
                 (name, failures, latency_ms, error[:1000], now, open_until, now),
+            )
+        if tenant_id:
+            self.append_dashboard_event(
+                tenant_id,
+                "provider.changed",
+                "provider",
+                name,
+                {"summary": {"provider": name, "available": not bool(open_until), "latency_ms": latency_ms}},
             )
 
     def claim_next_task(self, worker_id: str, lease_seconds: int):

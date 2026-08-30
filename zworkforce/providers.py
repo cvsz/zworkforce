@@ -215,7 +215,7 @@ class ProviderPool:
                 return cfg.name, model
         return "", tier
 
-    def chat(self, tier: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> ProviderResult:
+    def chat(self, tier: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]], tenant_id: str | None = None) -> ProviderResult:
         candidates = [p for p in self.configs if p.model_for_tier(tier)]
         if not candidates:
             raise ProviderError(f"no provider has a model configured for tier {tier}", retryable=False)
@@ -229,7 +229,7 @@ class ProviderPool:
             try:
                 result = self.endpoints[cfg.name].chat(tier, messages, tools)
                 latency = (time.monotonic() - started) * 1000
-                self.db.record_provider_success(cfg.name, latency)
+                self.db.record_provider_success(cfg.name, latency, tenant_id)
                 return result
             except ProviderError as exc:
                 latency = (time.monotonic() - started) * 1000
@@ -239,6 +239,7 @@ class ProviderPool:
                     str(exc),
                     self.settings.provider_circuit_failures,
                     self.settings.provider_circuit_seconds,
+                    tenant_id,
                 )
                 errors.append(f"{cfg.name}: {exc}")
                 if not exc.retryable:

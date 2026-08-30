@@ -26,6 +26,21 @@ class PostgresIntegrationTests(unittest.TestCase):
     def test_fixture_uses_isolated_tenant(self):
         self.assertNotEqual(self.db.default_tenant, "ci")
 
+    def test_dashboard_events_round_trip_and_tenant_isolation(self):
+        other_tenant = f"other-{uuid.uuid4().hex}"
+        self.db.ensure_tenant(other_tenant, "Other")
+        event_id = self.db.append_dashboard_event(
+            self.tenant_id,
+            "task.changed",
+            "task",
+            "pg-task",
+            {"summary": {"status": "running", "password": "drop"}},
+        )
+        self.assertGreater(event_id, 0)
+        self.assertEqual(self.db.dashboard_event_cursor(self.tenant_id), event_id)
+        self.assertEqual(self.db.list_dashboard_events(other_tenant), [])
+        self.assertEqual(self.db.list_dashboard_events(self.tenant_id)[0]["payload"], {"summary": {"status": "running"}})
+
     def tearDown(self):
         self.engine.shutdown()
         for task_id in self.task_ids:

@@ -161,9 +161,36 @@ class TaskMixin:
 
     def task_event(self, tenant_id: str, task_id: str, event_type: str, actor: str, details: dict[str, Any] | None = None) -> None:
         with self.connection() as c:
+            safe_details = details or {}
             c.execute(
                 "INSERT INTO task_events2(tenant_id,task_id,event_type,actor,details_json,created_at) VALUES(?,?,?,?,?,?)",
-                (tenant_id, task_id, event_type, actor, json_dumps(details or {}), utcnow()),
+                (tenant_id, task_id, event_type, actor, json_dumps(safe_details), utcnow()),
+            )
+            summary = {
+                key: safe_details[key]
+                for key in ("status", "attempt", "outcome_status", "outcome_score")
+                if key in safe_details
+            }
+            if "status" not in summary:
+                inferred_status = {
+                    "claimed": "running",
+                    "created": "queued",
+                    "retry": "queued",
+                    "manual_retry": "queued",
+                    "succeeded": "succeeded",
+                    "failed": "failed",
+                    "canceled": "canceled",
+                    "dead_letter": "dead_letter",
+                }.get(event_type)
+                if inferred_status:
+                    summary["status"] = inferred_status
+            self._append_dashboard_event_cursor(
+                c,
+                tenant_id,
+                "task.changed",
+                "task",
+                task_id,
+                {"summary": summary},
             )
 
     def list_task_events(self, tenant_id: str, task_id: str, limit: int = 200) -> list[dict[str, Any]]:

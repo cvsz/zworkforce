@@ -24,6 +24,13 @@ class AutomationMixin:
                 (tenant_id, policy["id"], policy.get("name") or policy["id"], json_dumps(policy["document"]),
                  int(bool(policy.get("enabled", True))), actor, now, now),
             )
+        self.append_dashboard_event(
+            tenant_id,
+            "policy.changed",
+            "policy",
+            policy["id"],
+            {"summary": {"enabled": bool(policy.get("enabled", True))}},
+        )
         return self.get_policy(tenant_id, policy["id"]) or {}
 
     def get_policy(self, tenant_id: str, policy_id: str) -> dict[str, Any] | None:
@@ -47,6 +54,13 @@ class AutomationMixin:
                 (tenant_id, template["id"], template.get("name") or template["id"], template.get("description", ""),
                  json_dumps(template.get("agent") or {}), int(bool(template.get("enabled", True))), actor, now, now),
             )
+        self.append_dashboard_event(
+            tenant_id,
+            "agent_template.changed",
+            "agent_template",
+            template["id"],
+            {"summary": {"enabled": bool(template.get("enabled", True))}},
+        )
         return self.get_agent_template(tenant_id, template["id"]) or {}
 
     def get_agent_template(self, tenant_id: str, template_id: str) -> dict[str, Any] | None:
@@ -86,6 +100,13 @@ class AutomationMixin:
                 (tenant_id, workflow_id, str(workflow.get("name") or workflow_id), str(workflow.get("description") or ""),
                  version, json_dumps(workflow["definition"]), int(bool(workflow.get("enabled", True))), actor, now, now),
             )
+        self.append_dashboard_event(
+            tenant_id,
+            "workflow.changed",
+            "workflow",
+            workflow_id,
+            {"summary": {"status": "configured"}},
+        )
         return self.get_workflow(tenant_id, workflow_id) or {}
 
     def get_workflow(self, tenant_id: str, workflow_id: str) -> dict[str, Any] | None:
@@ -128,6 +149,14 @@ class AutomationMixin:
                         (run_id, tenant_id, step["id"], step["agent_id"], "pending",
                          json_dumps(step.get("depends_on", [])), json_dumps(step)),
                     )
+                self._append_dashboard_event_cursor(
+                    c,
+                    tenant_id,
+                    "workflow.changed",
+                    "workflow-run",
+                    run_id,
+                    {"summary": {"status": "running"}},
+                )
                 c.execute("COMMIT")
             except Exception:
                 c.execute("ROLLBACK")
@@ -196,11 +225,32 @@ class AutomationMixin:
         with self.connection() as c:
             c.execute("UPDATE workflow_steps3 SET " + ",".join(f"{k}=?" for k, _ in items) +
                       " WHERE run_id=? AND step_id=?", tuple(v for _, v in items) + (run_id, step_id))
+            row = c.execute("SELECT tenant_id FROM workflow_steps3 WHERE run_id=? AND step_id=?", (run_id, step_id)).fetchone()
+            if row:
+                summary = {"status": fields["status"]} if "status" in fields else {"operation": "updated"}
+                self._append_dashboard_event_cursor(
+                    c,
+                    row[0],
+                    "workflow.changed",
+                    "workflow-step",
+                    f"{run_id}:{step_id}",
+                    {"summary": summary},
+                )
 
     def finish_workflow_run(self, run_id: str, status: str, context: dict[str, Any], error: str = "") -> None:
         with self.connection() as c:
+            row = c.execute("SELECT tenant_id FROM workflow_runs3 WHERE id=?", (run_id,)).fetchone()
             c.execute("UPDATE workflow_runs3 SET status=?,context_json=?,error=?,finished_at=? WHERE id=?",
                       (status, json_dumps(context), error[:4000], utcnow(), run_id))
+            if row:
+                self._append_dashboard_event_cursor(
+                    c,
+                    row[0],
+                    "workflow.changed",
+                    "workflow-run",
+                    run_id,
+                    {"summary": {"status": status}},
+                )
 
     # ----- Scheduler -----
     def upsert_schedule(self, tenant_id: str, item: dict[str, Any], actor: str) -> dict[str, Any]:
@@ -219,6 +269,13 @@ class AutomationMixin:
                  item.get("timezone", "UTC"), json_dumps(item.get("payload", {})), item["next_run_at"], "",
                  int(bool(item.get("enabled", True))), actor, now, now),
             )
+        self.append_dashboard_event(
+            tenant_id,
+            "schedule.changed",
+            "schedule",
+            item["id"],
+            {"summary": {"enabled": bool(item.get("enabled", True)), "schedule_type": item["schedule_type"]}},
+        )
         return self.get_schedule(tenant_id, item["id"]) or {}
 
     def get_schedule(self, tenant_id: str, schedule_id: str) -> dict[str, Any] | None:
@@ -242,6 +299,14 @@ class AutomationMixin:
         with self.connection() as c:
             c.execute("UPDATE schedules3 SET last_run_at=?,next_run_at=?,last_error=?,updated_at=? WHERE tenant_id=? AND id=?",
                       (now, next_run_at, error[:2000], now, tenant_id, schedule_id))
+            self._append_dashboard_event_cursor(
+                c,
+                tenant_id,
+                "schedule.changed",
+                "schedule",
+                schedule_id,
+                {"summary": {"status": "triggered"}},
+            )
 
     # ----- Events -----
     def upsert_event_rule(self, tenant_id: str, rule: dict[str, Any], actor: str) -> dict[str, Any]:
@@ -256,6 +321,14 @@ class AutomationMixin:
                 (tenant_id, rule["id"], rule.get("name") or rule["id"], rule["event_type"], rule["target_type"],
                  rule["target_id"], json_dumps(rule.get("filter", {})), json_dumps(rule.get("payload_template", {})),
                  int(bool(rule.get("enabled", True))), actor, now, now),
+            )
+            self._append_dashboard_event_cursor(
+                c,
+                tenant_id,
+                "event.changed",
+                "event-rule",
+                rule["id"],
+                {"summary": {"enabled": bool(rule.get("enabled", True)), "event_type": rule["event_type"]}},
             )
         with self.connection() as c:
             row = c.execute("SELECT * FROM event_rules3 WHERE tenant_id=? AND id=?", (tenant_id, rule["id"])).fetchone()
@@ -279,6 +352,14 @@ class AutomationMixin:
                     "INSERT INTO events3(id,tenant_id,event_type,source,dedupe_key,payload_json,status,created_at) VALUES(?,?,?,?,?,?,?,?)",
                     (event_id, tenant_id, event_type, source, dedupe_key, json_dumps(payload), "pending", now),
                 )
+                self._append_dashboard_event_cursor(
+                    c,
+                    tenant_id,
+                    "event.changed",
+                    "event",
+                    event_id,
+                    {"summary": {"status": "pending", "event_type": event_type}},
+                )
             except Exception:
                 if dedupe_key:
                     row = c.execute("SELECT * FROM events3 WHERE tenant_id=? AND source=? AND dedupe_key=?",
@@ -300,8 +381,18 @@ class AutomationMixin:
 
     def finish_event(self, event_id: str, status: str, error: str = "") -> None:
         with self.connection() as c:
+            row = c.execute("SELECT tenant_id FROM events3 WHERE id=?", (event_id,)).fetchone()
             c.execute("UPDATE events3 SET status=?,attempts=attempts+1,error=?,processed_at=? WHERE id=?",
                       (status, error[:2000], utcnow(), event_id))
+            if row:
+                self._append_dashboard_event_cursor(
+                    c,
+                    row[0],
+                    "event.changed",
+                    "event",
+                    event_id,
+                    {"summary": {"status": status}},
+                )
 
     # ----- Evaluation -----
     def upsert_evaluation_suite(self, tenant_id: str, suite: dict[str, Any], actor: str) -> dict[str, Any]:
@@ -317,6 +408,13 @@ class AutomationMixin:
                  json_dumps(suite["cases"]), json_dumps(suite["variants"]), int(bool(suite.get("enabled", True))),
                  actor, now, now),
             )
+        self.append_dashboard_event(
+            tenant_id,
+            "evaluation.changed",
+            "evaluation-suite",
+            suite["id"],
+            {"summary": {"enabled": bool(suite.get("enabled", True))}},
+        )
         return self.get_evaluation_suite(tenant_id, suite["id"]) or {}
 
     def get_evaluation_suite(self, tenant_id: str, suite_id: str) -> dict[str, Any] | None:
@@ -333,6 +431,14 @@ class AutomationMixin:
         with self.connection() as c:
             c.execute("INSERT INTO evaluation_runs3(id,tenant_id,suite_id,status,actor,created_at) VALUES(?,?,?,?,?,?)",
                       (run_id, tenant_id, suite_id, "running", actor, now))
+            self._append_dashboard_event_cursor(
+                c,
+                tenant_id,
+                "evaluation.changed",
+                "evaluation-run",
+                run_id,
+                {"summary": {"status": "running"}},
+            )
         return self.get_evaluation_run(tenant_id, run_id) or {}
 
     def get_evaluation_run(self, tenant_id: str, run_id: str) -> dict[str, Any] | None:
@@ -347,11 +453,20 @@ class AutomationMixin:
 
     def add_evaluation_result(self, tenant_id: str, run_id: str, case_id: str, variant: str, task_id: str) -> None:
         with self.connection() as c:
-            c.execute(
+            changed = c.execute(
                 """INSERT INTO evaluation_results3(id,tenant_id,run_id,case_id,variant,task_id,status,created_at)
                 VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(run_id,case_id,variant) DO NOTHING""",
                 (str(uuid.uuid4()), tenant_id, run_id, case_id, variant, task_id, "running", utcnow()),
-            )
+            ).rowcount
+            if changed:
+                self._append_dashboard_event_cursor(
+                    c,
+                    tenant_id,
+                    "evaluation.changed",
+                    "evaluation-run",
+                    run_id,
+                    {"summary": {"status": "running"}},
+                )
 
     def list_evaluation_results(self, run_id: str) -> list[dict[str, Any]]:
         with self.connection() as c:
@@ -367,17 +482,37 @@ class AutomationMixin:
             except ValueError:
                 pass
         with self.connection() as c:
+            row = c.execute("SELECT tenant_id FROM evaluation_results3 WHERE id=?", (result_id,)).fetchone()
             c.execute(
                 """UPDATE evaluation_results3 SET status=?,outcome_status=?,outcome_score=?,cost_credits=?,duration_ms=?,
                 result=?,error=?,finished_at=? WHERE id=?""",
                 (task["status"], task.get("outcome_status"), task.get("outcome_score"), float(task.get("cost_credits") or 0),
                  duration_ms, task.get("result"), task.get("error") or "", utcnow(), result_id),
             )
+            if row:
+                self._append_dashboard_event_cursor(
+                    c,
+                    row[0],
+                    "evaluation.changed",
+                    "evaluation-result",
+                    result_id,
+                    {"summary": {"status": task["status"], "outcome_status": task.get("outcome_status"), "outcome_score": task.get("outcome_score")}},
+                )
 
     def finish_evaluation_run(self, run_id: str, status: str, summary: dict[str, Any], error: str = "") -> None:
         with self.connection() as c:
+            row = c.execute("SELECT tenant_id FROM evaluation_runs3 WHERE id=?", (run_id,)).fetchone()
             c.execute("UPDATE evaluation_runs3 SET status=?,summary_json=?,error=?,finished_at=? WHERE id=?",
                       (status, json_dumps(summary), error[:2000], utcnow(), run_id))
+            if row:
+                self._append_dashboard_event_cursor(
+                    c,
+                    row[0],
+                    "evaluation.changed",
+                    "evaluation-run",
+                    run_id,
+                    {"summary": {"status": status}},
+                )
 
     # ----- Artifacts / SLO / economics -----
     def register_artifact(self, tenant_id: str, artifact: dict[str, Any], actor: str) -> dict[str, Any]:
@@ -389,6 +524,14 @@ class AutomationMixin:
                 (artifact_id, tenant_id, artifact.get("task_id"), artifact.get("workflow_run_id"), artifact["name"],
                  artifact.get("content_type", "application/octet-stream"), artifact["storage_uri"], artifact["sha256"],
                  int(artifact["size_bytes"]), json_dumps(artifact.get("metadata", {})), actor, utcnow()),
+            )
+            self._append_dashboard_event_cursor(
+                c,
+                tenant_id,
+                "artifact.changed",
+                "artifact",
+                artifact_id,
+                {"summary": {"operation": "registered"}},
             )
             row = c.execute("SELECT * FROM artifacts3 WHERE id=?", (artifact_id,)).fetchone()
             return self._decode(dict(row))
@@ -408,6 +551,14 @@ class AutomationMixin:
                 (tenant_id, policy["id"], policy["metric"], policy["comparator"], float(policy["target"]),
                  int(policy.get("window_hours", 24)), policy.get("severity", "warning"),
                  int(bool(policy.get("enabled", True))), utcnow()),
+            )
+            self._append_dashboard_event_cursor(
+                c,
+                tenant_id,
+                "slo.changed",
+                "slo",
+                policy["id"],
+                {"summary": {"enabled": bool(policy.get("enabled", True))}},
             )
 
     def list_slo_policies(self, tenant_id: str) -> list[dict[str, Any]]:
