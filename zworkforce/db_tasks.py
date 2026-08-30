@@ -105,6 +105,14 @@ class TaskMixin:
                         "UPDATE tasks2 SET status='dead_letter',error='max attempts exhausted',finished_at=?,updated_at=? WHERE id=?",
                         (now, now, task_id),
                     )
+                    self._append_dashboard_event_cursor(
+                        c,
+                        row["tenant_id"],
+                        "task.changed",
+                        "task",
+                        task_id,
+                        {"summary": {"status": "dead_letter", "attempt": next_attempt}},
+                    )
                     c.execute("COMMIT")
                     return None
                 changed = c.execute(
@@ -153,10 +161,20 @@ class TaskMixin:
             for row in rows:
                 if int(row["attempt"]) >= int(row["max_attempts"]):
                     c.execute("UPDATE tasks2 SET status='dead_letter',error='worker lease expired',finished_at=?,lease_owner=NULL,lease_expires_at=NULL,updated_at=? WHERE id=?", (now, now, row["id"]))
+                    status = "dead_letter"
                     dead += 1
                 else:
                     c.execute("UPDATE tasks2 SET status='queued',error='worker lease expired; requeued',run_after=?,lease_owner=NULL,lease_expires_at=NULL,heartbeat_at=NULL,updated_at=? WHERE id=?", (now, now, row["id"]))
+                    status = "queued"
                     requeued += 1
+                self._append_dashboard_event_cursor(
+                    c,
+                    row["tenant_id"],
+                    "task.changed",
+                    "task",
+                    row["id"],
+                    {"summary": {"status": status, "attempt": int(row["attempt"])}},
+                )
         return {"requeued": requeued, "dead_lettered": dead}
 
     def task_event(self, tenant_id: str, task_id: str, event_type: str, actor: str, details: dict[str, Any] | None = None) -> None:
