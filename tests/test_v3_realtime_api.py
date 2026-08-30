@@ -4,6 +4,7 @@ import threading
 import unittest
 import urllib.error
 import urllib.request
+from dataclasses import replace
 from http.server import ThreadingHTTPServer
 
 from common import stack
@@ -110,6 +111,7 @@ class DashboardRealtimeProtocolTests(unittest.TestCase):
 class DashboardRealtimeApiTests(unittest.TestCase):
     def setUp(self):
         self.temp, self.settings, self.db, self.provider, self.engine, self.auth = stack()
+        self.settings = replace(self.settings, cors_origins=("https://dashboard.example",))
         self.app = App(self.settings, self.db, self.engine, self.auth, self.provider)
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), self.app.handler())
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -150,6 +152,38 @@ class DashboardRealtimeApiTests(unittest.TestCase):
             self.assertIn("task-api", body)
         finally:
             response.close()
+
+    def test_viewer_stream_omits_audit_metadata(self):
+        _, viewer_secret = self.auth.create_key("default", "viewer", "viewer", ["workforce:read"])
+        self.db.audit("default", "operator", "api_key.revoke", "api_key", "sensitive-key-id")
+        self.db.append_dashboard_event("default", "task.changed", "task", "visible-task")
+        request = urllib.request.Request(
+            self.base + "/api/v1/dashboard/events",
+            headers={
+                "Authorization": "Bearer " + viewer_secret,
+                "Accept": "text/event-stream",
+                "X-ZWorkforce-Event-Cursor": "0",
+            },
+        )
+        with urllib.request.urlopen(request, timeout=5) as response:
+            body = "".join(response.readline().decode("utf-8") for _ in range(4))
+        self.assertIn("event: task.changed", body)
+        self.assertNotIn("audit.changed", body)
+        self.assertNotIn("sensitive-key-id", body)
+
+    def test_cors_preflight_allows_event_cursor_header(self):
+        request = urllib.request.Request(
+            self.base + "/api/v1/dashboard/events",
+            headers={
+                "Origin": "https://dashboard.example",
+                "Access-Control-Request-Method": "GET",
+                "Access-Control-Request-Headers": "Authorization,X-ZWorkforce-Event-Cursor",
+            },
+            method="OPTIONS",
+        )
+        with urllib.request.urlopen(request, timeout=5) as response:
+            self.assertEqual(response.status, 204)
+            self.assertIn("X-ZWorkforce-Event-Cursor", response.headers["Access-Control-Allow-Headers"])
 
     def test_malformed_cursor_is_rejected_and_nested_static_paths_are_scoped(self):
         with self.assertRaises(urllib.error.HTTPError) as context:

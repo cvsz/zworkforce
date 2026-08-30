@@ -4,6 +4,7 @@ import json
 import unittest
 
 from common import stack
+from zworkforce.scheduler import Scheduler
 
 
 class DashboardEventRepositoryTests(unittest.TestCase):
@@ -52,6 +53,23 @@ class DashboardEventRepositoryTests(unittest.TestCase):
         self.assertEqual(removed, 105)
         self.assertEqual(self.db.dashboard_event_bounds("default"), {"oldest": None, "latest": None})
         self.assertEqual(self.db.dashboard_event_cursor("default"), 0)
+
+    def test_scheduler_prunes_events_using_configured_retention(self):
+        event_id = self.db.append_dashboard_event("default", "task.changed", "task", "expired-task")
+        with self.db.connection() as connection:
+            connection.execute(
+                "UPDATE dashboard_events2 SET created_at=? WHERE id=?",
+                ("2000-01-01T00:00:00+00:00", event_id),
+            )
+
+        stats = Scheduler(
+            self.db,
+            self.engine,
+            dashboard_event_retention_seconds=60,
+        ).tick()
+
+        self.assertEqual(stats["dashboard_events_pruned"], 1)
+        self.assertEqual(self.db.list_dashboard_events("default"), [])
 
     def test_task_and_audit_transitions_emit_only_safe_summaries(self):
         task, created = self.db.create_task(

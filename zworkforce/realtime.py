@@ -87,6 +87,7 @@ def stream_dashboard_events(
     max_seconds: float = 20.0,
     poll_seconds: float = 0.5,
     heartbeat_seconds: float = 5.0,
+    include_audit: bool = False,
 ) -> int:
     cursor = _dashboard_cursor(after_id, "after_id")
     duration = max(0.0, float(max_seconds))
@@ -115,8 +116,10 @@ def stream_dashboard_events(
         for event in events:
             if closed():
                 return cursor
-            write(format_dashboard_event(event))
             cursor = _dashboard_cursor(event["id"], "event_id")
+            if event.get("event_type") == "audit.changed" and not include_audit:
+                continue
+            write(format_dashboard_event(event))
 
         now = time.monotonic()
         if now - last_heartbeat >= heartbeat_interval:

@@ -7,6 +7,10 @@ import os
 from typing import Any
 
 
+DASHBOARD_EVENT_DEFAULT_RETENTION_SECONDS = 7 * 24 * 60 * 60
+DASHBOARD_EVENT_MAX_RETENTION_SECONDS = 365 * 24 * 60 * 60
+
+
 @dataclass(frozen=True)
 class Rate:
     input: float
@@ -52,6 +56,7 @@ class Settings:
     worker_poll_ms: int = 250
     lease_seconds: int = 60
     lease_heartbeat_seconds: int = 15
+    dashboard_event_retention_seconds: int = DASHBOARD_EVENT_DEFAULT_RETENTION_SECONDS
     max_attempts: int = 3
     retry_base_seconds: int = 2
     max_delegation_depth: int = 8
@@ -155,6 +160,10 @@ class Settings:
             worker_poll_ms=i("ZWORKFORCE_WORKER_POLL_MS", 250, 25),
             lease_seconds=i("ZWORKFORCE_LEASE_SECONDS", 60, 10),
             lease_heartbeat_seconds=i("ZWORKFORCE_LEASE_HEARTBEAT_SECONDS", 15, 2),
+            dashboard_event_retention_seconds=min(
+                i("ZWORKFORCE_DASHBOARD_EVENT_RETENTION_SECONDS", DASHBOARD_EVENT_DEFAULT_RETENTION_SECONDS, 60),
+                DASHBOARD_EVENT_MAX_RETENTION_SECONDS,
+            ),
             max_attempts=i("ZWORKFORCE_MAX_ATTEMPTS", 3, 1),
             retry_base_seconds=i("ZWORKFORCE_RETRY_BASE_SECONDS", 2, 1),
             max_delegation_depth=i("ZWORKFORCE_MAX_DELEGATION_DEPTH", 8, 1),
