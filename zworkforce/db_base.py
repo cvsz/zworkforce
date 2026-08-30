@@ -230,6 +230,14 @@ class DatabaseBase:
                 skill_ids_json=excluded.skill_ids_json,enabled=excluded.enabled,updated_at=excluded.updated_at""",
                 values,
             )
+        if hasattr(self, "append_dashboard_event"):
+            self.append_dashboard_event(
+                tenant_id,
+                "agent.changed",
+                "agent",
+                a["id"],
+                {"summary": {"enabled": bool(a.get("enabled", True))}},
+            )
         result = self.get_agent(tenant_id, a["id"]) or {}
         def comparable(value):
             if not value: return value
