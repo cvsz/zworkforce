@@ -16,6 +16,11 @@
     </div>
     <div class="status-row">
       <span id="healthDot" class="dot"></span><span id="healthText">Connecting</span>
+      <div id="realtimeIndicator" class="realtime-indicator" title="Authenticated dashboard event stream status">
+        <span id="realtimeDot" class="realtime-dot" aria-hidden="true"></span>
+        <span id="realtimeText">OFFLINE</span>
+      </div>
+      <span id="realtimeStatus" class="sr-only" role="status" aria-live="polite" aria-atomic="true">OFFLINE</span>
       <button id="refreshBtn" class="ghost small">Refresh</button>
       <button id="controlSidebarBtn" class="ghost small" title="System Telemetry & Controls">⚙️ Telemetry</button>
     </div>
@@ -26,7 +31,7 @@
   <aside id="controlSidebar" class="control-sidebar hidden" aria-label="Control and Diagnostics Sidebar">
     <div class="control-sidebar-header">
       <div class="header-title-group">
-        <span class="telemetry-live-badge">LIVE PROBE</span>
+        <span class="telemetry-live-badge">OPERATOR VIEW</span>
         <h3>System Telemetry</h3>
       </div>
       <button id="closeControlSidebar" class="icon-button close-btn" aria-label="Close" title="Close Sidebar (Esc)">✕</button>
@@ -37,42 +42,42 @@
       <div class="telemetry-card">
         <div class="card-header-row">
           <span class="eyebrow">CLUSTER TOPOLOGY &amp; SERVICES</span>
-          <span class="pulse-dot"></span>
+          <span class="telemetry-note">API-backed health only</span>
         </div>
         <div class="telemetry-item">
           <div class="service-meta">
             <span class="service-name">Control Plane</span>
             <small class="service-port">HTTP :9569</small>
           </div>
-          <span class="badge-status online">Active</span>
+          <span class="badge-status neutral">Not probed</span>
         </div>
         <div class="telemetry-item">
           <div class="service-meta">
             <span class="service-name">Voice Gateway</span>
             <small class="service-port">WS :8450</small>
           </div>
-          <span class="badge-status realtime">PCM16 Realtime</span>
+          <span class="badge-status neutral">Not configured</span>
         </div>
         <div class="telemetry-item">
           <div class="service-meta">
             <span class="service-name">Action Gateway</span>
             <small class="service-port">Loopback :8098</small>
           </div>
-          <span class="badge-status hardened">Hardened</span>
+          <span class="badge-status neutral">Not reported</span>
         </div>
         <div class="telemetry-item">
           <div class="service-meta">
             <span class="service-name">Proactive Daemon</span>
             <small class="service-port">Loopback :8099</small>
           </div>
-          <span class="badge-status autonomous">Autonomous</span>
+          <span class="badge-status neutral">Not reported</span>
         </div>
         <div class="telemetry-item">
           <div class="service-meta">
             <span class="service-name">Ollama LLM Engine</span>
             <small class="service-port">HTTP :11434</small>
           </div>
-          <span class="badge-status online">qwen3:8b</span>
+          <span class="badge-status neutral">Not configured</span>
         </div>
       </div>
 
@@ -251,11 +256,11 @@
     <!-- Timeline Activity Feed Section -->
     <section class="panel">
       <div class="panel-title">
-        <div><span class="eyebrow">OPERATIONAL AUDIT</span><h2>Realtime Activity & Audit Timeline</h2></div>
+        <div><span class="eyebrow">OPERATIONAL AUDIT</span><h2>Activity & Audit Timeline</h2></div>
       </div>
       <div class="timeline" id="activityTimeline">
         <div class="timeline-item"><div class="timeline-point bg-cyan"></div><div class="timeline-card"><span class="timeline-time">Just now</span><strong>zWorkforce Control Plane Online</strong><p>System initialized with tenant isolation and strict security policies.</p></div></div>
-        <div class="timeline-item"><div class="timeline-point bg-mint"></div><div class="timeline-card"><span class="timeline-time">Live</span><strong>Z.A.R.V.I.S. Realtime Audio Gateway Active</strong><p>Ready for voice interaction and subagent orchestration.</p></div></div>
+        <div class="timeline-item"><div class="timeline-point bg-cyan"></div><div class="timeline-card"><span class="timeline-time">Waiting</span><strong>Authenticated activity will appear here</strong><p>No live task transition has been observed for this tenant.</p></div></div>
       </div>
     </section>
 
@@ -264,7 +269,7 @@
       <div class="panel-title">
         <div><span class="eyebrow">SECOND BRAIN &amp; KNOWLEDGE GRAPH</span><h2>Tenant Memory Wiki &amp; Semantic Graph</h2></div>
         <div class="card-tools">
-          <span class="pill bg-mint-pill">Live Graph</span>
+          <span class="pill bg-mint-pill">Snapshot pending</span>
           <button class="icon-button card-maximize-btn" title="Toggle Fullscreen" onclick="toggleCardFullscreen('brainGraphCard')">🗖</button>
         </div>
       </div>
@@ -288,11 +293,11 @@
         </div>
         <div class="brain-sidebar">
           <span class="eyebrow">MEMORY ACCUMULATION</span>
-          <div class="brain-stat-row"><span>Indexed Nodes</span><strong id="brainNodesCount">34 entities</strong></div>
-          <div class="brain-stat-row"><span>Semantic Links</span><strong id="brainLinksCount">86 wikilinks</strong></div>
-          <div class="brain-stat-row"><span>Second Brain Storage</span><strong class="text-mint">Durable SQLite/RAG</strong></div>
+          <div class="brain-stat-row"><span>Indexed Nodes</span><strong id="brainNodesCount">—</strong></div>
+          <div class="brain-stat-row"><span>Semantic Links</span><strong id="brainLinksCount">—</strong></div>
+          <div class="brain-stat-row"><span>Second Brain Storage</span><strong class="text-amber">Not reported</strong></div>
           <div class="divider"></div>
-          <p class="brain-hint">Knowledge accumulates permanently across agent sessions and voice chats without losing context.</p>
+          <p class="brain-hint">Connect to load tenant-scoped memory data. This view does not infer graph health from static content.</p>
         </div>
       </div>
     </section>
@@ -322,7 +327,7 @@
           <div class="channel-header">
             <span class="channel-icon">💬</span>
             <div class="channel-title-meta"><strong>LINE Official Account</strong><small>Messaging API Gateway</small></div>
-            <span class="badge-status online">Active</span>
+            <span class="badge-status neutral">Not configured</span>
           </div>
           <p class="channel-desc">Inbound customer intent classification &amp; Thai dialect reasoning router.</p>
           <div class="channel-footer"><span>Escalation Rule</span><strong>Smart Auto-Handoff</strong></div>
@@ -332,7 +337,7 @@
           <div class="channel-header">
             <span class="channel-icon">📱</span>
             <div class="channel-title-meta"><strong>WhatsApp Business</strong><small>Cloud API Webhook</small></div>
-            <span class="badge-status online">Active</span>
+            <span class="badge-status neutral">Not configured</span>
           </div>
           <p class="channel-desc">Transactional order tracking, cart recovery &amp; support escalation.</p>
           <div class="channel-footer"><span>Security</span><strong>HMAC SHA-256 Verified</strong></div>
@@ -342,7 +347,7 @@
           <div class="channel-header">
             <span class="channel-icon">🛍️</span>
             <div class="channel-title-meta"><strong>Shopee &amp; TikTok Shop</strong><small>Commerce Sync</small></div>
-            <span class="badge-status realtime">Bi-directional</span>
+            <span class="badge-status neutral">Not configured</span>
           </div>
           <p class="channel-desc">Real-time inventory inquiry, flash sale alerts &amp; order sync.</p>
           <div class="channel-footer"><span>Sync Mode</span><strong>Realtime Event Outbox</strong></div>
@@ -352,7 +357,7 @@
           <div class="channel-header">
             <span class="channel-icon">🛒</span>
             <div class="channel-title-meta"><strong>Shopify &amp; CRM</strong><small>HubSpot / POS Connect</small></div>
-            <span class="badge-status hardened">Protected</span>
+            <span class="badge-status neutral">Not configured</span>
           </div>
           <p class="channel-desc">Customer lifetime value analysis &amp; personalized campaign automation.</p>
           <div class="channel-footer"><span>RBAC Level</span><strong>Field-Level Redacted</strong></div>
@@ -374,7 +379,7 @@
           <div class="channel-header">
             <span class="channel-icon">✨</span>
             <div class="channel-title-meta"><strong>AI Watermark Remover</strong><small>Image &amp; Video Engine</small></div>
-            <span class="badge-status online">100% Free</span>
+            <span class="badge-status neutral">Not configured</span>
           </div>
           <p class="channel-desc">Automated AI watermark removal, transparent upscaling, and asset sanitization.</p>
           <div class="channel-footer"><span>Engine Mode</span><strong>Local / Cloud API</strong></div>
@@ -384,7 +389,7 @@
           <div class="channel-header">
             <span class="channel-icon">🎬</span>
             <div class="channel-title-meta"><strong>Veo &amp; Vids Automation</strong><small>Google Flow / Docs Vids</small></div>
-            <span class="badge-status realtime">Batch Queue</span>
+            <span class="badge-status neutral">Not configured</span>
           </div>
           <p class="channel-desc">Automated prompt dispatching, batch video rendering, and sequential file download.</p>
           <div class="channel-footer"><span>Execution</span><strong>Approval Gated</strong></div>
@@ -394,7 +399,7 @@
           <div class="channel-header">
             <span class="channel-icon">🎨</span>
             <div class="channel-title-meta"><strong>Canva &amp; Design AI</strong><small>Auto Template Suite</small></div>
-            <span class="badge-status online">Automated</span>
+            <span class="badge-status neutral">Not configured</span>
           </div>
           <p class="channel-desc">High-speed marketing asset generation, bulk typography layout, and export.</p>
           <div class="channel-footer"><span>Output</span><strong>Content-Addressed</strong></div>
@@ -404,7 +409,7 @@
           <div class="channel-header">
             <span class="channel-icon">⚡</span>
             <div class="channel-title-meta"><strong>Grok, Meta &amp; Seedance</strong><small>Dreamina / Jimeng / Dola</small></div>
-            <span class="badge-status hardened">Multi-Tab</span>
+            <span class="badge-status neutral">Not configured</span>
           </div>
           <p class="channel-desc">Continuous background generation loop with automatic retry and error recovery.</p>
           <div class="channel-footer"><span>Telemetry</span><strong>Zero Leakage</strong></div>

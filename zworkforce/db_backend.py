@@ -55,6 +55,35 @@ def postgres_schema(script: str) -> str:
     return script
 
 
+def _split_sql_script(script: str) -> list[str]:
+    statements: list[str] = []
+    start = 0
+    single = double = False
+    index = 0
+    while index < len(script):
+        character = script[index]
+        if character == "'" and not double:
+            if single and index + 1 < len(script) and script[index + 1] == "'":
+                index += 2
+                continue
+            single = not single
+        elif character == '"' and not single:
+            if double and index + 1 < len(script) and script[index + 1] == '"':
+                index += 2
+                continue
+            double = not double
+        elif character == ";" and not single and not double:
+            statement = script[start:index].strip()
+            if statement:
+                statements.append(statement)
+            start = index + 1
+        index += 1
+    statement = script[start:].strip()
+    if statement:
+        statements.append(statement)
+    return statements
+
+
 class CompatRow(Mapping[str, Any]):
     def __init__(self, names: Sequence[str], values: Sequence[Any]):
         self._names = tuple(names)
@@ -105,16 +134,15 @@ class PostgresConnection:
         self._connection = connection
 
     def execute(self, sql: str, params: Sequence[Any] | None = None):
-        sql = postgres_sql(sql)
-        if not sql:
+        translated = postgres_sql(sql)
+        if not translated:
             return EmptyResult()
-        cursor = self._connection.execute(sql, tuple(params or ()))
-        return PostgresResult(cursor)
+        result = self._connection.execute(translated, tuple(params or ()))
+        return PostgresResult(result) if result is not None else EmptyResult()
 
     def executescript(self, script: str):
-        for statement in postgres_schema(script).split(";"):
-            if statement.strip():
-                self.execute(statement)
+        for statement in _split_sql_script(postgres_schema(script)):
+            self.execute(statement)
         return EmptyResult()
 
     def close(self):

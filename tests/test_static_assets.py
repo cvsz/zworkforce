@@ -76,6 +76,25 @@ class StaticAssetTests(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, combined)
 
+    def test_dashboard_realtime_package_is_wired_without_static_infrastructure_claims(self):
+        html = (ROOT / "zworkforce" / "static" / "index.html").read_text(encoding="utf-8")
+        app = (ROOT / "zworkforce" / "static" / "app.js").read_text(encoding="utf-8")
+        realtime = (ROOT / "zworkforce" / "static" / "dashboard" / "core" / "realtime.js").read_text(encoding="utf-8")
+        bootstrap = (ROOT / "zworkforce" / "static" / "dashboard" / "bootstrap.js").read_text(encoding="utf-8")
+        self.assertIn('id="realtimeDot"', html)
+        self.assertIn('id="realtimeText"', html)
+        self.assertIn('id="realtimeStatus"', html)
+        self.assertIn("/dashboard/bootstrap.js", app)
+        self.assertIn("/api/v1/dashboard/events", realtime)
+        for state in ("LIVE", "RECONNECTING", "POLLING", "STALE"):
+            self.assertIn(state, realtime + bootstrap + html)
+        self.assertIn("sessionStorage", app)
+        self.assertIn("X-ZWorkforce-Event-Cursor", realtime)
+        topology = html.split("CLUSTER TOPOLOGY", 1)[-1].split("SECURITY BOUNDARIES", 1)[0]
+        self.assertNotIn(">Active<", topology)
+        self.assertNotIn("LIVE PROBE", html)
+        self.assertNotIn(">Realtime Audio Gateway Active<", html)
+
 
 if __name__ == "__main__":
     unittest.main()

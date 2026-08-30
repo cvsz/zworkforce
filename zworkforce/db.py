@@ -19,7 +19,9 @@ from .db_schema_workspace_grants import WORKSPACE_GRANT_SCHEMA_SQL
 from .db_schema_workspace_worktrees import WORKSPACE_WORKTREE_SCHEMA_SQL
 from .db_schema_realtime import DASHBOARD_EVENT_SCHEMA_SQL
 
-SCHEMA_VERSION = 9
+# Dashboard events are additive and initialized idempotently alongside the
+# current v8 schema; keep the public schema version stable for existing tools.
+SCHEMA_VERSION = 8
 
 
 class Database(WorkspaceWorktreeMixin, WorkspaceGrantMixin, WorkspaceContextMixin, WorkspaceMixin, EvidenceMixin, BrowserEffectMixin, ArtifactContentMixin, AutomationMixin, TaskMixin, FinOpsMixin, GovernanceMixin, DashboardEventMixin, MigrationMixin, DatabaseBase):
@@ -114,6 +116,14 @@ class Database(WorkspaceWorktreeMixin, WorkspaceGrantMixin, WorkspaceContextMixi
                     c.execute(
                         "UPDATE tasks2 SET status='dead_letter',error='max attempts exhausted',finished_at=?,updated_at=? WHERE id=?",
                         (now, now, task_id),
+                    )
+                    self._append_dashboard_event_cursor(
+                        c,
+                        row["tenant_id"],
+                        "task.changed",
+                        "task",
+                        task_id,
+                        {"summary": {"status": "dead_letter", "attempt": next_attempt}},
                     )
                     c.execute("COMMIT")
                     return None

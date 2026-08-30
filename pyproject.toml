@@ -41,4 +41,4 @@ packages = ["zworkforce"]
 include-package-data = true
 
 [tool.setuptools.package-data]
-zworkforce = ["static/*.html", "static/*.css", "static/*.js", "prometa_data/*.json"]
+zworkforce = ["static/*.html", "static/*.css", "static/*.js", "static/dashboard/*.js", "static/dashboard/**/*.js", "static/dashboard/**/*.css", "prometa_data/*.json"]
