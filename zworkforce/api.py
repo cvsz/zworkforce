@@ -7,6 +7,8 @@ import json
 import os
 from pathlib import Path
 import re
+import select
+import socket
 import urllib.parse
 import uuid
 from typing import Any
@@ -27,6 +29,7 @@ from .skills import SkillError, validate_manifest, verify_manifest
 from .tools import TOOL_DEFINITIONS
 from .workflow import WorkflowOrchestrator
 from .zarvis_voice import ZarvisVoiceError, build_zarvis_voice_service, ZarvisLiveVoiceService, build_zarvis_voice_services
+from .realtime import parse_event_cursor, stream_dashboard_events
 
 AGENT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
@@ -35,6 +38,12 @@ STATIC_CONTENT_TYPES = {
     "app.js": "text/javascript; charset=utf-8",
     "styles.css": "text/css; charset=utf-8",
     "zarvis-voice-worklet.js": "text/javascript; charset=utf-8",
+    "zarvis-hud.js": "text/javascript; charset=utf-8",
+    "zarvis-hud.css": "text/css; charset=utf-8",
+}
+STATIC_SUFFIX_CONTENT_TYPES = {
+    ".css": "text/css; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
 }
 
 
@@ -158,12 +167,29 @@ class App:
                 return (principal, tenant_id), None
 
             def _static(self, name: str):
-                path = app.static / name
+                try:
+                    decoded_name = urllib.parse.unquote(name, encoding="utf-8", errors="strict")
+                except UnicodeDecodeError:
+                    return self._error(404, "not_found", "not found")
+                if not decoded_name or decoded_name.startswith("/") or "\\" in decoded_name:
+                    return self._error(404, "not_found", "not found")
+                parts = Path(decoded_name).parts
+                if any(part in {"", ".", ".."} for part in parts if part == "..") or ".." in parts:
+                    return self._error(404, "not_found", "not found")
+                root = app.static.resolve()
+                path = (root / Path(*parts)).resolve()
+                if path != root and root not in path.parents:
+                    return self._error(404, "not_found", "not found")
                 if not path.is_file():
+                    return self._error(404, "not_found", "not found")
+                content_type = STATIC_CONTENT_TYPES.get(decoded_name)
+                if content_type is None:
+                    content_type = STATIC_SUFFIX_CONTENT_TYPES.get(path.suffix.lower())
+                if content_type is None:
                     return self._error(404, "not_found", "not found")
                 data = path.read_bytes()
                 self.send_response(200)
-                self.send_header("Content-Type", STATIC_CONTENT_TYPES.get(name, "application/octet-stream"))
+                self.send_header("Content-Type", content_type)
                 self.send_header("Content-Length", str(len(data)))
                 self._security_headers("public,max-age=300")
                 self.end_headers()
@@ -192,7 +218,9 @@ class App:
                 try:
                     if path == "/":
                         return self._static("index.html")
-                    if path in {"/app.js", "/styles.css", "/zarvis-voice-worklet.js"}:
+                    if path in {"/app.js", "/styles.css", "/zarvis-voice-worklet.js", "/zarvis-hud.js", "/zarvis-hud.css"}:
+                        return self._static(path[1:])
+                    if path.startswith("/dashboard/"):
                         return self._static(path[1:])
                     if path == "/health":
                         return self._json(200, {"status": "ok", "version": __version__})
@@ -223,6 +251,50 @@ class App:
 
             def _get_api(self, path: str):
                 q = self._query()
+                if path == "/api/v1/dashboard/events":
+                    ctx, response = self._principal("viewer", "workforce:read")
+                    if response:
+                        return response
+                    _, tenant_id = ctx
+                    after_id = parse_event_cursor(self.headers.get("X-ZWorkforce-Event-Cursor"))
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+                    self.send_header("X-Accel-Buffering", "no")
+                    self.send_header("Connection", "close")
+                    self._security_headers()
+                    self.end_headers()
+                    self.close_connection = True
+
+                    def write(data: bytes):
+                        self.wfile.write(data)
+                        self.wfile.flush()
+
+                    def connection_closed() -> bool:
+                        if bool(getattr(self.wfile, "closed", False)):
+                            return True
+                        try:
+                            readable, _, _ = select.select([self.connection], [], [], 0)
+                            if not readable:
+                                return False
+                            dont_wait = getattr(socket, "MSG_DONTWAIT", 0)
+                            probe = self.connection.recv(1, socket.MSG_PEEK | dont_wait)
+                            return probe == b""
+                        except BlockingIOError:
+                            return False
+                        except (OSError, ValueError):
+                            return True
+
+                    try:
+                        stream_dashboard_events(
+                            app.db,
+                            tenant_id,
+                            after_id,
+                            write,
+                            connection_closed,
+                        )
+                    except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+                        pass
+                    return
                 if path == "/api/v1/zarvis/voice":
                     ctx, response = self._principal("viewer", "voice:use")
                     if response: return response
@@ -355,6 +427,13 @@ class App:
                             return self._error(exc.status, exc.code, str(exc))
                         app.db.audit(tenant_id, principal.name, "zarvis.voice.session", "voice_session", self.request_id,
                                      {"expires_at": result["expires_at"], "model": result["model"], "transport": result["transport"]})
+                        app.db.append_dashboard_event(
+                            tenant_id,
+                            "voice.changed",
+                            "voice",
+                            "session",
+                            {"summary": {"operation": "session_issued"}},
+                        )
                         return self._json(201, result)
                     if path == "/api/v1/zarvis/voice/live-token":
                         ctx, response = self._principal("viewer", "voice:use")
@@ -370,6 +449,13 @@ class App:
                             return self._error(exc.status, exc.code, str(exc))
                         app.db.audit(tenant_id, principal.name, "zarvis.voice.live_token", "voice_live_token", self.request_id,
                                      {"expires_at": result["expires_at"], "model": result["model"], "transport": result["transport"]})
+                        app.db.append_dashboard_event(
+                            tenant_id,
+                            "voice.changed",
+                            "voice",
+                            "live_token",
+                            {"summary": {"operation": "live_token_issued"}},
+                        )
                         return self._json(201, result)
                     if path == "/api/v1/tenants":
                         ctx, response = self._principal("superadmin", "tenant:write")

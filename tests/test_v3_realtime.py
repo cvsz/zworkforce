@@ -105,7 +105,9 @@ class DashboardEventRepositoryTests(unittest.TestCase):
         for secret in ("private prompt", "private result", "private password", "private error", "input_tokens"):
             self.assertNotIn(secret, encoded)
         task_events = [event for event in events if event["resource_id"] == task["id"] and event["event_type"] == "task.changed"]
-        self.assertTrue(any(event["payload"]["summary"]["status"] == "succeeded" for event in task_events))
+        completed = next(event for event in task_events if event["payload"]["summary"]["status"] == "succeeded")
+        self.assertEqual(completed["payload"]["summary"]["outcome_status"], "passed")
+        self.assertEqual(completed["payload"]["summary"]["outcome_score"], 0.99)
         self.assertTrue(any(event["event_type"] == "audit.changed" for event in events))
 
     def test_control_plane_transitions_emit_domain_events_without_sensitive_payloads(self):
@@ -206,6 +208,29 @@ class DashboardEventRepositoryTests(unittest.TestCase):
         self.assertNotIn("s3://private/report.txt", encoded)
         self.assertNotIn("private", encoded)
         self.assertEqual(artifact["name"], "report.txt")
+
+    def test_expired_lease_transitions_emit_task_events(self):
+        task, _ = self.db.create_task(
+            {
+                "id": "task-expired-lease",
+                "tenant_id": "default",
+                "agent_id": "researcher",
+                "prompt": "lease transition",
+                "created_by": "operator",
+                "status": "queued",
+                "tier": "terra",
+                "model": "mock-terra",
+            }
+        )
+        claimed = self.db.claim_next_task("worker", 30)
+        self.assertEqual(claimed["id"], task["id"])
+        self.db.update_task(task["id"], lease_expires_at="2000-01-01T00:00:00+00:00")
+        self.db.requeue_expired_leases()
+        events = [
+            event for event in self.db.list_dashboard_events("default")
+            if event["resource_id"] == task["id"] and event["event_type"] == "task.changed"
+        ]
+        self.assertEqual(events[-1]["payload"]["summary"]["status"], "queued")
 
 
 if __name__ == "__main__":

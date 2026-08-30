@@ -14,6 +14,7 @@ _SUMMARY_STRING_FIELDS = frozenset({
     "action",
     "event_type",
     "operation",
+    "outcome_status",
     "provider",
     "schedule_type",
     "status",
