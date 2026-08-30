@@ -7,6 +7,7 @@ import uuid
 from typing import Any
 
 from .db_base import json_dumps, json_loads, utc_after, utcnow
+from .db_realtime import _bounded_text
 
 class GovernanceMixin:
     def audit(self, tenant_id: str, actor: str, action: str, target_type: str, target_id: str, details: dict[str, Any] | None = None) -> str:
@@ -106,8 +107,7 @@ class GovernanceMixin:
 
     def put_memory(self, tenant_id: str, agent_id: str | None, title: str, content: str, tags: list[str], actor: str, memory_id: str | None = None) -> dict[str, Any]:
         memory_id = str(memory_id).strip() if memory_id is not None else str(uuid.uuid4())
-        if not memory_id:
-            raise ValueError("memory id must not be empty")
+        memory_id = _bounded_text(memory_id, "memory_id")
         now = utcnow()
         with self.connection() as c:
             c.execute(

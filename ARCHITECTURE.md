@@ -96,6 +96,12 @@ Durable repository transitions append compact, allowlisted invalidations to
 prompts, results, provider errors, secrets, storage URIs and raw tool arguments
 are deliberately excluded. A retained-cursor gap emits `resync.required`, after
 which the browser refreshes its snapshot and resumes from the returned cursor.
+The scheduler prunes events older than the configured
+`ZWORKFORCE_DASHBOARD_EVENT_RETENTION_SECONDS` horizon on its durable maintenance
+path; the default retention is seven days and the setting is capped at one year.
+Audit events remain durable for audit readers but are omitted from the ordinary
+viewer workforce stream unless the principal has both an admin role and
+`audit:read`.
 
 The dependency-free browser package coalesces event notifications across the
 overview, workforce, governance, automation, FinOps, knowledge and Z.A.R.V.I.S.

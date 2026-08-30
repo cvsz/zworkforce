@@ -13,4 +13,6 @@ CREATE TABLE IF NOT EXISTS dashboard_events2(
 );
 CREATE INDEX IF NOT EXISTS idx_dashboard_events2_tenant_id
     ON dashboard_events2(tenant_id,id);
+CREATE INDEX IF NOT EXISTS idx_dashboard_events2_created_at
+    ON dashboard_events2(created_at);
 """

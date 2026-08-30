@@ -62,7 +62,11 @@ class App:
         self.rate_limiter = RateLimiter(settings.api_rate_limit_per_minute)
         self.auth_rate_limiter = RateLimiter(max(60, settings.api_rate_limit_per_minute * 2))
         self.workflows = WorkflowOrchestrator(db, engine)
-        self.scheduler = Scheduler(db, engine)
+        self.scheduler = Scheduler(
+            db,
+            engine,
+            dashboard_event_retention_seconds=settings.dashboard_event_retention_seconds,
+        )
         self.evaluations = EvaluationRunner(db, engine)
         self.rag = build_semantic_memory(db)
         self.artifacts = build_artifact_store(settings, db)
@@ -206,7 +210,7 @@ class App:
                 self.send_response(204)
                 self.send_header("Access-Control-Allow-Origin", origin)
                 self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-                self.send_header("Access-Control-Allow-Headers", "Authorization,Content-Type,Idempotency-Key,X-API-Key,X-Request-ID,X-Tenant-ID")
+                self.send_header("Access-Control-Allow-Headers", "Authorization,Content-Type,Idempotency-Key,X-API-Key,X-Request-ID,X-Tenant-ID,X-ZWorkforce-Event-Cursor")
                 self.send_header("Access-Control-Max-Age", "600")
                 self.send_header("Vary", "Origin")
                 self._security_headers()
@@ -255,7 +259,7 @@ class App:
                     ctx, response = self._principal("viewer", "workforce:read")
                     if response:
                         return response
-                    _, tenant_id = ctx
+                    principal, tenant_id = ctx
                     after_id = parse_event_cursor(self.headers.get("X-ZWorkforce-Event-Cursor"))
                     self.send_response(200)
                     self.send_header("Content-Type", "text/event-stream; charset=utf-8")
@@ -291,6 +295,7 @@ class App:
                             after_id,
                             write,
                             connection_closed,
+                            include_audit=principal.role in {"admin", "superadmin"} and principal.has_scope("audit:read"),
                         )
                     except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
                         pass

@@ -30,6 +30,12 @@ class ProductionFixesTests(unittest.TestCase):
         self.assertEqual(self.db.get_memory("default", memory["id"])["content"], "default secret")
         self.assertIsNone(self.db.get_memory("acme", "shared"))
 
+    def test_memory_id_is_validated_before_persisting(self):
+        memory_id = "m" * 129
+        with self.assertRaisesRegex(ValueError, "memory_id is too long"):
+            self.db.put_memory("default", None, "Too long", "content", [], "alice", memory_id)
+        self.assertIsNone(self.db.get_memory("default", memory_id))
+
     def test_workflow_occurrence_key_returns_existing_run(self):
         workflow = WorkflowOrchestrator(self.db, self.engine)
         workflow.upsert("default", {
