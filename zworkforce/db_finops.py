@@ -15,6 +15,13 @@ class FinOpsMixin:
                 output_tokens,cost_credits,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (task["tenant_id"], task["id"], task["agent_id"], agent["department"], task["tier"], provider_name, model, inp, cached, out, cost, utcnow()),
             )
+        self.append_dashboard_event(
+            task["tenant_id"],
+            "usage.changed",
+            "task",
+            task["id"],
+            {"summary": {"provider": provider_name}},
+        )
 
     def set_budget(self, tenant_id: str, scope_type: str, scope_id: str, period: str, limit: float) -> None:
         with self.connection() as c:
@@ -23,6 +30,13 @@ class FinOpsMixin:
                 ON CONFLICT(tenant_id,scope_type,scope_id,period) DO UPDATE SET limit_credits=excluded.limit_credits,updated_at=excluded.updated_at""",
                 (tenant_id, scope_type, scope_id, period, max(0.0, float(limit)), utcnow()),
             )
+        self.append_dashboard_event(
+            tenant_id,
+            "budget.changed",
+            "budget",
+            f"{scope_type}:{scope_id}:{period}",
+            {"summary": {"operation": "upsert"}},
+        )
 
     def list_budgets(self, tenant_id: str) -> list[dict[str, Any]]:
         with self.connection() as c:
