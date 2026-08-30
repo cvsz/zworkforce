@@ -103,6 +103,12 @@ def stream_dashboard_events(
         bounds = db.dashboard_event_bounds(tenant_id)
         oldest = bounds["oldest"]
         latest = int(bounds["latest"] or 0)
+        # Once retention removes the tenant's complete history, there is no
+        # watermark left to compare against. A nonzero cursor is therefore
+        # unverifiable and must trigger an authoritative snapshot refresh.
+        if cursor > 0 and oldest is None:
+            write(_format_resync(0, 0))
+            return 0
         # Cursor zero is the initial full-snapshot path. The durable event IDs
         # are global, so a tenant whose first retained event follows another
         # tenant's events would otherwise look stale even though no event for
