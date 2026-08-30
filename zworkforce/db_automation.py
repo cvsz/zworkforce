@@ -6,6 +6,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Any
 
 from .db_base import json_dumps, json_loads, utcnow
+from .db_realtime import _bounded_text
 
 
 def _decode_json_rows(rows):
@@ -88,7 +89,7 @@ class AutomationMixin:
     # ----- Workflows -----
     def upsert_workflow(self, tenant_id: str, workflow: dict[str, Any], actor: str) -> dict[str, Any]:
         now = utcnow()
-        workflow_id = str(workflow["id"])
+        workflow_id = _bounded_text(workflow.get("id"), "workflow_id")
         current = self.get_workflow(tenant_id, workflow_id)
         version = int(current["version"]) + 1 if current else 1
         with self.connection() as c:

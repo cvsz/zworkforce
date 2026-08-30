@@ -85,6 +85,30 @@ class DashboardRealtimeProtocolTests(unittest.TestCase):
         self.assertIn("event: resync.required\n", b"".join(writes).decode("utf-8"))
         self.assertIn(f'"cursor":{third_id}', b"".join(writes).decode("utf-8"))
 
+    def test_stream_requires_resync_after_all_tenant_events_expire(self):
+        event_id = self.db.append_dashboard_event("default", "task.changed", "task", "expired-task")
+        with self.db.connection() as connection:
+            connection.execute(
+                "UPDATE dashboard_events2 SET created_at=? WHERE id=?",
+                ("2000-01-01T00:00:00+00:00", event_id),
+            )
+        self.db.prune_dashboard_events("2001-01-01T00:00:00+00:00")
+        writes: list[bytes] = []
+
+        final_cursor = stream_dashboard_events(
+            self.db,
+            "default",
+            event_id,
+            writes.append,
+            max_seconds=0,
+        )
+
+        body = b"".join(writes).decode("utf-8")
+        self.assertEqual(final_cursor, 0)
+        self.assertIn("event: resync.required\n", body)
+        self.assertIn('"cursor":0', body)
+        self.assertIn('"oldest":0', body)
+
     def test_initial_cursor_replays_sparse_tenant_without_false_resync(self):
         self.db.ensure_tenant("other", "Other")
         self.db.append_dashboard_event("other", "task.changed", "task", "other-task")
