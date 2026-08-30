@@ -106,4 +106,21 @@ app_routes = {
     access_enabled = true
     allowed_email_domains = ["zeaz.dev"]
   }
+
+  # zksato — USDT-first paper trading control plane (frontend + api + dashboard)
+  zksato = {
+    hostname       = "zksato.zeaz.dev"
+    service        = "http://127.0.0.1:3016"
+    access_enabled = false
+  }
+  zksato_api = {
+    hostname       = "zksato-api.zeaz.dev"
+    service        = "http://127.0.0.1:9569"
+    access_enabled = false
+  }
+  zksato_dash = {
+    hostname       = "zksato-dash.zeaz.dev"
+    service        = "http://127.0.0.1:5174"
+    access_enabled = false
+  }
 }

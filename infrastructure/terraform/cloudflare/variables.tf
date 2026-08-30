@@ -47,6 +47,7 @@ variable "manage_tunnel_config" {
 
 variable "zone_name" {
   type        = string
+  default     = "zeaz.dev"
   description = "Managed DNS zone, for example zeaz.dev."
 }
 
@@ -60,6 +61,7 @@ variable "app_routes" {
     allowed_emails        = optional(list(string), [])
     allowed_email_domains = optional(list(string), [])
   }))
+  default = {}
 
   validation {
     condition = alltrue([

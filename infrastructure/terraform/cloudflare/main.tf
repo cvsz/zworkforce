@@ -5,6 +5,17 @@ locals {
     { hostname = var.zgw_hostname, service = var.zgw_ssh_target }
   ]
 
+  # Consolidated ingress: app_routes + per-service ingress locals (zworkforce, zeaz-one, zksato, etc.)
+  # Keeps tunnel and DNS declarations co-located with their service files.
+  all_service_ingress = concat(
+    try(local.zworkforce_ingress, []),
+    try(local.zeaz_one_ingress, []),
+    try(local.zksato_ingress, []),
+    [
+      # Fallback for any future per-service locals not yet migrated
+    ]
+  )
+
   ingress = concat(
     [
       for key in sort(keys(var.app_routes)) : {
@@ -12,6 +23,7 @@ locals {
         service  = var.app_routes[key].service
       }
     ],
+    local.all_service_ingress,
     local.ssh_ingress
   )
 }
@@ -59,6 +71,7 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "platform" {
           service  = var.app_routes[key].service
         }
       ],
+      local.all_service_ingress,
       [{ service = "http_status:404" }]
     )
   }
