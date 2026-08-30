@@ -7,6 +7,7 @@ import uuid
 from typing import Any
 
 from .db_base import json_dumps, json_loads, utc_after, utcnow
+from .db_realtime import _bounded_text
 
 class GovernanceMixin:
     def audit(self, tenant_id: str, actor: str, action: str, target_type: str, target_id: str, details: dict[str, Any] | None = None) -> str:
@@ -19,6 +20,14 @@ class GovernanceMixin:
             material = json_dumps({"tenant_id": tenant_id, "actor": actor, "action": action, "target_type": target_type, "target_id": target_id, "details": json_loads(details_json, {}), "prev_hash": prev_hash, "created_at": now})
             event_hash = hashlib.sha256(material.encode("utf-8")).hexdigest()
             c.execute("INSERT INTO audit_events2(tenant_id,actor,action,target_type,target_id,details_json,prev_hash,event_hash,created_at) VALUES(?,?,?,?,?,?,?,?,?)", (tenant_id, actor, action, target_type, target_id, details_json, prev_hash, event_hash, now))
+            self._append_dashboard_event_cursor(
+                c,
+                tenant_id,
+                "audit.changed",
+                target_type,
+                target_id,
+                {"summary": {"action": action}},
+            )
             c.execute("COMMIT")
         return event_hash
 
@@ -98,8 +107,7 @@ class GovernanceMixin:
 
     def put_memory(self, tenant_id: str, agent_id: str | None, title: str, content: str, tags: list[str], actor: str, memory_id: str | None = None) -> dict[str, Any]:
         memory_id = str(memory_id).strip() if memory_id is not None else str(uuid.uuid4())
-        if not memory_id:
-            raise ValueError("memory id must not be empty")
+        memory_id = _bounded_text(memory_id, "memory_id")
         now = utcnow()
         with self.connection() as c:
             c.execute(
@@ -110,6 +118,13 @@ class GovernanceMixin:
             )
         memory = self.get_memory(tenant_id, memory_id)
         if memory:
+            self.append_dashboard_event(
+                tenant_id,
+                "memory.changed",
+                "memory",
+                memory_id,
+                {"summary": {"operation": "upsert"}},
+            )
             return memory
         with self.connection() as c:
             owner = c.execute("SELECT tenant_id FROM memories2 WHERE id=?", (memory_id,)).fetchone()
@@ -151,6 +166,13 @@ class GovernanceMixin:
                 signature=excluded.signature,enabled=excluded.enabled,updated_at=excluded.updated_at""",
                 (tenant_id, manifest["id"], manifest["version"], json_dumps(manifest), signature, int(enabled), actor, now, now),
             )
+        self.append_dashboard_event(
+            tenant_id,
+            "skill.changed",
+            "skill",
+            manifest["id"],
+            {"summary": {"enabled": bool(enabled)}},
+        )
         return self.get_skill(tenant_id, manifest["id"]) or {}
 
     def get_skill(self, tenant_id: str, skill_id: str) -> dict[str, Any] | None:
@@ -178,6 +200,13 @@ class GovernanceMixin:
                 "INSERT INTO tool_events2(tenant_id,task_id,agent_id,tool_name,mutating,success,duration_ms,args_json,error,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
                 (tenant_id, task_id, agent_id, tool_name, int(mutating), int(success), float(duration_ms), json_dumps(args), error[:1000], utcnow()),
             )
+        self.append_dashboard_event(
+            tenant_id,
+            "task.changed",
+            "task",
+            task_id,
+            {"summary": {"success": bool(success)}},
+        )
 
     def list_tool_events(self, tenant_id: str, task_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
         with self.connection() as c:
@@ -192,7 +221,7 @@ class GovernanceMixin:
             row = c.execute("SELECT open_until FROM provider_health2 WHERE name=?", (name,)).fetchone()
         return not row or not row[0] or row[0] <= utcnow()
 
-    def record_provider_success(self, name: str, latency_ms: float) -> None:
+    def record_provider_success(self, name: str, latency_ms: float, tenant_id: str | None = None) -> None:
         now = utcnow()
         with self.connection() as c:
             c.execute(
@@ -201,8 +230,16 @@ class GovernanceMixin:
                 last_latency_ms=excluded.last_latency_ms,last_error='',last_success_at=excluded.last_success_at,open_until=NULL,updated_at=excluded.updated_at""",
                 (name, latency_ms, now, now),
             )
+        if tenant_id:
+            self.append_dashboard_event(
+                tenant_id,
+                "provider.changed",
+                "provider",
+                name,
+                {"summary": {"provider": name, "available": True, "latency_ms": latency_ms}},
+            )
 
-    def record_provider_failure(self, name: str, latency_ms: float, error: str, threshold: int, circuit_seconds: int) -> None:
+    def record_provider_failure(self, name: str, latency_ms: float, error: str, threshold: int, circuit_seconds: int, tenant_id: str | None = None) -> None:
         now = utcnow()
         with self.connection() as c:
             row = c.execute("SELECT consecutive_failures FROM provider_health2 WHERE name=?", (name,)).fetchone()
@@ -213,6 +250,14 @@ class GovernanceMixin:
                 VALUES(?,?,0,1,?,?,?, ?,?) ON CONFLICT(name) DO UPDATE SET consecutive_failures=?,failures=failures+1,
                 last_latency_ms=?,last_error=?,last_failure_at=?,open_until=?,updated_at=?""",
                 (name, failures, latency_ms, error[:1000], now, open_until, now, failures, latency_ms, error[:1000], now, open_until, now),
+            )
+        if tenant_id:
+            self.append_dashboard_event(
+                tenant_id,
+                "provider.changed",
+                "provider",
+                name,
+                {"summary": {"provider": name, "available": not bool(open_until), "latency_ms": latency_ms}},
             )
 
     def list_provider_health(self) -> list[dict[str, Any]]:

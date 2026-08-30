@@ -302,6 +302,7 @@ def main(argv=None):
                 "shell_enabled": settings.shell_enabled,
                 "http_allowlist": list(settings.http_allowlist),
                 "embedded_workers": settings.embedded_workers,
+                "dashboard_event_retention_seconds": settings.dashboard_event_retention_seconds,
                 "providers": [{"name": x["name"], "kind": x["kind"], "available": x["available"], "models": x["models"]} for x in health],
                 "audit": db.verify_audit_chain(settings.default_tenant),
                 "oidc_enabled": bool(os.getenv("ZWORKFORCE_OIDC_ISSUER", "").strip()),
@@ -358,7 +359,7 @@ def main(argv=None):
             if args.once: print(json.dumps({"processed": processed, "worker_id": worker_id}))
             return 0
         if cmd == "scheduler":
-            scheduler = Scheduler(db, engine); print(json.dumps(scheduler.loop(args.poll, args.once), indent=2)) if args.once else scheduler.loop(args.poll, False); return 0
+            scheduler = Scheduler(db, engine, dashboard_event_retention_seconds=settings.dashboard_event_retention_seconds); print(json.dumps(scheduler.loop(args.poll, args.once), indent=2)) if args.once else scheduler.loop(args.poll, False); return 0
         if cmd == "workflow-upsert":
             result = WorkflowOrchestrator(db, engine).upsert(_tenant(args, settings), _json_file(args.file), args.actor)
             print(json.dumps(result, indent=2, ensure_ascii=False)); return 0
@@ -369,7 +370,7 @@ def main(argv=None):
             result = WorkflowOrchestrator(db, engine).tick(_tenant(args, settings) if args.tenant else None)
             print(json.dumps(result, indent=2)); return 0
         if cmd == "schedule-upsert":
-            result = Scheduler(db, engine).upsert_schedule(_tenant(args, settings), _json_file(args.file), args.actor)
+            result = Scheduler(db, engine, dashboard_event_retention_seconds=settings.dashboard_event_retention_seconds).upsert_schedule(_tenant(args, settings), _json_file(args.file), args.actor)
             print(json.dumps(result, indent=2, ensure_ascii=False)); return 0
         if cmd == "event-rule-upsert":
             result = db.upsert_event_rule(_tenant(args, settings), _json_file(args.file), args.actor)
