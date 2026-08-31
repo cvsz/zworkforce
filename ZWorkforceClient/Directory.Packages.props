@@ -9,7 +9,7 @@
     <SystemWindowsExtensionsVersion>8.0.0</SystemWindowsExtensionsVersion>
     <TestSdkVersion>18.8.1</TestSdkVersion>
     <XunitVersion>2.9.3</XunitVersion>
-    <XunitRunnerVersion>3.1.5</XunitRunnerVersion>
+    <XunitRunnerVersion>4.0.0</XunitRunnerVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="Microsoft.WindowsAppSDK" Version="$(WindowsAppSdkVersion)" />
