@@ -5,9 +5,10 @@ locals {
     { hostname = var.zgw_hostname, service = var.zgw_ssh_target }
   ]
 
-  # Consolidated ingress: app_routes + per-service ingress locals (zworkforce, zeaz-one, zksato, etc.)
+  # Consolidated ingress: app_routes + per-service ingress locals (legacy, zworkforce, zeaz-one, zksato, etc.)
   # Keeps tunnel and DNS declarations co-located with their service files.
   all_service_ingress = concat(
+    try(local.legacy_ingress, []),
     try(local.zworkforce_ingress, []),
     try(local.zeaz_one_ingress, []),
     try(local.zksato_ingress, []),

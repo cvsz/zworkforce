@@ -199,3 +199,173 @@ variable "obs_ip" {
   default     = "192.168.74.130"
   description = "Legacy obs IP."
 }
+
+locals {
+  legacy_ingress = [
+    { hostname = var.moopiew_hostname, service = var.moopiew_origin },
+    { hostname = var.zttshop_hostname, service = var.zttshop_origin },
+    { hostname = "qwen.zeaz.dev", service = "http://127.0.0.1:8091" },
+    { hostname = var.chat_hostname, service = var.chat_origin },
+    { hostname = var.piewdash_hostname, service = var.piewdash_origin },
+    { hostname = var.zdash_hostname, service = var.zdash_origin },
+    { hostname = var.zerp_hostname, service = var.zerp_origin },
+    { hostname = "cme.zeaz.dev", service = "http://127.0.0.1:8001" },
+    { hostname = var.arin_hostname, service = var.arin_origin },
+    { hostname = "zai.zeaz.dev", service = "http://127.0.0.1:8765" },
+    { hostname = var.autoc_hostname, service = var.autoc_origin },
+    { hostname = var.zany_hostname, service = var.zany_origin },
+    { hostname = "auth.zeaz.dev", service = "http://127.0.0.1:8080" },
+    { hostname = "laps.zeaz.dev", service = "http://127.0.0.1:8080" },
+  ]
+}
+
+resource "cloudflare_dns_record" "moopiew" {
+  zone_id = var.cloudflare_zone_id
+  name    = var.moopiew_hostname
+  type    = "CNAME"
+  content = local.tunnel_cname
+  ttl     = 1
+  proxied = true
+  comment = "Moopiew platform via Cloudflare Tunnel"
+}
+
+resource "cloudflare_dns_record" "arin" {
+  zone_id = var.cloudflare_zone_id
+  name    = var.arin_hostname
+  type    = "CNAME"
+  content = local.tunnel_cname
+  ttl     = 1
+  proxied = true
+  comment = "Arin platform via Cloudflare Tunnel"
+}
+
+resource "cloudflare_dns_record" "zttshop" {
+  zone_id = var.cloudflare_zone_id
+  name    = var.zttshop_hostname
+  type    = "CNAME"
+  content = local.tunnel_cname
+  ttl     = 1
+  proxied = true
+  comment = "zttshop via Cloudflare Tunnel"
+}
+
+resource "cloudflare_dns_record" "chat" {
+  zone_id = var.cloudflare_zone_id
+  name    = var.chat_hostname
+  type    = "CNAME"
+  content = local.tunnel_cname
+  ttl     = 1
+  proxied = true
+  comment = "Chat service via Cloudflare Tunnel"
+}
+
+resource "cloudflare_dns_record" "piewdash" {
+  zone_id = var.cloudflare_zone_id
+  name    = var.piewdash_hostname
+  type    = "CNAME"
+  content = local.tunnel_cname
+  ttl     = 1
+  proxied = true
+  comment = "Piewdash via Cloudflare Tunnel"
+}
+
+resource "cloudflare_dns_record" "zerp" {
+  zone_id = var.cloudflare_zone_id
+  name    = var.zerp_hostname
+  type    = "CNAME"
+  content = local.tunnel_cname
+  ttl     = 1
+  proxied = true
+  comment = "ZERP via Cloudflare Tunnel"
+}
+
+resource "cloudflare_dns_record" "cmeerp" {
+  zone_id = var.cloudflare_zone_id
+  name    = "cme.zeaz.dev"
+  type    = "CNAME"
+  content = local.tunnel_cname
+  ttl     = 1
+  proxied = true
+  comment = "CME ERP via Cloudflare Tunnel"
+}
+
+resource "cloudflare_dns_record" "zai" {
+  zone_id = var.cloudflare_zone_id
+  name    = "zai.zeaz.dev"
+  type    = "CNAME"
+  content = local.tunnel_cname
+  ttl     = 1
+  proxied = true
+  comment = "ZAI via Cloudflare Tunnel"
+}
+
+resource "cloudflare_dns_record" "auth" {
+  zone_id = var.cloudflare_zone_id
+  name    = "auth.zeaz.dev"
+  type    = "CNAME"
+  content = local.tunnel_cname
+  ttl     = 1
+  proxied = true
+  comment = "Auth portal via Cloudflare Tunnel"
+}
+
+resource "cloudflare_dns_record" "laps" {
+  zone_id = var.cloudflare_zone_id
+  name    = "laps.zeaz.dev"
+  type    = "CNAME"
+  content = local.tunnel_cname
+  ttl     = 1
+  proxied = true
+  comment = "LAPS service via Cloudflare Tunnel"
+}
+
+resource "cloudflare_dns_record" "qwen" {
+  zone_id = var.cloudflare_zone_id
+  name    = "qwen.zeaz.dev"
+  type    = "CNAME"
+  content = local.tunnel_cname
+  ttl     = 1
+  proxied = true
+  comment = "Qwen service via Cloudflare Tunnel"
+}
+
+resource "cloudflare_dns_record" "ha_a" {
+  zone_id = var.cloudflare_zone_id
+  name    = var.ha_a_hostname
+  type    = "A"
+  content = var.ha_a_ip
+  ttl     = 1
+  proxied = false
+  comment = "HA node A DNS"
+}
+
+resource "cloudflare_dns_record" "ha_b" {
+  zone_id = var.cloudflare_zone_id
+  name    = var.ha_b_hostname
+  type    = "A"
+  content = var.ha_b_ip
+  ttl     = 1
+  proxied = false
+  comment = "HA node B DNS"
+}
+
+resource "cloudflare_dns_record" "obs" {
+  zone_id = var.cloudflare_zone_id
+  name    = var.obs_hostname
+  type    = "A"
+  content = var.obs_ip
+  ttl     = 1
+  proxied = false
+  comment = "Observability host DNS"
+}
+
+resource "cloudflare_dns_record" "core" {
+  zone_id = var.cloudflare_zone_id
+  name    = var.core_hostname
+  type    = "A"
+  content = var.core_ip
+  ttl     = 1
+  proxied = false
+  comment = "Core host DNS"
+}
+
