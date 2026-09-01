@@ -1,0 +1,25 @@
+[Unit]
+Description=Cloudflare Tunnel for zRouter (zgw.zeaz.dev)
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=cvsz
+Group=cvsz
+ExecStart=/tmp/cloudflared tunnel --config /tmp/tunnel-config.yml run
+Restart=always
+RestartSec=5
+Environment=HOME=/home/cvsz
+Environment=CLOUDFLARED_OPTS=--loglevel info
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadOnlyDirectories=/home/cvsz/.cloudflared
+
+[Install]
+WantedBy=multi-user.target

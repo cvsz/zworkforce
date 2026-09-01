@@ -8,10 +8,13 @@ web_search = "live"
 [mcp_servers.github]
 command = "npx"
 args = ["-y", "@modelcontextprotocol/server-github"]
+# npx may install the package on the first launch.
+startup_timeout_sec = 60
 
 [mcp_servers.context7]
 command = "npx"
 args = ["-y", "@upstash/context7-mcp@latest"]
+startup_timeout_sec = 60
 
 [mcp_servers.exa]
 url = "https://mcp.exa.ai/mcp"
@@ -23,10 +26,12 @@ env = { MEMORY_FILE_PATH = "/home/cvsz/.codex/mcp-memory/memory.jsonl" }
 [mcp_servers.playwright]
 command = "npx"
 args = ["-y", "@playwright/mcp@latest", "--extension"]
+startup_timeout_sec = 60
 
 [mcp_servers.sequential-thinking]
 command = "npx"
 args = ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+startup_timeout_sec = 60
 
 [features]
 multi_agent = true

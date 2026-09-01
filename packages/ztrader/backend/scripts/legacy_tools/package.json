@@ -1,0 +1,19 @@
+{
+  "name": "abtpi18n-tools",
+  "version": "1.0.0",
+  "description": "Tools and utilities for ABTPi18n project",
+  "private": true,
+  "scripts": {
+    "screenshot": "node screenshot_pages.js",
+    "screenshot:help": "echo 'Usage: npm run screenshot [-- --url=http://localhost:3000]'",
+    "test": "node test_setup.js",
+    "demo": "node generate_demo.js"
+  },
+  "dependencies": {
+    "playwright": "^1.40.0"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

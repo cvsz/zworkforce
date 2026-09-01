@@ -1,0 +1,60 @@
+{
+  "name": "zeaZdev-abtpro-i18n-monorepo",
+  "private": true,
+  "version": "1.0.1",
+  "description": "Auto Bot Trader Pro i18n Monorepo",
+  "license": "MIT",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:frontend": "pnpm --filter frontend dev",
+    "dev:backend": "cd apps/backend && uvicorn main:app --reload --port 8000",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:generate": "prisma generate",
+    "generate-metaultra": "bash scripts/zeaz_meta_installer.sh --generate",
+    "install-metaultra": "bash scripts/zeaz_meta_installer.sh --install",
+    "preview-metaultra": "bash scripts/zeaz_meta_installer.sh --preview",
+    "validate-metaultra": "bash scripts/validate-metaultra.sh",
+    "lint:py": "ruff check .",
+    "format:py": "ruff format . && black .",
+    "lint:js": "eslint --ext .js,.ts,.tsx . || true",
+    "format:js": "prettier --write .",
+    "lint": "pnpm -s run lint:js && pnpm -s run lint:py",
+    "format": "pnpm -w -s run format:js && pnpm -s run format:py",
+    "test:py": "pytest -q",
+    "test:js": "jest --runInBand"
+  },
+  "devDependencies": {
+    "prisma": "5.22.0",
+    "eslint": "9.39.4",
+    "prettier": "3.5.1",
+    "jest": "29.7.0",
+    "ts-jest": "29.1.0",
+    "@types/jest": "29.5.4"
+  },
+  "resolutions": {
+    "postcss": "latest",
+    "follow-redirects": "latest",
+    "qs": "latest",
+    "uuid": "latest",
+    "file-type": "latest",
+    "ip-address": "latest",
+    "esbuild": "latest",
+    "@tootallnate/once": "latest",
+    "ws": "latest",
+    "@protobufjs/utf8": "latest"
+  },
+  "overrides": {
+    "postcss": "latest",
+    "follow-redirects": "latest",
+    "qs": "latest",
+    "uuid": "latest",
+    "file-type": "latest",
+    "ip-address": "latest",
+    "esbuild": "latest",
+    "@tootallnate/once": "latest",
+    "ws": "latest",
+    "@protobufjs/utf8": "latest"
+  }
+}

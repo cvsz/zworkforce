@@ -1,0 +1,14 @@
+[tool.ruff]
+line-length = 120
+extend-exclude = ["tests/"]
+
+[tool.ruff.lint]
+ignore = [
+    "B008",    # Do not perform function call `Depends` in argument defaults (standard in FastAPI)
+    "E402",    # Module level import not at top of file
+    "N806",    # Variable X in function should be lowercase (X is standard for ML features matrix)
+    "N818",    # Exception name should be named with an Error suffix
+    "SIM105",  # Use contextlib.suppress instead of try-except-pass
+    "F841",    # Local variable is assigned to but never used
+    "B904",    # Within an `except` clause, raise exceptions with `raise ... from err`
+]

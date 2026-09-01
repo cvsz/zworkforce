@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/affaan-m/ECC.git",
+  "ref": "main",
+  "branch": "main",
+  "commit": "1e8c7e7994223e0ff337d1626cd08e04a1ae67ed",
+  "local_dir": ".vendor/ECC",
+  "import_mode": "local-only clone; source is ignored by git",
+  "license": "MIT",
+  "updated_at": "2026-05-24T06:56:00+00:00"
+}

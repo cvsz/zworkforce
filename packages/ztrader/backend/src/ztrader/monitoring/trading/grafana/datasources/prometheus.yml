@@ -1,0 +1,13 @@
+# ZeaZDev [Grafana Datasource Configuration] //
+# Project: Auto Bot Trader i18n //
+# Version: 1.0.0 (Phase 2) //
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true

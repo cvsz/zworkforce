@@ -1,0 +1,7 @@
+Profile 03
+
+General reasoning profile.
+
+Read README.md, AGENTS.md, SECURITY.md.
+
+Keep paper mode defaults. Update docs and tests. Avoid unreviewed broad rewrites.

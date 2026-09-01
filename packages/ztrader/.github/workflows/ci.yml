@@ -1,0 +1,97 @@
+name: ztrader CI Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f apps/ztrader/backend/requirements.txt ]; then
+            pip install -r apps/ztrader/backend/requirements.txt
+          fi
+          pip install pytest pytest-asyncio pydantic-settings sqlalchemy asyncpg
+
+      - name: Run Backend Tests
+        env:
+          ENCRYPTION_KEY: "mock-encryption-key-must-be-32-chars-long"
+          JWT_SECRET: "mock-jwt-secret-key"
+        run: |
+          PYTHONPATH=apps/ztrader/backend/src pytest apps/ztrader/backend/tests/ -v
+
+  tradingagents-integration-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install TradingAgents + dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r apps/ztrader/backend/requirements.txt
+          pip install pytest pytest-asyncio pydantic-settings
+
+      - name: Run TradingAgents Integration Tests
+        env:
+          ENCRYPTION_KEY: "mock-encryption-key-must-be-32-chars-long"
+          JWT_SECRET: "mock-jwt-secret-key"
+          OPENAI_API_KEY: "sk-test-placeholder"
+        run: |
+          PYTHONPATH=apps/ztrader/backend/src pytest apps/ztrader/backend/tests/test_tradingagents_integration.py -v
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies & build
+        run: |
+          if [ -f apps/ztrader/frontend/package.json ]; then
+            cd apps/ztrader/frontend
+            npm install
+            # Next.js build step (will act as compilation check when pages are added)
+            # npm run build
+          fi
+
+  secrets-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Scan for committed env files
+        run: |
+          if git ls-files | grep -Eq '(^|/)\.env($|/)'; then
+            echo "ERROR: Tracked .env file detected in repository!"
+            exit 1
+          fi
+          echo "No tracked .env files: OK"

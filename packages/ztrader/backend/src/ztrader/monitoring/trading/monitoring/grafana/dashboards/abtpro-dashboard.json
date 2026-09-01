@@ -1,0 +1,137 @@
+{
+  "dashboard": {
+    "title": "ABTPro Trading Dashboard",
+    "tags": ["trading", "abtpro"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Total Trades",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(trading_trades_total)",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Active Bots",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(bot_status)",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Circuit Breaker Trips",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(risk_circuit_breaker_trips_total)",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+      },
+      {
+        "id": 4,
+        "title": "Risk Checks",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(risk_checks_total)",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+      },
+      {
+        "id": 5,
+        "title": "Trades Over Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(trading_trades_total[5m])",
+            "legendFormat": "{{strategy}} - {{side}}",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+      },
+      {
+        "id": 6,
+        "title": "Strategy Signals",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(trading_strategy_signals_total[5m])",
+            "legendFormat": "{{strategy}} - {{signal_type}}",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+      },
+      {
+        "id": 7,
+        "title": "Current Equity",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "risk_current_equity",
+            "legendFormat": "Bot {{bot_id}}",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+      },
+      {
+        "id": 8,
+        "title": "Max Drawdown",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "risk_max_drawdown",
+            "legendFormat": "Bot {{bot_id}}",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+      },
+      {
+        "id": 9,
+        "title": "Strategy Execution Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.99, rate(strategy_execution_seconds_bucket[5m]))",
+            "legendFormat": "{{strategy}} p99",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20}
+      },
+      {
+        "id": 10,
+        "title": "WebSocket Activity",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(websocket_messages_total[5m])",
+            "legendFormat": "{{exchange}} - {{message_type}}",
+            "refId": "A"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20}
+      }
+    ],
+    "schemaVersion": 16,
+    "version": 0
+  }
+}

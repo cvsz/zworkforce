@@ -1,0 +1,232 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: ztrader-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ztrader}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in apps/ztrader/.env}
+      POSTGRES_DB: ${POSTGRES_DB:-ztrader_db}
+    ports:
+      - "127.0.0.1:${ZTRADER_POSTGRES_PORT:-15432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ztrader} -d ${POSTGRES_DB:-ztrader_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 512M
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run/postgresql
+
+  redis:
+    image: redis:7-alpine
+    container_name: ztrader-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--bind", "0.0.0.0", "--protected-mode", "yes"]
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-16379}:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  backend-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ztrader-backend-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8004}:8000"
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-ztrader}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ztrader_db}
+      REDIS_URL: redis://redis:6379/0
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY in apps/ztrader/.env}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in apps/ztrader/.env}
+      ADMIN_API_TOKEN: ${ADMIN_API_TOKEN:?Set ADMIN_API_TOKEN in apps/ztrader/.env}
+      TRADINGVIEW_WEBHOOK_SECRET: ${TRADINGVIEW_WEBHOOK_SECRET:-}
+      EXECUTION_MODE: ${EXECUTION_MODE:-paper}
+      LIVE_TRADING_ENABLED: ${LIVE_TRADING_ENABLED:-false}
+      GLOBAL_KILL_SWITCH: ${GLOBAL_KILL_SWITCH:-true}
+      RISK_MAX_ORDER_NOTIONAL: ${RISK_MAX_ORDER_NOTIONAL:-100.0}
+      RISK_ALLOWED_SYMBOLS: ${RISK_ALLOWED_SYMBOLS:-BTC/USDT,ETH/USDT}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks:
+      - default
+      - proxy
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 512M
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.ztrader-api.rule=Host(`api-ztrader.zeaz.dev`)
+      - traefik.http.routers.ztrader-api.entrypoints=web
+      - traefik.http.services.ztrader-api.loadbalancer.server.port=8000
+
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ztrader-celery-worker
+    restart: unless-stopped
+    depends_on:
+      backend-api:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-ztrader}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ztrader_db}
+      REDIS_URL: redis://redis:6379/0
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY in apps/ztrader/.env}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in apps/ztrader/.env}
+      EXECUTION_MODE: ${EXECUTION_MODE:-paper}
+      LIVE_TRADING_ENABLED: ${LIVE_TRADING_ENABLED:-false}
+      GLOBAL_KILL_SWITCH: ${GLOBAL_KILL_SWITCH:-true}
+      RISK_MAX_ORDER_NOTIONAL: ${RISK_MAX_ORDER_NOTIONAL:-100.0}
+      RISK_ALLOWED_SYMBOLS: ${RISK_ALLOWED_SYMBOLS:-BTC/USDT,ETH/USDT}
+    command: celery -A ztrader.worker worker --loglevel=info
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 512M
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ztrader-frontend
+    restart: unless-stopped
+    depends_on:
+      backend-api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3016}:3000"
+    environment:
+      NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL:-https://api-ztrader.zeaz.dev}
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-https://api-ztrader.zeaz.dev/api/v1}
+    networks:
+      - default
+      - proxy
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 256M
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /home/nextjs/.next/cache
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.ztrader-frontend.rule=Host(`ztrader.zeaz.dev`)
+      - traefik.http.routers.ztrader-frontend.entrypoints=web
+      - traefik.http.services.ztrader-frontend.loadbalancer.server.port=3000
+
+  # ─── TradingAgents LLM Trading Service ──────────────────────────────────────
+  tradingagents:
+    image: tradingagents:latest
+    build:
+      context: .
+      dockerfile: ../TradingAgents/Dockerfile
+    container_name: ztrader-tradingagents
+    restart: unless-stopped
+    profiles:
+      - llm
+      - full
+    env_file:
+      - .env
+    environment:
+      TRADINGAGENTS_LLM_PROVIDER: ${TRADINGAGENTS_LLM_PROVIDER:-openai}
+      TRADINGAGENTS_DEEP_THINK_LLM: ${TRADINGAGENTS_DEEP_THINK_LLM:-gpt-5.5}
+      TRADINGAGENTS_QUICK_THINK_LLM: ${TRADINGAGENTS_QUICK_THINK_LLM:-gpt-5.4-mini}
+    volumes:
+      - tradingagents_data:/home/appuser/.tradingagents
+    depends_on:
+      backend-api:
+        condition: service_healthy
+    tty: true
+    stdin_open: true
+    networks:
+      - default
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1G
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  pgdata:
+  redisdata:
+  tradingagents_data:
+
+networks:
+  proxy:
+    external: true

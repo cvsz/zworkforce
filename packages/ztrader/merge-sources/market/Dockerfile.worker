@@ -1,0 +1,18 @@
+FROM python:3.12-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+COPY pyproject.toml README.md ./
+COPY src ./src
+
+RUN python -m pip install --no-cache-dir --upgrade pip \
+    && python -m pip install --no-cache-dir .
+RUN groupadd -r appgroup && useradd -r -g appgroup appuser
+
+USER appuser
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 CMD python -c "exit(0)"
+
+CMD ["python", "-m", "zkbtrader.worker"]

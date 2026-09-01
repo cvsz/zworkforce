@@ -1,0 +1,101 @@
+services:
+  zrouter:
+    image: zrouter:hardened
+    container_name: zrouter
+    restart: always
+    ports:
+      - "127.0.0.1:20128:20128"
+    volumes:
+      - zrouter-data:/app/data
+    environment:
+      DATA_DIR: /app/data
+      PORT: "20128"
+      HOSTNAME: "0.0.0.0"
+      NODE_ENV: production
+      NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL}
+      BASE_URL: ${BASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      INITIAL_PASSWORD: ${INITIAL_PASSWORD}
+      API_KEY_SECRET: ${API_KEY_SECRET}
+      MACHINE_ID_SALT: ${MACHINE_ID_SALT}
+      REQUIRE_API_KEY: "true"
+      AUTH_COOKIE_SECURE: "true"
+      ENABLE_REQUEST_LOGS: "false"
+    env_file:
+      - .env
+    depends_on:
+      - caddy
+    networks:
+      - public-net
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=64m
+      - /app/data-home:noexec,nosuid,size=128m
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1g
+        reservations:
+          cpus: "0.25"
+          memory: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    networks:
+      - public-net
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=32m
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256m
+        reservations:
+          cpus: "0.1"
+          memory: 64m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  zrouter-data:
+    name: zrouter-data
+  caddy-data:
+    name: caddy-data
+  caddy-config:
+    name: caddy-config
+
+networks:
+  public-net:
+    driver: bridge

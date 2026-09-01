@@ -1,0 +1,56 @@
+Only in .ops/backups/zkbtrader: .agents
+Only in .ops/backups/zkbtrader: .claude
+Only in .ops/backups/zkbtrader: .codex
+Only in .ops/backups/zkbtrader: .coverage
+Only in apps/ztrader/.github: ISSUE_TEMPLATE
+Only in apps/ztrader/.github: PULL_REQUEST_TEMPLATE.md
+Only in apps/ztrader/.github/workflows: cd.yml
+Files .ops/backups/zkbtrader/.github/workflows/ci.yml and apps/ztrader/.github/workflows/ci.yml differ
+Only in .ops/backups/zkbtrader: .gitignore
+Only in .ops/backups/zkbtrader: .gitleaks.toml
+Only in .ops/backups/zkbtrader: .pre-commit-config.yaml
+Only in .ops/backups/zkbtrader: AGENTS.md
+Only in apps/ztrader: CODE_OF_CONDUCT.md
+Only in apps/ztrader: CONTRIBUTING.md
+Only in .ops/backups/zkbtrader: Dockerfile.api
+Only in .ops/backups/zkbtrader: Dockerfile.worker
+Only in .ops/backups/zkbtrader: IMPORT_SOURCE.md
+Files .ops/backups/zkbtrader/LICENSE and apps/ztrader/LICENSE differ
+Files .ops/backups/zkbtrader/Makefile and apps/ztrader/Makefile differ
+Only in apps/ztrader: Makefile.bak.20260610-040208
+Files .ops/backups/zkbtrader/README.md and apps/ztrader/README.md differ
+Files .ops/backups/zkbtrader/SECURITY.md and apps/ztrader/SECURITY.md differ
+Only in .ops/backups/zkbtrader: alembic
+Only in .ops/backups/zkbtrader: alembic.ini
+Only in apps/ztrader: backend
+Only in apps/ztrader: config
+Files .ops/backups/zkbtrader/docker-compose.yml and apps/ztrader/docker-compose.yml differ
+Only in .ops/backups/zkbtrader: docs
+Only in apps/ztrader: frontend
+Only in .ops/backups/zkbtrader/harness: p02.txt
+Only in .ops/backups/zkbtrader/harness: p03.txt
+Only in .ops/backups/zkbtrader/harness: p04.txt
+Only in .ops/backups/zkbtrader/harness: p05.txt
+Only in .ops/backups/zkbtrader/harness: p06.txt
+Only in .ops/backups/zkbtrader/harness: profile-a.txt
+Only in .ops/backups/zkbtrader/harness: profile07.txt
+Only in apps/ztrader/harness: trading
+Only in apps/ztrader: merge-sources
+Only in .ops/backups/zkbtrader: package-lock.json
+Only in .ops/backups/zkbtrader: package.json
+Only in .ops/backups/zkbtrader: prompts
+Only in .ops/backups/zkbtrader: pyproject.toml
+Only in .ops/backups/zkbtrader/reports: ecc
+Only in apps/ztrader/reports: merge
+Only in apps/ztrader/reports: trading
+Only in .ops/backups/zkbtrader/scripts: db-migrate.sh
+Only in .ops/backups/zkbtrader/scripts: dev.sh
+Only in .ops/backups/zkbtrader/scripts: ecc-import.sh
+Only in apps/ztrader/scripts: integrations
+Only in .ops/backups/zkbtrader/scripts: lint.sh
+Only in apps/ztrader/scripts: market
+Only in apps/ztrader/scripts: merge-sources.sh
+Only in .ops/backups/zkbtrader/scripts: secret-scan.sh
+Only in .ops/backups/zkbtrader/scripts: test.sh
+Only in .ops/backups/zkbtrader: src
+Only in .ops/backups/zkbtrader: tests

@@ -1,0 +1,9 @@
+ECC local import complete.
+
+Repository: https://github.com/affaan-m/ECC.git
+Ref:        main
+Branch:     main
+Commit:     1e8c7e7994223e0ff337d1626cd08e04a1ae67ed
+Local dir:  .vendor/ECC
+
+This project intentionally keeps ECC source local-only. Do not commit .vendor/ECC.

@@ -1,0 +1,80 @@
+# TradingView Strategy Configuration Example
+# This file demonstrates the structure for TradingView strategy configs
+# Place your strategy configs in the external strategies folder
+
+name: "TradingView RSI Divergence"
+description: "RSI divergence strategy with TradingView alerts"
+version: "1.0.0"
+author: "TradingView Community"
+
+# Strategy type
+type: "TRADINGVIEW"
+
+# Trading parameters
+parameters:
+  # Minimum confidence level to execute trades
+  min_confidence: 0.7
+  
+  # Risk management
+  risk_per_trade: 1.0  # Percentage of capital per trade
+  max_position_size: 5000  # Maximum position size in base currency
+  
+  # Stop loss and take profit (optional)
+  stop_loss_percent: 2.0
+  take_profit_percent: 4.0
+
+# Supported symbols
+symbols:
+  - "BTC/USDT"
+  - "ETH/USDT"
+  - "BNB/USDT"
+
+# Supported timeframes
+timeframes:
+  - "15m"
+  - "1h"
+  - "4h"
+
+# TradingView webhook settings
+webhook:
+  # Whether to auto-execute trades from alerts
+  auto_trade: false
+  
+  # Validate alerts against current market conditions
+  validate_price: true
+  price_deviation_threshold: 5.0  # Max % deviation from current price
+  
+  # Alert message template (for reference)
+  message_template: |
+    {
+      "ticker": "{{ticker}}",
+      "action": "{{strategy.order.action}}",
+      "price": {{close}},
+      "time": "{{time}}",
+      "interval": "{{interval}}",
+      "strategy": "TradingView RSI Divergence"
+    }
+
+# Exchange configuration
+exchanges:
+  - "binance"
+  - "bybit"
+
+# Notifications
+notifications:
+  telegram: true
+  email: false
+
+# Metadata
+tags:
+  - "rsi"
+  - "divergence"
+  - "tradingview"
+  - "momentum"
+
+notes: |
+  This strategy receives alerts from TradingView when RSI divergence is detected.
+  Configure the webhook URL in TradingView alert settings and include the
+  X-Webhook-Secret header for authentication.
+  
+  Alert conditions should be set up in TradingView with proper entry/exit signals.

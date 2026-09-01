@@ -1,0 +1,34 @@
+# ECC integration descriptor
+# Source repository: https://github.com/affaan-m/ECC
+# This file configures how ECC strategy assets should be interpreted by ABTPro.
+
+name: "ECC External Strategy Pack"
+description: "Integration metadata for affaan-m/ECC strategy assets"
+version: "1.0.0"
+author: "affaan-m"
+
+type: "EXTERNAL_PACKAGE"
+source:
+  repository: "https://github.com/affaan-m/ECC"
+  import_mode: "manual_review"
+  local_path: "strategies/external/ecc"
+
+execution:
+  enabled: false
+  auto_trade: false
+  mode: "dry_run"
+
+risk:
+  require_risk_manager: true
+  require_drawdown_guard: true
+  require_circuit_breaker: true
+  max_position_size: 0
+
+compliance:
+  require_audit_log: true
+  require_operator_approval: true
+
+notes: |
+  This descriptor does not execute any third-party code by itself.
+  After importing ECC files, review them and map strategy modules to
+  the internal Strategy interface before enabling runtime execution.

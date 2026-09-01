@@ -1,0 +1,14 @@
+# ZeaZDev [Prometheus Configuration] //
+# Project: Auto Bot Trader i18n //
+# Version: 1.0.0 (Phase 2) //
+# Author: ZeaZDev Meta-Intelligence (Generated) //
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'abtpro-backend'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/metrics'

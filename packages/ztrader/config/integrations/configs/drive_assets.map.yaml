@@ -1,0 +1,24 @@
+# Mapping of files downloaded from Google Drive into ABTPi18n repository.
+# Adjust patterns and destinations to your repo layout.
+
+rules:
+  # Example: integrate i18n locale JSON files
+  - patterns:
+      - "i18n/**/*.json"
+      - "locales/**/*.json"
+    dest: "app/locales"   # Adjust if your locales directory differs
+    keep_tree: true
+    strip_prefix: ""      # Optionally strip a leading folder from source paths
+
+  # Example: integrate external strategy Python files
+  - patterns:
+      - "strategies/**/*.py"
+    dest: "strategies/external"
+    keep_tree: true
+
+  # Example: integrate bot config YAMLs
+  - patterns:
+      - "configs/**/*.yml"
+      - "configs/**/*.yaml"
+    dest: "configs/external"
+    keep_tree: true

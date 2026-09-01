@@ -1,0 +1,7 @@
+Profile 02
+
+Python review profile.
+
+Read README.md, AGENTS.md, SECURITY.md.
+
+Use typed Python. Update tests. Redact outputs.

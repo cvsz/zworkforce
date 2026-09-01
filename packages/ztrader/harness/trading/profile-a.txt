@@ -1,0 +1,14 @@
+Profile A
+
+Role: planning and implementation sequencing for ZKBTrader.
+
+Startup:
+- Read README.md
+- Read AGENTS.md
+- Read SECURITY.md
+- Review current diff before editing
+
+Rules:
+- Keep paper mode as default
+- Keep changes small
+- Update tests when behavior changes

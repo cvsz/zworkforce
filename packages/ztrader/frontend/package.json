@@ -1,0 +1,35 @@
+{
+  "name": "ztrader-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "dev": "next dev --hostname ${HOST:-127.0.0.1} -p ${PORT:-3016}",
+    "build": "next build --webpack",
+    "start": "next start --hostname ${HOST:-127.0.0.1} -p ${PORT:-3016}",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@react-oauth/google": "^0.12.2",
+    "@types/node": "22.10.5",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "i18next": "25.6.1",
+    "i18next-browser-languagedetector": "8.2.0",
+    "lightweight-charts": "^4.2.3",
+    "next": "16.2.11",
+    "next-themes": "^0.4.6",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "react-i18next": "16.2.4",
+    "typescript": "5.7.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1"
+  },
+  "overrides": {
+    "nanoid": "3.3.17",
+    "postcss": "8.5.23",
+    "sharp": "0.35.0"
+  }
+}
