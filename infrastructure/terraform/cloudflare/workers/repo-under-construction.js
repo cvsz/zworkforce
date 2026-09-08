@@ -28,8 +28,22 @@ function escapeHtml(value) {
   }[char]));
 }
 
-function repoForHost(hostname) {
-  const label = String(hostname || '').toLowerCase().split('.')[0];
+function configuredRepoMap(env) {
+  try {
+    const value = JSON.parse(String(env?.ZEAZ_REPO_MAP || '{}'));
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  } catch {
+    return {};
+  }
+}
+
+function repoForHost(hostname, env) {
+  const normalizedHost = String(hostname || '').toLowerCase();
+  const configured = configuredRepoMap(env);
+  if (typeof configured[normalizedHost] === 'string' && configured[normalizedHost].trim()) {
+    return configured[normalizedHost].trim();
+  }
+  const label = normalizedHost.split('.')[0];
   return REPO_ALIASES[label] || label;
 }
 
@@ -64,17 +78,17 @@ main{width:min(760px,100%);padding:42px;border:1px solid var(--line);border-radi
 }
 
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     const url = new URL(request.url);
+    const repo = repoForHost(url.hostname, env);
     if (url.pathname === '/.well-known/zeaz-status' || url.pathname === '/health') {
       return Response.json({
         status: 'under-construction',
         hostname: url.hostname,
-        repository: `cvsz/${repoForHost(url.hostname)}`,
+        repository: `cvsz/${repo}`,
       }, { status: 200, headers: { 'Cache-Control': 'no-store' } });
     }
 
-    const repo = repoForHost(url.hostname);
     return new Response(page(url.hostname, repo), {
       status: 503,
       headers: {
