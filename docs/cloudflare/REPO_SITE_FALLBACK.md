@@ -104,10 +104,26 @@ For a live hostname, confirm the actual application still responds and is absent
 
 ## Promotion from Under Construction to live
 
+A fallback Worker intentionally intercepts all public paths for that hostname, so a normal public health probe cannot see a newly deployed origin until the exact Worker route is removed. Promotion therefore uses an explicit, reviewed override rather than guessing.
+
 1. Deploy the repository runtime and its intended DNS/tunnel route.
-2. Verify its public URL returns a live status (`2xx`, `3xx`, or an intentional authentication response).
-3. Rerun `scripts/cloudflare/reconcile-repo-sites.sh`.
-4. Confirm the hostname moves from `fallback` to `live` in `repo-fallback-status.json`.
-5. Apply the new targeted plan; Terraform removes that exact Worker route and traffic returns to the real service.
+2. Verify the origin locally or through an origin-bypassing operator check.
+3. Generate the removal plan with the exact hostname explicitly promoted:
+
+```bash
+ZEAZ_REPO_FORCE_LIVE=HOST.zeaz.dev \
+  bash scripts/cloudflare/reconcile-repo-sites.sh --wildcard-dns
+```
+
+4. Confirm `repo-fallback-status.json` records that hostname as live with `promotion-override` evidence and inspect the Terraform plan to ensure only that fallback route is removed.
+5. Apply the reviewed plan:
+
+```bash
+ZEAZ_REPO_FORCE_LIVE=HOST.zeaz.dev \
+ZEAZ_REPO_FALLBACK_APPLY=YES \
+  bash scripts/cloudflare/reconcile-repo-sites.sh --wildcard-dns --apply
+```
+
+6. Rerun the reconciler **without** `ZEAZ_REPO_FORCE_LIVE`. The real public service must now pass one of the normal health/root probes. If it does not, the generated plan will safely propose restoring the fallback route.
 
 This makes the repository/runtime state explicit without claiming an application is production-ready merely because its GitHub repository exists.
