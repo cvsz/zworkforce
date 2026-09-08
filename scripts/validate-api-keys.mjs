@@ -254,11 +254,26 @@ async function validateNetwork(keyName, keyValue, config, env, timeoutMs) {
   if (parsedBase.protocol !== "https:" && parsedBase.hostname !== "localhost" && parsedBase.hostname !== "127.0.0.1") {
     return { status: "invalid-config", detail: "Refusing a non-HTTPS remote endpoint." };
   }
+
   const configuredOrigins = (env.VALIDATED_PROVIDER_ORIGINS ?? "")
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
-  const allowedOrigins = new Set(configuredOrigins.length ? configuredOrigins : [new URL(config.defaultBase).origin]);
+  let allowedOrigins;
+  if (configuredOrigins.length) {
+    try {
+      allowedOrigins = new Set(configuredOrigins.map((origin) => new URL(origin).origin));
+    } catch {
+      return { status: "invalid-config", detail: "VALIDATED_PROVIDER_ORIGINS contains an invalid URL." };
+    }
+  } else if (config.defaultBase) {
+    allowedOrigins = new Set([new URL(config.defaultBase).origin]);
+  } else {
+    return {
+      status: "invalid-config",
+      detail: `${keyName} uses a custom provider origin; set VALIDATED_PROVIDER_ORIGINS explicitly.`,
+    };
+  }
   if (!allowedOrigins.has(parsedBase.origin)) {
     return { status: "invalid-config", detail: "Provider endpoint origin is not allowlisted." };
   }
