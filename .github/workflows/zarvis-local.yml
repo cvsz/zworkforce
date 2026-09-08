@@ -37,9 +37,9 @@ jobs:
           ZARVIS_PROACTIVE_WORKER_TOKEN=pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
           EOF
       - name: Validate local Compose configuration
-        run: docker compose --env-file .env.zarvis.local -f compose.zarvis-local.yml config --quiet
+        run: docker compose --env-file .env.zarvis.local -f zarvis-local-compose.yml config --quiet
       - name: Start loopback-only local deployment
-        run: docker compose --env-file .env.zarvis.local -f compose.zarvis-local.yml up -d
+        run: docker compose --env-file .env.zarvis.local -f zarvis-local-compose.yml up -d
       - name: Wait for local health
         shell: bash
         run: |
@@ -51,7 +51,7 @@ jobs:
             fi
             sleep 1
           done
-          docker compose --env-file .env.zarvis.local -f compose.zarvis-local.yml logs --no-color
+          docker compose --env-file .env.zarvis.local -f zarvis-local-compose.yml logs --no-color
           exit 1
       - name: Verify loopback sockets
         shell: bash
@@ -90,7 +90,7 @@ jobs:
           if-no-files-found: error
       - name: Dump logs on failure
         if: failure()
-        run: docker compose --env-file .env.zarvis.local -f compose.zarvis-local.yml logs --no-color
+        run: docker compose --env-file .env.zarvis.local -f zarvis-local-compose.yml logs --no-color
       - name: Stop local deployment
         if: always()
-        run: docker compose --env-file .env.zarvis.local -f compose.zarvis-local.yml down -v
+        run: docker compose --env-file .env.zarvis.local -f zarvis-local-compose.yml down -v
