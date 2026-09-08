@@ -44,7 +44,8 @@ gh auth status >/dev/null 2>&1 || fail "GitHub CLI is not authenticated"
 repos_json="$(mktemp)"
 candidates_tsv="$(mktemp)"
 results_tsv="$(mktemp)"
-trap 'rm -f "$repos_json" "$candidates_tsv" "$results_tsv"' EXIT
+probe_body="$(mktemp)"
+trap 'rm -f "$repos_json" "$candidates_tsv" "$results_tsv" "$probe_body"' EXIT
 
 log "discovering active repositories owned by ${OWNER}"
 gh repo list "$OWNER" --limit 1000 \
@@ -111,29 +112,57 @@ for host, repo in sorted(rows):
     print(f'{host}\t{repo}')
 PY
 
+is_live_code(){
+  local code="$1"
+  [[ "$code" =~ ^[23][0-9][0-9]$ ]] || \
+    [[ "$code" == "401" || "$code" == "403" || "$code" == "405" || "$code" == "429" ]]
+}
+
+probe_path(){
+  local host="$1" path="$2" code
+  : > "$probe_body"
+  code="$(curl --silent --show-error --location \
+    --connect-timeout 3 --max-time 8 \
+    --output "$probe_body" --write-out '%{http_code}' \
+    "https://${host}${path}" 2>/dev/null || true)"
+  [[ "$code" =~ ^[0-9]{3}$ ]] || code="000"
+  printf '%s' "$code"
+}
+
 : > "$results_tsv"
 count=0
 while IFS=$'\t' read -r host repo; do
   [[ -n "$host" && -n "$repo" ]] || continue
   count=$((count + 1))
-  code="$(curl --silent --show-error --location \
-    --connect-timeout 3 --max-time 8 \
-    --output /dev/null --write-out '%{http_code}' \
-    "https://${host}/" 2>/dev/null || true)"
-  [[ "$code" =~ ^[0-9]{3}$ ]] || code="000"
 
-  # 2xx/3xx are live. Auth/rate-limit responses also prove a deployed edge.
-  online=false
-  if [[ "$code" =~ ^[23][0-9][0-9]$ ]] || [[ "$code" == "401" || "$code" == "403" || "$code" == "405" || "$code" == "429" ]]; then
-    online=true
+  # A deployed fallback must remain classified as fallback. Otherwise its own
+  # /health=200 response would make the next reconciliation remove the route.
+  status_code="$(probe_path "$host" '/.well-known/zeaz-status')"
+  if [[ "$status_code" == "200" ]] && grep -Eq '"status"[[:space:]]*:[[:space:]]*"under-construction"' "$probe_body"; then
+    printf 'fallback\t%s\t%s\t%s\n' "$host" "$repo" "fallback-503" >> "$results_tsv"
+    log "FALLBACK ${host} -> ${OWNER}/${repo} (managed placeholder)"
+    continue
   fi
 
+  online=false
+  live_code=""
+  live_path=""
+  for path in '/health' '/api/v2/health' '/api/health' '/healthz' '/'; do
+    code="$(probe_path "$host" "$path")"
+    if is_live_code "$code"; then
+      online=true
+      live_code="$code"
+      live_path="$path"
+      break
+    fi
+  done
+
   if $online; then
-    printf 'live\t%s\t%s\t%s\n' "$host" "$repo" "$code" >> "$results_tsv"
-    log "LIVE     ${host} -> ${OWNER}/${repo} (HTTP ${code})"
+    printf 'live\t%s\t%s\t%s@%s\n' "$host" "$repo" "$live_code" "$live_path" >> "$results_tsv"
+    log "LIVE     ${host} -> ${OWNER}/${repo} (HTTP ${live_code} ${live_path})"
   else
-    printf 'fallback\t%s\t%s\t%s\n' "$host" "$repo" "$code" >> "$results_tsv"
-    log "FALLBACK ${host} -> ${OWNER}/${repo} (HTTP ${code})"
+    printf 'fallback\t%s\t%s\t%s\n' "$host" "$repo" "000" >> "$results_tsv"
+    log "FALLBACK ${host} -> ${OWNER}/${repo} (no positive health/root probe)"
   fi
 done < "$candidates_tsv"
 
@@ -152,11 +181,11 @@ live = []
 for raw in results.read_text(encoding='utf-8').splitlines():
     if not raw.strip():
         continue
-    state, host, repo, code = raw.split('\t', 3)
+    state, host, repo, evidence = raw.split('\t', 3)
     if state == 'fallback':
         fallback[host] = repo
     else:
-        live.append({'hostname': host, 'repository': repo, 'http_status': code})
+        live.append({'hostname': host, 'repository': repo, 'evidence': evidence})
 
 payload = {
     'enable_repo_fallback': True,
