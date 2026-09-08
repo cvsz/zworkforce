@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${ROOT_DIR}/.env.zarvis.local"
-COMPOSE_FILE="${ROOT_DIR}/compose.zarvis-local.yml"
+COMPOSE_FILE="${ROOT_DIR}/zarvis-local-compose.yml"
 
 command -v docker >/dev/null 2>&1 || { echo "docker is required" >&2; exit 1; }
 docker compose version >/dev/null 2>&1 || { echo "docker compose plugin is required" >&2; exit 1; }
@@ -11,7 +11,7 @@ command -v openssl >/dev/null 2>&1 || { echo "openssl is required" >&2; exit 1; 
 command -v curl >/dev/null 2>&1 || { echo "curl is required" >&2; exit 1; }
 
 if [[ "$(uname -s)" != "Linux" ]]; then
-  echo "compose.zarvis-local.yml uses host networking and requires Linux/Ubuntu." >&2
+  echo "zarvis-local-compose.yml uses host networking and requires Linux/Ubuntu." >&2
   echo "On Windows/macOS, run the Node services directly from their README files." >&2
   exit 1
 fi
