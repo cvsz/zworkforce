@@ -119,7 +119,8 @@ while IFS=$'\t' read -r host repo; do
   code="$(curl --silent --show-error --location \
     --connect-timeout 3 --max-time 8 \
     --output /dev/null --write-out '%{http_code}' \
-    "https://${host}/" 2>/dev/null || printf '000')"
+    "https://${host}/" 2>/dev/null || true)"
+  [[ "$code" =~ ^[0-9]{3}$ ]] || code="000"
 
   # 2xx/3xx are live. Auth/rate-limit responses also prove a deployed edge.
   online=false
@@ -179,9 +180,10 @@ log "generated ${OUT_FILE}"
 log "offline hostnames only will receive exact Under Construction Worker routes"
 
 cd "$TF_DIR"
+terraform init -input=false >/dev/null
 terraform fmt -check repo-fallback.tf >/dev/null
 terraform validate >/dev/null
-log "Terraform formatting and validation passed"
+log "Terraform initialization, formatting and validation passed"
 
 plan_file="tfplan.repo-fallback"
 terraform plan \
