@@ -45,6 +45,11 @@ resource "cloudflare_workers_script" "repo_under_construction" {
   main_module        = "repo-under-construction.js"
   content_file       = "${path.module}/workers/repo-under-construction.js"
   content_sha256     = filesha256("${path.module}/workers/repo-under-construction.js")
+  bindings = [{
+    name = "ZEAZ_REPO_MAP"
+    type = "plain_text"
+    text = jsonencode(var.repo_fallback_sites)
+  }]
 }
 
 resource "cloudflare_workers_route" "repo_under_construction" {
