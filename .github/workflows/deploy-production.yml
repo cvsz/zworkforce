@@ -39,7 +39,21 @@ jobs:
       BILLING_LEDGER_URL: ${{ secrets.BILLING_LEDGER_URL }}
 
     steps:
-      - uses: actions/checkout@v7
+      - name: Checkout selected immutable release
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.release_sha }}
+          fetch-depth: 0
+
+      - name: Verify selected release checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          test "$actual" = "$RELEASE_SHA" || {
+            echo "Checked out $actual instead of requested release $RELEASE_SHA" >&2
+            exit 1
+          }
 
       - name: Repair and verify shell helper checkout
         shell: bash
@@ -140,8 +154,10 @@ jobs:
           trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
           printf '%s' "$GHCR_EFFECTIVE_TOKEN" | docker login ghcr.io --username "$GHCR_EFFECTIVE_USERNAME" --password-stdin >/dev/null
 
+          # Phase 6 staging verification is consolidated into zc-api; there is no
+          # independent phase6-api Kubernetes workload to pin or probe.
           image_overrides=()
-          for name in phase6-api zc-api ai-gateway zchat; do
+          for name in zc-api ai-gateway zchat; do
             image="ghcr.io/${GITHUB_REPOSITORY}/${name}:sha-${RELEASE_SHA}"
             digest="$(docker buildx imagetools inspect "$image" --format '{{.Manifest.Digest}}')"
             [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || {
@@ -177,12 +193,11 @@ jobs:
         run: |
           set -euo pipefail
           declare -A probes=(
-            [phase6-api]="health/live"
             [zc-api]="v1/wire/health/live"
             [ai-gateway]="health"
             [zchat]="health/live"
           )
-          for service in phase6-api zc-api ai-gateway zchat; do
+          for service in zc-api ai-gateway zchat; do
             payload="$(kubectl get --raw "/api/v1/namespaces/z-platform/services/${service}:http/proxy/${probes[$service]}")"
             actual="$(jq -er '.release_sha' <<<"$payload")"
             if [[ "$actual" != "$RELEASE_SHA" ]]; then
