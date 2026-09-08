@@ -6,6 +6,7 @@ ZONE="${ZEAZ_ZONE:-zeaz.dev}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TF_DIR="${ZEAZ_CLOUDFLARE_TF_DIR:-${ROOT_DIR}/infrastructure/terraform/cloudflare}"
 OUT_FILE="${ZEAZ_REPO_FALLBACK_TFVARS:-${TF_DIR}/repo-fallback.auto.tfvars.json}"
+FORCE_LIVE_RAW="${ZEAZ_REPO_FORCE_LIVE:-}"
 ENABLE_WILDCARD_DNS=false
 APPLY=false
 
@@ -28,6 +29,12 @@ only offline hostnames to the repo-aware Under Construction Worker.
                 Exact DNS records still take precedence. Review the plan first.
 --apply         Apply only the fallback Worker/route/DNS resources. Requires
                 ZEAZ_REPO_FALLBACK_APPLY=YES.
+
+Promotion override:
+  ZEAZ_REPO_FORCE_LIVE=host1.zeaz.dev,host2.zeaz.dev
+  Explicitly removes listed hosts from fallback after their real runtime/origin
+  has been deployed. Apply that plan, then rerun without the override to verify
+  the public service directly.
 EOF
       exit 0
       ;;
@@ -61,8 +68,6 @@ from urllib.parse import urlparse
 
 repos = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
 zone = sys.argv[2].strip().lower().rstrip('.')
-
-# Aliases keep existing ZeaZDev host naming aligned with the owning repository.
 aliases = {
     'zworkforce': ['zwf', 'zwf-api', 'zslog', 'zarvis', 'autoc', 'laps'],
     'zsp-aitool': ['studio', 'zider'],
@@ -78,8 +83,7 @@ explicit_non_z = {'stremdbc', 'cmeerp', 'open-webui', 'qwen-gen'}
 def safe_label(name: str) -> str:
     value = name.strip().lower().replace('_', '-').replace('.', '-')
     value = re.sub(r'[^a-z0-9-]+', '-', value)
-    value = re.sub(r'-+', '-', value).strip('-')
-    return value
+    return re.sub(r'-+', '-', value).strip('-')
 
 rows = set()
 for repo in repos:
@@ -90,17 +94,13 @@ for repo in repos:
         continue
     lowered = name.lower()
     homepage = str(repo.get('homepageUrl') or '').strip()
-    homepage_host = ''
     if homepage:
         try:
             homepage_host = (urlparse(homepage).hostname or '').lower().rstrip('.')
         except ValueError:
             homepage_host = ''
-    if homepage_host.endswith('.' + zone):
-        rows.add((homepage_host, name))
-
-    # Product repositories follow the z*/zeaz* naming convention. Tool/library
-    # forks outside that convention are intentionally not assigned public sites.
+        if homepage_host.endswith('.' + zone):
+            rows.add((homepage_host, name))
     if lowered.startswith('z') or lowered.startswith('zeaz') or lowered in explicit_non_z:
         label = safe_label(name)
         if label:
@@ -116,6 +116,16 @@ is_live_code(){
   local code="$1"
   [[ "$code" =~ ^[23][0-9][0-9]$ ]] || \
     [[ "$code" == "401" || "$code" == "403" || "$code" == "405" || "$code" == "429" ]]
+}
+
+is_forced_live(){
+  local host="$1" item
+  IFS=',' read -ra items <<< "$FORCE_LIVE_RAW"
+  for item in "${items[@]}"; do
+    item="${item//[[:space:]]/}"
+    [[ -n "$item" && "${item,,}" == "${host,,}" ]] && return 0
+  done
+  return 1
 }
 
 probe_path(){
@@ -135,11 +145,15 @@ while IFS=$'\t' read -r host repo; do
   [[ -n "$host" && -n "$repo" ]] || continue
   count=$((count + 1))
 
-  # A deployed fallback must remain classified as fallback. Otherwise its own
-  # /health=200 response would make the next reconciliation remove the route.
+  if is_forced_live "$host"; then
+    printf 'live\t%s\t%s\t%s\n' "$host" "$repo" "promotion-override" >> "$results_tsv"
+    log "PROMOTE  ${host} -> ${OWNER}/${repo} (explicit override; verify again after apply)"
+    continue
+  fi
+
   status_code="$(probe_path "$host" '/.well-known/zeaz-status')"
   if [[ "$status_code" == "200" ]] && grep -Eq '"status"[[:space:]]*:[[:space:]]*"under-construction"' "$probe_body"; then
-    printf 'fallback\t%s\t%s\t%s\n' "$host" "$repo" "fallback-503" >> "$results_tsv"
+    printf 'fallback\t%s\t%s\t%s\n' "$host" "$repo" "managed-placeholder" >> "$results_tsv"
     log "FALLBACK ${host} -> ${OWNER}/${repo} (managed placeholder)"
     continue
   fi
@@ -161,7 +175,7 @@ while IFS=$'\t' read -r host repo; do
     printf 'live\t%s\t%s\t%s@%s\n' "$host" "$repo" "$live_code" "$live_path" >> "$results_tsv"
     log "LIVE     ${host} -> ${OWNER}/${repo} (HTTP ${live_code} ${live_path})"
   else
-    printf 'fallback\t%s\t%s\t%s\n' "$host" "$repo" "000" >> "$results_tsv"
+    printf 'fallback\t%s\t%s\t%s\n' "$host" "$repo" "no-positive-probe" >> "$results_tsv"
     log "FALLBACK ${host} -> ${OWNER}/${repo} (no positive health/root probe)"
   fi
 done < "$candidates_tsv"
