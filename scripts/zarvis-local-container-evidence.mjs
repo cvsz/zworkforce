@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 
 const envFile = process.env.ZARVIS_LOCAL_ENV_FILE ?? '.env.zarvis.local';
-const composeFile = process.env.ZARVIS_LOCAL_COMPOSE_FILE ?? 'compose.zarvis-local.yml';
+const composeFile = process.env.ZARVIS_LOCAL_COMPOSE_FILE ?? 'zarvis-local-compose.yml';
 const actionPort = Number(process.env.ZARVIS_ACTION_PORT ?? 8098);
 const proactivePort = Number(process.env.ZARVIS_PROACTIVE_PORT ?? 8099);
 const services = [
