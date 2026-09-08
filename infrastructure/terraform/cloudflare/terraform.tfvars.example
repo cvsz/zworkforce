@@ -124,3 +124,24 @@ app_routes = {
     access_enabled = false
   }
 }
+
+# ─────────────────────────────────────────────────────────────────────
+# ZASI — Omniversal Superintelligence J.A.R.V.I.S. Cockpit
+# ─────────────────────────────────────────────────────────────────────
+enable_zasi   = true
+zasi_hostname = "zasi.zeaz.dev"
+zasi_origin   = "http://127.0.0.1:8080"
+
+# ─────────────────────────────────────────────────────────────────────
+# MoneyPrinterTurbo WebUI
+# ─────────────────────────────────────────────────────────────────────
+enable_mpt   = true
+mpt_hostname = "mpt.zeaz.dev"
+mpt_origin   = "http://127.0.0.1:8501"
+
+# ─────────────────────────────────────────────────────────────────────
+# zMovie — AI Movie Production Studio
+# ─────────────────────────────────────────────────────────────────────
+enable_zmovie   = true
+zmovie_hostname = "zmovie.zeaz.dev"
+zmovie_origin   = "http://127.0.0.1:8080"

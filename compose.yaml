@@ -34,6 +34,7 @@ services:
       ZWORKFORCE_PROVIDER: ${ZWORKFORCE_PROVIDER:-openai-compatible}
       ZWORKFORCE_PROVIDER_BASE_URL: ${ZWORKFORCE_PROVIDER_BASE_URL:-https://api.openai.com/v1}
       ZWORKFORCE_PROVIDER_API_KEY: ${ZWORKFORCE_PROVIDER_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       ZWORKFORCE_PROVIDERS_JSON: ${ZWORKFORCE_PROVIDERS_JSON:-}
       ZWORKFORCE_HTTP_ALLOWLIST: ${ZWORKFORCE_HTTP_ALLOWLIST:-}
       ZWORKFORCE_SHELL_ENABLED: ${ZWORKFORCE_SHELL_ENABLED:-false}
@@ -184,6 +185,8 @@ services:
       ZARVIS_ACTION_PORT: ${ZARVIS_ACTION_PORT:-8098}
       ZARVIS_ACTION_WORKER_INTERVAL_MS: ${ZARVIS_ACTION_WORKER_INTERVAL_MS:-1000}
       ZARVIS_ACTION_WORKER_TOKEN: ${ZARVIS_ACTION_WORKER_TOKEN:-development-worker-token}
+    volumes:
+      - ./:/workspace:ro
     depends_on:
       zarvis-action-gateway:
         condition: service_healthy
@@ -240,6 +243,8 @@ services:
       ZARVIS_PROACTIVE_PORT: ${ZARVIS_PROACTIVE_PORT:-8099}
       ZARVIS_PROACTIVE_WORKER_INTERVAL_MS: ${ZARVIS_PROACTIVE_WORKER_INTERVAL_MS:-60000}
       ZARVIS_PROACTIVE_WORKER_TOKEN: ${ZARVIS_PROACTIVE_WORKER_TOKEN:-development-worker-token}
+    volumes:
+      - ./:/workspace:ro
     depends_on:
       zarvis-proactive:
         condition: service_healthy

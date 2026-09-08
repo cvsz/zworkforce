@@ -17,7 +17,7 @@
 
 [🚀 شروع سریع](#-شروع-سریع) • [💡 ویژگی‌ها](#-ویژگی‌های-کلیدی) • [📖 راه‌اندازی](#-راهنمای-راه‌اندازی) • [🌐 وب‌سایت](https://zrouter.com)
 
-[🇻🇳 Tiếng Việt](./i18n/README.vi.md) • [🇨🇳 中文](./i18n/README.zh-CN.md) • [🇯🇵 日本語](./i18n/README.ja-JP.md) • [🇷🇺 Русский](./i18n/README.ru.md) • [🇮🇷 فارسی](./i18n/README.fa_IR.md)
+[🇻🇳 Tiếng Việt](./README.vi.md) • [🇨🇳 中文](./README.zh-CN.md) • [🇯🇵 日本語](./README.ja-JP.md) • [🇷🇺 Русский](./README.ru.md) • [🇮🇷 فارسی](./README.fa_IR.md)
 
 </div>
 
@@ -1433,7 +1433,7 @@ Authorization: Bearer your-api-key
 
 ## 📄 مجوز
 
-مجوز MIT - برای جزئیات به [LICENSE](LICENSE) مراجعه کنید.
+مجوز MIT - برای جزئیات به [LICENSE](../LICENSE) مراجعه کنید.
 
 ---
 

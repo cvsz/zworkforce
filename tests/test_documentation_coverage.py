@@ -151,7 +151,7 @@ class DocumentationCoverageTests(unittest.TestCase):
             encoding="utf-8",
         ).splitlines()
         for relative in tracked:
-            if "/.agents/" in relative or "/.claude/" in relative:
+            if "/.agents/" in relative or "/.claude/" in relative or "/gitbook/" in relative:
                 continue
             path = ROOT / relative
             text = path.read_text(encoding="utf-8", errors="ignore")

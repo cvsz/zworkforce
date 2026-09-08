@@ -2,7 +2,7 @@ import os
 import sqlite3
 from pathlib import Path
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 from common import stack
 from zworkforce.config import Settings
@@ -125,7 +125,9 @@ class ProductionFixesTests(unittest.TestCase):
 
         db = ClaimOnlyDB()
         dispatcher = OutboxDispatcher(db)
-        with patch("urllib.request.urlopen", return_value=Response()):
+        mock_opener = MagicMock()
+        mock_opener.open.return_value = Response()
+        with patch("urllib.request.build_opener", return_value=mock_opener):
             result = dispatcher.tick(owner_id="outbox-test")
 
         self.assertEqual(result["delivered"], 1)

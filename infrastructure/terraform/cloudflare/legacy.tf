@@ -97,7 +97,7 @@ variable "piewdash_origin" {
 }
 variable "piewdash_access_allowed_emails" {
   type        = set(string)
-  default     = []
+  default     = ["seaza@msn.com"]
   description = "Legacy piewdash Access allow list."
   validation {
     condition = alltrue([

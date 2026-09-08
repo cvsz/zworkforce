@@ -304,7 +304,7 @@ MIT License - Part of ABTPro i18n Project
 
 **Made with ❤️ by ZeaZDev**
 
-Part of [ABTPro i18n](../README.md) - Multi-language Automated Trading Platform
+Part of [ABTPro i18n](../../../README.md) - Multi-language Automated Trading Platform
 
 [Documentation](README_SCREENSHOTS.md) • [Examples](EXAMPLES.md) • [Summary](SUMMARY.md)
 
