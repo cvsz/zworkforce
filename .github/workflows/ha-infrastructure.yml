@@ -6,6 +6,7 @@ on:
       - ".github/workflows/ha-infrastructure.yml"
       - "deploy/cloudflare/**"
       - "infrastructure/terraform/cloudflare/**"
+      - "scripts/cloudflare/**"
       - "scripts/cloudflare-*.sh"
       - "scripts/lib/cloudflare-terraform-env.sh"
       - "scripts/verify-zarvis-online.sh"
@@ -37,6 +38,11 @@ jobs:
       - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: "1.14.5"
+      - name: Validate repo fallback scripts
+        run: |
+          bash -n scripts/cloudflare/reconcile-repo-sites.sh
+          node --check infrastructure/terraform/cloudflare/workers/repo-under-construction.js
+          bash scripts/cloudflare/reconcile-repo-sites.sh --help >/dev/null
       - name: Terraform format
         run: terraform -chdir=infrastructure/terraform/cloudflare fmt -check -recursive
       - name: Terraform init without backend

@@ -1,0 +1,248 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+OWNER="${ZEAZ_REPO_OWNER:-cvsz}"
+ZONE="${ZEAZ_ZONE:-zeaz.dev}"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+TF_DIR="${ZEAZ_CLOUDFLARE_TF_DIR:-${ROOT_DIR}/infrastructure/terraform/cloudflare}"
+OUT_FILE="${ZEAZ_REPO_FALLBACK_TFVARS:-${TF_DIR}/repo-fallback.auto.tfvars.json}"
+FORCE_LIVE_RAW="${ZEAZ_REPO_FORCE_LIVE:-}"
+ENABLE_WILDCARD_DNS=false
+APPLY=false
+
+log(){ printf '[zeaz repo routing] %s\n' "$*"; }
+fail(){ printf '[zeaz repo routing] ERROR: %s\n' "$*" >&2; exit 1; }
+
+for arg in "$@"; do
+  case "$arg" in
+    --apply) APPLY=true ;;
+    --wildcard-dns) ENABLE_WILDCARD_DNS=true ;;
+    --help|-h)
+      cat <<'EOF'
+Usage: scripts/cloudflare/reconcile-repo-sites.sh [--wildcard-dns] [--apply]
+
+Discovers active cvsz product repositories, maps them to *.zeaz.dev hostnames,
+checks current public reachability, and writes Terraform variables that route
+only offline hostnames to the repo-aware Under Construction Worker.
+
+--wildcard-dns  Also manage a proxied *.zeaz.dev CNAME to the existing tunnel.
+                Exact DNS records still take precedence. Review the plan first.
+--apply         Apply only the fallback Worker/route/DNS resources. Requires
+                ZEAZ_REPO_FALLBACK_APPLY=YES.
+
+Promotion override:
+  ZEAZ_REPO_FORCE_LIVE=host1.zeaz.dev,host2.zeaz.dev
+  Explicitly removes listed hosts from fallback after their real runtime/origin
+  has been deployed. Apply that plan, then rerun without the override to verify
+  the public service directly.
+EOF
+      exit 0
+      ;;
+    *) fail "unknown argument: $arg" ;;
+  esac
+done
+
+for cmd in gh python3 curl terraform; do
+  command -v "$cmd" >/dev/null 2>&1 || fail "$cmd is required"
+done
+gh auth status >/dev/null 2>&1 || fail "GitHub CLI is not authenticated"
+[[ -d "$TF_DIR" ]] || fail "Terraform directory not found: $TF_DIR"
+
+repos_json="$(mktemp)"
+candidates_tsv="$(mktemp)"
+results_tsv="$(mktemp)"
+probe_body="$(mktemp)"
+trap 'rm -f "$repos_json" "$candidates_tsv" "$results_tsv" "$probe_body"' EXIT
+
+log "discovering active repositories owned by ${OWNER}"
+gh repo list "$OWNER" --limit 1000 \
+  --json name,isArchived,isFork,homepageUrl,url \
+  > "$repos_json"
+
+python3 - "$repos_json" "$ZONE" > "$candidates_tsv" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+from urllib.parse import urlparse
+
+repos = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
+zone = sys.argv[2].strip().lower().rstrip('.')
+aliases = {
+    'zworkforce': ['zwf', 'zwf-api', 'zslog', 'zarvis', 'autoc', 'laps'],
+    'zsp-aitool': ['studio', 'zider'],
+    'open-webui': ['chat'],
+    'qwen-gen': ['qwen'],
+    'zeaz-ai-command-center': ['zai'],
+    'zttshop-php': ['zttshop'],
+    'cmeerp': ['cme'],
+    'zanything': ['zany'],
+}
+explicit_non_z = {'stremdbc', 'cmeerp', 'open-webui', 'qwen-gen'}
+
+def safe_label(name: str) -> str:
+    value = name.strip().lower().replace('_', '-').replace('.', '-')
+    value = re.sub(r'[^a-z0-9-]+', '-', value)
+    return re.sub(r'-+', '-', value).strip('-')
+
+rows = set()
+for repo in repos:
+    if repo.get('isArchived') or repo.get('isFork'):
+        continue
+    name = str(repo.get('name') or '').strip()
+    if not name:
+        continue
+    lowered = name.lower()
+    homepage = str(repo.get('homepageUrl') or '').strip()
+    if homepage:
+        try:
+            homepage_host = (urlparse(homepage).hostname or '').lower().rstrip('.')
+        except ValueError:
+            homepage_host = ''
+        if homepage_host.endswith('.' + zone):
+            rows.add((homepage_host, name))
+    if lowered.startswith('z') or lowered.startswith('zeaz') or lowered in explicit_non_z:
+        label = safe_label(name)
+        if label:
+            rows.add((f'{label}.{zone}', name))
+    for alias in aliases.get(lowered, []):
+        rows.add((f'{alias}.{zone}', name))
+
+for host, repo in sorted(rows):
+    print(f'{host}\t{repo}')
+PY
+
+is_live_code(){
+  local code="$1"
+  [[ "$code" =~ ^[23][0-9][0-9]$ ]] || \
+    [[ "$code" == "401" || "$code" == "403" || "$code" == "405" || "$code" == "429" ]]
+}
+
+is_forced_live(){
+  local host="$1" item
+  IFS=',' read -ra items <<< "$FORCE_LIVE_RAW"
+  for item in "${items[@]}"; do
+    item="${item//[[:space:]]/}"
+    [[ -n "$item" && "${item,,}" == "${host,,}" ]] && return 0
+  done
+  return 1
+}
+
+probe_path(){
+  local host="$1" path="$2" code
+  : > "$probe_body"
+  code="$(curl --silent --show-error --location \
+    --connect-timeout 3 --max-time 8 \
+    --output "$probe_body" --write-out '%{http_code}' \
+    "https://${host}${path}" 2>/dev/null || true)"
+  [[ "$code" =~ ^[0-9]{3}$ ]] || code="000"
+  printf '%s' "$code"
+}
+
+: > "$results_tsv"
+count=0
+while IFS=$'\t' read -r host repo; do
+  [[ -n "$host" && -n "$repo" ]] || continue
+  count=$((count + 1))
+
+  if is_forced_live "$host"; then
+    printf 'live\t%s\t%s\t%s\n' "$host" "$repo" "promotion-override" >> "$results_tsv"
+    log "PROMOTE  ${host} -> ${OWNER}/${repo} (explicit override; verify again after apply)"
+    continue
+  fi
+
+  status_code="$(probe_path "$host" '/.well-known/zeaz-status')"
+  if [[ "$status_code" == "200" ]] && grep -Eq '"status"[[:space:]]*:[[:space:]]*"under-construction"' "$probe_body"; then
+    printf 'fallback\t%s\t%s\t%s\n' "$host" "$repo" "managed-placeholder" >> "$results_tsv"
+    log "FALLBACK ${host} -> ${OWNER}/${repo} (managed placeholder)"
+    continue
+  fi
+
+  online=false
+  live_code=""
+  live_path=""
+  for path in '/health' '/api/v2/health' '/api/health' '/healthz' '/'; do
+    code="$(probe_path "$host" "$path")"
+    if is_live_code "$code"; then
+      online=true
+      live_code="$code"
+      live_path="$path"
+      break
+    fi
+  done
+
+  if $online; then
+    printf 'live\t%s\t%s\t%s@%s\n' "$host" "$repo" "$live_code" "$live_path" >> "$results_tsv"
+    log "LIVE     ${host} -> ${OWNER}/${repo} (HTTP ${live_code} ${live_path})"
+  else
+    printf 'fallback\t%s\t%s\t%s\n' "$host" "$repo" "no-positive-probe" >> "$results_tsv"
+    log "FALLBACK ${host} -> ${OWNER}/${repo} (no positive health/root probe)"
+  fi
+done < "$candidates_tsv"
+
+[[ "$count" -gt 0 ]] || fail "no candidate repo hostnames were discovered"
+
+python3 - "$results_tsv" "$OUT_FILE" "$ENABLE_WILDCARD_DNS" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+results = Path(sys.argv[1])
+out = Path(sys.argv[2])
+wildcard = sys.argv[3].lower() == 'true'
+fallback = {}
+live = []
+for raw in results.read_text(encoding='utf-8').splitlines():
+    if not raw.strip():
+        continue
+    state, host, repo, evidence = raw.split('\t', 3)
+    if state == 'fallback':
+        fallback[host] = repo
+    else:
+        live.append({'hostname': host, 'repository': repo, 'evidence': evidence})
+
+payload = {
+    'enable_repo_fallback': True,
+    'enable_repo_fallback_wildcard_dns': wildcard,
+    'repo_fallback_sites': dict(sorted(fallback.items())),
+}
+out.write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+summary = out.with_name('repo-fallback-status.json')
+summary.write_text(json.dumps({
+    'live_count': len(live),
+    'fallback_count': len(fallback),
+    'live': live,
+    'fallback': [{'hostname': h, 'repository': r} for h, r in sorted(fallback.items())],
+}, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+print(f'wrote {out}')
+print(f'wrote {summary}')
+print(f'live={len(live)} fallback={len(fallback)}')
+PY
+
+log "generated ${OUT_FILE}"
+log "offline hostnames only will receive exact Under Construction Worker routes"
+
+cd "$TF_DIR"
+terraform init -input=false >/dev/null
+terraform fmt -check repo-fallback.tf >/dev/null
+terraform validate >/dev/null
+log "Terraform initialization, formatting and validation passed"
+
+plan_file="tfplan.repo-fallback"
+terraform plan \
+  -target=cloudflare_workers_script.repo_under_construction \
+  -target=cloudflare_workers_route.repo_under_construction \
+  -target=cloudflare_dns_record.repo_fallback_wildcard \
+  -out="$plan_file"
+
+if ! $APPLY; then
+  log "PLAN ONLY: inspect ${TF_DIR}/${plan_file}; rerun with --apply after review"
+  exit 0
+fi
+
+[[ "${ZEAZ_REPO_FALLBACK_APPLY:-}" == "YES" ]] || \
+  fail "--apply requires ZEAZ_REPO_FALLBACK_APPLY=YES"
+
+terraform apply "$plan_file"
+rm -f "$plan_file"
+log "PASS: offline repo hostnames now use the repo-aware Under Construction Worker"
