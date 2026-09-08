@@ -107,12 +107,12 @@ jobs:
         env:
           Z_PLATFORM_SERVICE_TOKEN: ci-placeholder-not-a-secret
           ZC_API_TOKEN: ci-placeholder-not-a-secret
-        run: docker compose config --quiet
+        run: docker compose -f services-compose.yml config --quiet
       - name: Build local deployment images
         env:
           Z_PLATFORM_SERVICE_TOKEN: ci-placeholder-not-a-secret
           ZC_API_TOKEN: ci-placeholder-not-a-secret
-        run: docker compose build
+        run: docker compose -f services-compose.yml build
 
   deployed-smoke:
     runs-on: ubuntu-latest
@@ -128,7 +128,7 @@ jobs:
           node-version: 24
           package-manager-cache: false
       - name: Start isolated Compose deployment
-        run: docker compose up -d --build
+        run: docker compose -f services-compose.yml up -d --build
       - name: Wait for every service to become healthy
         shell: bash
         run: |
@@ -137,7 +137,7 @@ jobs:
           for attempt in $(seq 1 60); do
             unhealthy=()
             for service in "${services[@]}"; do
-              container_id="$(docker compose ps -q "$service")"
+              container_id="$(docker compose -f services-compose.yml ps -q "$service")"
               if [ -z "$container_id" ]; then
                 unhealthy+=("$service:missing")
                 continue
@@ -149,8 +149,8 @@ jobs:
             echo "waiting for: ${unhealthy[*]}"
             sleep 2
           done
-          docker compose ps
-          docker compose logs
+          docker compose -f services-compose.yml ps
+          docker compose -f services-compose.yml logs
           exit 1
       - name: Run deployed readiness contracts
         run: node scripts/staging-smoke.mjs | tee staging-smoke-result.json
@@ -162,10 +162,10 @@ jobs:
           if-no-files-found: error
       - name: Dump service logs on failure
         if: failure()
-        run: docker compose logs
+        run: docker compose -f services-compose.yml logs
       - name: Stop deployment
         if: always()
-        run: docker compose down -v
+        run: docker compose -f services-compose.yml down -v
 
   sbom:
     runs-on: ubuntu-latest
