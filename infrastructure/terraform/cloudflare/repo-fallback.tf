@@ -41,7 +41,7 @@ resource "cloudflare_workers_script" "repo_under_construction" {
   count              = var.enable_repo_fallback ? 1 : 0
   account_id         = var.cloudflare_account_id
   script_name        = "zeaz-repo-under-construction"
-  compatibility_date = "2026-09-09"
+  compatibility_date = "2026-09-08"
   main_module        = "repo-under-construction.js"
   content_file       = "${path.module}/workers/repo-under-construction.js"
   content_sha256     = filesha256("${path.module}/workers/repo-under-construction.js")
