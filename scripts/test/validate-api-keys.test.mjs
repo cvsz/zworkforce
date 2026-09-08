@@ -54,3 +54,15 @@ test("placeholder values are not sent to the network", async () => {
   const output = JSON.parse(result.stdout);
   assert.equal(output.results[0].status, "empty");
 });
+
+test("custom providers without a default origin fail closed instead of crashing", async () => {
+  const result = await run(
+    "KIMI_API_KEY=real-looking-kimi-key\nKIMI_BASE_URL=https://example.invalid/v1\n",
+    "--json",
+  );
+
+  assert.equal(result.status, 1, result.stderr);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.results[0].status, "invalid-config");
+  assert.match(output.results[0].detail, /VALIDATED_PROVIDER_ORIGINS/);
+});
