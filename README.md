@@ -32,6 +32,13 @@ Repository version: **3.0.4**.
 
 See [`docs/PRODUCTION-EVIDENCE.md`](docs/PRODUCTION-EVIDENCE.md) for the authoritative evidence ledger.
 
+## v3.0.4 highlights
+
+- Security hardening across tenant-scoped uploads, gRPC, provider gateways, SSRF/redirect handling, credential isolation, and deployment validation.
+- Consolidated application, service, and package architecture with explicit responsibility and security boundaries.
+- Exact-candidate release governance, external-readiness tooling, restore verification, and durable evidence workflows.
+- Expanded full-repository documentation with live workflow status badges and explicit environment-evidence boundaries.
+
 | Marker | Meaning |
 | --- | --- |
 | **Implemented** | Functional implementation exists in the repository and has a defined validation path. |
@@ -203,7 +210,7 @@ Detailed design is documented in [`ARCHITECTURE.md`](ARCHITECTURE.md), [`SECURIT
 | [`cmd/zctl/`](cmd/zctl/) | Root Go zctl command implementation. |
 | [`control.sh`](control.sh) | Root lifecycle/orchestration script. |
 
-Repo-local agent instructions and skills live under [`.agents/`](.agents/), [`.claude/`](.claude/), and [`.codex/`](.codex/). ProMeta catalogs/examples are under [`examples/`](examples/) and master operating documentation is in [`docs/PROMETA-MASTER.md`](docs/PROMETA-MASTER.md).
+Repo-local agent instructions and skills live under [`.agents/`](.agents/), [`.claude/`](.claude/), and [`.codex/`](.codex/). ProMeta master operating documentation is in [`docs/PROMETA-MASTER.md`](docs/PROMETA-MASTER.md), with runtime-ready seed catalogs in [`examples/prometa-agent-catalog.json`](examples/prometa-agent-catalog.json), [`examples/prometa-skills.json`](examples/prometa-skills.json), [`examples/prometa-agent-templates.json`](examples/prometa-agent-templates.json), and [`examples/prometa-workflows.json`](examples/prometa-workflows.json).
 
 ## Quick start — core Python control plane
 
