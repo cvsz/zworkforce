@@ -53,12 +53,8 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "platform" {
 
   config = {
     ingress = concat(
-      [
-        for key in sort(keys(var.app_routes)) : {
-          hostname = var.app_routes[key].hostname
-          service  = var.app_routes[key].service
-        }
-      ],
+      local.ingress,
+      local.zworkforce_ingress,
       [{ service = "http_status:404" }]
     )
   }
