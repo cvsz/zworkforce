@@ -19,12 +19,13 @@ classifiers = [
 ]
 dependencies = [
   "psycopg[binary]>=3.3.4,<4",
+  "psycopg-pool>=3.2,<4",
   "PyJWT[crypto]>=2.13,<3",
   "tzdata>=2025.2",
 ]
 
 [project.optional-dependencies]
-postgres = ["psycopg[binary]>=3.3.4,<4"]
+postgres = ["psycopg[binary]>=3.3.4,<4", "psycopg-pool>=3.2,<4"]
 oidc = ["PyJWT[crypto]>=2.13,<3"]
 aws = ["boto3>=1.40,<2"]
 s3 = ["boto3>=1.40,<2"]
