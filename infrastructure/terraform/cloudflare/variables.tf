@@ -110,3 +110,115 @@ variable "free_access_service_token_ids" {
   nullable    = false
   default     = []
 }
+
+# Compatibility variables still referenced by legacy Cloudflare resources that
+# coexist with the consolidated app_routes model. These preserve the reviewed
+# defaults and fail-closed ownership behavior until those resources migrate.
+variable "piewdash_access_allowed_emails" {
+  type        = set(string)
+  description = "Exact operator emails allowed through Cloudflare Access."
+
+  validation {
+    condition = length(var.piewdash_access_allowed_emails) > 0 && alltrue([
+      for email in var.piewdash_access_allowed_emails :
+      can(regex("^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$", lower(email)))
+    ])
+    error_message = "piewdash_access_allowed_emails must contain at least one valid operator email."
+  }
+}
+
+variable "zttshop_hostname" {
+  type        = string
+  default     = "zttshop.zeaz.dev"
+  description = "Public hostname for the zttshop web application."
+  validation {
+    condition     = endswith(lower(var.zttshop_hostname), ".${lower(var.zone_name)}")
+    error_message = "zttshop_hostname must be a subdomain of zone_name."
+  }
+}
+
+variable "ha_a_hostname" {
+  type        = string
+  default     = "ha-a.zeaz.dev"
+  description = "Private hostname for HA node A."
+  validation {
+    condition     = endswith(lower(var.ha_a_hostname), ".${lower(var.zone_name)}")
+    error_message = "ha_a_hostname must be a subdomain of zone_name."
+  }
+}
+
+variable "ha_a_ip" {
+  type        = string
+  default     = "192.168.74.134"
+  description = "Private IP for HA node A."
+}
+
+variable "ha_b_hostname" {
+  type        = string
+  default     = "ha-b.zeaz.dev"
+  description = "Private hostname for HA node B."
+  validation {
+    condition     = endswith(lower(var.ha_b_hostname), ".${lower(var.zone_name)}")
+    error_message = "ha_b_hostname must be a subdomain of zone_name."
+  }
+}
+
+variable "ha_b_ip" {
+  type        = string
+  default     = "192.168.74.135"
+  description = "Private IP for HA node B."
+}
+
+variable "obs_hostname" {
+  type        = string
+  default     = "obs.zeaz.dev"
+  description = "Private hostname for the observability host."
+  validation {
+    condition     = endswith(lower(var.obs_hostname), ".${lower(var.zone_name)}")
+    error_message = "obs_hostname must be a subdomain of zone_name."
+  }
+}
+
+variable "obs_ip" {
+  type        = string
+  default     = "192.168.74.134"
+  description = "Private IP for the observability host."
+}
+
+variable "core_hostname" {
+  type        = string
+  default     = "core.zeaz.dev"
+  description = "Private hostname for the Windows build host."
+  validation {
+    condition     = endswith(lower(var.core_hostname), ".${lower(var.zone_name)}")
+    error_message = "core_hostname must be a subdomain of zone_name."
+  }
+}
+
+variable "core_ip" {
+  type        = string
+  default     = "192.168.182.234"
+  description = "Private IP for the Windows build host."
+}
+
+variable "mcp_hostname" {
+  type        = string
+  default     = "mcp.zeaz.dev"
+  description = "Public hostname for the zWorkforce standard-MCP bridge."
+
+  validation {
+    condition     = endswith(lower(var.mcp_hostname), ".${lower(var.zone_name)}")
+    error_message = "mcp_hostname must be a subdomain of zone_name."
+  }
+}
+
+variable "mcp_origin" {
+  type        = string
+  default     = "http://127.0.0.1:9580"
+  description = "Loopback origin published by the zWorkforce MCP HTTP bridge."
+
+  validation {
+    condition     = can(regex("^http://127\\.0\\.0\\.1:[0-9]+$", var.mcp_origin))
+    error_message = "mcp_origin must use a loopback address."
+  }
+}
