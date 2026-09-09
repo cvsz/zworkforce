@@ -5,7 +5,7 @@ import { performance } from 'node:perf_hooks';
 const evidencePath = process.argv[2] ?? 'zarvis-local-release-acceptance.json';
 const acceptance = JSON.parse(await readFile(evidencePath, 'utf8'));
 const envFile = process.env.ZARVIS_LOCAL_ENV_FILE ?? '.env.zarvis.local';
-const composeFile = process.env.ZARVIS_LOCAL_COMPOSE_FILE ?? 'compose.zarvis-local.yml';
+const composeFile = process.env.ZARVIS_LOCAL_COMPOSE_FILE ?? 'zarvis-local-compose.yml';
 const actionPort = Number(process.env.ZARVIS_ACTION_PORT ?? 8098);
 const proactivePort = Number(process.env.ZARVIS_PROACTIVE_PORT ?? 8099);
 const ownerToken = process.env.ZARVIS_LOCAL_OWNER_TOKEN;
