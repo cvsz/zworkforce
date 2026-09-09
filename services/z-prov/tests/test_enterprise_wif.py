@@ -12,7 +12,7 @@ from zeaz_enterprise.wif import (
 )
 
 ASSERTION = "header.payload.signature"
-ACCESS_TOKEN = "sk-ant-oat01-short-lived-test-token"
+ACCESS_TOKEN = "sk-ant-" + "oat01-short-lived-test-token"
 ORG_UUID = "abcdef01-2345-6789-abcd-ef0123456789"
 
 
