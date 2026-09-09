@@ -7,7 +7,7 @@ from pathlib import Path
 import sqlite3
 from typing import Any, Iterable
 
-from .db_backend import connect_postgres, is_postgres_target
+from .db_backend import get_postgres_pool, is_postgres_target
 from .db_schema import SCHEMA_SQL
 from .db_schema_v3 import V3_SCHEMA_SQL
 from .db_schema_workspace import WORKSPACE_SCHEMA_SQL
