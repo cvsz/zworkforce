@@ -1,5 +1,5 @@
 import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join, relative } from "node:path";
 
 const roots = ["apps", "services", "packages", "tools"];
 
@@ -19,13 +19,18 @@ async function packageFiles(root) {
   return out;
 }
 
-const files = (await Promise.all(roots.map(packageFiles))).flat();
+const files = (await Promise.all(roots.map(packageFiles))).flat().sort();
 const packages = [];
 for (const file of files) {
   const pkg = JSON.parse(await readFile(file, "utf8"));
+  const manifestPath = relative(process.cwd(), file).replaceAll("\\", "/");
+  const packageName = typeof pkg.name === "string" && pkg.name.trim()
+    ? pkg.name.trim()
+    : dirname(manifestPath).replaceAll("/", "-");
+  const packageId = `${packageName}-${manifestPath}`.replace(/[^A-Za-z0-9.-]/g, "-");
   packages.push({
-    SPDXID: `SPDXRef-Package-${pkg.name.replace(/[^A-Za-z0-9.-]/g, "-")}`,
-    name: pkg.name,
+    SPDXID: `SPDXRef-Package-${packageId}`,
+    name: packageName,
     versionInfo: pkg.version || "0.0.0",
     downloadLocation: "NOASSERTION",
     filesAnalyzed: false,
