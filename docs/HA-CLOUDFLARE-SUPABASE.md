@@ -4,8 +4,8 @@
 
 zWorkforce uses two independent runtime VMs behind a shared Supabase durable data plane, plus a dedicated observability runtime on VM-B.
 
-- **VM-A (ha-a.zeaz.dev / 192.168.74.134):** primary zWorkforce runtime — API/control plane, scheduler, worker, outbox.
-- **VM-B (ha-b.zeaz.dev / 192.168.74.135):** secondary zWorkforce runtime — API/control plane, scheduler, worker, outbox.
+- **VM-A (ha-a.zeaz.dev / 192.168.3.129):** primary zWorkforce runtime — API/control plane, scheduler, worker, outbox.
+- **VM-B (ha-b.zeaz.dev / 192.168.3.130):** secondary zWorkforce runtime — API/control plane, scheduler, worker, outbox.
 - **Observability (obs.zeaz.dev / 192.168.74.134):** OTel Collector, Prometheus, Alertmanager. Co-located on VM-B for this release.
 - **Supabase (qhprcfdgajhmdzvnsffb):** shared durable PostgreSQL and Supabase Storage data plane. **Not an HTTP origin substitute.**
 - **Vercel:** frontend / stateless web compute.
@@ -18,8 +18,8 @@ Cloudflare
    |       |
    |       +-- HA/load-balancing
    |             |
-   |             +-- ha-a.zeaz.dev -> VM-A (192.168.74.134)
-   |             +-- ha-b.zeaz.dev -> VM-B (192.168.74.135)
+   |             +-- ha-a.zeaz.dev -> VM-A (192.168.3.129)
+   |             +-- ha-b.zeaz.dev -> VM-B (192.168.3.130)
    |
    +-- obs.zeaz.dev -> VM-B observability (192.168.74.134)
 
@@ -61,8 +61,8 @@ Duplicate prevention is enforced by distinct `INSTANCE_ID` values. If both VMs c
 | --- | --- | --- |
 | `zwf.zeaz.dev` | Cloudflare Tunnel → primary runtime | zWorkforce production HTTPS endpoint |
 | `zwf-api.zeaz.dev` | Cloudflare Tunnel → primary runtime | zWorkforce API endpoint |
-| `ha-a.zeaz.dev` | `192.168.74.134:9456` | VM-A direct API |
-| `ha-b.zeaz.dev` | `192.168.74.135:9456` | VM-B direct API |
+| `ha-a.zeaz.dev` | `192.168.3.129:9456` | VM-A direct API |
+| `ha-b.zeaz.dev` | `192.168.3.130:9456` | VM-B direct API |
 | `obs.zeaz.dev` | `192.168.74.134:19090` | Prometheus API |
 | `studio.zeaz.dev` | Cloudflare Tunnel → loopback | ZSP Studio |
 | `zarvis.zeaz.dev` | Cloudflare Tunnel → loopback | Z.A.R.V.I.S. gateway |
@@ -77,7 +77,7 @@ resource "cloudflare_dns_record" "ha_a" {
   zone_id = var.cloudflare_zone_id
   name    = var.ha_a_hostname   # ha-a.zeaz.dev
   type    = "A"
-  content = var.ha_a_ip         # 192.168.74.134
+  content = var.ha_a_ip         # 192.168.3.129
   ttl     = 1
   proxied = false               # private origin — NOT tunnel CNAME
 }
@@ -148,8 +148,8 @@ provenance record is a fail-closed error.
 
 The observability stack on VM-B (`deploy/observability/compose.vm-b.yaml`) scrapes:
 
-- `zworkforce-vm-a` → `192.168.74.134:9456/metrics` (bearer-authenticated)
-- `zworkforce-vm-b` → `192.168.74.135:9456/metrics` (bearer-authenticated)
+- `zworkforce-vm-a` → `192.168.3.129:9456/metrics` (bearer-authenticated)
+- `zworkforce-vm-b` → `192.168.3.130:9456/metrics` (bearer-authenticated)
 - `otel-collector` → internal OTLP metrics
 
 Alertmanager is configured with an operator-owned receipt receiver for release
