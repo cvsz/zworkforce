@@ -104,6 +104,11 @@ class ProductionFixesTests(unittest.TestCase):
             def read(self, _limit):
                 return b"ok"
 
+        class Opener:
+            def open(self, _request, timeout):
+                self.timeout = timeout
+                return Response()
+
         class ClaimOnlyDB:
             def __init__(self):
                 self.finished = []
@@ -125,10 +130,12 @@ class ProductionFixesTests(unittest.TestCase):
 
         db = ClaimOnlyDB()
         dispatcher = OutboxDispatcher(db)
-        with patch("urllib.request.urlopen", return_value=Response()):
+        opener = Opener()
+        with patch("urllib.request.build_opener", return_value=opener):
             result = dispatcher.tick(owner_id="outbox-test")
 
         self.assertEqual(result["delivered"], 1)
+        self.assertEqual(opener.timeout, dispatcher.timeout_seconds)
         self.assertEqual(db.claim, ("outbox-test", dispatcher.claim_lease_seconds, dispatcher._claim_limit(100)))
         self.assertEqual(db.finished, [("delivery-1", True, "outbox-test")])
 
