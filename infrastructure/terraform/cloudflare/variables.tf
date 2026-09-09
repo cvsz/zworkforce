@@ -149,7 +149,7 @@ variable "ha_a_hostname" {
 
 variable "ha_a_ip" {
   type        = string
-  default     = "192.168.74.134"
+  default     = "192.168.3.129"
   description = "Private IP for HA node A."
 }
 
@@ -165,7 +165,7 @@ variable "ha_b_hostname" {
 
 variable "ha_b_ip" {
   type        = string
-  default     = "192.168.74.135"
+  default     = "192.168.3.130"
   description = "Private IP for HA node B."
 }
 
