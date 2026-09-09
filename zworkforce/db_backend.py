@@ -124,14 +124,16 @@ class PostgresConnection:
 
 class PostgresPool:
     def __init__(self, dsn: str, min_size: int = 1, max_size: int = 10):
-        import psycopg
         from psycopg.rows import tuple_row
+        from psycopg_pool import ConnectionPool
         self._dsn = dsn
         self._min_size = max(1, min_size)
         self._max_size = max(1, max_size)
-        self._pool = psycopg.ConnectionPool(
-            dsn, min_size=self._min_size, max_size=self._max_size,
-            autocommit=True, row_factory=tuple_row,
+        self._pool = ConnectionPool(
+            dsn,
+            min_size=self._min_size,
+            max_size=self._max_size,
+            kwargs={"autocommit": True, "row_factory": tuple_row},
         )
 
     @contextmanager
