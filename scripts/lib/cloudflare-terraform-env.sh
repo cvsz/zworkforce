@@ -113,6 +113,8 @@ cloudflare_load_terraform_env() {
   export TF_VAR_zarvis_origin="${ZARVIS_ORIGIN:-http://127.0.0.1:9570}"
   export TF_VAR_zider_hostname="${ZIDER_HOSTNAME:-zider.zeaz.dev}"
   export TF_VAR_zider_origin="${ZIDER_ORIGIN:-http://127.0.0.1:8085}"
+  export TF_VAR_dbc_hostname="${QWENDBC_HOSTNAME:-dbc.zeaz.dev}"
+  export TF_VAR_dbc_origin="${QWENDBC_ORIGIN:-http://127.0.0.1:3100}"
   export TF_VAR_piewdash_access_allowed_emails="$PIEWDASH_ACCESS_ALLOWED_EMAILS"
 
   export TF_VAR_enable_zeaz_one="${ZEAZ_ONE_ENABLED:-false}"

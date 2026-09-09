@@ -8,6 +8,7 @@ This stack ports the active Cloudflare DNS-to-Tunnel ownership model from `cvsz/
 - Proxied CNAME records targeting an existing Cloudflare Tunnel.
 - A validated application-route contract.
 - Generated cloudflared ingress and Phase 6 readiness URLs.
+- QwenDBC's `dbc.zeaz.dev` route through the existing tunnel to the loopback frontend origin.
 - Optional remote tunnel ingress ownership behind an explicit `manage_tunnel_config` safety switch.
 - No credentials, Terraform state, legacy backups, stale resources, or account tokens are copied.
 
@@ -67,6 +68,19 @@ terraform output -json phase6_urls
 ```
 
 When `manage_tunnel_config` is false, merge the `cloudflared_ingress` output into the remotely managed tunnel configuration owned by operations. When it is true, Terraform applies the ingress directly. The terminal `http_status:404` rule must remain last.
+
+### QwenDBC
+
+The QwenDBC route defaults to `dbc.zeaz.dev` and `http://127.0.0.1:3100`. Start the
+full stack with the matching host-port override when the host's default ports are
+occupied:
+
+```bash
+make -C /home/cvsz/qwendbc install BACKEND_HOST_PORT=8100 FRONTEND_HOST_PORT=3100
+```
+
+Set `QWENDBC_HOSTNAME` or `QWENDBC_ORIGIN` in the operator-only Cloudflare
+environment file before planning if the deployment uses different values.
 
 ## Free-mode Access
 

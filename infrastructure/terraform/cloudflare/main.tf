@@ -16,6 +16,7 @@ locals {
     try(local.zads_ingress, []),
     try(local.zomega_ingress, []),
     try(local.mpt_ingress, []),
+    try(local.qwendbc_ingress, []),
     try(local.zmovie_ingress, []),
     [
       # Fallback for any future per-service locals not yet migrated
