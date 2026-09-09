@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from contextlib import contextmanager
 import re
 from typing import Any, Iterator, Sequence
-from contextlib import contextmanager
 
 
 def is_postgres_target(target: str) -> bool:
@@ -56,6 +56,20 @@ def postgres_schema(script: str) -> str:
     return script
 
 
+def secure_postgres_dsn(dsn: str) -> str:
+    if "sslmode=" in dsn:
+        return dsn
+    local_prefixes = (
+        "postgresql://localhost",
+        "postgres://localhost",
+        "postgresql://127.0.0.1",
+        "postgres://127.0.0.1",
+    )
+    sslmode = "prefer" if dsn.startswith(local_prefixes) else "require"
+    separator = "&" if "?" in dsn else "?"
+    return f"{dsn}{separator}sslmode={sslmode}"
+
+
 class CompatRow(Mapping[str, Any]):
     def __init__(self, names: Sequence[str], values: Sequence[Any]):
         self._names = tuple(names)
@@ -79,8 +93,10 @@ class CompatRow(Mapping[str, Any]):
 
 class EmptyResult:
     rowcount = 0
+
     def fetchone(self):
         return None
+
     def fetchall(self):
         return []
 
@@ -105,32 +121,33 @@ class PostgresConnection:
     def __init__(self, connection):
         self._connection = connection
 
-    def execute(self, sql, params=None):
-        sql = rewrite_qmark(sql)
-        return self._connection.execute(sql, params or ())
+    def execute(self, sql: str, params: Sequence[Any] | None = None):
+        translated = postgres_sql(sql)
+        if not translated:
+            return EmptyResult()
+        cursor = self._connection.execute(translated, tuple(params or ()))
+        return PostgresResult(cursor)
 
-    def fetchone(self):
-        return self._connection.fetchone()
-
-    def fetchall(self):
-        return self._connection.fetchall()
+    def executescript(self, script: str):
+        for statement in postgres_schema(script).split(";"):
+            if statement.strip():
+                self.execute(statement)
+        return EmptyResult()
 
     def close(self):
-        try:
-            self._connection.close()
-        except Exception:
-            pass
+        self._connection.close()
 
 
 class PostgresPool:
     def __init__(self, dsn: str, min_size: int = 1, max_size: int = 10):
         from psycopg.rows import tuple_row
         from psycopg_pool import ConnectionPool
-        self._dsn = dsn
+
+        self._dsn = secure_postgres_dsn(dsn)
         self._min_size = max(1, min_size)
-        self._max_size = max(1, max_size)
+        self._max_size = max(self._min_size, max_size)
         self._pool = ConnectionPool(
-            dsn,
+            self._dsn,
             min_size=self._min_size,
             max_size=self._max_size,
             kwargs={"autocommit": True, "row_factory": tuple_row},
@@ -149,9 +166,10 @@ _postgres_pools: dict[str, PostgresPool] = {}
 
 
 def get_postgres_pool(dsn: str, min_size: int = 1, max_size: int = 10) -> PostgresPool:
-    if dsn not in _postgres_pools:
-        _postgres_pools[dsn] = PostgresPool(dsn, min_size=min_size, max_size=max_size)
-    return _postgres_pools[dsn]
+    key = secure_postgres_dsn(dsn)
+    if key not in _postgres_pools:
+        _postgres_pools[key] = PostgresPool(key, min_size=min_size, max_size=max_size)
+    return _postgres_pools[key]
 
 
 def connect_postgres(dsn: str):
@@ -160,10 +178,5 @@ def connect_postgres(dsn: str):
         from psycopg.rows import tuple_row
     except ImportError as exc:
         raise RuntimeError("PostgreSQL backend requires psycopg; install zworkforce[postgres]") from exc
-    if "sslmode=" not in dsn:
-        if dsn.startswith(("postgresql://localhost", "postgres://localhost", "postgresql://127.0.0.1", "postgres://127.0.0.1")):
-            dsn += "?sslmode=prefer"
-        else:
-            dsn += "?sslmode=require"
-    connection = psycopg.connect(dsn, autocommit=True, row_factory=tuple_row)
+    connection = psycopg.connect(secure_postgres_dsn(dsn), autocommit=True, row_factory=tuple_row)
     return PostgresConnection(connection)
