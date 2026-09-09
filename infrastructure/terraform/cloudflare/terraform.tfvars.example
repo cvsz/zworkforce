@@ -47,3 +47,6 @@ zeaz_one_support_hostname = "support.zeaz.dev"
 zeaz_one_support_origin   = "http://127.0.0.1:18083"
 
 manage_tunnel_config = false
+
+dbc_hostname  = "dbc.zeaz.dev"
+dbc_origin    = "http://127.0.0.1:3000"
