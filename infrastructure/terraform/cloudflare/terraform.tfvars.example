@@ -32,6 +32,10 @@ piewdash_access_allowed_emails = [
   "operator@example.com",
 ]
 
+coin_access_allowed_emails = [
+  "seaza@msn.com",
+]
+
 # Optional. Empty inherits piewdash_access_allowed_emails.
 zdash_access_allowed_emails = []
 
