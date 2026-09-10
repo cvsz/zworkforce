@@ -152,8 +152,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m venv .venv-ci
-          . .venv-ci/bin/activate
+          venv_dir="${RUNNER_TEMP:?}/zmovie-venv"
+          python -m venv "$venv_dir"
+          . "$venv_dir/bin/activate"
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           python -m pip install ruff==0.16.1 pip-audit==2.10.1
