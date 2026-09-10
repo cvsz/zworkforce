@@ -85,10 +85,11 @@ class RepositoryPolicyTests(unittest.TestCase):
             with self.subTest(context=context):
                 self.assertNotIn(context, required)
 
-    def test_submodules_are_ssh_accessible_and_security_validated(self):
+    def test_submodules_are_pinned_accessible_and_security_validated(self):
         gitmodules = GITMODULES.read_text(encoding="utf-8")
         self.assertIn("url = git@github.com:cvsz/zksato.git", gitmodules)
         self.assertIn("url = git@github.com:cvsz/zttshop-php.git", gitmodules)
+        self.assertIn("url = ../zmovie.git", gitmodules)
         self.assertNotIn("url = https://github.com/cvsz/", gitmodules)
 
         ci = CI.read_text(encoding="utf-8")
@@ -112,6 +113,18 @@ class RepositoryPolicyTests(unittest.TestCase):
         self.assertIn("if: always()", ci)
         self.assertIn('run: test "${{ needs.submodule-validation.result }}" = success', ci)
         self.assertIn("Reject untrusted submodule changes", ci)
+        self.assertIn(".gitmodules packages/zksato packages/zttshop-php packages/zmovie", ci)
+        self.assertIn(
+            'test "$(git -C packages/zmovie rev-parse HEAD)" = "$(git rev-parse HEAD:packages/zmovie)"',
+            ci,
+        )
+        self.assertIn("- name: Validate zmovie", ci)
+        self.assertIn("python scripts/verify_docs.py", ci)
+        self.assertIn("ruff check app.py main.py zmovie_platform tests", ci)
+        self.assertIn("python -m unittest discover -s tests -v", ci)
+        self.assertIn("pip-audit -r requirements.txt", ci)
+        self.assertIn("docker compose config --quiet", ci)
+        self.assertIn("docker build -t zmovie:submodule-ci .", ci)
         self.assertIn('pytest -m "not uat and not performance"', ci)
         self.assertIn("bandit -q -r src --severity-level medium", ci)
         self.assertIn(
@@ -120,7 +133,6 @@ class RepositoryPolicyTests(unittest.TestCase):
         )
         self.assertIn("composer audit --locked --no-interaction", ci)
         self.assertIn("composer test", ci)
-
 
 
 if __name__ == "__main__":
