@@ -107,23 +107,22 @@ app_routes = {
     allowed_email_domains = ["zeaz.dev"]
   }
 
-  # zksato — USDT-first paper trading control plane (frontend + api + dashboard)
-  zksato = {
-    hostname       = "zksato.zeaz.dev"
-    service        = "http://127.0.0.1:3016"
-    access_enabled = false
-  }
-  zksato_api = {
-    hostname       = "zksato-api.zeaz.dev"
-    service        = "http://127.0.0.1:9569"
-    access_enabled = false
-  }
-  zksato_dash = {
-    hostname       = "zksato-dash.zeaz.dev"
-    service        = "http://127.0.0.1:5174"
-    access_enabled = false
-  }
 }
+
+# zksato — explicit resources are owned by zksato.tf; do not duplicate these
+# hostnames in app_routes.
+zksato_hostname              = "zksato.zeaz.dev"
+zksato_origin                = "http://127.0.0.1:3016"
+zksato_api_hostname           = "zksato-api.zeaz.dev"
+zksato_api_origin             = "http://127.0.0.1:9569"
+zksato_dash_hostname          = "zksato-dash.zeaz.dev"
+zksato_dash_origin            = "http://127.0.0.1:5174"
+zksato_access_allowed_emails  = []
+
+# Optional second-zone alias. Keep disabled until zaea.dev ownership, zone ID,
+# tunnel route, CORS/trusted-host allow-lists, and public DNS are verified.
+zksato_alias_enabled          = false
+# zksato_alias_zone_id        = "<verified-zaea-dev-zone-id>"
 
 # ─────────────────────────────────────────────────────────────────────
 # ZASI — Omniversal Superintelligence J.A.R.V.I.S. Cockpit
@@ -145,3 +144,10 @@ mpt_origin   = "http://127.0.0.1:8501"
 enable_zmovie   = true
 zmovie_hostname = "zmovie.zeaz.dev"
 zmovie_origin   = "http://127.0.0.1:8080"
+
+# ─────────────────────────────────────────────────────────────────────
+# zCoin — CoinFlip Evidence Auditor
+# ─────────────────────────────────────────────────────────────────────
+coin_hostname              = "zcoin.zeaz.dev"
+coin_origin                = "http://127.0.0.1:18082"
+coin_access_allowed_emails = []

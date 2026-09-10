@@ -18,6 +18,7 @@ locals {
     try(local.mpt_ingress, []),
     try(local.qwendbc_ingress, []),
     try(local.zmovie_ingress, []),
+    try(local.coin_ingress, []),
     [
       # Fallback for any future per-service locals not yet migrated
     ]

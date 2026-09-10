@@ -10,6 +10,8 @@ This stack ports the active Cloudflare DNS-to-Tunnel ownership model from `cvsz/
 - Generated cloudflared ingress and Phase 6 readiness URLs.
 - QwenDBC's `dbc.zeaz.dev` route through the existing tunnel to the loopback frontend origin.
 - Optional remote tunnel ingress ownership behind an explicit `manage_tunnel_config` safety switch.
+- zksato's explicit three-host ownership (`zksato.tf`) for the `zeaz.dev` route.
+- A disabled-by-default three-host `zaea.dev` alias contract for zksato frontend, API, and operator dashboard.
 - No credentials, Terraform state, legacy backups, stale resources, or account tokens are copied.
 
 The tunnel itself remains an existing account resource. The remote ingress configuration can be managed only after the current configuration is imported and reviewed; this avoids replacing a live connector accidentally.
@@ -34,6 +36,26 @@ $EDITOR terraform.tfvars
 ```
 
 Replace every zero/sample value with the real Cloudflare account ID, zone ID, tunnel UUID, hostnames, origins, and Access allow-list metadata.
+
+The zksato routes are declared explicitly in `zksato.tf`; do not also add
+`zksato`, `zksato_api`, or `zksato_dash` entries to `app_routes`, because that
+would create duplicate DNS and tunnel-ingress ownership.
+
+`zksato.zaea.dev` is not enabled by default. Before enabling it, verify that
+`zaea.dev` is a Cloudflare zone owned by the intended account, obtain its real
+zone ID, and confirm DNS/tunnel ownership with the operator. Then set these
+operator-only values:
+
+```hcl
+zksato_alias_enabled = true
+zksato_alias_zone_id = "<verified-zaea-dev-zone-id>"
+```
+
+The alias creates `zksato.zaea.dev`, `zksato-api.zaea.dev`, and
+`zksato-dash.zaea.dev` against the same existing tunnel and loopback origins.
+The zksato API must also allow the alias browser origins and trusted hosts
+before the public route is considered ready. Do not treat a successful
+Terraform plan as proof that DNS delegation or application health is complete.
 
 ## Validate and plan
 
