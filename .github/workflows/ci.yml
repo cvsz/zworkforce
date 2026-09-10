@@ -45,7 +45,7 @@ jobs:
         run: |
           set -euo pipefail
           git diff --exit-code origin/${{ github.base_ref }}...HEAD -- \
-            .gitmodules packages/zksato packages/zttshop-php packages/zmovie
+            .gitmodules packages/zksato packages/zttshop-php packages/zmovie packages/zok
       - name: Require submodule SSH deploy keys
         if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
         env:
@@ -110,6 +110,7 @@ jobs:
           test "$(git -C packages/zksato rev-parse HEAD)" = "$(git rev-parse HEAD:packages/zksato)"
           test "$(git -C packages/zttshop-php rev-parse HEAD)" = "$(git rev-parse HEAD:packages/zttshop-php)"
           test "$(git -C packages/zmovie rev-parse HEAD)" = "$(git rev-parse HEAD:packages/zmovie)"
+          test "$(git -C packages/zok rev-parse HEAD)" = "$(git rev-parse HEAD:packages/zok)"
       - uses: actions/setup-python@v7
         if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
         with:
