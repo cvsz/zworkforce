@@ -45,7 +45,7 @@ jobs:
         run: |
           set -euo pipefail
           git diff --exit-code origin/${{ github.base_ref }}...HEAD -- \
-            .gitmodules packages/zksato packages/zttshop-php
+            .gitmodules packages/zksato packages/zttshop-php packages/zmovie
       - name: Require submodule SSH deploy keys
         if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
         env:
@@ -109,12 +109,15 @@ jobs:
           ! grep -Eq '^[+-U]' <<<"$status"
           test "$(git -C packages/zksato rev-parse HEAD)" = "$(git rev-parse HEAD:packages/zksato)"
           test "$(git -C packages/zttshop-php rev-parse HEAD)" = "$(git rev-parse HEAD:packages/zttshop-php)"
+          test "$(git -C packages/zmovie rev-parse HEAD)" = "$(git rev-parse HEAD:packages/zmovie)"
       - uses: actions/setup-python@v7
         if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: packages/zksato/pyproject.toml
+          cache-dependency-path: |
+            packages/zksato/pyproject.toml
+            packages/zmovie/requirements.txt
       - name: Validate zksato
         if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
         working-directory: packages/zksato
@@ -143,6 +146,35 @@ jobs:
           composer install --no-interaction --prefer-dist
           composer audit --locked --no-interaction
           composer test
+      - name: Validate zmovie
+        if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
+        working-directory: packages/zmovie
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m venv .venv-ci
+          . .venv-ci/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install ruff==0.16.1 pip-audit==2.10.1
+          python scripts/verify_docs.py
+          python -m compileall -q zmovie.py app.py main.py zmovie_platform tests
+          make help >/dev/null
+          python -m zmovie_platform.control_cli --help | grep -q 'production control plane'
+          python -m zmovie_platform.control_cli hyperframes | python -m json.tool >/dev/null
+          python -m zmovie_platform.control_cli sdcpp-status | python -m json.tool >/dev/null
+          node --check static/app.js
+          node --check static/studio-preview.js
+          node --check static/hyperframes-studio.js
+          bash -n install.sh install-docker.sh scripts/*.sh
+          python -m json.tool workflows/comfyui/smoke_api.json >/dev/null
+          ruff check app.py main.py zmovie_platform tests
+          python -m unittest discover -s tests -v
+          python zmovie.py --seed 42 --count 2 >/tmp/zmovie-prompts.txt
+          python zmovie.py --seed 42 --json | python -m json.tool >/dev/null
+          pip-audit -r requirements.txt
+          docker compose config --quiet
+          docker build -t zmovie:submodule-ci .
 
   test:
     strategy:
