@@ -119,7 +119,7 @@ zksato_dash_hostname          = "zksato-dash.zeaz.dev"
 zksato_dash_origin            = "http://127.0.0.1:5174"
 zksato_access_allowed_emails  = []
 
-# Optional second-zone alias. Keep disabled until zaea.dev ownership, zone ID,
+# Optional second-zone alias. Keep disabled until zeaz.dev ownership, zone ID,
 # tunnel route, CORS/trusted-host allow-lists, and public DNS are verified.
 zksato_alias_enabled          = false
 # zksato_alias_zone_id        = "<verified-zaea-dev-zone-id>"

@@ -2,8 +2,8 @@
 # zksato — Risk-first SET/TFEX + USDT paper trading control plane
 # Public hostnames: zksato.zeaz.dev (frontend), zksato-api.zeaz.dev (api),
 #                   zksato-dash.zeaz.dev (dashboard)
-# Optional alias hostnames: zksato.zaea.dev, zksato-api.zaea.dev,
-#                           zksato-dash.zaea.dev
+# Optional alias hostnames: zksato.zeaz.dev, zksato-api.zeaz.dev,
+#                           zksato-dash.zeaz.dev
 # Origins are loopback-only and reached by cloudflared on the host.
 # ==============================================================================
 variable "zksato_hostname" {
@@ -75,14 +75,14 @@ variable "zksato_dash_origin" {
 variable "zksato_alias_enabled" {
   type        = bool
   default     = false
-  description = "Enable the optional zksato.zaea.dev frontend/API/dashboard alias. Keep false until the zaea.dev zone is verified and its records are approved."
+  description = "Enable the optional zksato.zeaz.dev frontend/API/dashboard alias. Keep false until the zeaz.dev zone is verified and its records are approved."
 }
 
 variable "zksato_alias_zone_id" {
   type        = string
   default     = ""
   nullable    = false
-  description = "Cloudflare zone ID for zaea.dev. Required only when zksato_alias_enabled is true; never put the API token here."
+  description = "Cloudflare zone ID for zeaz.dev. Required only when zksato_alias_enabled is true; never put the API token here."
 
   validation {
     condition     = var.zksato_alias_zone_id == "" || can(regex("^[0-9a-f]{32}$", lower(var.zksato_alias_zone_id)))
@@ -92,34 +92,34 @@ variable "zksato_alias_zone_id" {
 
 variable "zksato_alias_hostname" {
   type        = string
-  default     = "zksato.zaea.dev"
-  description = "Verified frontend alias hostname in the zaea.dev zone."
+  default     = "zksato.zeaz.dev"
+  description = "Verified frontend alias hostname in the zeaz.dev zone."
 
   validation {
-    condition     = lower(var.zksato_alias_hostname) == "zksato.zaea.dev"
-    error_message = "zksato_alias_hostname must be exactly zksato.zaea.dev."
+    condition     = lower(var.zksato_alias_hostname) == "zksato.zeaz.dev"
+    error_message = "zksato_alias_hostname must be exactly zksato.zeaz.dev."
   }
 }
 
 variable "zksato_alias_api_hostname" {
   type        = string
-  default     = "zksato-api.zaea.dev"
-  description = "API alias hostname in the zaea.dev zone."
+  default     = "zksato-api.zeaz.dev"
+  description = "API alias hostname in the zeaz.dev zone."
 
   validation {
-    condition     = lower(var.zksato_alias_api_hostname) == "zksato-api.zaea.dev"
-    error_message = "zksato_alias_api_hostname must be exactly zksato-api.zaea.dev."
+    condition     = lower(var.zksato_alias_api_hostname) == "zksato-api.zeaz.dev"
+    error_message = "zksato_alias_api_hostname must be exactly zksato-api.zeaz.dev."
   }
 }
 
 variable "zksato_alias_dash_hostname" {
   type        = string
-  default     = "zksato-dash.zaea.dev"
-  description = "Dashboard alias hostname in the zaea.dev zone."
+  default     = "zksato-dash.zeaz.dev"
+  description = "Dashboard alias hostname in the zeaz.dev zone."
 
   validation {
-    condition     = lower(var.zksato_alias_dash_hostname) == "zksato-dash.zaea.dev"
-    error_message = "zksato_alias_dash_hostname must be exactly zksato-dash.zaea.dev."
+    condition     = lower(var.zksato_alias_dash_hostname) == "zksato-dash.zeaz.dev"
+    error_message = "zksato_alias_dash_hostname must be exactly zksato-dash.zeaz.dev."
   }
 }
 
@@ -157,7 +157,7 @@ resource "terraform_data" "zksato_alias_contract" {
   count = var.zksato_alias_enabled ? 1 : 0
 
   input = {
-    zone_name    = "zaea.dev"
+    zone_name    = "zeaz.dev"
     zone_id      = var.zksato_alias_zone_id
     frontend     = var.zksato_alias_hostname
     api          = var.zksato_alias_api_hostname
@@ -168,7 +168,7 @@ resource "terraform_data" "zksato_alias_contract" {
   lifecycle {
     precondition {
       condition     = length(trimspace(var.zksato_alias_zone_id)) == 32
-      error_message = "zksato_alias_enabled requires the verified Cloudflare zone ID for zaea.dev."
+      error_message = "zksato_alias_enabled requires the verified Cloudflare zone ID for zeaz.dev."
     }
   }
 }
@@ -211,7 +211,7 @@ resource "cloudflare_dns_record" "zksato_alias" {
   content = local.tunnel_cname
   ttl     = 1
   proxied = true
-  comment = "zksato frontend alias via Cloudflare Tunnel (zaea.dev)"
+  comment = "zksato frontend alias via Cloudflare Tunnel (zeaz.dev)"
 }
 
 resource "cloudflare_dns_record" "zksato_alias_api" {
@@ -222,7 +222,7 @@ resource "cloudflare_dns_record" "zksato_alias_api" {
   content = local.tunnel_cname
   ttl     = 1
   proxied = true
-  comment = "zksato API alias via Cloudflare Tunnel (zaea.dev)"
+  comment = "zksato API alias via Cloudflare Tunnel (zeaz.dev)"
 }
 
 resource "cloudflare_dns_record" "zksato_alias_dash" {
@@ -233,7 +233,7 @@ resource "cloudflare_dns_record" "zksato_alias_dash" {
   content = local.tunnel_cname
   ttl     = 1
   proxied = true
-  comment = "zksato dashboard alias via Cloudflare Tunnel (zaea.dev)"
+  comment = "zksato dashboard alias via Cloudflare Tunnel (zeaz.dev)"
 }
 
 # Optional Access protection — created only when allow-list is non-empty.
@@ -284,7 +284,7 @@ resource "cloudflare_zero_trust_access_application" "zksato_api" {
 resource "cloudflare_zero_trust_access_application" "zksato_alias" {
   count                      = var.zksato_alias_enabled && length(var.zksato_access_allowed_emails) > 0 ? 1 : 0
   account_id                 = var.cloudflare_account_id
-  name                       = "zksato Trading Control Plane (zaea.dev)"
+  name                       = "zksato Trading Control Plane (zeaz.dev)"
   domain                     = var.zksato_alias_hostname
   type                       = "self_hosted"
   session_duration           = "8h"
@@ -306,7 +306,7 @@ resource "cloudflare_zero_trust_access_application" "zksato_alias" {
 resource "cloudflare_zero_trust_access_application" "zksato_alias_api" {
   count                      = var.zksato_alias_enabled && length(var.zksato_access_allowed_emails) > 0 ? 1 : 0
   account_id                 = var.cloudflare_account_id
-  name                       = "zksato API (zaea.dev)"
+  name                       = "zksato API (zeaz.dev)"
   domain                     = var.zksato_alias_api_hostname
   type                       = "self_hosted"
   session_duration           = "8h"
@@ -328,7 +328,7 @@ resource "cloudflare_zero_trust_access_application" "zksato_alias_api" {
 resource "cloudflare_zero_trust_access_application" "zksato_alias_dash" {
   count                      = var.zksato_alias_enabled && length(var.zksato_access_allowed_emails) > 0 ? 1 : 0
   account_id                 = var.cloudflare_account_id
-  name                       = "zksato dashboard (zaea.dev)"
+  name                       = "zksato dashboard (zeaz.dev)"
   domain                     = var.zksato_alias_dash_hostname
   type                       = "self_hosted"
   session_duration           = "8h"
@@ -368,5 +368,5 @@ output "zksato_alias_urls" {
     api       = "https://${var.zksato_alias_api_hostname}"
     dashboard = "https://${var.zksato_alias_dash_hostname}"
   } : {}
-  description = "Optional zaea.dev zksato URLs; empty until the alias contract is enabled with a verified zone ID."
+  description = "Optional zeaz.dev zksato URLs; empty until the alias contract is enabled with a verified zone ID."
 }
