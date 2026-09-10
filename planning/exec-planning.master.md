@@ -111,8 +111,8 @@ A capability or module is only marked complete when all criteria are satisfied:
   - Multi-Platform Publisher: safe adapter pipelines with rollback and audit trails.
 
 ### 3.4 Conversational Commerce OS: `Zok` (`packages/zok`)
-- **Canonical Reference**: [`packages/zok/exec-planning.md`](../packages/zok/exec-planning.md)
-- **Status**: Monorepo Integrated (`packages/zok`, Port `:3005`)
+- **Canonical Reference**: [`cvsz/zok/exec-planning.md`](https://github.com/cvsz/zok/blob/main/exec-planning.md)
+- **Status**: Submodule Integrated (`packages/zok` → `cvsz/zok@73d17ec3`, Port `:3005`)
 - **Key Modules**:
   - Omnichannel Inbound: LINE Messaging API, WhatsApp Cloud API, TikTok, and Messenger.
   - Commerce Connectors: Shopify, TikTok Shop, Shopee sync, and cart recovery flows.

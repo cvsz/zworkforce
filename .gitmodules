@@ -7,3 +7,6 @@
 [submodule "packages/zmovie"]
 	path = packages/zmovie
 	url = ../zmovie.git
+[submodule "packages/zok"]
+	path = packages/zok
+	url = ../zok.git
