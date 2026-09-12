@@ -17,7 +17,13 @@ from .models import (
     SecuritySnapshot,
     TokenRef,
 )
-from .providers import (\n    DexScreenerProvider,\n    GoPlusProvider,\n    ProviderError,\n    XAIProvider,\n    ZaimanProvider,\n)
+from .providers import (
+    DexScreenerProvider,
+    GoPlusProvider,
+    ProviderError,
+    XAIProvider,
+    ZaimanProvider,
+)
 from .scoring import analyze
 
 _PROVIDER_ERRORS = (httpx.HTTPError, ProviderError, TypeError, ValueError)
