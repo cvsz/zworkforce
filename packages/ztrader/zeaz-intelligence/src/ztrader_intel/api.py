@@ -38,8 +38,8 @@ from .models import (
 from .narrative import attention_velocity
 from .policy import execution_policy
 from .portfolio import build_portfolio
-from .scoring import analyze
 from .providers import ProviderError
+from .scoring import analyze
 from .service import (
     enrich_and_analyze,
     fetch_canonical_onchain_evidence,
