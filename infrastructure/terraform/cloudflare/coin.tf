@@ -31,15 +31,20 @@ variable "coin_origin" {
 
 variable "coin_access_allowed_emails" {
   type        = set(string)
-  description = "Exact operator emails allowed through Cloudflare Access for zCoin."
+  default     = []
+  description = "Exact operator emails allowed through Cloudflare Access for zCoin. Empty inherits piewdash_access_allowed_emails."
 
   validation {
-    condition = length(var.coin_access_allowed_emails) > 0 && alltrue([
+    condition = alltrue([
       for email in var.coin_access_allowed_emails :
       can(regex("^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$", lower(email)))
     ])
-    error_message = "coin_access_allowed_emails must contain at least one valid operator email."
+    error_message = "coin_access_allowed_emails must contain only valid operator emails."
   }
+}
+
+locals {
+  coin_access_allowed_emails = length(var.coin_access_allowed_emails) > 0 ? var.coin_access_allowed_emails : var.piewdash_access_allowed_emails
 }
 
 resource "cloudflare_dns_record" "coin" {
@@ -67,7 +72,7 @@ resource "cloudflare_zero_trust_access_application" "coin" {
     precedence = 1
     decision   = "allow"
     include = [
-      for email in sort(tolist(var.coin_access_allowed_emails)) :
+      for email in sort(tolist(local.coin_access_allowed_emails)) :
       { email = { email = lower(email) } }
     ]
   }]

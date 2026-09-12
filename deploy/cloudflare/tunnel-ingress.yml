@@ -64,5 +64,9 @@ ingress:
   - hostname: laps.zeaz.dev
     service: http://127.0.0.1:8080
 
+  # 8. zCoin Evidence Auditor (loopback Nginx gateway)
+  - hostname: zcoin.zeaz.dev
+    service: http://127.0.0.1:18082
+
   # Catch-all terminal rule
   - service: http_status:404
