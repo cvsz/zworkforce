@@ -124,7 +124,7 @@ def risk_score(req: IntelligenceRequest) -> tuple[int, list[str]]:
         r += 15
         flags.append("wallet flows show manipulation/coordination risk")
 
-    return int(round(clamp(r))), flags
+    return round(clamp(r)), flags
 
 
 def opportunity_score(req: IntelligenceRequest, stage: NarrativeStage, whales: WhaleState, risk: int) -> int:
@@ -163,7 +163,7 @@ def opportunity_score(req: IntelligenceRequest, stage: NarrativeStage, whales: W
         score += (req.fundamentals_score - 50) * 0.15
 
     score -= risk * 0.38
-    return int(round(clamp(score)))
+    return round(clamp(score))
 
 
 def confidence_score(req: IntelligenceRequest) -> int:
@@ -212,7 +212,7 @@ def confidence_score(req: IntelligenceRequest) -> int:
         elif req.source_freshness_minutes > 240:
             confidence -= 15
 
-    return int(round(clamp(confidence)))
+    return round(clamp(confidence))
 
 
 def rug_label(score: int) -> RugRisk:

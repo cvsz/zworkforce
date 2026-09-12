@@ -6,8 +6,10 @@ from typing import Any
 import httpx
 
 from .models import IntelligenceRequest, MarketSnapshot, SecuritySnapshot
-from .providers import DexScreenerProvider, GoPlusProvider, XAIProvider
+from .providers import DexScreenerProvider, GoPlusProvider, ProviderError, XAIProvider
 from .scoring import analyze
+
+_PROVIDER_ERRORS = (httpx.HTTPError, ProviderError, TypeError, ValueError)
 
 
 def _num(value: Any) -> float | None:
@@ -93,7 +95,7 @@ async def enrich_and_analyze(req: IntelligenceRequest):
                 evidence["dexscreener_pairs"] = len(pairs)
                 if req.market is None:
                     req.market = market_from_pairs(pairs)
-            except Exception as exc:  # provider failure lowers confidence rather than fabricating data
+            except _PROVIDER_ERRORS as exc:
                 errors.append(f"dexscreener:{exc.__class__.__name__}")
 
         if req.token.address and req.token.goplus_chain_id:
@@ -105,7 +107,7 @@ async def enrich_and_analyze(req: IntelligenceRequest):
                 evidence["goplus"] = bool(item)
                 if req.security is None and item:
                     req.security = security_from_goplus(item)
-            except Exception as exc:
+            except _PROVIDER_ERRORS as exc:
                 errors.append(f"goplus:{exc.__class__.__name__}")
 
         result = analyze(req)
@@ -116,7 +118,7 @@ async def enrich_and_analyze(req: IntelligenceRequest):
                     req.token.symbol,
                     req.social.excerpts,
                 )
-            except Exception as exc:
+            except _PROVIDER_ERRORS as exc:
                 errors.append(f"xai:{exc.__class__.__name__}")
 
     if errors:
