@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zeaz.dev/contracts/ztrader-model-gateway.v1.schema.json",
+  "title": "ZTrader Model Gateway Request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "trace_id", "task_class", "model", "input", "store"],
+  "properties": {
+    "version": { "const": "1.0" },
+    "trace_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "task_class": { "enum": ["narrative_summary", "evidence_review", "agent_reasoning"] },
+    "model": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "input": { "type": "string", "minLength": 1, "maxLength": 100000 },
+    "store": { "const": false },
+    "latency_budget_ms": { "type": ["integer", "null"], "minimum": 100, "maximum": 120000 },
+    "token_budget": { "type": ["integer", "null"], "minimum": 1, "maximum": 200000 },
+    "data_sensitivity": { "enum": ["PUBLIC", "INTERNAL", "RESTRICTED"] }
+  }
+}
