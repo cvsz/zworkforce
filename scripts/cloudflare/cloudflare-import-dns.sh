@@ -91,7 +91,7 @@ declare -A hostnames=(
   [zeaz-one-support]="${ZEAZ_ONE_SUPPORT_HOSTNAME:-support.zeaz.dev}"
 )
 
-<declare -a all_targets=(moopiew arin zttshop qwen chat piewdash zdash zerp cmeerp zai auth zwf zwf-api zslog dbc coin)
+declare -a all_targets=(moopiew arin zttshop qwen chat piewdash zdash zerp cmeerp zai auth zwf zwf-api zslog dbc coin)
 if [[ "${ZEAZ_ONE_ENABLED:-false}" == "true" ]]; then
   all_targets+=(zeaz-one zeaz-one-support)
 fi
