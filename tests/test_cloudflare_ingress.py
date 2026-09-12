@@ -67,6 +67,12 @@ class CloudflareIngressTests(unittest.TestCase):
         self.assertIn('[zslog]="${ZSLOG_HOSTNAME:-zslog.zeaz.dev}"', dns_import)
         self.assertIn('[zslog]="cloudflare_dns_record.zslog"', legacy_dns_import)
         self.assertIn('[zslog]="${ZSLOG_HOSTNAME:-zslog.zeaz.dev}"', legacy_dns_import)
+        # DBC must stay in the all-DNS reconciliation path (see dbc.zeaz.dev review).
+        self.assertIn('[dbc]="cloudflare_dns_record.dbc"', dns_import)
+        self.assertIn('[dbc]="${DBC_HOSTNAME:-dbc.zeaz.dev}"', dns_import)
+        self.assertIn('[dbc]="cloudflare_dns_record.dbc"', legacy_dns_import)
+        self.assertIn('[dbc]="${DBC_HOSTNAME:-dbc.zeaz.dev}"', legacy_dns_import)
+        self.assertIn("dbc", dns_import.split("all_targets=")[1].split("\n")[0])
         self.assertIn('TF_VAR_zslog_hostname="${ZSLOG_HOSTNAME:-zslog.zeaz.dev}"', cloudflare_env)
         self.assertIn(
             'TF_VAR_zslog_origin="${ZSLOG_ORIGIN:-http://127.0.0.1:9581}"',

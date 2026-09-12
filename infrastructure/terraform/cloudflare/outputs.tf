@@ -73,6 +73,7 @@ output "cloudflared_ingress" {
       { hostname = var.zai_hostname, service = var.zai_origin },
       { hostname = var.auth_hostname, service = var.auth_origin },
       { hostname = var.laps_hostname, service = var.laps_origin },
+      { hostname = var.dbc_hostname, service = var.dbc_origin },
     ],
     local.zworkforce_ingress,
     local.zeaz_one_ingress,

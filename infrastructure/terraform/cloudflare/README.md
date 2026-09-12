@@ -2,8 +2,9 @@
 
 This stack follows the Cloudflare Tunnel DNS ownership model used by
 `z-platform`: proxied CNAMEs send `moopiew.zeaz.dev`, `arin.zeaz.dev`, `zttshop.zeaz.dev`,
-`piewdash.zeaz.dev`, `qwen.zeaz.dev`, `chat.zeaz.dev`, `zerp.zeaz.dev`, and
-`cme.zeaz.dev` to
+`piewdash.zeaz.dev`, `qwen.zeaz.dev`, `chat.zeaz.dev`, `zerp.zeaz.dev`, `cme.zeaz.dev`,
+`dbc.zeaz.dev`, and
+`zwf.zeaz.dev` to
 an existing tunnel. Cloudflared forwards the public app hostnames to Caddy on
 port 8080 and the dashboard and ERP hostnames to Caddy on port 80. The
 OpenWebUI chat hostname is forwarded directly to its reviewed host-published
@@ -111,6 +112,8 @@ terraform -chdir=infrastructure/terraform/cloudflare import \
   cloudflare_dns_record.zerp "<zone-id>/<dns-record-id>"
 terraform -chdir=infrastructure/terraform/cloudflare import \
   cloudflare_dns_record.cmeerp "<zone-id>/<dns-record-id>"
+terraform -chdir=infrastructure/terraform/cloudflare import \
+  cloudflare_dns_record.dbc "<zone-id>/<dns-record-id>"
 ./scripts/cloudflare-plan.sh
 ```
 
