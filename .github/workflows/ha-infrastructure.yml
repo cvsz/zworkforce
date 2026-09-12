@@ -55,7 +55,8 @@ jobs:
           from pathlib import Path
 
           ingress = Path("deploy/cloudflare/tunnel-ingress.yml").read_text()
-          tf = Path("infrastructure/terraform/cloudflare/zworkforce.tf").read_text()
+          tf_dir = Path("infrastructure/terraform/cloudflare")
+          tf = "\n".join(p.read_text() for p in sorted(tf_dir.glob("*.tf")))
           expected = {
               "zwf.zeaz.dev": "http://127.0.0.1:9570",
               "zwf-api.zeaz.dev": "http://127.0.0.1:9570",
