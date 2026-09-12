@@ -1,6 +1,8 @@
 # zWorkforce
 
-![zWorkforce — Enterprise AI Workforce Operating System](docs/assets/zworkforce-social-preview.svg)
+<p align="center">
+  <img src="docs/assets/zworkforce-readme-banner.jpg" alt="zWorkforce — Open Platform for AI Workforce" width="100%">
+</p>
 
 **Enterprise AI Workforce Operating System — distributed control plane, durable agents, workflow automation, governance, MCP integration and AI FinOps.**
 
