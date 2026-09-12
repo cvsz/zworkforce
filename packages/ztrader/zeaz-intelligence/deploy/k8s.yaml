@@ -1,0 +1,97 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ztrader-intelligence-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ztrader-intelligence
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ztrader-intelligence
+  template:
+    metadata:
+      labels:
+        app: ztrader-intelligence
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: api
+          image: ztrader-intelligence:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8218
+          env:
+            - name: ZTRADER_INTEL_DB
+              value: /app/data/ztrader_intel.db
+            - name: XAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ztrader-intelligence-secrets
+                  key: XAI_API_KEY
+                  optional: true
+            - name: GOPLUS_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: ztrader-intelligence-secrets
+                  key: GOPLUS_API_TOKEN
+                  optional: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8218
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8218
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: ztrader-intelligence-data
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ztrader-intelligence
+spec:
+  selector:
+    app: ztrader-intelligence
+  ports:
+    - name: http
+      port: 8218
+      targetPort: 8218
