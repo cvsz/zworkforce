@@ -99,10 +99,22 @@ cmd_install() {
         (cd packages/zider && npm install && npm run build || true)
     fi
 
-    # 5. Zok Conversational Commerce OS
-    if [ -d "packages/zok" ]; then
+    # 5. Zok Conversational Commerce OS (pinned public submodule)
+    if git submodule status -- packages/zok >/dev/null 2>&1; then
+        log_info "Initializing packages/zok submodule..."
+        git submodule sync -- packages/zok
+        git submodule update --init --recursive --depth=1 -- packages/zok
+    fi
+    if [ -f "packages/zok/package.json" ]; then
         log_info "Setting up packages/zok..."
-        (cd packages/zok && npm install || true)
+        if [ -f "packages/zok/package-lock.json" ]; then
+            (cd packages/zok && npm ci)
+        else
+            (cd packages/zok && npm install)
+        fi
+    else
+        log_error "packages/zok is not initialized; expected packages/zok/package.json"
+        return 1
     fi
 
     # 6. Top-level Monorepo Workspace (services & apps)

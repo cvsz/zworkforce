@@ -1,2 +1,0 @@
-DROP TABLE IF EXISTS zok_cutover_idempotency CASCADE;
-DROP TABLE IF EXISTS sync_logs CASCADE;
