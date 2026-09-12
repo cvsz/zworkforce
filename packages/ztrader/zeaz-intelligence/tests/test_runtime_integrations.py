@@ -104,11 +104,47 @@ async def test_zwallet_provider_propagates_trace_and_read_only_request(monkeypat
         assert result["quality"] == "UNAVAILABLE"
 
 
-def test_onchain_route_reaches_zwallet_provider(monkeypatch) -> None:
+def _integration_headers() -> dict[str, str]:
+    return {"X-API-Key": "inbound-service-key"}
+
+
+def _valid_advisory() -> dict[str, object]:
+    return {
+        "version": "1.1",
+        "tenant_id": "tenant-demo",
+        "account_ref": "paper-account-1",
+        "portfolio_ref": "portfolio-alpha",
+        "signal_id": "signal-route-001",
+        "trace_id": "trace-route-001",
+        "symbol": "ABC",
+        "chain": "ethereum",
+        "address": "0x1111111111111111111111111111111111111111",
+        "scores": {"opportunity": 72, "risk": 30, "confidence": 68},
+        "narrative": "EARLY",
+        "whales": "NEUTRAL",
+        "rug_risk": "LOW",
+        "action": "WATCH",
+        "evidence_timestamp": "2026-09-12T11:00:00Z",
+        "invalidations": ["risk >= 55"],
+        "proposed_trade": {
+            "mode": "paper",
+            "side": "buy",
+            "order_type": "limit",
+            "entry_low": 1.0,
+            "entry_high": 1.1,
+            "stop_loss": 0.9,
+            "take_profit_levels": [1.3],
+            "max_position_usd": 100.0,
+        },
+        "evidence": {"source": "test"},
+    }
+
+
+def test_onchain_route_requires_auth_and_reaches_zwallet_provider(monkeypatch) -> None:
+    monkeypatch.setenv("ZTRADER_INTEL_SERVICE_TOKEN", "inbound-service-key")
+
     async def fake_onchain(self, *, trace_id: str, chain: str, address: str):
         assert trace_id == "trace-route-001"
-        assert chain == "ethereum"
-        assert address == "0x1111111111111111111111111111111111111111"
         return {
             "version": "1.0",
             "trace_id": trace_id,
@@ -121,24 +157,30 @@ def test_onchain_route_reaches_zwallet_provider(monkeypatch) -> None:
 
     monkeypatch.setattr(ZWalletProvider, "onchain_evidence", fake_onchain)
     client = TestClient(app)
+    payload = {
+        "trace_id": "trace-route-001",
+        "token": {
+            "symbol": "ABC",
+            "chain": "ethereum",
+            "address": "0x1111111111111111111111111111111111111111",
+        },
+    }
+    assert client.post("/v1/integrations/zwallet/evidence", json=payload).status_code == 401
     response = client.post(
         "/v1/integrations/zwallet/evidence",
-        json={
-            "trace_id": "trace-route-001",
-            "token": {
-                "symbol": "ABC",
-                "chain": "ethereum",
-                "address": "0x1111111111111111111111111111111111111111",
-            },
-        },
+        json=payload,
+        headers=_integration_headers(),
     )
     assert response.status_code == 200
     assert response.json()["trace_id"] == "trace-route-001"
 
 
-def test_advisory_route_reaches_zksato_provider_and_stays_non_executing(monkeypatch) -> None:
+def test_advisory_route_validates_scope_and_contract_before_forwarding(monkeypatch) -> None:
+    monkeypatch.setenv("ZTRADER_INTEL_SERVICE_TOKEN", "inbound-service-key")
+
     async def fake_submit(self, intent: dict[str, object]):
         assert intent["signal_id"] == "signal-route-001"
+        assert intent["proposed_trade"]["mode"] == "paper"  # type: ignore[index]
         return {
             "accepted": True,
             "execution_allowed": False,
@@ -146,15 +188,68 @@ def test_advisory_route_reaches_zksato_provider_and_stays_non_executing(monkeypa
             "signal_id": "signal-route-001",
             "canonical_executor": "zksato",
             "mode": "paper",
-            "reason": "recorded for deterministic review",
+            "reason": "recorded",
         }
 
     monkeypatch.setattr(ZKsatoProvider, "submit_advisory", fake_submit)
     client = TestClient(app)
+    headers = {
+        **_integration_headers(),
+        "X-Tenant-ID": "tenant-demo",
+        "X-Account-Ref": "paper-account-1",
+    }
     response = client.post(
         "/v1/integrations/zksato/advisory",
-        json={"intent": {"signal_id": "signal-route-001", "trace_id": "trace-route-001"}},
+        json={"intent": _valid_advisory()},
+        headers=headers,
     )
     assert response.status_code == 202
     assert response.json()["execution_allowed"] is False
-    assert response.json()["canonical_executor"] == "zksato"
+
+    bad = _valid_advisory()
+    bad["proposed_trade"] = {
+        **bad["proposed_trade"],  # type: ignore[arg-type]
+        "mode": "live",
+    }
+    assert (
+        client.post(
+            "/v1/integrations/zksato/advisory",
+            json={"intent": bad},
+            headers=headers,
+        ).status_code
+        == 422
+    )
+
+    wrong_scope = {**headers, "X-Tenant-ID": "other-tenant"}
+    assert (
+        client.post(
+            "/v1/integrations/zksato/advisory",
+            json={"intent": _valid_advisory()},
+            headers=wrong_scope,
+        ).status_code
+        == 403
+    )
+
+
+def test_integration_http_errors_return_503(monkeypatch) -> None:
+    monkeypatch.setenv("ZTRADER_INTEL_SERVICE_TOKEN", "inbound-service-key")
+
+    async def fail_onchain(self, *, trace_id: str, chain: str, address: str):
+        request = httpx.Request("POST", "http://zwallet.invalid")
+        raise httpx.ConnectError("unavailable", request=request)
+
+    monkeypatch.setattr(ZWalletProvider, "onchain_evidence", fail_onchain)
+    client = TestClient(app)
+    response = client.post(
+        "/v1/integrations/zwallet/evidence",
+        json={
+            "trace_id": "trace-route-002",
+            "token": {
+                "symbol": "ABC",
+                "chain": "ethereum",
+                "address": "0x1111111111111111111111111111111111111111",
+            },
+        },
+        headers=_integration_headers(),
+    )
+    assert response.status_code == 503
