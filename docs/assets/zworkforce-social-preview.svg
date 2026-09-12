@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title desc">
+  <title id="title">zWorkforce — Enterprise AI Workforce Operating System</title>
+  <desc id="desc">Repository social banner showing 10 apps, 18 services, 11 packages, and the core control-plane architecture.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f1e31"/>
+      <stop offset="0.52" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#081b2a"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="80%" cy="18%" r="62%">
+      <stop offset="0" stop-color="#1bc9ea" stop-opacity=".18"/>
+      <stop offset=".58" stop-color="#0f7d99" stop-opacity=".06"/>
+      <stop offset="1" stop-color="#07111f" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <rect width="1280" height="640" fill="url(#glow)"/>
+
+  <g stroke="#55d9f7" stroke-opacity=".28" stroke-width="2" fill="none">
+    <path d="M900 115 L1020 180 L1120 120 L1190 245 L1150 370 L1210 500"/>
+    <path d="M1020 180 L1050 300 L920 260 L820 320 L760 420 L890 500 L1010 430 L1210 500"/>
+    <path d="M1050 300 L1150 370 M1050 300 L1010 430 M920 260 L1010 430"/>
+  </g>
+  <g fill="#68e7ff">
+    <circle cx="900" cy="115" r="5"/><circle cx="1020" cy="180" r="5"/><circle cx="1120" cy="120" r="5"/>
+    <circle cx="1190" cy="245" r="5"/><circle cx="1050" cy="300" r="5"/><circle cx="920" cy="260" r="5"/>
+    <circle cx="1150" cy="370" r="5"/><circle cx="1010" cy="430" r="5"/><circle cx="1210" cy="500" r="5"/>
+    <circle cx="890" cy="500" r="5"/><circle cx="760" cy="420" r="5"/><circle cx="820" cy="320" r="5"/>
+  </g>
+
+  <rect x="84" y="74" width="76" height="76" rx="18" fill="#0e2238" stroke="#55e1ff" stroke-width="3"/>
+  <path d="M104 97 H140 L108 127 H142" fill="none" stroke="#79efff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="178" y="122" fill="#9ab3cb" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="22" font-weight="700" letter-spacing="1.5">ZEA ZDEV</text>
+
+  <text x="84" y="262" fill="#f2f8ff" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="86" font-weight="800">zWorkforce</text>
+  <text x="88" y="318" fill="#a1cfe6" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="32">Enterprise AI Workforce Operating System</text>
+  <rect x="88" y="344" width="522" height="5" rx="2.5" fill="#54ddff" fill-opacity=".9"/>
+
+  <g font-family="Inter,Segoe UI,Arial,sans-serif">
+    <g transform="translate(88 390)">
+      <rect width="154" height="86" rx="16" fill="#0a1b2e" fill-opacity=".9" stroke="#4d7c9a" stroke-opacity=".7"/>
+      <text x="18" y="40" fill="#7eeeff" font-size="25" font-weight="800">10</text>
+      <text x="18" y="69" fill="#b1c2d2" font-size="22">APPS</text>
+    </g>
+    <g transform="translate(258 390)">
+      <rect width="154" height="86" rx="16" fill="#0a1b2e" fill-opacity=".9" stroke="#4d7c9a" stroke-opacity=".7"/>
+      <text x="18" y="40" fill="#7eeeff" font-size="25" font-weight="800">18</text>
+      <text x="18" y="69" fill="#b1c2d2" font-size="22">SERVICES</text>
+    </g>
+    <g transform="translate(428 390)">
+      <rect width="154" height="86" rx="16" fill="#0a1b2e" fill-opacity=".9" stroke="#4d7c9a" stroke-opacity=".7"/>
+      <text x="18" y="40" fill="#7eeeff" font-size="25" font-weight="800">11</text>
+      <text x="18" y="69" fill="#b1c2d2" font-size="22">PACKAGES</text>
+    </g>
+  </g>
+
+  <text x="88" y="552" fill="#a6b9c9" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="22">Agents • Workflows • Voice • MCP • Governance • FinOps • Intelligence</text>
+
+  <g font-family="Inter,Segoe UI,Arial,sans-serif" font-size="20" font-weight="700" fill="#88e6fc">
+    <g transform="translate(823 80)"><rect width="210" height="48" rx="14" fill="#081c2e" fill-opacity=".86" stroke="#50d2f5" stroke-opacity=".45"/><text x="15" y="31">CONTROL PLANE</text></g>
+    <g transform="translate(971 206)"><rect width="229" height="48" rx="14" fill="#081c2e" fill-opacity=".86" stroke="#50d2f5" stroke-opacity=".45"/><text x="15" y="31">DURABLE RUNTIME</text></g>
+    <g transform="translate(831 301)"><rect width="192" height="48" rx="14" fill="#081c2e" fill-opacity=".86" stroke="#50d2f5" stroke-opacity=".45"/><text x="15" y="31">MODEL ROUTER</text></g>
+    <g transform="translate(1006 400)"><rect width="203" height="48" rx="14" fill="#081c2e" fill-opacity=".86" stroke="#50d2f5" stroke-opacity=".45"/><text x="15" y="31">TOOLS + MEMORY</text></g>
+    <g transform="translate(838 495)"><rect width="203" height="48" rx="14" fill="#081c2e" fill-opacity=".86" stroke="#50d2f5" stroke-opacity=".45"/><text x="15" y="31">OBSERVABILITY</text></g>
+  </g>
+
+  <text x="1014" y="608" fill="#7991a5" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="18">github.com/cvsz/zworkforce</text>
+</svg>

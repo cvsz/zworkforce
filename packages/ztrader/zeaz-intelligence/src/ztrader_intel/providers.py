@@ -16,12 +16,31 @@ class DexScreenerProvider:
         self.base_url = os.getenv("DEXSCREENER_BASE_URL", "https://api.dexscreener.com").rstrip("/")
 
     async def token_pairs(self, chain: str, token_address: str) -> list[dict[str, Any]]:
-        url = f"{self.base_url}/token-pairs/v1/{chain}/{token_address}"
-        response = await self.client.get(url)
+        response = await self.client.get(
+            f"{self.base_url}/token-pairs/v1/{chain}/{token_address}"
+        )
         response.raise_for_status()
         payload = response.json()
         if not isinstance(payload, list):
-            raise ProviderError("DexScreener returned unexpected payload")
+            raise ProviderError("DexScreener returned unexpected token-pairs payload")
+        return payload
+
+    async def latest_profiles(self) -> list[dict[str, Any]]:
+        response = await self.client.get(f"{self.base_url}/token-profiles/latest/v1")
+        response.raise_for_status()
+        payload = response.json()
+        if isinstance(payload, list):
+            return payload
+        if isinstance(payload, dict):
+            return [payload]
+        raise ProviderError("DexScreener returned unexpected profiles payload")
+
+    async def trending_metas(self) -> list[dict[str, Any]]:
+        response = await self.client.get(f"{self.base_url}/metas/trending/v1")
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, list):
+            raise ProviderError("DexScreener returned unexpected metas payload")
         return payload
 
 
@@ -33,9 +52,8 @@ class GoPlusProvider:
 
     async def token_security(self, chain_id: str, token_address: str) -> dict[str, Any]:
         headers = {"Authorization": f"Bearer {self.token}"} if self.token else {}
-        url = f"{self.base_url}/api/v1/token_security/{chain_id}"
         response = await self.client.get(
-            url,
+            f"{self.base_url}/api/v1/token_security/{chain_id}",
             params={"contract_addresses": token_address},
             headers=headers,
         )

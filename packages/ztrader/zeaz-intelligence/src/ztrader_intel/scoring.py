@@ -9,6 +9,7 @@ from .models import (
     Scores,
     WhaleState,
 )
+from .narrative import attention_velocity
 
 
 def clamp(value: float, low: float = 0, high: float = 100) -> float:
@@ -20,22 +21,23 @@ def _known(*values: object) -> int:
 
 
 def narrative_stage(req: IntelligenceRequest) -> NarrativeStage:
-    s = req.social
-    if not s:
+    velocity = attention_velocity(req.social)
+    if velocity.stage != NarrativeStage.DEAD:
+        return velocity.stage
+
+    social = req.social
+    if social is None:
         return NarrativeStage.DEAD
-
+    sentiment = social.sentiment_score or 0
     growth = [
-        x for x in (s.mention_growth_5m, s.mention_growth_1h, s.mention_growth_24h) if x is not None
+        value
+        for value in (
+            social.mention_growth_5m,
+            social.mention_growth_1h,
+            social.mention_growth_24h,
+        )
+        if value is not None
     ]
-    sentiment = s.sentiment_score or 0
-    organic = s.organic_score if s.organic_score is not None else 0.5
-
-    if len(growth) >= 2 and growth[0] > growth[1] and growth[0] >= 40 and organic >= 0.65:
-        return NarrativeStage.EARLY
-    if growth and max(growth) >= 25 and sentiment > 0.15:
-        return NarrativeStage.HEATING_UP
-    if growth and max(growth) >= 75 and (s.influencer_concentration or 0) >= 0.55:
-        return NarrativeStage.CROWDED
     if growth and growth[0] < 0 and sentiment <= 0:
         return NarrativeStage.FADING
     if growth and max(growth) > 0:
@@ -52,8 +54,9 @@ def whale_state(req: IntelligenceRequest) -> WhaleState:
     acc = w.accumulating_wallets or 0
     dist = w.distributing_wallets or 0
     exchange_net = (w.exchange_outflow_usd or 0) - (w.exchange_inflow_usd or 0)
+    smart_delta = (w.new_smart_money_entries or 0) - (w.smart_money_exits or 0)
 
-    if net > 0 and acc > dist and exchange_net >= 0:
+    if net > 0 and acc > dist and exchange_net >= 0 and smart_delta >= 0:
         return WhaleState.ACCUMULATING
     if net < 0 and dist > acc:
         return WhaleState.DISTRIBUTING
@@ -61,7 +64,7 @@ def whale_state(req: IntelligenceRequest) -> WhaleState:
 
 
 def risk_score(req: IntelligenceRequest) -> tuple[int, list[str]]:
-    r = 15.0
+    score = 15.0
     flags: list[str] = []
     sec = req.security
     market = req.market
@@ -70,90 +73,115 @@ def risk_score(req: IntelligenceRequest) -> tuple[int, list[str]]:
 
     if sec:
         if sec.honeypot:
-            r += 70
+            score += 70
             flags.append("honeypot signal")
         if sec.mintable:
-            r += 18
+            score += 18
             flags.append("token supply is mintable")
         if sec.blacklistable:
-            r += 12
+            score += 12
             flags.append("blacklist authority detected")
         if sec.pausable:
-            r += 8
+            score += 8
             flags.append("trading/transfer pause authority detected")
         if sec.liquidity_locked is False:
-            r += 18
+            score += 18
             flags.append("liquidity is not verified locked/burned")
+        if sec.lp_lock_pct is not None and sec.lp_lock_pct < 70:
+            score += 12
+            flags.append("LP lock percentage is weak")
         if sec.top10_holder_pct is not None and sec.top10_holder_pct > 50:
-            r += min(22, (sec.top10_holder_pct - 50) * 0.6)
+            score += min(22, (sec.top10_holder_pct - 50) * 0.6)
             flags.append("high top-10 holder concentration")
         if sec.insider_pct is not None and sec.insider_pct > 15:
-            r += min(20, (sec.insider_pct - 15) * 0.8)
+            score += min(20, (sec.insider_pct - 15) * 0.8)
             flags.append("elevated insider-linked concentration")
         if (sec.sell_tax_pct or 0) > 10:
-            r += 15
+            score += 15
             flags.append("high sell tax")
         if sec.open_source is False:
-            r += 12
+            score += 12
             flags.append("contract source is not verified/open")
+        if sec.owner_renounced is False:
+            score += 8
+            flags.append("owner privileges remain active")
+        if sec.suspicious_deployer:
+            score += 20
+            flags.append("deployer history is suspicious")
+        if (sec.deployer_previous_tokens or 0) >= 10:
+            score += 8
+            flags.append("deployer has unusually high prior token count")
 
     if market:
         cap = market.market_cap_usd or 0
-        liq = market.liquidity_usd or 0
+        liquidity = market.liquidity_usd or 0
         if cap > 0:
-            liq_ratio = liq / cap
-            if liq_ratio < 0.03:
-                r += 22
+            ratio = liquidity / cap
+            if ratio < 0.03:
+                score += 22
                 flags.append("liquidity is thin relative to market cap")
-            elif liq_ratio < 0.08:
-                r += 10
+            elif ratio < 0.08:
+                score += 10
                 flags.append("liquidity/market-cap ratio is weak")
-        if market.volume_24h_usd and liq and market.volume_24h_usd / liq > 12:
-            r += 10
+        if market.volume_24h_usd and liquidity and market.volume_24h_usd / liquidity > 12:
+            score += 10
             flags.append("volume/liquidity ratio is unusually high")
+        if market.pair_age_minutes is not None and market.pair_age_minutes < 30:
+            score += 10
+            flags.append("pair is extremely new")
 
     if social:
-        if social.organic_score is not None and social.organic_score < 0.35:
-            r += 16
+        velocity = attention_velocity(social)
+        if velocity.organic_score < 35:
+            score += 16
             flags.append("social activity appears heavily coordinated/shilled")
         if (social.influencer_concentration or 0) > 0.75:
-            r += 10
+            score += 10
             flags.append("attention is concentrated among few influencers")
 
-    if whales and (whales.suspicious_flow_score or 0) > 0.65:
-        r += 15
-        flags.append("wallet flows show manipulation/coordination risk")
+    if whales:
+        if (whales.suspicious_flow_score or 0) > 0.65:
+            score += 15
+            flags.append("wallet flows show manipulation/coordination risk")
+        if (whales.linked_wallet_score or 0) > 0.7:
+            score += 12
+            flags.append("linked-wallet concentration is high")
 
-    return round(clamp(r)), flags
+    return round(clamp(score)), flags
 
 
-def opportunity_score(req: IntelligenceRequest, stage: NarrativeStage, whales: WhaleState, risk: int) -> int:
+def opportunity_score(
+    req: IntelligenceRequest,
+    stage: NarrativeStage,
+    whales: WhaleState,
+    risk: int,
+) -> int:
     score = 35.0
-
-    stage_bonus = {
+    score += {
         NarrativeStage.EARLY: 24,
         NarrativeStage.HEATING_UP: 17,
         NarrativeStage.CROWDED: 5,
         NarrativeStage.FADING: -14,
         NarrativeStage.DEAD: -20,
-    }
-    score += stage_bonus[stage]
+    }[stage]
 
     if whales == WhaleState.ACCUMULATING:
         score += 14
     elif whales == WhaleState.DISTRIBUTING:
         score -= 20
 
-    m = req.market
-    if m:
-        if (m.buy_sell_ratio or 0) >= 1.5:
+    market = req.market
+    if market:
+        if (market.buy_sell_ratio or 0) >= 1.5:
             score += 8
-        if (m.holder_growth_pct or 0) >= 10:
+        if (market.holder_growth_pct or 0) >= 10:
             score += 8
-        if (m.tx_growth_pct or 0) >= 15:
+        if (market.tx_growth_pct or 0) >= 15:
             score += 7
-        if m.market_cap_usd and m.liquidity_usd:
-            ratio = m.liquidity_usd / m.market_cap_usd
+        if (market.price_change_5m_pct or 0) > 20 and (market.price_change_1h_pct or 0) > 50:
+            score -= 8
+        if market.market_cap_usd and market.liquidity_usd:
+            ratio = market.liquidity_usd / market.market_cap_usd
             if ratio >= 0.15:
                 score += 8
             elif ratio < 0.03:
@@ -167,42 +195,50 @@ def opportunity_score(req: IntelligenceRequest, stage: NarrativeStage, whales: W
 
 
 def confidence_score(req: IntelligenceRequest) -> int:
-    m = req.market
-    s = req.social
-    w = req.whales
-    sec = req.security
+    market = req.market
+    social = req.social
+    whales = req.whales
+    security = req.security
 
-    possible = 18
+    possible = 26
     present = 0
-    if m:
+    if market:
         present += _known(
-            m.market_cap_usd,
-            m.liquidity_usd,
-            m.volume_24h_usd,
-            m.buy_sell_ratio,
-            m.holder_growth_pct,
-            m.tx_growth_pct,
+            market.market_cap_usd,
+            market.liquidity_usd,
+            market.volume_24h_usd,
+            market.buy_sell_ratio,
+            market.holder_growth_pct,
+            market.tx_growth_pct,
+            market.price_change_5m_pct,
+            market.price_change_1h_pct,
         )
-    if s:
+    if social:
         present += _known(
-            s.mention_growth_5m,
-            s.mention_growth_1h,
-            s.mention_growth_24h,
-            s.sentiment_score,
-            s.organic_score,
+            social.mention_growth_5m,
+            social.mention_growth_1h,
+            social.mention_growth_24h,
+            social.sentiment_score,
+            social.organic_score,
+            social.unique_author_growth_pct,
+            social.repeated_content_score,
+            social.bot_score,
         )
-    if w:
+    if whales:
         present += _known(
-            w.net_flow_usd,
-            w.accumulating_wallets,
-            w.distributing_wallets,
+            whales.net_flow_usd,
+            whales.accumulating_wallets,
+            whales.distributing_wallets,
+            whales.new_smart_money_entries,
+            whales.smart_money_exits,
         )
-    if sec:
+    if security:
         present += _known(
-            sec.top10_holder_pct,
-            sec.insider_pct,
-            sec.liquidity_locked,
-            sec.honeypot,
+            security.top10_holder_pct,
+            security.insider_pct,
+            security.liquidity_locked,
+            security.honeypot,
+            security.open_source,
         )
 
     confidence = 20 + (present / possible) * 75
@@ -211,7 +247,6 @@ def confidence_score(req: IntelligenceRequest) -> int:
             confidence += 5
         elif req.source_freshness_minutes > 240:
             confidence -= 15
-
     return round(clamp(confidence))
 
 
@@ -243,28 +278,6 @@ def analyze(req: IntelligenceRequest) -> IntelligenceResponse:
     confidence = confidence_score(req)
     action = action_label(opportunity, risk, confidence)
 
-    reasons = [
-        f"narrative stage={stage}",
-        f"whale state={whales}",
-        f"risk={risk}/100",
-        f"opportunity={opportunity}/100",
-        f"confidence={confidence}/100",
-    ]
-
-    invalidations = [
-        "attention acceleration reverses while price/volume remain elevated",
-        "whale state flips to DISTRIBUTING",
-        "liquidity is removed or liquidity/market-cap ratio deteriorates materially",
-        "new contract/holder concentration risk appears",
-    ]
-    watch_next = [
-        "5m→1h→24h mention acceleration and unique-author growth",
-        "holder and transaction growth versus price",
-        "net whale flow and exchange inflows/outflows",
-        "liquidity depth, LP changes, and realistic exit slippage",
-        "security/permission changes and deployer-linked wallet activity",
-    ]
-
     return IntelligenceResponse(
         token=req.token,
         narrative=stage,
@@ -272,8 +285,25 @@ def analyze(req: IntelligenceRequest) -> IntelligenceResponse:
         rug_risk=rug_label(risk),
         action=action,
         scores=Scores(opportunity=opportunity, risk=risk, confidence=confidence),
-        reasons=reasons,
+        reasons=[
+            f"narrative stage={stage}",
+            f"whale state={whales}",
+            f"risk={risk}/100",
+            f"opportunity={opportunity}/100",
+            f"confidence={confidence}/100",
+        ],
         red_flags=red_flags,
-        invalidations=invalidations,
-        watch_next=watch_next,
+        invalidations=[
+            "attention acceleration reverses while price/volume remain elevated",
+            "whale state flips to DISTRIBUTING",
+            "liquidity is removed or liquidity/market-cap ratio deteriorates materially",
+            "new contract/holder/deployer concentration risk appears",
+        ],
+        watch_next=[
+            "5m→1h→24h mention acceleration and unique-author growth",
+            "holder and transaction growth versus price",
+            "net whale flow and exchange inflows/outflows",
+            "liquidity depth, LP changes, and realistic exit slippage",
+            "security/permission changes and deployer-linked wallet activity",
+        ],
     )
