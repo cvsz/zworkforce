@@ -36,6 +36,11 @@ spec:
           env:
             - name: ZTRADER_INTEL_DB
               value: /app/data/ztrader_intel.db
+            - name: ZTRADER_INTEL_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: ztrader-intelligence-secrets
+                  key: ZTRADER_INTEL_SERVICE_TOKEN
             - name: XAI_API_KEY
               valueFrom:
                 secretKeyRef:
