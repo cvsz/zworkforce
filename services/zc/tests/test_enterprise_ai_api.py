@@ -125,7 +125,7 @@ async def test_unknown_agent_has_stable_error_shape(ai_app: FastAPI) -> None:
     assert response.json() == {
         "error": {
             "code": "unknown_capability",
-            "message": "Unknown agent: root",
+            "message": "Unknown capability requested.",
         }
     }
 

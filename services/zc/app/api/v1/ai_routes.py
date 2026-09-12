@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
+
+logger = logging.getLogger(__name__)
 
 from ...core.auth import Principal, require_roles
 from ...models.ai import AICapabilities, AIModel, AIResponse, AIResponseRequest
@@ -37,12 +41,14 @@ async def create_response(
     try:
         response = await service.create_response(request)
     except UnknownCapabilityError as exc:
+        # Do not echo exception internals to clients; log for operators.
+        logger.info("Unknown AI capability requested: %s", exc)
         return JSONResponse(
             status_code=422,
             content={
                 "error": {
                     "code": "unknown_capability",
-                    "message": str(exc),
+                    "message": "Unknown capability requested.",
                 }
             },
         )

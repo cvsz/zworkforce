@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import AsyncIterator
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, Query, Response
 from fastapi.responses import StreamingResponse
@@ -101,13 +104,14 @@ async def create_streaming_response(
             ):
                 yield _sse(event["type"], event)
         except UnknownCapabilityError as exc:
+            logger.info("Unknown chat capability requested: %s", exc)
             yield _sse(
                 "response.error",
                 {
                     "type": "response.error",
                     "error": {
                         "code": "unknown_capability",
-                        "message": str(exc),
+                        "message": "Unknown capability requested.",
                     },
                 },
             )
