@@ -17,7 +17,7 @@ from .models import (
     SecuritySnapshot,
     TokenRef,
 )
-from .providers import DexScreenerProvider, GoPlusProvider, ProviderError, XAIProvider
+from .providers import (\n    DexScreenerProvider,\n    GoPlusProvider,\n    ProviderError,\n    XAIProvider,\n    ZaimanProvider,\n)
 from .scoring import analyze
 
 _PROVIDER_ERRORS = (httpx.HTTPError, ProviderError, TypeError, ValueError)
@@ -137,13 +137,23 @@ async def enrich_and_analyze(req: IntelligenceRequest):
         result = analyze(req)
 
         if req.use_grok_summary and req.social:
+            zaiman = ZaimanProvider(client)
             try:
-                result.grok_summary = await XAIProvider(client).summarize_evidence(
-                    req.token.symbol,
-                    req.social.excerpts,
-                )
+                if zaiman.enabled:
+                    result.grok_summary = await zaiman.summarize_evidence(
+                        req.token.symbol,
+                        req.social.excerpts,
+                    )
+                    evidence["llm_gateway"] = "zaiman"
+                else:
+                    result.grok_summary = await XAIProvider(client).summarize_evidence(
+                        req.token.symbol,
+                        req.social.excerpts,
+                    )
+                    evidence["llm_gateway"] = "xai-direct-fallback"
             except _PROVIDER_ERRORS as exc:
-                errors.append(f"xai:{exc.__class__.__name__}")
+                provider = "zaiman" if zaiman.enabled else "xai"
+                errors.append(f"{provider}:{exc.__class__.__name__}")
 
     if errors:
         evidence["provider_errors"] = errors
