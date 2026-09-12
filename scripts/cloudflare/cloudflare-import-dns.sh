@@ -65,6 +65,7 @@ declare -A resources=(
   [zwf-api]="cloudflare_dns_record.zwf_api"
   [zslog]="cloudflare_dns_record.zslog"
   [dbc]="cloudflare_dns_record.dbc"
+  [coin]="cloudflare_dns_record.coin"
   [zeaz-one]="cloudflare_dns_record.zeaz_one[0]"
   [zeaz-one-support]="cloudflare_dns_record.zeaz_one_support[0]"
 )
@@ -85,11 +86,12 @@ declare -A hostnames=(
   [zwf-api]="${ZWF_API_HOSTNAME:-zwf-api.zeaz.dev}"
   [zslog]="${ZSLOG_HOSTNAME:-zslog.zeaz.dev}"
   [dbc]="${DBC_HOSTNAME:-dbc.zeaz.dev}"
+  [coin]="${COIN_HOSTNAME:-zcoin.zeaz.dev}"
   [zeaz-one]="${ZEAZ_ONE_HOSTNAME:-one.zeaz.dev}"
   [zeaz-one-support]="${ZEAZ_ONE_SUPPORT_HOSTNAME:-support.zeaz.dev}"
 )
 
-declare -a all_targets=(moopiew arin zttshop qwen chat piewdash zdash zerp cmeerp zai auth zwf zwf-api zslog dbc)
+declare -a all_targets=(moopiew arin zttshop qwen chat piewdash zdash zerp cmeerp zai auth zwf zwf-api zslog dbc coin)
 if [[ "${ZEAZ_ONE_ENABLED:-false}" == "true" ]]; then
   all_targets+=(zeaz-one zeaz-one-support)
 fi
