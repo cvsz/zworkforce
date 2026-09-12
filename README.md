@@ -90,12 +90,16 @@ The repository is both the **zWorkforce governed AI control plane** and a broade
 | [`packages/zok`](packages/zok) | Git submodule | Conversational-commerce workspace currently operated as a hardened developer/sandbox release with simulated channel delivery boundaries. |
 | [`packages/zttshop-php`](packages/zttshop-php) | Git submodule | PHP 8.1+ client SDK for TikTok Shop Open Platform resources including auth, products, orders, logistics, finance, returns, warehouse, and video. |
 
-The four Git-linked package entries are pinned in [`.gitmodules`](.gitmodules). Clone them with the repository or initialize them afterward:
+The four Git-linked package entries are pinned in [`.gitmodules`](.gitmodules) and are **optional for the core zWorkforce quick start**. Two pinned URLs use GitHub SSH. If SSH authentication is already configured, initialize them normally:
 
 ```bash
-git clone --recurse-submodules https://github.com/cvsz/zworkforce.git
-# or, from an existing clone:
 git submodule update --init --recursive
+```
+
+For public HTTPS-only environments, temporarily rewrite GitHub SSH URLs to HTTPS while initializing the pinned submodules:
+
+```bash
+git -c 'url.https://github.com/.insteadOf=git@github.com:' submodule update --init --recursive
 ```
 
 ### Other top-level platform surfaces
@@ -173,7 +177,7 @@ Install the full ProMeta runtime baseline with `zworkforce prometa-install`.
 ## Quick start — local SQLite
 
 ```bash
-git clone --recurse-submodules https://github.com/cvsz/zworkforce.git
+git clone https://github.com/cvsz/zworkforce.git
 cd zworkforce
 cp .env.example .env
 python -m pip install .
