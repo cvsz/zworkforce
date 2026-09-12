@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, Query
+import os
+import secrets
+from typing import Annotated
+
+import httpx
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 
@@ -10,6 +15,7 @@ from .backtest import evaluate_signals
 from .discovery import discover
 from .events import event_bus
 from .models import (
+    AdvisoryIntentSubmission,
     AlertRequest,
     AttentionVelocity,
     BacktestRequest,
@@ -19,6 +25,7 @@ from .models import (
     IntelligenceRequest,
     IntelligenceResponse,
     LiveDiscoveryRequest,
+    OnchainEvidenceLookup,
     PortfolioRequest,
     PortfolioResponse,
     SmartMoneyRequest,
@@ -31,8 +38,15 @@ from .models import (
 from .narrative import attention_velocity
 from .policy import execution_policy
 from .portfolio import build_portfolio
+from .providers import ProviderError
 from .scoring import analyze
-from .service import enrich_and_analyze, live_discovery, trending_narratives
+from .service import (
+    enrich_and_analyze,
+    fetch_canonical_onchain_evidence,
+    live_discovery,
+    submit_canonical_advisory_intent,
+    trending_narratives,
+)
 from .store import AnalysisStore
 from .trade_plan import build_trade_plan
 from .wallets import analyze_wallet_flows
@@ -47,6 +61,42 @@ app = FastAPI(
 )
 Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 store = AnalysisStore()
+
+
+def _integration_token(
+    authorization: Annotated[str | None, Header()] = None,
+    x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
+) -> str:
+    expected = os.getenv("ZTRADER_INTEL_SERVICE_TOKEN", "").strip()
+    if not expected:
+        raise HTTPException(status_code=503, detail="integration authentication is not configured")
+
+    supplied = ""
+    if authorization and authorization.lower().startswith("bearer "):
+        supplied = authorization[7:].strip()
+    elif x_api_key:
+        supplied = x_api_key.strip()
+
+    if not supplied or not secrets.compare_digest(supplied, expected):
+        raise HTTPException(status_code=401, detail="invalid integration credentials")
+    return supplied
+
+
+IntegrationToken = Annotated[str, Depends(_integration_token)]
+
+
+def _verify_advisory_scope(
+    payload: AdvisoryIntentSubmission,
+    tenant_id: Annotated[str | None, Header(alias="X-Tenant-ID")] = None,
+    account_ref: Annotated[str | None, Header(alias="X-Account-Ref")] = None,
+) -> None:
+    if not tenant_id or not account_ref:
+        raise HTTPException(status_code=400, detail="tenant/account scope headers are required")
+    if not secrets.compare_digest(tenant_id, payload.intent.tenant_id):
+        raise HTTPException(status_code=403, detail="tenant scope mismatch")
+    if not secrets.compare_digest(account_ref, payload.intent.account_ref):
+        raise HTTPException(status_code=403, detail="account scope mismatch")
+
 
 
 async def _record(result: IntelligenceResponse) -> IntelligenceResponse:
@@ -143,6 +193,29 @@ async def watchlist_add(payload: WatchlistEntry):
 @app.get("/v1/watchlist", response_model=list[WatchlistEntry])
 async def watchlist_list():
     return store.list_watchlist()
+
+
+@app.post("/v1/integrations/zwallet/evidence")
+async def canonical_onchain_evidence(
+    payload: OnchainEvidenceLookup,
+    _token: IntegrationToken,
+):
+    try:
+        return await fetch_canonical_onchain_evidence(payload)
+    except (ProviderError, httpx.HTTPError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post("/v1/integrations/zksato/advisory", status_code=202)
+async def canonical_advisory_submission(
+    payload: AdvisoryIntentSubmission,
+    _token: IntegrationToken,
+    _scope: Annotated[None, Depends(_verify_advisory_scope)],
+):
+    try:
+        return await submit_canonical_advisory_intent(payload.intent)
+    except (ProviderError, httpx.HTTPError) as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @app.get("/v1/events")

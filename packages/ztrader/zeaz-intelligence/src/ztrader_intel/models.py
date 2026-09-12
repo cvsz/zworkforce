@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class NarrativeStage(StrEnum):
@@ -317,3 +318,68 @@ class AlertRequest(BaseModel):
 class WatchlistEntry(BaseModel):
     token: TokenRef
     note: str = ""
+
+
+class OnchainEvidenceLookup(BaseModel):
+    trace_id: str = Field(min_length=1, max_length=128)
+    token: TokenRef
+
+
+class AdvisoryScoresV11(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    opportunity: int = Field(ge=0, le=100)
+    risk: int = Field(ge=0, le=100)
+    confidence: int = Field(ge=0, le=100)
+
+
+class ProposedPaperTradeV11(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Literal["paper"]
+    side: Literal["buy", "sell"]
+    order_type: Literal["limit"]
+    entry_low: float | None = Field(default=None, gt=0)
+    entry_high: float | None = Field(default=None, gt=0)
+    stop_loss: float | None = Field(default=None, gt=0)
+    take_profit_levels: list[float] = Field(default_factory=list)
+    max_position_usd: float = Field(gt=0)
+
+    @model_validator(mode="after")
+    def validate_entry_band(self) -> ProposedPaperTradeV11:
+        if (
+            self.entry_low is not None
+            and self.entry_high is not None
+            and self.entry_low > self.entry_high
+        ):
+            raise ValueError("entry_low must be <= entry_high")
+        return self
+
+
+class AdvisoryIntentV11(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    version: Literal["1.1"]
+    tenant_id: str = Field(min_length=1, max_length=128)
+    account_ref: str = Field(min_length=1, max_length=256)
+    portfolio_ref: str | None = Field(default=None, max_length=256)
+    signal_id: str = Field(min_length=1, max_length=128)
+    trace_id: str | None = Field(default=None, max_length=128)
+    symbol: str = Field(min_length=1, max_length=64)
+    chain: str = Field(min_length=1, max_length=64)
+    address: str = Field(min_length=1, max_length=256)
+    scores: AdvisoryScoresV11
+    narrative: Literal["EARLY", "HEATING_UP", "CROWDED", "FADING", "DEAD"]
+    whales: Literal["ACCUMULATING", "NEUTRAL", "DISTRIBUTING"]
+    rug_risk: Literal["LOW", "MEDIUM", "HIGH", "EXTREME"]
+    action: Literal["WATCH", "WAIT", "RESEARCH_MORE", "AVOID"]
+    evidence_timestamp: datetime
+    invalidations: list[str] = Field(default_factory=list)
+    proposed_trade: ProposedPaperTradeV11
+    evidence: dict[str, Any] = Field(default_factory=dict)
+
+
+class AdvisoryIntentSubmission(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    intent: AdvisoryIntentV11

@@ -36,6 +36,11 @@ spec:
           env:
             - name: ZTRADER_INTEL_DB
               value: /app/data/ztrader_intel.db
+            - name: ZTRADER_INTEL_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: ztrader-intelligence-secrets
+                  key: ZTRADER_INTEL_SERVICE_TOKEN
             - name: XAI_API_KEY
               valueFrom:
                 secretKeyRef:
@@ -48,6 +53,32 @@ spec:
                   name: ztrader-intelligence-secrets
                   key: GOPLUS_API_TOKEN
                   optional: true
+            - name: ZAIMAN_BASE_URL
+              value: http://zaiman:20128/v1
+            - name: ZAIMAN_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ztrader-intelligence-secrets
+                  key: ZAIMAN_API_KEY
+                  optional: true
+            - name: ZKSATO_BASE_URL
+              value: http://zksato:9569
+            - name: ZKSATO_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ztrader-intelligence-secrets
+                  key: ZKSATO_API_KEY
+                  optional: true
+            - name: ZWALLET_BASE_URL
+              value: http://zwallet-api:8000
+            - name: ZWALLET_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: ztrader-intelligence-secrets
+                  key: ZWALLET_SERVICE_TOKEN
+                  optional: true
+            - name: ZTRADER_LIVE_EXECUTION
+              value: "false"
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
