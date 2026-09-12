@@ -1,88 +1,117 @@
-# ZeaZ zTrader Intelligence Sidecar
+# ZeaZ zTrader Intelligence v1.0
 
-Additive crypto intelligence service for zTrader. It does **decision support**, not blind auto-buy execution.
+A production-oriented crypto intelligence sidecar for zTrader. It combines narrative velocity, market discovery, smart-money flow analysis, contract/liquidity risk, portfolio risk budgeting, backtesting, alerts, persistence, realtime events and provider enrichment.
 
-## Capabilities
+It is intentionally **decision-support first**. Social hype never maps directly to a real-money order.
 
-- Narrative stage: EARLY / HEATING_UP / CROWDED / FADING / DEAD
-- Whale state: ACCUMULATING / NEUTRAL / DISTRIBUTING
-- Rug risk: LOW / MEDIUM / HIGH / EXTREME
-- Opportunity / Risk / Confidence scores (0-100)
-- DexScreener market enrichment
-- Optional GoPlus contract-risk enrichment
-- Optional Grok/xAI narrative summarization from supplied social evidence
-- Explicit invalidation signals and next metrics to watch
+## Engines
 
-## Safety model
+- Narrative: 5m/1h/24h attention acceleration, organic-vs-shilled heuristics
+- Discovery: low-cap filters, liquidity quality, ranked candidates
+- Market: DexScreener pair/profile enrichment and trending metas
+- Smart money: whale flow, known-smart-money net flow, wallet clusters
+- Rug/risk: honeypot, mintability, blacklist/pause, taxes, concentration, LP/deployer inputs
+- Scoring: Opportunity / Risk / Confidence 0-100
+- Trade plan: deterministic entry/DCA/TP/stop simulation with bounded loss budget
+- Portfolio: Conservative / Moderate / Aggressive allocation with reserve and per-asset caps
+- Evaluation: historical forward-return signal backtest
+- Alerts: threshold/narrative/whale-state gates
+- Policy: paper-trade gate; live execution is always false in this service
+- State: SQLite analysis history and watchlist
+- Realtime: Server-Sent Events
+- Observability: Prometheus /metrics
 
-The service never converts social hype directly into a real-money market order. Outputs are:
-WATCH / WAIT / RESEARCH_MORE / AVOID.
+## Verdicts
 
-Use paper trading/backtesting and policy approval before execution.
+Narrative:
+`EARLY / HEATING_UP / CROWDED / FADING / DEAD`
 
-## Quick start
+Whales:
+`ACCUMULATING / NEUTRAL / DISTRIBUTING`
+
+Rug risk:
+`LOW / MEDIUM / HIGH / EXTREME`
+
+Decision support:
+`WATCH / WAIT / RESEARCH_MORE / AVOID`
+
+Discovery:
+`EARLY / WATCH / SKIP`
+
+Trade-plan simulation:
+`ENTER / WAIT / TAKE_PROFIT / EXIT`
+
+## API
+
+- GET /health
+- GET /metrics
+- POST /v1/analyze
+- POST /v1/enrich
+- POST /v1/narrative/velocity
+- GET /v1/narratives/live
+- POST /v1/discover
+- POST /v1/discover/live
+- POST /v1/wallets/analyze
+- POST /v1/trade-plan
+- POST /v1/portfolio
+- POST /v1/backtest
+- POST /v1/alerts/evaluate
+- POST /v1/policy/evaluate
+- GET /v1/history/{symbol}
+- POST /v1/watchlist
+- GET /v1/watchlist
+- GET /v1/events
+
+## Local run
 
 ```bash
 cd packages/ztrader/zeaz-intelligence
 cp .env.example .env
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
-uvicorn ztrader_intel.api:app --host 0.0.0.0 --port 8218
+make install
+make lint
+make test
+make run
 ```
 
-Health:
+## Docker
 
 ```bash
-curl http://127.0.0.1:8218/health
+cp .env.example .env
+docker compose up -d --build
+curl -fsS http://127.0.0.1:8218/health
 ```
 
-Analyze supplied normalized data:
+The container runs non-root, drops all Linux capabilities, uses no-new-privileges, has a read-only root filesystem and persists only /app/data.
+
+## Kubernetes
 
 ```bash
-curl -s http://127.0.0.1:8218/v1/analyze \
-  -H 'content-type: application/json' \
-  -d '{
-    "token":{"symbol":"TEST","chain":"solana"},
-    "market":{"market_cap_usd":450000,"liquidity_usd":80000,"volume_24h_usd":120000,"buy_sell_ratio":1.8},
-    "social":{"mention_growth_5m":45,"mention_growth_1h":30,"mention_growth_24h":12,"sentiment_score":0.55,"organic_score":0.8},
-    "whales":{"net_flow_usd":80000,"accumulating_wallets":4,"distributing_wallets":1},
-    "security":{"top10_holder_pct":24,"insider_pct":5,"liquidity_locked":true,"honeypot":false,"mintable":false}
-  }'
+kubectl apply -f deploy/k8s.yaml
 ```
 
-Live DEX enrichment:
+Provide optional secrets separately:
 
 ```bash
-curl -s -X POST http://127.0.0.1:8218/v1/enrich \
-  -H 'content-type: application/json' \
-  -d '{"token":{"symbol":"TOKEN","chain":"solana","address":"TOKEN_ADDRESS"}}'
+kubectl create secret generic ztrader-intelligence-secrets \
+  --from-literal=XAI_API_KEY='...' \
+  --from-literal=GOPLUS_API_TOKEN='...'
 ```
 
-GoPlus enrichment is enabled when `GOPLUS_CHAIN_ID` is supplied in the request and optionally `GOPLUS_API_TOKEN` in the environment.
+## Provider behavior
 
-Grok/xAI is used only to summarize **evidence you provide**. This service does not claim that a plain model call equals live X firehose access.
+DexScreener is used for live pair, latest-profile and trending-meta data. GoPlus is optional for contract-risk enrichment. xAI/Grok is optional and summarizes only supplied social evidence; the service does not pretend a generic model call is a live X firehose.
 
-## Integrating with zTrader
+Provider failures do not fabricate values. They are recorded in evidence and reduce confidence.
 
-Treat this as a sidecar:
+## Execution boundary
 
 ```text
-zTrader -> HTTP -> zeaz-intelligence:8218
-                  -> DexScreener
-                  -> GoPlus (optional)
-                  -> xAI/Grok (optional)
+data -> intelligence -> risk/confidence policy
+     -> paper trade -> forward validation
+     -> exposure check -> explicit approval
+     -> external execution gateway
 ```
 
-Recommended execution gate:
-
-```text
-signal
- -> intelligence
- -> risk threshold
- -> confidence threshold
- -> portfolio exposure check
- -> paper/forward validation
- -> explicit policy approval
- -> execution gateway
-```
+This sidecar never enables live execution by itself.

@@ -1,11 +1,22 @@
 from __future__ import annotations
 
+import asyncio
 import os
+import time
 from typing import Any
 
 import httpx
 
-from .models import IntelligenceRequest, MarketSnapshot, SecuritySnapshot
+from .discovery import discover
+from .models import (
+    DiscoveryRequest,
+    DiscoveryResponse,
+    IntelligenceRequest,
+    LiveDiscoveryRequest,
+    MarketSnapshot,
+    SecuritySnapshot,
+    TokenRef,
+)
 from .providers import DexScreenerProvider, GoPlusProvider, ProviderError, XAIProvider
 from .scoring import analyze
 
@@ -35,7 +46,7 @@ def market_from_pairs(pairs: list[dict[str, Any]]) -> MarketSnapshot | None:
 
     best = max(
         pairs,
-        key=lambda p: _num((p.get("liquidity") or {}).get("usd")) or 0,
+        key=lambda pair: _num((pair.get("liquidity") or {}).get("usd")) or 0,
     )
     liquidity = _num((best.get("liquidity") or {}).get("usd"))
     volume = _num((best.get("volume") or {}).get("h24"))
@@ -43,6 +54,12 @@ def market_from_pairs(pairs: list[dict[str, Any]]) -> MarketSnapshot | None:
     buys = _num(tx24.get("buys")) or 0
     sells = _num(tx24.get("sells")) or 0
     ratio = buys / max(sells, 1)
+    changes = best.get("priceChange") or {}
+
+    pair_created_at = _num(best.get("pairCreatedAt"))
+    age_minutes = None
+    if pair_created_at:
+        age_minutes = max(0.0, (time.time() * 1000 - pair_created_at) / 60_000)
 
     return MarketSnapshot(
         price_usd=_num(best.get("priceUsd")),
@@ -51,6 +68,10 @@ def market_from_pairs(pairs: list[dict[str, Any]]) -> MarketSnapshot | None:
         liquidity_usd=liquidity,
         volume_24h_usd=volume,
         buy_sell_ratio=ratio,
+        price_change_5m_pct=_num(changes.get("m5")),
+        price_change_1h_pct=_num(changes.get("h1")),
+        price_change_24h_pct=_num(changes.get("h24")),
+        pair_age_minutes=age_minutes,
     )
 
 
@@ -91,7 +112,10 @@ async def enrich_and_analyze(req: IntelligenceRequest):
     async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
         if req.token.address:
             try:
-                pairs = await DexScreenerProvider(client).token_pairs(req.token.chain, req.token.address)
+                pairs = await DexScreenerProvider(client).token_pairs(
+                    req.token.chain,
+                    req.token.address,
+                )
                 evidence["dexscreener_pairs"] = len(pairs)
                 if req.market is None:
                     req.market = market_from_pairs(pairs)
@@ -126,3 +150,63 @@ async def enrich_and_analyze(req: IntelligenceRequest):
         result.scores.confidence = max(0, result.scores.confidence - 8 * len(errors))
     result.evidence = evidence
     return result
+
+
+async def live_discovery(payload: LiveDiscoveryRequest) -> DiscoveryResponse:
+    timeout = float(os.getenv("HTTP_TIMEOUT_SECONDS", "12"))
+    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+        provider = DexScreenerProvider(client)
+        profiles = await provider.latest_profiles()
+        allowed = {chain.lower() for chain in payload.chains}
+        profiles = [
+            profile
+            for profile in profiles
+            if str(profile.get("chainId", "")).lower() in allowed
+            and profile.get("tokenAddress")
+        ][: payload.limit * 4]
+
+        semaphore = asyncio.Semaphore(8)
+
+        async def candidate(profile: dict[str, Any]) -> IntelligenceRequest | None:
+            async with semaphore:
+                chain = str(profile.get("chainId", ""))
+                address = str(profile.get("tokenAddress", ""))
+                try:
+                    pairs = await provider.token_pairs(chain, address)
+                except _PROVIDER_ERRORS:
+                    return None
+                market = market_from_pairs(pairs)
+                if market is None:
+                    return None
+                best = max(
+                    pairs,
+                    key=lambda pair: _num((pair.get("liquidity") or {}).get("usd")) or 0,
+                )
+                base_token = best.get("baseToken") or {}
+                symbol = str(base_token.get("symbol") or address[:8])
+                return IntelligenceRequest(
+                    token=TokenRef(symbol=symbol, chain=chain, address=address),
+                    market=market,
+                    source_freshness_minutes=1,
+                )
+
+        results = await asyncio.gather(*(candidate(profile) for profile in profiles))
+
+    requests = [result for result in results if result is not None]
+    if not requests:
+        return DiscoveryResponse(candidates=[], filtered_count=0)
+
+    return discover(
+        DiscoveryRequest(
+            candidates=requests,
+            max_market_cap_usd=payload.max_market_cap_usd,
+            min_liquidity_usd=payload.min_liquidity_usd,
+            limit=payload.limit,
+        )
+    )
+
+
+async def trending_narratives() -> list[dict[str, Any]]:
+    timeout = float(os.getenv("HTTP_TIMEOUT_SECONDS", "12"))
+    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+        return await DexScreenerProvider(client).trending_metas()
