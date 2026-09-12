@@ -5,8 +5,8 @@ from ztrader_intel.models import (
     RugRisk,
     Scores,
     TokenRef,
-    WhaleState,
     WatchlistEntry,
+    WhaleState,
 )
 from ztrader_intel.store import AnalysisStore
 
