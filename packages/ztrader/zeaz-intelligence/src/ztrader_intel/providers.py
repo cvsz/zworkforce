@@ -116,6 +116,86 @@ class ZaimanProvider:
         return "\n".join(chunks).strip() or None
 
 
+class ZKsatoProvider:
+    """Authenticated client for the canonical zksato advisory-intent boundary."""
+
+    def __init__(self, client: httpx.AsyncClient):
+        self.client = client
+        self.base_url = os.getenv("ZKSATO_BASE_URL", "").strip().rstrip("/")
+        self.api_key = os.getenv("ZKSATO_API_KEY", "").strip()
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.base_url and self.api_key)
+
+    async def submit_advisory(self, intent: dict[str, Any]) -> dict[str, Any]:
+        if not self.enabled:
+            raise ProviderError("zksato integration is not configured")
+        trace_id = str(intent.get("trace_id") or "").strip()
+        headers = {
+            "X-API-Key": self.api_key,
+            "Content-Type": "application/json",
+        }
+        if trace_id:
+            headers["X-Request-ID"] = trace_id
+        response = await self.client.post(
+            f"{self.base_url}/v1/integrations/ztrader/advisory-intents",
+            headers=headers,
+            json=intent,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise ProviderError("zksato returned unexpected advisory payload")
+        if payload.get("execution_allowed") is not False:
+            raise ProviderError("zksato advisory boundary violated execution safety invariant")
+        return payload
+
+
+class ZWalletProvider:
+    """Authenticated read-only client for canonical zWallet on-chain evidence."""
+
+    def __init__(self, client: httpx.AsyncClient):
+        self.client = client
+        self.base_url = os.getenv("ZWALLET_BASE_URL", "").strip().rstrip("/")
+        self.service_token = os.getenv("ZWALLET_SERVICE_TOKEN", "").strip()
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.base_url and self.service_token)
+
+    async def onchain_evidence(
+        self,
+        *,
+        trace_id: str,
+        chain: str,
+        address: str,
+    ) -> dict[str, Any]:
+        if not self.enabled:
+            raise ProviderError("zWallet integration is not configured")
+        response = await self.client.post(
+            f"{self.base_url}/v1/integrations/ztrader/onchain-evidence",
+            headers={
+                "Authorization": f"Bearer {self.service_token}",
+                "Content-Type": "application/json",
+                "X-Request-ID": trace_id,
+            },
+            json={
+                "version": "1.0",
+                "trace_id": trace_id,
+                "chain": chain,
+                "address": address,
+            },
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise ProviderError("zWallet returned unexpected evidence payload")
+        if payload.get("trace_id") != trace_id:
+            raise ProviderError("zWallet evidence trace_id mismatch")
+        return payload
+
+
 class XAIProvider:
     def __init__(self, client: httpx.AsyncClient):
         self.client = client
