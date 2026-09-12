@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zeaz.dev/contracts/ztrader-advisory-intent.v1.schema.json",
+  "title": "ZTrader Advisory Intent v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "tenant_id",
+    "account_ref",
+    "signal_id",
+    "symbol",
+    "chain",
+    "address",
+    "scores",
+    "narrative",
+    "whales",
+    "rug_risk",
+    "action",
+    "evidence_timestamp",
+    "proposed_trade"
+  ],
+  "properties": {
+    "version": {
+      "const": "1.0"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "account_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "portfolio_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 256
+    },
+    "signal_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "trace_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "symbol": {
+      "type": "string",
+      "minLength": 1
+    },
+    "chain": {
+      "type": "string",
+      "minLength": 1
+    },
+    "address": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scores": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "opportunity",
+        "risk",
+        "confidence"
+      ],
+      "properties": {
+        "opportunity": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "risk": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "confidence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    },
+    "narrative": {
+      "enum": [
+        "EARLY",
+        "HEATING_UP",
+        "CROWDED",
+        "FADING",
+        "DEAD"
+      ]
+    },
+    "whales": {
+      "enum": [
+        "ACCUMULATING",
+        "NEUTRAL",
+        "DISTRIBUTING"
+      ]
+    },
+    "rug_risk": {
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "EXTREME"
+      ]
+    },
+    "action": {
+      "enum": [
+        "WATCH",
+        "WAIT",
+        "RESEARCH_MORE",
+        "AVOID"
+      ]
+    },
+    "evidence_timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "invalidations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "proposed_trade": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode"
+      ],
+      "properties": {
+        "mode": {
+          "const": "paper"
+        },
+        "entry_low": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "entry_high": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "stop_loss": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "take_profit_levels": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "max_position_usd": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "evidence": {
+      "type": "object"
+    }
+  }
+}
