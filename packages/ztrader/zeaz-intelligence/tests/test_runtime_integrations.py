@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import httpx
 import pytest
+from fastapi.testclient import TestClient
 
+from ztrader_intel.api import app
 from ztrader_intel.providers import ZKsatoProvider, ZWalletProvider
 
 
@@ -100,3 +102,59 @@ async def test_zwallet_provider_propagates_trace_and_read_only_request(monkeypat
         )
         assert result["trace_id"] == "trace-002"
         assert result["quality"] == "UNAVAILABLE"
+
+
+def test_onchain_route_reaches_zwallet_provider(monkeypatch) -> None:
+    async def fake_onchain(self, *, trace_id: str, chain: str, address: str):
+        assert trace_id == "trace-route-001"
+        assert chain == "ethereum"
+        assert address == "0x1111111111111111111111111111111111111111"
+        return {
+            "version": "1.0",
+            "trace_id": trace_id,
+            "chain": chain,
+            "address": address,
+            "quality": "UNAVAILABLE",
+            "sources": [{"provider": "zwallet:test"}],
+            "evidence": {},
+        }
+
+    monkeypatch.setattr(ZWalletProvider, "onchain_evidence", fake_onchain)
+    client = TestClient(app)
+    response = client.post(
+        "/v1/integrations/zwallet/evidence",
+        json={
+            "trace_id": "trace-route-001",
+            "token": {
+                "symbol": "ABC",
+                "chain": "ethereum",
+                "address": "0x1111111111111111111111111111111111111111",
+            },
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["trace_id"] == "trace-route-001"
+
+
+def test_advisory_route_reaches_zksato_provider_and_stays_non_executing(monkeypatch) -> None:
+    async def fake_submit(self, intent: dict[str, object]):
+        assert intent["signal_id"] == "signal-route-001"
+        return {
+            "accepted": True,
+            "execution_allowed": False,
+            "risk_review_required": True,
+            "signal_id": "signal-route-001",
+            "canonical_executor": "zksato",
+            "mode": "paper",
+            "reason": "recorded for deterministic review",
+        }
+
+    monkeypatch.setattr(ZKsatoProvider, "submit_advisory", fake_submit)
+    client = TestClient(app)
+    response = client.post(
+        "/v1/integrations/zksato/advisory",
+        json={"intent": {"signal_id": "signal-route-001", "trace_id": "trace-route-001"}},
+    )
+    assert response.status_code == 202
+    assert response.json()["execution_allowed"] is False
+    assert response.json()["canonical_executor"] == "zksato"
