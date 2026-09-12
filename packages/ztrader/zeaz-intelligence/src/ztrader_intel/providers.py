@@ -66,6 +66,56 @@ class GoPlusProvider:
         return item
 
 
+class ZaimanProvider:
+    """Authenticated OpenAI-compatible gateway for ZeaZ model routing."""
+
+    def __init__(self, client: httpx.AsyncClient):
+        self.client = client
+        self.base_url = os.getenv("ZAIMAN_BASE_URL", "").strip().rstrip("/")
+        self.api_key = os.getenv("ZAIMAN_API_KEY", "").strip()
+        self.model = os.getenv("ZAIMAN_MODEL", "").strip()
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.base_url and self.api_key and self.model)
+
+    async def summarize_evidence(self, symbol: str, excerpts: list[str]) -> str | None:
+        if not self.enabled or not excerpts:
+            return None
+
+        prompt = (
+            "Analyze only the supplied social evidence for crypto token "
+            f"{symbol}. Do not claim live social-network access. Identify the dominant "
+            "narrative, organic-vs-shilled clues, red flags, and whether attention looks "
+            "EARLY, HEATING_UP, CROWDED, FADING, or DEAD. Be concise.\n\nEvidence:\n"
+            + "\n".join(f"- {text[:1000]}" for text in excerpts[:40])
+        )
+        response = await self.client.post(
+            f"{self.base_url}/responses",
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+            },
+            json={"model": self.model, "input": prompt, "store": False},
+        )
+        response.raise_for_status()
+        payload = response.json()
+        if isinstance(payload.get("output_text"), str):
+            return payload["output_text"]
+
+        chunks: list[str] = []
+        for item in payload.get("output", []):
+            if not isinstance(item, dict):
+                continue
+            for content in item.get("content", []):
+                if not isinstance(content, dict):
+                    continue
+                text = content.get("text")
+                if isinstance(text, str):
+                    chunks.append(text)
+        return "\n".join(chunks).strip() or None
+
+
 class XAIProvider:
     def __init__(self, client: httpx.AsyncClient):
         self.client = client
