@@ -211,12 +211,13 @@ async def resource_conflict_handler(
 async def unknown_capability_handler(
     _request: Request, exc: UnknownCapabilityError
 ) -> JSONResponse:
+    logging.getLogger(__name__).info("Unknown capability requested: %s", exc)
     return JSONResponse(
         status_code=422,
         content={
             "error": {
                 "code": "unknown_capability",
-                "message": str(exc),
+                "message": "Unknown capability requested.",
             }
         },
     )

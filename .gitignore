@@ -39,6 +39,14 @@ backup
 .release-evidence-logs/
 .release-evidence-state/
 
+# Private keys and certificates — never commit
+*.pem
+*.key
+*_rsa_*
+*_private_key*
+*.p12
+*.pfx
+
 # Terraform state backups
 backups/
 
