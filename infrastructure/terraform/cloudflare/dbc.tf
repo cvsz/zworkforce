@@ -11,8 +11,8 @@ variable "dbc_hostname" {
 
 variable "dbc_origin" {
   type        = string
-  default     = "http://127.0.0.1:3000"
-  description = "Loopback origin reached by cloudflared for the QwenDBC frontend. The frontend proxies /api/* to the backend on port 8000."
+  default     = "http://127.0.0.1:3002"
+  description = "Loopback origin reached by cloudflared for the QwenDBC frontend. Uses 3002 to avoid colliding with OpenWebUI chat on 3000/3080. The frontend proxies /api/* to the backend on port 8000."
 
   validation {
     condition     = can(regex("^http://127\\.0\\.0\\.1:[0-9]+$", var.dbc_origin))
