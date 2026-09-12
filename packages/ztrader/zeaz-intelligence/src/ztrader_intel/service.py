@@ -14,6 +14,7 @@ from .models import (
     IntelligenceRequest,
     LiveDiscoveryRequest,
     MarketSnapshot,
+    OnchainEvidenceLookup,
     SecuritySnapshot,
     TokenRef,
 )
@@ -23,6 +24,8 @@ from .providers import (
     ProviderError,
     XAIProvider,
     ZaimanProvider,
+    ZKsatoProvider,
+    ZWalletProvider,
 )
 from .scoring import analyze
 
@@ -226,3 +229,23 @@ async def trending_narratives() -> list[dict[str, Any]]:
     timeout = float(os.getenv("HTTP_TIMEOUT_SECONDS", "12"))
     async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
         return await DexScreenerProvider(client).trending_metas()
+
+
+async def fetch_canonical_onchain_evidence(payload: OnchainEvidenceLookup) -> dict[str, Any]:
+    if not payload.token.address:
+        raise ProviderError("token address is required for canonical on-chain evidence")
+    timeout = float(os.getenv("HTTP_TIMEOUT_SECONDS", "12"))
+    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+        provider = ZWalletProvider(client)
+        return await provider.onchain_evidence(
+            trace_id=payload.trace_id,
+            chain=payload.token.chain,
+            address=payload.token.address,
+        )
+
+
+async def submit_canonical_advisory_intent(intent: dict[str, Any]) -> dict[str, Any]:
+    timeout = float(os.getenv("HTTP_TIMEOUT_SECONDS", "12"))
+    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+        provider = ZKsatoProvider(client)
+        return await provider.submit_advisory(intent)
