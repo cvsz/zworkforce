@@ -317,3 +317,12 @@ class AlertRequest(BaseModel):
 class WatchlistEntry(BaseModel):
     token: TokenRef
     note: str = ""
+
+
+class OnchainEvidenceLookup(BaseModel):
+    trace_id: str = Field(min_length=1, max_length=128)
+    token: TokenRef
+
+
+class AdvisoryIntentSubmission(BaseModel):
+    intent: dict[str, Any]
