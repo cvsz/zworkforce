@@ -9,6 +9,7 @@ import httpx
 
 from .discovery import discover
 from .models import (
+    AdvisoryIntentV11,
     DiscoveryRequest,
     DiscoveryResponse,
     IntelligenceRequest,
@@ -244,8 +245,8 @@ async def fetch_canonical_onchain_evidence(payload: OnchainEvidenceLookup) -> di
         )
 
 
-async def submit_canonical_advisory_intent(intent: dict[str, Any]) -> dict[str, Any]:
+async def submit_canonical_advisory_intent(intent: AdvisoryIntentV11) -> dict[str, Any]:
     timeout = float(os.getenv("HTTP_TIMEOUT_SECONDS", "12"))
     async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
         provider = ZKsatoProvider(client)
-        return await provider.submit_advisory(intent)
+        return await provider.submit_advisory(intent.model_dump(mode="json"))
