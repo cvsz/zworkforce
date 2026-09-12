@@ -1,5 +1,7 @@
 # zWorkforce
 
+![zWorkforce — Enterprise AI Workforce Operating System](docs/assets/zworkforce-social-preview.svg)
+
 **Enterprise AI Workforce Operating System — distributed control plane, durable agents, workflow automation, governance, MCP integration and AI FinOps.**
 
 zWorkforce turns one or more LLM endpoints into a governed AI workforce. A tenant dispatches work to named agents; a cost-aware Luna/Terra/Sol router chooses a model tier; durable workers claim tasks; approvals and policy-as-code gate risky actions; workflows/schedules/events compose tasks; evaluation suites compare model strategies; memory and artifacts preserve knowledge; and the control plane measures cost, SLOs and business outcomes.
@@ -30,15 +32,86 @@ zWorkforce turns one or more LLM endpoints into a governed AI workforce. A tenan
 
 All v2 capabilities remain: multi-tenancy, RBAC/scopes, four-eyes approvals, provider failover/circuit breakers, bounded tools, tamper-evident audit chains, budgets, deterministic outcomes, rightsizing recommendations, dashboard, Docker and Python 3.12–3.14 support.
 
-The repository also contains:
-- The consolidated **Z.A.R.V.I.S.** product suite under [`packages/zarvis/`](packages/zarvis/), including its realtime voice client, speech provider registry, runtime skill catalog, API, operator surfaces, Windows client, and package-level CI.
-- The **Zeto** AI Content Factory & M11/M12 Neural Operator Stack under [`packages/zeto/`](packages/zeto/), including ProMeta prompt compilers, multi-platform publishing adapters, QA scorecards, point-cloud canvas HUD, and M12 tool registry.
-- The **ZSP AI Studio** & HyperFrames Video Generator under [`packages/zsp-aitool/`](packages/zsp-aitool/), an enterprise Thai-first affiliate marketing suite with 23 Prisma models, multi-scene video rendering, and vision OCR.
-- The **Zider** AI Browser Companion under [`packages/zider/`](packages/zider/), a Manifest V3 Shadow DOM isolated sidebar, ChatPDF document intelligence, and multi-model group streaming gateway.
-- The **Zok Conversational Commerce OS** under [`packages/zok/`](packages/zok/), an omnichannel inbound and order routing gateway (LINE OA, WhatsApp, Shopee, TikTok Shop, Shopify).
-- The **Microservices & Apps Monorepo Ecosystem** under [`services/`](services/) and [`apps/`](apps/), unified from `z-platform` with shared type schemas in [`packages/contracts/`](packages/contracts/).
-- The **Master Orchestrator & CLI** in [`control.sh`](control.sh) and [`cmd/zctl/`](cmd/zctl/) for single-command lifecycle management, diagnostics, and full validation.
+## Monorepo catalog
 
+The repository is both the **zWorkforce governed AI control plane** and a broader product monorepo. The JavaScript workspace is defined by `apps/*`, `services/*`, and `packages/*`; the Python control-plane runtime remains under `zworkforce/`. Product boundaries are kept explicit so browser applications do not inherit provider, infrastructure, payment, or mutation authority from backend services.
+
+### Apps (10)
+
+| App | Responsibility |
+| --- | --- |
+| [`apps/agent-control-panel`](apps/agent-control-panel/) | Next.js agent-control operator surface and control-panel UI shell. |
+| [`apps/frontend`](apps/frontend/) | Frontend UI/UX stack containing ReUI Dashboard, Canva App, MetricUI Analytics, and Canva Dev MCP integrations. |
+| [`apps/zaicoder`](apps/zaicoder/) | Coding-agent application whose browser/CLI traffic is routed through the platform AI Gateway; upstream provider credentials stay server-side. |
+| [`apps/zarvis-console`](apps/zarvis-console/) | Private owner-only Z.A.R.V.I.S. browser command center backed by the Z.A.R.V.I.S. orchestrator. |
+| [`apps/zarvis-windows`](apps/zarvis-windows/) | Native Windows 11 Z.A.R.V.I.S. client using local SSH forwarding rather than exposing a public origin. |
+| [`apps/zchat`](apps/zchat/) | Conversation UI with local conversation UX, model selection, safe Markdown, streaming, and server-side AI Gateway routing. |
+| [`apps/zeaz-web`](apps/zeaz-web/) | Production `zeaz.dev` / ZEAZ One web application using Cloudflare Workers + D1, bilingual EN/TH pages, and early-access APIs. |
+| [`apps/zow`](apps/zow/) | User-facing workspace layer; validation, shell, and deployment actions are delegated to the approval-gated workspace runtime. |
+| [`apps/zvoice`](apps/zvoice/) | Realtime browser voice client with short-lived signed gateway tickets, AudioWorklet capture, and optional owner-only Z.A.R.V.I.S. mode. |
+| [`apps/zwallet`](apps/zwallet/) | Audited billing adapter for invoice intents and credits. It intentionally has no wallet signing, card, KYC, MPC, swap, or private-key authority. |
+
+### Services (18)
+
+| Service | Responsibility / security boundary |
+| --- | --- |
+| [`services/agent-orchestrator`](services/agent-orchestrator/) | Approval-gated asynchronous agent-job lifecycle, scoped worker execution, retry/cancel, and audit correlation. |
+| [`services/agent-provider`](services/agent-provider/) | Node service backing agent-provider/job-store flows used by platform jobs and backup integration paths. |
+| [`services/ai-gateway`](services/ai-gateway/) | Authenticated Express/Redis model gateway with model catalog, provider routing, rate limiting, and structured secret redaction. |
+| [`services/billing-ledger`](services/billing-ledger/) | Idempotent usage/billing ledger; explicitly excludes wallet keys, MPC shares, card data, and transaction signing. |
+| [`services/phase6-api`](services/phase6-api/) | FastAPI staging-verification surface for AI providers, uploads, webhooks, Supabase, metrics, and agent-store integration. |
+| [`services/voice-agent`](services/voice-agent/) | Realtime speech-to-speech worker with configurable STT, chat-completions LLM backend, VAD, and TTS pipeline. |
+| [`services/voice-gateway`](services/voice-gateway/) | Voice edge/gateway issuing short-lived HMAC-signed tickets and enforcing service-side session boundaries. |
+| [`services/workspace-runtime`](services/workspace-runtime/) | Isolated generated-project execution boundary; shell/deploy require explicit approved grants. |
+| [`services/z-prov`](services/z-prov/) | ZeaZ multi-provider AI gateway exposing Anthropic Messages and OpenAI-compatible Chat Completions / Responses surfaces under stable `zeaz-*` aliases. |
+| [`services/zarvis-action-gateway`](services/zarvis-action-gateway/) | Owner-only reversible mutation gateway with dry-run preview, digest/nonce approval, compare-and-set execution, rollback, and emergency stop. |
+| [`services/zarvis-memory`](services/zarvis-memory/) | AES-256-GCM owner-confirmed memory service with proposal/confirmation flow and secret-sensitive-content rejection. |
+| [`services/zarvis-orchestrator`](services/zarvis-orchestrator/) | Converts owner text/voice into constrained tool calls, speech-ready results, immutable audit events, and durable session state. |
+| [`services/zarvis-owner-voice-edge`](services/zarvis-owner-voice-edge/) | Local owner voice proxy that injects the fixed owner assertion and edge secret server-side before forwarding to ZVoice. |
+| [`services/zarvis-perception`](services/zarvis-perception/) | Consent-based one-shot image/document/screen/camera analysis; no continuous hidden capture, biometric identification, or raw-media persistence. |
+| [`services/zarvis-proactive`](services/zarvis-proactive/) | Bounded read-only proactive scheduler with quiet hours, budgets, confidence/cooldown controls, explainable suggestions, and no autonomous mutation. |
+| [`services/zarvis-task-gateway`](services/zarvis-task-gateway/) | Durable owner-only multi-step task surface with exact-plan digest/nonce approval, pause/resume, and constrained worker execution. |
+| [`services/zc-api`](services/zc-api/) | Consolidated Phase-6/staging verification API with Kubernetes liveness/readiness and Prometheus integration. |
+| [`services/zc`](services/zc/) | Full-stack interactive AI coding agent surface: supported API server plus compatibility CLI/terminal and webapp components. |
+
+### Packages (11)
+
+| Package | Type | Responsibility |
+| --- | --- | --- |
+| [`packages/contracts`](packages/contracts/) | in-tree | Shared versioned request, event, error, AI, agent, and Z.A.R.V.I.S. contracts. |
+| [`packages/wall-street`](packages/wall-street/) | in-tree | Market-intelligence operator surface using public TradingView embed and public market feeds; does not submit exchange orders or collect exchange keys. |
+| [`packages/zarvis`](packages/zarvis/) | in-tree | Consolidated Z.A.R.V.I.S. product suite: console, Windows/voice surfaces, orchestration, memory, perception, proactive runtime, contracts, deployment, and operations. |
+| [`packages/zeto`](packages/zeto/) | in-tree | AI Content Factory and publishing automation stack spanning ideation, generation, approval, scheduling, publishing, monitoring, and learning. |
+| [`packages/zider`](packages/zider/) | in-tree | Enterprise browser AI companion: MV3 sidebar, multi-model chat, ChatPDF, web/YouTube intelligence, translation, artifacts, voice, OCR, and creative tools. |
+| [`packages/zsp-aitool`](packages/zsp-aitool/) | in-tree | Thai-first Shopee Affiliate SaaS / ZSP AI Studio with product ingestion, AI content, OCR, affiliate workflows, and HyperFrames video rendering. |
+| [`packages/ztrader/zeaz-intelligence`](packages/ztrader/zeaz-intelligence/) | in-tree | zTrader decision-support sidecar for narrative, whale, rug-risk, opportunity/risk/confidence scoring, DexScreener, optional GoPlus, and optional supplied-evidence Grok/xAI summaries. It does not blindly auto-execute trades. |
+| [`packages/zksato`](packages/zksato) | Git submodule | Risk-first SET/TFEX research and paper-execution control plane; live-money mutation remains explicitly gated. |
+| [`packages/zmovie`](packages/zmovie) | Git submodule | Self-hosted AI movie production pipeline with continuity-aware storyboards, durable rendering, assembly, and approval-gated publishing. |
+| [`packages/zok`](packages/zok) | Git submodule | Conversational-commerce workspace currently operated as a hardened developer/sandbox release with simulated channel delivery boundaries. |
+| [`packages/zttshop-php`](packages/zttshop-php) | Git submodule | PHP 8.1+ client SDK for TikTok Shop Open Platform resources including auth, products, orders, logistics, finance, returns, warehouse, and video. |
+
+The four Git-linked package entries are pinned in [`.gitmodules`](.gitmodules). Clone them with the repository or initialize them afterward:
+
+```bash
+git clone --recurse-submodules https://github.com/cvsz/zworkforce.git
+# or, from an existing clone:
+git submodule update --init --recursive
+```
+
+### Other top-level platform surfaces
+
+| Path | Purpose |
+| --- | --- |
+| [`zworkforce/`](zworkforce/) | Core Python control plane: API/CLI, durable tasks, workflows, scheduler, policy, providers, MCP, RAG, artifacts, workspaces, FinOps, telemetry, and safety hooks. |
+| [`ZWorkforceClient/`](ZWorkforceClient/) | Native Windows operator client for the zWorkforce REST control plane. |
+| [`cmd/zctl/`](cmd/zctl/) + [`control.sh`](control.sh) | Master lifecycle/diagnostic/validation command surfaces for the monorepo. |
+| [`infrastructure/`](infrastructure/) | Kubernetes/Kustomize, Argo CD, Cilium, and Terraform/Cloudflare infrastructure definitions. |
+| [`deploy/`](deploy/) | Caddy, Cloudflare Tunnel, HA Compose, Kubernetes, observability, and systemd deployment assets. |
+| [`.agents/skills/`](.agents/skills/) | Repo-local agent skills covering review, release verification, Kubernetes, observability, DR, policy, MCP, FinOps, RAG, GitHub operations, and related operator workflows. |
+| [`automation/`](automation/) + [`plugins/`](plugins/) | Automation and extension/plugin integration surfaces. |
+| [`schemas/`](schemas/) + [`prompts/`](prompts/) | Versioned schemas and prompt assets shared across agent workflows. |
+| [`examples/`](examples/) | Runnable examples and ProMeta seed catalogs. |
+| [`tests/`](tests/) | Root integration, governance, security, release, dependency, and control-plane test coverage. |
 
 ## Architecture
 
@@ -100,8 +173,8 @@ Install the full ProMeta runtime baseline with `zworkforce prometa-install`.
 ## Quick start — local SQLite
 
 ```bash
-git clone https://github.com/cvsz/zWorkforce.git
-cd zWorkforce
+git clone --recurse-submodules https://github.com/cvsz/zworkforce.git
+cd zworkforce
 cp .env.example .env
 python -m pip install .
 python -m zworkforce doctor
