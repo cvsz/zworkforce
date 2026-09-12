@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException, Query
+import os
+import secrets
+from typing import Annotated
+
+import httpx
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 
@@ -56,6 +61,42 @@ app = FastAPI(
 )
 Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 store = AnalysisStore()
+
+
+def _integration_token(
+    authorization: Annotated[str | None, Header()] = None,
+    x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
+) -> str:
+    expected = os.getenv("ZTRADER_INTEL_SERVICE_TOKEN", "").strip()
+    if not expected:
+        raise HTTPException(status_code=503, detail="integration authentication is not configured")
+
+    supplied = ""
+    if authorization and authorization.lower().startswith("bearer "):
+        supplied = authorization[7:].strip()
+    elif x_api_key:
+        supplied = x_api_key.strip()
+
+    if not supplied or not secrets.compare_digest(supplied, expected):
+        raise HTTPException(status_code=401, detail="invalid integration credentials")
+    return supplied
+
+
+IntegrationToken = Annotated[str, Depends(_integration_token)]
+
+
+def _verify_advisory_scope(
+    payload: AdvisoryIntentSubmission,
+    tenant_id: Annotated[str | None, Header(alias="X-Tenant-ID")] = None,
+    account_ref: Annotated[str | None, Header(alias="X-Account-Ref")] = None,
+) -> None:
+    if not tenant_id or not account_ref:
+        raise HTTPException(status_code=400, detail="tenant/account scope headers are required")
+    if not secrets.compare_digest(tenant_id, payload.intent.tenant_id):
+        raise HTTPException(status_code=403, detail="tenant scope mismatch")
+    if not secrets.compare_digest(account_ref, payload.intent.account_ref):
+        raise HTTPException(status_code=403, detail="account scope mismatch")
+
 
 
 async def _record(result: IntelligenceResponse) -> IntelligenceResponse:
@@ -155,18 +196,25 @@ async def watchlist_list():
 
 
 @app.post("/v1/integrations/zwallet/evidence")
-async def canonical_onchain_evidence(payload: OnchainEvidenceLookup):
+async def canonical_onchain_evidence(
+    payload: OnchainEvidenceLookup,
+    _token: IntegrationToken,
+):
     try:
         return await fetch_canonical_onchain_evidence(payload)
-    except ProviderError as exc:
+    except (ProviderError, httpx.HTTPError) as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @app.post("/v1/integrations/zksato/advisory", status_code=202)
-async def canonical_advisory_submission(payload: AdvisoryIntentSubmission):
+async def canonical_advisory_submission(
+    payload: AdvisoryIntentSubmission,
+    _token: IntegrationToken,
+    _scope: Annotated[None, Depends(_verify_advisory_scope)],
+):
     try:
         return await submit_canonical_advisory_intent(payload.intent)
-    except ProviderError as exc:
+    except (ProviderError, httpx.HTTPError) as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
