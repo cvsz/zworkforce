@@ -57,14 +57,7 @@ class Database(WorkspaceWorktreeMixin, WorkspaceGrantMixin, WorkspaceContextMixi
                 open_until=NULL,updated_at=excluded.updated_at""",
                 (name, latency_ms, now, now),
             )
-        if tenant_id:
-            self.append_dashboard_event(
-                tenant_id,
-                "provider.changed",
-                "provider",
-                name,
-                {"summary": {"provider": name, "available": True, "latency_ms": latency_ms}},
-            )
+        self._broadcast_provider_changed(name, True, latency_ms, tenant_id)
 
     def record_provider_failure(self, name: str, latency_ms: float, error: str, threshold: int, circuit_seconds: int, tenant_id: str | None = None) -> None:
         if self.backend_kind != "postgres":
@@ -82,14 +75,7 @@ class Database(WorkspaceWorktreeMixin, WorkspaceGrantMixin, WorkspaceContextMixi
                 open_until=excluded.open_until,updated_at=excluded.updated_at""",
                 (name, failures, latency_ms, error[:1000], now, open_until, now),
             )
-        if tenant_id:
-            self.append_dashboard_event(
-                tenant_id,
-                "provider.changed",
-                "provider",
-                name,
-                {"summary": {"provider": name, "available": not bool(open_until), "latency_ms": latency_ms}},
-            )
+        self._broadcast_provider_changed(name, not bool(open_until), latency_ms, tenant_id)
 
     def claim_next_task(self, worker_id: str, lease_seconds: int):
         if self.backend_kind != "postgres":

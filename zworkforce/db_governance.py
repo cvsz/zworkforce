@@ -221,6 +221,30 @@ class GovernanceMixin:
             row = c.execute("SELECT open_until FROM provider_health2 WHERE name=?", (name,)).fetchone()
         return not row or not row[0] or row[0] <= utcnow()
 
+    def _broadcast_provider_changed(self, name: str, available: bool, latency_ms: float, origin_tenant: str | None = None) -> None:
+        # provider_health2 is global; tenant-scoped streams would otherwise stay stale.
+        try:
+            with self.connection() as c:
+                rows = c.execute("SELECT id FROM tenants ORDER BY id").fetchall()
+                tenant_ids = [str(r[0]) for r in rows]
+        except Exception:
+            tenant_ids = []
+        if origin_tenant and origin_tenant not in tenant_ids:
+            tenant_ids.append(origin_tenant)
+        if not tenant_ids and origin_tenant:
+            tenant_ids = [origin_tenant]
+        for tid in tenant_ids:
+            try:
+                self.append_dashboard_event(
+                    tid,
+                    "provider.changed",
+                    "provider",
+                    name,
+                    {"summary": {"provider": name, "available": available, "latency_ms": latency_ms}},
+                )
+            except Exception:
+                continue
+
     def record_provider_success(self, name: str, latency_ms: float, tenant_id: str | None = None) -> None:
         now = utcnow()
         with self.connection() as c:
@@ -230,14 +254,7 @@ class GovernanceMixin:
                 last_latency_ms=excluded.last_latency_ms,last_error='',last_success_at=excluded.last_success_at,open_until=NULL,updated_at=excluded.updated_at""",
                 (name, latency_ms, now, now),
             )
-        if tenant_id:
-            self.append_dashboard_event(
-                tenant_id,
-                "provider.changed",
-                "provider",
-                name,
-                {"summary": {"provider": name, "available": True, "latency_ms": latency_ms}},
-            )
+        self._broadcast_provider_changed(name, True, latency_ms, tenant_id)
 
     def record_provider_failure(self, name: str, latency_ms: float, error: str, threshold: int, circuit_seconds: int, tenant_id: str | None = None) -> None:
         now = utcnow()
@@ -251,14 +268,7 @@ class GovernanceMixin:
                 last_latency_ms=?,last_error=?,last_failure_at=?,open_until=?,updated_at=?""",
                 (name, failures, latency_ms, error[:1000], now, open_until, now, failures, latency_ms, error[:1000], now, open_until, now),
             )
-        if tenant_id:
-            self.append_dashboard_event(
-                tenant_id,
-                "provider.changed",
-                "provider",
-                name,
-                {"summary": {"provider": name, "available": not bool(open_until), "latency_ms": latency_ms}},
-            )
+        self._broadcast_provider_changed(name, not bool(open_until), latency_ms, tenant_id)
 
     def list_provider_health(self) -> list[dict[str, Any]]:
         with self.connection() as c:

@@ -256,6 +256,9 @@ class AutomationMixin:
     # ----- Scheduler -----
     def upsert_schedule(self, tenant_id: str, item: dict[str, Any], actor: str) -> dict[str, Any]:
         now = utcnow()
+        schedule_id = _bounded_text(item.get("id"), "schedule_id")
+        item = dict(item)
+        item["id"] = schedule_id
         with self.connection() as c:
             c.execute(
                 """INSERT INTO schedules3(tenant_id,id,name,target_type,target_id,schedule_type,cron_expr,interval_seconds,timezone,
