@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zeaz.dev/schemas/operations/service-broker-job.schema.json",
+  "title": "ZeaZ Service Broker Job",
+  "description": "Cross-repository contract for a managed-service opportunity from lead through delivery and contribution accounting.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "jobId",
+    "tenantId",
+    "serviceCode",
+    "status",
+    "currency",
+    "economics",
+    "approvals"
+  ],
+  "properties": {
+    "jobId": {"type": "string", "minLength": 1, "maxLength": 128},
+    "tenantId": {"type": "string", "minLength": 1, "maxLength": 128},
+    "leadId": {"type": ["string", "null"], "maxLength": 128},
+    "serviceCode": {"type": "string", "minLength": 1, "maxLength": 128},
+    "source": {
+      "type": "string",
+      "enum": ["google_ads", "organic", "line", "referral", "direct", "other"]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "qualified",
+        "quoted",
+        "awaiting_deposit",
+        "supplier_pending",
+        "in_delivery",
+        "qa",
+        "delivered",
+        "closed_won",
+        "closed_lost",
+        "cancelled"
+      ]
+    },
+    "currency": {"const": "THB"},
+    "supplier": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["channel", "supplierId"],
+      "properties": {
+        "channel": {
+          "type": "string",
+          "enum": ["fastwork", "freelancer_direct", "agency", "vendor", "internal", "other"]
+        },
+        "supplierId": {"type": "string", "minLength": 1, "maxLength": 128},
+        "quoteReference": {"type": ["string", "null"], "maxLength": 256},
+        "rightsConfirmed": {"type": "boolean", "default": false},
+        "dataHandlingConfirmed": {"type": "boolean", "default": false}
+      }
+    },
+    "economics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "revenue",
+        "supplierCost",
+        "acquisitionCost",
+        "operationsCost",
+        "riskReserve",
+        "targetContribution"
+      ],
+      "properties": {
+        "revenue": {"type": "number", "minimum": 0},
+        "supplierCost": {"type": "number", "minimum": 0},
+        "acquisitionCost": {"type": "number", "minimum": 0},
+        "operationsCost": {"type": "number", "minimum": 0},
+        "riskReserve": {"type": "number", "minimum": 0},
+        "targetContribution": {"type": "number", "minimum": 0},
+        "actualContribution": {"type": ["number", "null"]}
+      }
+    },
+    "approvals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["priceApproved", "supplierApproved", "finalQaApproved"],
+      "properties": {
+        "priceApproved": {"type": "boolean", "default": false},
+        "supplierApproved": {"type": "boolean", "default": false},
+        "finalQaApproved": {"type": "boolean", "default": false}
+      }
+    },
+    "dueAt": {"type": ["string", "null"], "format": "date-time"},
+    "createdAt": {"type": ["string", "null"], "format": "date-time"},
+    "updatedAt": {"type": ["string", "null"], "format": "date-time"}
+  }
+}
