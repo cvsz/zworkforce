@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 
@@ -10,6 +10,7 @@ from .backtest import evaluate_signals
 from .discovery import discover
 from .events import event_bus
 from .models import (
+    AdvisoryIntentSubmission,
     AlertRequest,
     AttentionVelocity,
     BacktestRequest,
@@ -19,6 +20,7 @@ from .models import (
     IntelligenceRequest,
     IntelligenceResponse,
     LiveDiscoveryRequest,
+    OnchainEvidenceLookup,
     PortfolioRequest,
     PortfolioResponse,
     SmartMoneyRequest,
@@ -32,7 +34,14 @@ from .narrative import attention_velocity
 from .policy import execution_policy
 from .portfolio import build_portfolio
 from .scoring import analyze
-from .service import enrich_and_analyze, live_discovery, trending_narratives
+from .providers import ProviderError
+from .service import (
+    enrich_and_analyze,
+    fetch_canonical_onchain_evidence,
+    live_discovery,
+    submit_canonical_advisory_intent,
+    trending_narratives,
+)
 from .store import AnalysisStore
 from .trade_plan import build_trade_plan
 from .wallets import analyze_wallet_flows
@@ -143,6 +152,22 @@ async def watchlist_add(payload: WatchlistEntry):
 @app.get("/v1/watchlist", response_model=list[WatchlistEntry])
 async def watchlist_list():
     return store.list_watchlist()
+
+
+@app.post("/v1/integrations/zwallet/evidence")
+async def canonical_onchain_evidence(payload: OnchainEvidenceLookup):
+    try:
+        return await fetch_canonical_onchain_evidence(payload)
+    except ProviderError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post("/v1/integrations/zksato/advisory", status_code=202)
+async def canonical_advisory_submission(payload: AdvisoryIntentSubmission):
+    try:
+        return await submit_canonical_advisory_intent(payload.intent)
+    except ProviderError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @app.get("/v1/events")
