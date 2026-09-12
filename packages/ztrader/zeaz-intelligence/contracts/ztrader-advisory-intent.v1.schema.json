@@ -6,17 +6,40 @@
   "additionalProperties": false,
   "required": [
     "version",
+    "tenant_id",
+    "account_ref",
     "signal_id",
     "symbol",
+    "chain",
+    "address",
     "scores",
     "narrative",
     "whales",
+    "rug_risk",
+    "action",
     "evidence_timestamp",
     "proposed_trade"
   ],
   "properties": {
     "version": {
       "const": "1.0"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "account_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "portfolio_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 256
     },
     "signal_id": {
       "type": "string",
@@ -33,16 +56,12 @@
       "minLength": 1
     },
     "chain": {
-      "type": [
-        "string",
-        "null"
-      ]
+      "type": "string",
+      "minLength": 1
     },
     "address": {
-      "type": [
-        "string",
-        "null"
-      ]
+      "type": "string",
+      "minLength": 1
     },
     "scores": {
       "type": "object",
