@@ -232,7 +232,7 @@ class Engine:
                     return
                 if violation := self.db.budget_violation(tenant_id, agent, self.settings.global_daily_budget_credits):
                     raise RuntimeError(violation)
-                result = self.provider.chat(tier, messages, schemas)
+                result = self._provider_chat(tier, messages, schemas, tenant_id)
                 turn_cost = self._cost(tier, result.usage.input_tokens, result.usage.cached_tokens, result.usage.output_tokens)
                 total_in += result.usage.input_tokens
                 total_cache += result.usage.cached_tokens
@@ -387,6 +387,15 @@ class Engine:
         while not stop.wait(interval):
             if not self.db.heartbeat(task_id, worker_id, self.settings.lease_seconds):
                 return
+
+    def _provider_chat(self, tier: str, messages: list[dict[str, Any]], schemas: list[dict[str, Any]], tenant_id: str):
+        """Pass tenant context to the built-in pool without breaking test adapters."""
+        try:
+            return self.provider.chat(tier, messages, schemas, tenant_id=tenant_id)
+        except TypeError as exc:
+            if "tenant_id" not in str(exc) or "unexpected keyword" not in str(exc):
+                raise
+            return self.provider.chat(tier, messages, schemas)
 
     def _fail_terminal(self, task: dict[str, Any], error: str) -> None:
         status = "canceled" if task.get("cancel_requested") else "failed"

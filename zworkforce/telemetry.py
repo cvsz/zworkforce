@@ -96,12 +96,18 @@ class _TelemetryProvider:
     def __getattr__(self, name):
         return getattr(self._provider, name)
 
-    def chat(self, tier: str, messages: list[dict], tools: list[dict]):
+    def chat(self, tier: str, messages: list[dict], tools: list[dict], tenant_id: str | None = None):
         start = time.time_ns()
         status = "OK"
         attrs = {"tier": str(tier), "num_messages": len(messages), "num_tools": len(tools)}
         try:
-            result = self._provider.chat(tier, messages, tools)
+            try:
+                result = self._provider.chat(tier, messages, tools, tenant_id=tenant_id)
+            except TypeError as exc:
+                # Preserve legacy adapters accepting only (tier, messages, tools).
+                if "tenant_id" not in str(exc) or "unexpected keyword" not in str(exc):
+                    raise
+                result = self._provider.chat(tier, messages, tools)
             if hasattr(result, "usage") and result.usage:
                 attrs["input_tokens"] = getattr(result.usage, "input_tokens", 0)
                 attrs["cached_tokens"] = getattr(result.usage, "cached_tokens", 0)

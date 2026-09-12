@@ -83,6 +83,32 @@ Local semantic memory uses deterministic feature hashing. A runtime-selectable Q
 
 Metrics are Prometheus-compatible. Optional OTLP/HTTP JSON tracing wraps provider calls. Provider health, queue state, outcomes, cost, workflows, evaluations, outbox and SLO status are visible to operations.
 
+## Dashboard realtime control packages
+
+The browser dashboard uses an authenticated, bounded Server-Sent Events stream at
+`GET /api/v1/dashboard/events`. The stream accepts its replay cursor through
+`X-ZWorkforce-Event-Cursor` and its tenant through `X-Tenant-ID`; credentials and
+cursors are never placed in the URL. The viewer still uses the existing REST
+snapshot endpoints as the authoritative render path.
+
+Durable repository transitions append compact, allowlisted invalidations to
+`dashboard_events2` in tenant scope. Event payloads contain status metadata only;
+prompts, results, provider errors, secrets, storage URIs and raw tool arguments
+are deliberately excluded. A retained-cursor gap emits `resync.required`, after
+which the browser refreshes its snapshot and resumes from the returned cursor.
+The scheduler prunes events older than the configured
+`ZWORKFORCE_DASHBOARD_EVENT_RETENTION_SECONDS` horizon on its durable maintenance
+path; the default retention is seven days and the setting is capped at one year.
+Audit events remain durable for audit readers but are omitted from the ordinary
+viewer workforce stream unless the principal has both an admin role and
+`audit:read`.
+
+The dependency-free browser package coalesces event notifications across the
+overview, workforce, governance, automation, FinOps, knowledge and Z.A.R.V.I.S.
+surfaces. It exposes `LIVE`, `RECONNECTING`, `POLLING`, `STALE` and `OFFLINE`
+states. `POLLING` is a bounded recovery path, not evidence that any provider,
+voice gateway, queue, storage adapter or external integration is provisioned.
+
 ## Scaling
 
 - API: stateless except durable DB/storage; horizontally scalable.

@@ -9,6 +9,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from .db import utcnow
+from .config import DASHBOARD_EVENT_DEFAULT_RETENTION_SECONDS, DASHBOARD_EVENT_MAX_RETENTION_SECONDS
 from .workflow import WorkflowOrchestrator
 
 
@@ -110,12 +111,36 @@ def _render(value: Any, event: dict[str, Any]) -> Any:
 
 
 class Scheduler:
-    def __init__(self, db, engine, *, owner: str | None = None, lease_seconds: int = 30):
+    def __init__(
+        self,
+        db,
+        engine,
+        *,
+        owner: str | None = None,
+        lease_seconds: int = 30,
+        dashboard_event_retention_seconds: int = DASHBOARD_EVENT_DEFAULT_RETENTION_SECONDS,
+    ):
         self.db = db
         self.engine = engine
         self.workflows = WorkflowOrchestrator(db, engine)
         self.owner = owner or f"scheduler-{socket.gethostname()}"
         self.lease_seconds = max(5, int(lease_seconds))
+        self.dashboard_event_retention_seconds = min(
+            max(60, int(dashboard_event_retention_seconds)),
+            DASHBOARD_EVENT_MAX_RETENTION_SECONDS,
+        )
+        self._dashboard_event_prune_interval_seconds = min(300, self.dashboard_event_retention_seconds)
+        self._last_dashboard_event_prune = 0.0
+
+    def _prune_dashboard_events(self) -> int:
+        now = time.monotonic()
+        if now - self._last_dashboard_event_prune < self._dashboard_event_prune_interval_seconds:
+            return 0
+        self._last_dashboard_event_prune = now
+        cutoff = (
+            datetime.now(timezone.utc) - timedelta(seconds=self.dashboard_event_retention_seconds)
+        ).isoformat(timespec="seconds")
+        return self.db.prune_dashboard_events(cutoff)
 
     def upsert_schedule(self, tenant_id: str, item: dict[str, Any], actor: str) -> dict[str, Any]:
         payload = dict(item)
@@ -140,7 +165,8 @@ class Scheduler:
                                   idempotency_key=key)[0]
 
     def tick(self) -> dict[str, int]:
-        stats = {"schedules": 0, "events": 0, "tasks_submitted": 0, "workflows": 0}
+        stats = {"schedules": 0, "events": 0, "tasks_submitted": 0, "workflows": 0, "dashboard_events_pruned": 0}
+        stats["dashboard_events_pruned"] = self._prune_dashboard_events()
         now = utcnow()
         for item in self.db.due_schedules(now):
             try:
@@ -177,13 +203,13 @@ class Scheduler:
 
     def loop(self, poll: float = 1.0, once: bool = False, owner_id: str | None = None):
         owner = owner_id or self.owner
-        aggregate = {"ticks": 0, "schedules": 0, "events": 0, "tasks_submitted": 0, "workflows": 0}
+        aggregate = {"ticks": 0, "schedules": 0, "events": 0, "tasks_submitted": 0, "workflows": 0, "dashboard_events_pruned": 0}
         try:
             while True:
                 if self.db.acquire_service_lease("scheduler", owner, self.lease_seconds):
                     result = self.tick()
                     aggregate["ticks"] += 1
-                    for key in ("schedules", "events", "tasks_submitted", "workflows"):
+                    for key in ("schedules", "events", "tasks_submitted", "workflows", "dashboard_events_pruned"):
                         aggregate[key] += int(result.get(key, 0))
                 if once:
                     return aggregate
