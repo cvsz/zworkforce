@@ -11,12 +11,12 @@ variable "zneon_hostname" {
 
 variable "zneon_origin" {
   type        = string
-  default     = "http://127.0.0.1:18081"
-  description = "Loopback origin published by the zNeonDrive web container for Cloudflare Tunnel."
+  default     = "http://127.0.0.1:18085"
+  description = "Dedicated loopback origin published by the zNeonDrive web container for Cloudflare Tunnel."
 
   validation {
-    condition     = var.zneon_origin == "http://127.0.0.1:18081"
-    error_message = "zneon_origin must use the reviewed loopback web origin at http://127.0.0.1:18081."
+    condition     = var.zneon_origin == "http://127.0.0.1:18085"
+    error_message = "zneon_origin must use the reviewed loopback web origin at http://127.0.0.1:18085."
   }
 }
 
