@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import httpx
 import pytest
 from fastapi.testclient import TestClient
@@ -73,7 +75,7 @@ async def test_zwallet_provider_propagates_trace_and_read_only_request(monkeypat
         )
         assert request.headers["Authorization"] == "Bearer service-token"
         assert request.headers["X-Request-ID"] == "trace-002"
-        assert request.json()["version"] == "1.1"
+        assert json.loads(request.content)["version"] == "1.1"
         return httpx.Response(
             200,
             json={
@@ -147,7 +149,7 @@ async def test_zwallet_provider_keeps_v1_legacy_default(monkeypatch) -> None:
     monkeypatch.delenv("ZWALLET_EVIDENCE_VERSION", raising=False)
 
     async def handler(request: httpx.Request) -> httpx.Response:
-        assert request.json()["version"] == "1.0"
+        assert json.loads(request.content)["version"] == "1.0"
         return httpx.Response(
             200,
             json={
