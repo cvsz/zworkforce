@@ -76,6 +76,7 @@ output "cloudflared_ingress" {
       { hostname = var.dbc_hostname, service = var.dbc_origin },
       { hostname = var.coin_hostname, service = var.coin_origin },
     ],
+    local.zneon_ingress,
     local.zworkforce_ingress,
     local.zeaz_one_ingress,
     [{ service = "http_status:404" }],
