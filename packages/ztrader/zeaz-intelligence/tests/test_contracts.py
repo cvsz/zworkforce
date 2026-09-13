@@ -83,6 +83,11 @@ ONCHAIN_V1 = (
     / "contracts"
     / "ztrader-onchain-evidence.v1.schema.json"
 )
+ONCHAIN_V11 = (
+    Path(__file__).resolve().parents[1]
+    / "contracts"
+    / "ztrader-onchain-evidence.v1.1.schema.json"
+)
 MODEL_GATEWAY_V1 = (
     Path(__file__).resolve().parents[1]
     / "contracts"
@@ -90,7 +95,9 @@ MODEL_GATEWAY_V1 = (
 )
 
 
-@pytest.mark.parametrize("contract", [ADVISORY_V11, ONCHAIN_V1, MODEL_GATEWAY_V1])
+@pytest.mark.parametrize(
+    "contract", [ADVISORY_V11, ONCHAIN_V1, ONCHAIN_V11, MODEL_GATEWAY_V1]
+)
 def test_new_canonical_contracts_are_valid_draft_2020_12(contract: Path) -> None:
     schema = json.loads(contract.read_text(encoding="utf-8"))
     Draft202012Validator.check_schema(schema)
@@ -113,13 +120,12 @@ def test_advisory_v11_requires_paper_limit_execution_fields() -> None:
         Draft202012Validator(schema).validate(payload)
 
 
-def _onchain_unavailable_payload() -> dict[str, object]:
-    return {
-        "version": "1.0",
+def _onchain_unavailable_payload(version: str = "1.1") -> dict[str, object]:
+    payload: dict[str, object] = {
+        "version": version,
         "trace_id": "trace-001",
         "chain": "ethereum",
         "address": "0x1111111111111111111111111111111111111111",
-        "collector_version": "zwallet-evidence/1.0.0",
         "observed_at": "2026-09-12T11:00:00Z",
         "freshness_seconds": 0,
         "quality": "UNAVAILABLE",
@@ -132,15 +138,23 @@ def _onchain_unavailable_payload() -> dict[str, object]:
         ],
         "evidence": {},
     }
+    if version == "1.1":
+        payload["collector_version"] = "zwallet-evidence/1.0.0"
+    return payload
 
 
-def test_onchain_contract_accepts_explicit_unavailable_evidence() -> None:
+def test_onchain_v1_remains_backward_compatible_without_collector_version() -> None:
     schema = json.loads(ONCHAIN_V1.read_text(encoding="utf-8"))
+    Draft202012Validator(schema).validate(_onchain_unavailable_payload("1.0"))
+
+
+def test_onchain_v11_accepts_explicit_collector_provenance() -> None:
+    schema = json.loads(ONCHAIN_V11.read_text(encoding="utf-8"))
     Draft202012Validator(schema).validate(_onchain_unavailable_payload())
 
 
-def test_onchain_contract_requires_collector_version_provenance() -> None:
-    schema = json.loads(ONCHAIN_V1.read_text(encoding="utf-8"))
+def test_onchain_v11_requires_collector_version_provenance() -> None:
+    schema = json.loads(ONCHAIN_V11.read_text(encoding="utf-8"))
     payload = _onchain_unavailable_payload()
     payload.pop("collector_version")
     with pytest.raises(ValidationError):
