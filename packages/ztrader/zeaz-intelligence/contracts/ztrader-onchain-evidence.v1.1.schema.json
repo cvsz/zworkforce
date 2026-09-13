@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zeaz.dev/contracts/ztrader-onchain-evidence.v1.1.schema.json",
+  "title": "ZTrader On-chain Evidence v1.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "trace_id", "chain", "address", "collector_version", "observed_at", "freshness_seconds", "quality", "sources", "evidence"],
+  "properties": {
+    "version": { "const": "1.1" },
+    "trace_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "chain": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "address": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "collector_version": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._+:/-]{0,127}$" },
+    "observed_at": { "type": "string", "format": "date-time" },
+    "freshness_seconds": { "type": "integer", "minimum": 0 },
+    "quality": { "enum": ["VERIFIED", "INFERRED", "PARTIAL", "UNAVAILABLE"] },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["provider", "observed_at"],
+        "properties": {
+          "provider": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "reference": { "type": ["string", "null"], "maxLength": 1024 },
+          "observed_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "holder_count": { "type": ["integer", "null"], "minimum": 0 },
+        "top10_holder_pct": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+        "net_flow_usd_24h": { "type": ["number", "null"] },
+        "smart_money_net_flow_usd_24h": { "type": ["number", "null"] },
+        "liquidity_usd": { "type": ["number", "null"], "minimum": 0 },
+        "liquidity_change_pct_24h": { "type": ["number", "null"] },
+        "estimated_exit_price_impact_pct": { "type": ["number", "null"], "minimum": 0 },
+        "deployer_flags": { "type": "array", "items": { "type": "string" } },
+        "wallet_cluster_flags": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

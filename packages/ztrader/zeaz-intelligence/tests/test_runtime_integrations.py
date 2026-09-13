@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
+
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
 from ztrader_intel.api import app
-from ztrader_intel.providers import ZKsatoProvider, ZWalletProvider
+from ztrader_intel.providers import ProviderError, ZKsatoProvider, ZWalletProvider
 
 
 @pytest.mark.asyncio
@@ -65,6 +67,7 @@ async def test_zksato_provider_rejects_unsafe_execution_response(monkeypatch) ->
 async def test_zwallet_provider_propagates_trace_and_read_only_request(monkeypatch) -> None:
     monkeypatch.setenv("ZWALLET_BASE_URL", "http://zwallet.internal")
     monkeypatch.setenv("ZWALLET_SERVICE_TOKEN", "service-token")
+    monkeypatch.setenv("ZWALLET_EVIDENCE_VERSION", "1.1")
 
     async def handler(request: httpx.Request) -> httpx.Response:
         assert str(request.url) == (
@@ -72,13 +75,15 @@ async def test_zwallet_provider_propagates_trace_and_read_only_request(monkeypat
         )
         assert request.headers["Authorization"] == "Bearer service-token"
         assert request.headers["X-Request-ID"] == "trace-002"
+        assert json.loads(request.content)["version"] == "1.1"
         return httpx.Response(
             200,
             json={
-                "version": "1.0",
+                "version": "1.1",
                 "trace_id": "trace-002",
                 "chain": "ethereum",
                 "address": "0x1111111111111111111111111111111111111111",
+                "collector_version": "zwallet-evidence/1.0.0",
                 "observed_at": "2026-09-12T11:00:00Z",
                 "freshness_seconds": 0,
                 "quality": "UNAVAILABLE",
@@ -101,7 +106,68 @@ async def test_zwallet_provider_propagates_trace_and_read_only_request(monkeypat
             address="0x1111111111111111111111111111111111111111",
         )
         assert result["trace_id"] == "trace-002"
+        assert result["collector_version"] == "zwallet-evidence/1.0.0"
         assert result["quality"] == "UNAVAILABLE"
+
+
+@pytest.mark.asyncio
+async def test_zwallet_provider_rejects_v11_without_collector_provenance(monkeypatch) -> None:
+    monkeypatch.setenv("ZWALLET_BASE_URL", "http://zwallet.internal")
+    monkeypatch.setenv("ZWALLET_SERVICE_TOKEN", "service-token")
+    monkeypatch.setenv("ZWALLET_EVIDENCE_VERSION", "1.1")
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "version": "1.1",
+                "trace_id": "trace-003",
+                "chain": "ethereum",
+                "address": "0x1111111111111111111111111111111111111111",
+                "observed_at": "2026-09-12T11:00:00Z",
+                "freshness_seconds": 0,
+                "quality": "UNAVAILABLE",
+                "sources": [],
+                "evidence": {},
+            },
+            request=request,
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(ProviderError, match="collector_version"):
+            await ZWalletProvider(client).onchain_evidence(
+                trace_id="trace-003",
+                chain="ethereum",
+                address="0x1111111111111111111111111111111111111111",
+            )
+
+
+@pytest.mark.asyncio
+async def test_zwallet_provider_keeps_v1_legacy_default(monkeypatch) -> None:
+    monkeypatch.setenv("ZWALLET_BASE_URL", "http://zwallet.internal")
+    monkeypatch.setenv("ZWALLET_SERVICE_TOKEN", "service-token")
+    monkeypatch.delenv("ZWALLET_EVIDENCE_VERSION", raising=False)
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert json.loads(request.content)["version"] == "1.0"
+        return httpx.Response(
+            200,
+            json={
+                "version": "1.0",
+                "trace_id": "trace-legacy",
+                "chain": "ethereum",
+                "address": "0x1111111111111111111111111111111111111111",
+            },
+            request=request,
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result = await ZWalletProvider(client).onchain_evidence(
+            trace_id="trace-legacy",
+            chain="ethereum",
+            address="0x1111111111111111111111111111111111111111",
+        )
+        assert result["version"] == "1.0"
 
 
 def _integration_headers() -> dict[str, str]:

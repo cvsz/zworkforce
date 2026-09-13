@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from typing import Any
 
 import httpx
@@ -152,6 +153,9 @@ class ZKsatoProvider:
         return payload
 
 
+_COLLECTOR_VERSION = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+:/-]{0,127}$")
+
+
 class ZWalletProvider:
     """Authenticated read-only client for canonical zWallet on-chain evidence."""
 
@@ -159,6 +163,9 @@ class ZWalletProvider:
         self.client = client
         self.base_url = os.getenv("ZWALLET_BASE_URL", "").strip().rstrip("/")
         self.service_token = os.getenv("ZWALLET_SERVICE_TOKEN", "").strip()
+        self.evidence_version = os.getenv("ZWALLET_EVIDENCE_VERSION", "1.0").strip()
+        if self.evidence_version not in {"1.0", "1.1"}:
+            raise ProviderError("unsupported zWallet evidence contract version")
 
     @property
     def enabled(self) -> bool:
@@ -181,7 +188,7 @@ class ZWalletProvider:
                 "X-Request-ID": trace_id,
             },
             json={
-                "version": "1.0",
+                "version": self.evidence_version,
                 "trace_id": trace_id,
                 "chain": chain,
                 "address": address,
@@ -193,6 +200,14 @@ class ZWalletProvider:
             raise ProviderError("zWallet returned unexpected evidence payload")
         if payload.get("trace_id") != trace_id:
             raise ProviderError("zWallet evidence trace_id mismatch")
+        if payload.get("version") != self.evidence_version:
+            raise ProviderError("zWallet evidence contract version mismatch")
+        if self.evidence_version == "1.1":
+            collector_version = payload.get("collector_version")
+            if not isinstance(collector_version, str) or not _COLLECTOR_VERSION.fullmatch(
+                collector_version
+            ):
+                raise ProviderError("zWallet evidence collector_version is missing or invalid")
         return payload
 
 
