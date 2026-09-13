@@ -113,13 +113,13 @@ def test_advisory_v11_requires_paper_limit_execution_fields() -> None:
         Draft202012Validator(schema).validate(payload)
 
 
-def test_onchain_contract_accepts_explicit_unavailable_evidence() -> None:
-    schema = json.loads(ONCHAIN_V1.read_text(encoding="utf-8"))
-    payload = {
+def _onchain_unavailable_payload() -> dict[str, object]:
+    return {
         "version": "1.0",
         "trace_id": "trace-001",
         "chain": "ethereum",
         "address": "0x1111111111111111111111111111111111111111",
+        "collector_version": "zwallet-evidence/1.0.0",
         "observed_at": "2026-09-12T11:00:00Z",
         "freshness_seconds": 0,
         "quality": "UNAVAILABLE",
@@ -132,7 +132,19 @@ def test_onchain_contract_accepts_explicit_unavailable_evidence() -> None:
         ],
         "evidence": {},
     }
-    Draft202012Validator(schema).validate(payload)
+
+
+def test_onchain_contract_accepts_explicit_unavailable_evidence() -> None:
+    schema = json.loads(ONCHAIN_V1.read_text(encoding="utf-8"))
+    Draft202012Validator(schema).validate(_onchain_unavailable_payload())
+
+
+def test_onchain_contract_requires_collector_version_provenance() -> None:
+    schema = json.loads(ONCHAIN_V1.read_text(encoding="utf-8"))
+    payload = _onchain_unavailable_payload()
+    payload.pop("collector_version")
+    with pytest.raises(ValidationError):
+        Draft202012Validator(schema).validate(payload)
 
 
 def test_model_gateway_contract_forbids_server_side_storage() -> None:
