@@ -79,6 +79,7 @@ async def test_zwallet_provider_propagates_trace_and_read_only_request(monkeypat
                 "trace_id": "trace-002",
                 "chain": "ethereum",
                 "address": "0x1111111111111111111111111111111111111111",
+                "collector_version": "zwallet-evidence/1.0.0",
                 "observed_at": "2026-09-12T11:00:00Z",
                 "freshness_seconds": 0,
                 "quality": "UNAVAILABLE",
@@ -101,6 +102,7 @@ async def test_zwallet_provider_propagates_trace_and_read_only_request(monkeypat
             address="0x1111111111111111111111111111111111111111",
         )
         assert result["trace_id"] == "trace-002"
+        assert result["collector_version"] == "zwallet-evidence/1.0.0"
         assert result["quality"] == "UNAVAILABLE"
 
 
@@ -150,6 +152,7 @@ def test_onchain_route_requires_auth_and_reaches_zwallet_provider(monkeypatch) -
             "trace_id": trace_id,
             "chain": chain,
             "address": address,
+            "collector_version": "zwallet-test/1.0.0",
             "quality": "UNAVAILABLE",
             "sources": [{"provider": "zwallet:test"}],
             "evidence": {},
