@@ -68,5 +68,9 @@ ingress:
   - hostname: zcoin.zeaz.dev
     service: http://127.0.0.1:18082
 
+  # 9. zNeonDrive public website (loopback Nginx frontend)
+  - hostname: zneon.zeaz.dev
+    service: http://127.0.0.1:18081
+
   # Catch-all terminal rule
   - service: http_status:404
