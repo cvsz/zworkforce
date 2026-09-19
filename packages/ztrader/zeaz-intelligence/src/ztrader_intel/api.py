@@ -37,9 +37,9 @@ from .models import (
 )
 from .narrative import attention_velocity
 from .policy import execution_policy
-from .portfolio import build_portfolio
 from .polymarket.arbitrage import detect_complement_arbitrage
-from .polymarket.models import ArbitrageRequest, ArbitrageOpportunity
+from .polymarket.models import ArbitrageOpportunity, ArbitrageRequest
+from .portfolio import build_portfolio
 from .providers import ProviderError
 from .scoring import analyze
 from .service import (
@@ -98,7 +98,6 @@ def _verify_advisory_scope(
         raise HTTPException(status_code=403, detail="tenant scope mismatch")
     if not secrets.compare_digest(account_ref, payload.intent.account_ref):
         raise HTTPException(status_code=403, detail="account scope mismatch")
-
 
 
 async def _record(result: IntelligenceResponse) -> IntelligenceResponse:
