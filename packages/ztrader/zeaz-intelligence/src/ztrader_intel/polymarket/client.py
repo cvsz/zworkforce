@@ -30,7 +30,7 @@ class PolymarketClient:
     async def order_book(self, path: str, token_id: str) -> OrderBook:
         payload = await self.get_json(path, token_id=token_id)
         if not isinstance(payload, dict):
-            raise ValueError("Polymarket order-book payload must be an object")
+            raise TypeError("Polymarket order-book payload must be an object")
         bids = payload.get("bids", [])
         asks = payload.get("asks", [])
         return OrderBook(token_id=token_id, bids=bids, asks=asks)
