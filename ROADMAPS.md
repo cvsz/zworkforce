@@ -360,3 +360,16 @@ Adopt proven engineering patterns from official Anthropic, OpenAI, Google Gemini
 ## 8. Completion definition
 
 The combined Z.A.R.V.I.S./workspace-agent upgrade is feature-complete when the control plane, Z.A.R.V.I.S. voice gateway, ZSP studio, Zider companion, and Zeto factory share unified tenant and secret boundaries, skills and agent modes are policy-governed and rollback-capable, scheduled/continuous operation has health and recovery controls, projects/conversations/context/artifacts are durable and tenant scoped, local/browser execution is sandboxed and approval-safe, FinOps is visible before and after execution, and all mutation continues through explicit approval/action boundaries.
+
+
+## 5.1 Universal Local Stack Intelligence
+
+The incremental ecosystem registry is maintained in docs/UNIVERSAL-STACK-INTELLIGENCE.md and its execution plan in planning/exec-planning-universal-stack.md.
+
+Current evaluation candidates:
+
+- fast-agent — P1 execution-runtime bake-off for local/Docker coding, Skills, MCP and ACP.
+- AgentTeams — P1 orchestration adapter evaluation; it must not replace zWorkforce durable state, policy, approvals or audit authority.
+- Agent Reach — P1 research capability under WATCH status until real backend reliability and credential isolation are demonstrated.
+
+The registry requires upstream evidence, exact version checks, security validation and rollback/removal criteria before promotion. Free/public model providers are evaluated by capability, quota, data policy and operational reliability rather than by the existence of a free tier alone.
