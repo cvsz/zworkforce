@@ -35,7 +35,8 @@ def detect_complement_arbitrage(request: ArbitrageRequest) -> ArbitrageOpportuni
     if yes_ask >= 1 or no_ask >= 1:
         reasons.append("one or more asks are outside the binary complement range")
 
-    gross_edge = 1.0 - yes_ask - no_ask
+    pair_cost = yes_ask + no_ask
+    gross_edge = 1.0 - pair_cost
     gross_bps = _bps(gross_edge)
     estimated_cost_bps = request.fee_bps + request.slippage_bps + request.latency_bps
     net_bps = gross_bps - estimated_cost_bps
@@ -43,7 +44,8 @@ def detect_complement_arbitrage(request: ArbitrageRequest) -> ArbitrageOpportuni
     yes_liquidity = request.yes.available_ask * yes_ask
     no_liquidity = request.no.available_ask * no_ask
     limiting = max(0.0, min(yes_liquidity, no_liquidity))
-    capital = min(request.capital_usd, limiting)
+    requested_capital = request.capital_usd * max(0.0, pair_cost)
+    capital = min(requested_capital, limiting)
     profit = capital * max(0.0, net_bps) / 10_000
 
     if limiting <= 0:
