@@ -1,0 +1,88 @@
+name: zTrader Polymarket Hourly Progress Gate
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: ztrader-polymarket-hourly
+  cancel-in-progress: true
+
+jobs:
+  hourly-gate:
+    name: Hourly production progress / quality gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: packages/ztrader/zeaz-intelligence
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: packages/ztrader/zeaz-intelligence/pyproject.toml
+
+      - name: Install
+        run: python -m pip install -e ".[dev]"
+
+      - name: Ruff
+        run: ruff check src tests
+
+      - name: Pytest
+        run: pytest -q
+
+      - name: Production-gate inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          echo "## zTrader Polymarket hourly gate" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Commit: \`${GITHUB_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- UTC run: \`${GITHUB_RUN_ID}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Current repository inventory" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          for path in \
+            "packages/ztrader/zeaz-intelligence/src/ztrader_intel/polymarket" \
+            "packages/ztrader/zeaz-intelligence/tests" \
+            "packages/ztrader/zeaz-intelligence/README.md"; do
+            if [ -e "$path" ]; then
+              echo "- [x] $path" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- [ ] $path" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Live trading/private-key custody is not enabled by this workflow." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Update production gate issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GATE_ISSUE: "226"
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          status="success"
+          if [ "${{ job.status }}" != "success" ]; then
+            status="failure"
+          fi
+          gh issue comment "$GATE_ISSUE" --body "### Hourly zTrader Polymarket gate
+          - Status: **$status**
+          - Commit: \`${GITHUB_SHA}\`
+          - Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          - Automated checks: Ruff + pytest + production-gate inventory
+
+          This is a validation/progress heartbeat; it does not claim that the Polymarket feature set is complete and does not enable live trading."

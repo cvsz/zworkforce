@@ -37,6 +37,8 @@ from .models import (
 )
 from .narrative import attention_velocity
 from .policy import execution_policy
+from .polymarket.arbitrage import detect_complement_arbitrage
+from .polymarket.models import ArbitrageOpportunity, ArbitrageRequest
 from .portfolio import build_portfolio
 from .providers import ProviderError
 from .scoring import analyze
@@ -98,7 +100,6 @@ def _verify_advisory_scope(
         raise HTTPException(status_code=403, detail="account scope mismatch")
 
 
-
 async def _record(result: IntelligenceResponse) -> IntelligenceResponse:
     store.save(result)
     await event_bus.publish(result.model_dump_json())
@@ -158,6 +159,12 @@ async def trade_plan(payload: TradePlanRequest):
 @app.post("/v1/portfolio", response_model=PortfolioResponse)
 async def portfolio(payload: PortfolioRequest):
     return build_portfolio(payload)
+
+
+@app.post("/v1/polymarket/arbitrage/scan", response_model=ArbitrageOpportunity)
+async def polymarket_arbitrage_scan(payload: ArbitrageRequest):
+    """Evaluate a read-only, deterministic YES/NO complement arbitrage opportunity."""
+    return detect_complement_arbitrage(payload)
 
 
 @app.post("/v1/backtest", response_model=BacktestResponse)
