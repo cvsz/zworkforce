@@ -4,7 +4,7 @@ from .models import ArbitrageOpportunity, ArbitrageRequest
 
 
 def _bps(value: float) -> float:
-    return value * 10_000
+    return round(value * 10_000, 10)
 
 
 def detect_complement_arbitrage(request: ArbitrageRequest) -> ArbitrageOpportunity:
