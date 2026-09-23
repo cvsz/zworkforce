@@ -72,5 +72,14 @@ class ComposeHealthcheckContractTests(unittest.TestCase):
         self.assertNotIn(".supabase.co/storage/v1/s3", source.replace(".storage.supabase.co/storage/v1/s3", ""))
 
 
+    def test_zarvis_tokens_fail_closed_without_insecure_defaults(self):
+        for service in ("zarvis-action-gateway", "zarvis-action-worker", "zarvis-proactive", "zarvis-proactive-worker"):
+            with self.subTest(service=service):
+                block = service_block(self.source, service)
+                self.assertNotIn("development-owner-token", block)
+                self.assertNotIn("development-worker-token", block)
+                self.assertRegex(block, r":\?set ZARVIS_.*_TOKEN")
+
+
 if __name__ == "__main__":
     unittest.main()
