@@ -1,1 +1,401 @@
-name: placeholder
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  submodule-validation:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: zksato_test
+          POSTGRES_USER: zksato
+          POSTGRES_PASSWORD: zksato_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U zksato -d zksato_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ZKSATO_TEST_DATABASE_URL: postgresql+psycopg://zksato:zksato_test@127.0.0.1:5432/zksato_test
+      PGPASSWORD: zksato_test
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Reject untrusted submodule changes
+        if: github.event_name == 'pull_request' && (github.event.pull_request.head.repo.full_name != github.repository || github.actor == 'dependabot[bot]')
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code origin/${{ github.base_ref }}...HEAD -- \
+            .gitmodules packages/zksato packages/zttshop-php packages/zmovie packages/zok
+      - name: Require submodule SSH deploy keys
+        if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
+        env:
+          ZKSATO_SUBMODULE_SSH_KEY: ${{ secrets.ZKSATO_SUBMODULE_SSH_KEY }}
+          ZTTSHOP_PHP_SUBMODULE_SSH_KEY: ${{ secrets.ZTTSHOP_PHP_SUBMODULE_SSH_KEY }}
+        run: |
+          test -n "$ZKSATO_SUBMODULE_SSH_KEY"
+          test -n "$ZTTSHOP_PHP_SUBMODULE_SSH_KEY"
+      - name: Checkout pinned SSH submodules
+        if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
+        shell: bash
+        env:
+          ZKSATO_SUBMODULE_SSH_KEY: ${{ secrets.ZKSATO_SUBMODULE_SSH_KEY }}
+          ZTTSHOP_PHP_SUBMODULE_SSH_KEY: ${{ secrets.ZTTSHOP_PHP_SUBMODULE_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$ZKSATO_SUBMODULE_SSH_KEY" > ~/.ssh/zksato_submodule
+          printf '%s\n' "$ZTTSHOP_PHP_SUBMODULE_SSH_KEY" > ~/.ssh/zttshop_php_submodule
+          chmod 600 ~/.ssh/zksato_submodule ~/.ssh/zttshop_php_submodule
+          cat > ~/.ssh/known_hosts <<'EOF'
+          ssh.github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
+          EOF
+          cat > ~/.ssh/config <<'EOF'
+          Host github.com-zksato
+            HostName ssh.github.com
+            Port 443
+            User git
+            IdentityFile ~/.ssh/zksato_submodule
+            IdentitiesOnly yes
+            HostKeyAlias ssh.github.com
+            StrictHostKeyChecking yes
+            UserKnownHostsFile ~/.ssh/known_hosts
+
+          Host github.com-zttshop-php
+            HostName ssh.github.com
+            Port 443
+            User git
+            IdentityFile ~/.ssh/zttshop_php_submodule
+            IdentitiesOnly yes
+            HostKeyAlias ssh.github.com
+            StrictHostKeyChecking yes
+            UserKnownHostsFile ~/.ssh/known_hosts
+          EOF
+          chmod 600 ~/.ssh/config ~/.ssh/known_hosts
+          git submodule sync --recursive
+          # sync copies .gitmodules URLs into .git/config, so apply the
+          # per-repository SSH aliases after synchronization and before clone.
+          git config --local submodule.packages/zksato.url git@github.com-zksato:cvsz/zksato.git
+          git config --local submodule.packages/zttshop-php.url git@github.com-zttshop-php:cvsz/zttshop-php.git
+          test "$(git config --local --get submodule.packages/zksato.url)" = git@github.com-zksato:cvsz/zksato.git
+          test "$(git config --local --get submodule.packages/zttshop-php.url)" = git@github.com-zttshop-php:cvsz/zttshop-php.git
+          git submodule update --init --recursive --depth=1
+      - name: Verify pinned submodule revisions
+        if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(git submodule status --recursive)"
+          printf '%s\n' "$status"
+          ! grep -Eq '^[+-U]' <<<"$status"
+          test "$(git -C packages/zksato rev-parse HEAD)" = "$(git rev-parse HEAD:packages/zksato)"
+          test "$(git -C packages/zttshop-php rev-parse HEAD)" = "$(git rev-parse HEAD:packages/zttshop-php)"
+          test "$(git -C packages/zmovie rev-parse HEAD)" = "$(git rev-parse HEAD:packages/zmovie)"
+          test "$(git -C packages/zok rev-parse HEAD)" = "$(git rev-parse HEAD:packages/zok)"
+      - uses: actions/setup-python@v7
+        if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            packages/zksato/pyproject.toml
+            packages/zmovie/requirements.txt
+      - name: Validate zksato
+        if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
+        working-directory: packages/zksato
+        run: |
+          python -m pip install --upgrade pip 'setuptools>=83.0.0'
+          # The pinned package imports its AWS Secrets Manager adapter eagerly,
+          # but its metadata does not declare boto3 yet; install that required
+          # runtime dependency so the full test collection remains meaningful.
+          python -m pip install -e '.[dev,security]' 'boto3>=1.35,<2.0'
+          python -m pip check
+          python -m compileall -q src tests scripts
+          ruff check .
+          # Paper/synthetic paths have known low-severity Bandit patterns;
+          # keep medium/high findings blocking the submodule gate.
+          bandit -q -r src --severity-level medium
+          for migration in migrations/[0-9][0-9][0-9][0-9]_*.sql; do
+            psql -h 127.0.0.1 -U zksato -d zksato_test -v ON_ERROR_STOP=1 -f "$migration"
+          done
+          pytest -m "not uat and not performance"
+          pip-audit
+      - name: Validate zttshop-php
+        if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
+        working-directory: packages/zttshop-php
+        run: |
+          composer validate --strict
+          composer install --no-interaction --prefer-dist
+          composer audit --locked --no-interaction
+          composer test
+      - name: Validate zmovie
+        if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
+        working-directory: packages/zmovie
+        shell: bash
+        run: |
+          set -euo pipefail
+          venv_dir="${RUNNER_TEMP:?}/zmovie-venv"
+          python -m venv "$venv_dir"
+          . "$venv_dir/bin/activate"
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install ruff==0.16.1 pip-audit==2.10.1
+          python scripts/verify_docs.py
+          python -m compileall -q zmovie.py app.py main.py zmovie_platform tests
+          make help >/dev/null
+          python -m zmovie_platform.control_cli --help | grep -q 'production control plane'
+          python -m zmovie_platform.control_cli hyperframes | python -m json.tool >/dev/null
+          python -m zmovie_platform.control_cli sdcpp-status | python -m json.tool >/dev/null
+          node --check static/app.js
+          node --check static/studio-preview.js
+          node --check static/hyperframes-studio.js
+          bash -n install.sh install-docker.sh scripts/*.sh
+          python -m json.tool workflows/comfyui/smoke_api.json >/dev/null
+          ruff check app.py main.py zmovie_platform tests
+          python -m unittest discover -s tests -v
+          python zmovie.py --seed 42 --count 2 >/tmp/zmovie-prompts.txt
+          python zmovie.py --seed 42 --json | python -m json.tool >/dev/null
+          pip-audit -r requirements.txt
+          docker compose config --quiet
+          docker build -t zmovie:submodule-ci .
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13", "3.14"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install package and runtime dependencies
+        run: python -m pip install --no-cache-dir '.[test]'
+      - name: Compile
+        run: python -m compileall -q zworkforce tests scripts
+      - name: Unit and integration tests
+        run: PYTHONPATH=. python -m unittest discover -s tests -v
+      - name: Doctor
+        run: ZWORKFORCE_DATA_DIR=/tmp/zworkforce-ci ZWORKFORCE_WORKSPACE_ROOT=$PWD zworkforce doctor
+      - name: CLI smoke
+        run: zworkforce --version
+      - name: JavaScript syntax and example JSON
+        run: |
+          node --check zworkforce/static/app.js
+          python - <<'PY'
+          import json, pathlib
+          for p in pathlib.Path('examples').glob('*.json'):
+              json.loads(p.read_text())
+          PY
+
+  documentation-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install --no-cache-dir .
+      - name: Validate documentation links and repository policy
+        run: PYTHONPATH=. python -m unittest tests.test_documentation_coverage tests.test_repository_policy -v
+
+  postgres-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: zworkforce
+          POSTGRES_PASSWORD: zworkforce
+          POSTGRES_DB: zworkforce_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U zworkforce -d zworkforce_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ZWORKFORCE_TEST_POSTGRES_URL: postgresql://zworkforce:zworkforce@127.0.0.1:5432/zworkforce_ci
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Install package
+        run: python -m pip install --no-cache-dir .
+      - name: PostgreSQL queue/runtime tests
+        run: PYTHONPATH=. python -m unittest tests.test_v3_postgres -v
+
+      - name: PostgreSQL backup and restore drill
+        shell: bash
+        run: |
+          set -euo pipefail
+          restore_url="${ZWORKFORCE_TEST_POSTGRES_URL%/zworkforce_ci}/zworkforce_restore"
+          docker run --rm --network host \
+            postgres:17-alpine \
+            psql "$ZWORKFORCE_TEST_POSTGRES_URL" -v ON_ERROR_STOP=1 -c 'CREATE DATABASE zworkforce_restore'
+          ZWORKFORCE_DATABASE_URL="$ZWORKFORCE_TEST_POSTGRES_URL" PYTHONPATH=. python - <<'PY'
+          import os
+          from zworkforce.db import Database
+
+          url = os.environ["ZWORKFORCE_DATABASE_URL"]
+          db = Database(url, "recovery-drill")
+          db.put_memory("recovery-drill", None, "recovery-marker", "backup restore sentinel", ["ci"], "ci", "recovery-marker")
+          assert db.get_memory("recovery-drill", "recovery-marker")["content"] == "backup restore sentinel"
+          PY
+          backup_dir="$(mktemp -d)"
+          backup_path="$backup_dir/zworkforce-recovery.dump"
+          docker run --rm --network host \
+            -e "ZWORKFORCE_DATABASE_URL=$ZWORKFORCE_TEST_POSTGRES_URL" \
+            -e "ZWORKFORCE_BACKUP_DIR=$backup_dir" \
+            -v "$PWD:/workspace" \
+            -v "$backup_dir:$backup_dir" \
+            -w /workspace \
+            postgres:17-alpine \
+            bash scripts/backup-postgres.sh "$backup_path"
+          test -s "$backup_path"
+          test -s "$backup_path.sha256"
+          docker run --rm --network host \
+            -e "ZWORKFORCE_DATABASE_URL=$restore_url" \
+            -e ZWORKFORCE_RESTORE_CONFIRM=YES \
+            -v "$PWD:/workspace" \
+            -v "$backup_dir:$backup_dir" \
+            -w /workspace \
+            postgres:17-alpine \
+            bash scripts/restore-postgres.sh "$backup_path"
+          ZWORKFORCE_DATABASE_URL="$restore_url" PYTHONPATH=. python - <<'PY'
+          import os
+          from zworkforce.db import Database
+
+          db = Database(os.environ["ZWORKFORCE_DATABASE_URL"], "recovery-drill")
+          marker = db.get_memory("recovery-drill", "recovery-marker")
+          assert marker and marker["content"] == "backup restore sentinel"
+          assert db.ready()
+          print("PostgreSQL backup/restore drill passed")
+          PY
+
+  release-integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Install release package
+        run: python -m pip install --no-cache-dir .
+      - name: Verify release metadata
+        run: python scripts/verify_release.py
+      - name: Validate operational scripts
+        run: bash -n scripts/*.sh
+      - name: Validate SBOM generator
+        run: |
+          python scripts/generate_sbom.py --output /tmp/zworkforce.cdx.json
+          python - <<'PY'
+          import json
+          import zworkforce
+          data=json.load(open('/tmp/zworkforce.cdx.json'))
+          assert data['bomFormat']=='CycloneDX'
+          assert data['metadata']['component']['name']=='zworkforce'
+          assert data['metadata']['component']['version']==zworkforce.__version__
+          PY
+      - name: Exercise deployment smoke script
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZWORKFORCE_ENV=development \
+          ZWORKFORCE_DATA_DIR=/tmp/zworkforce-smoke \
+          ZWORKFORCE_WORKSPACE_ROOT="$PWD" \
+          zworkforce serve >/tmp/zworkforce-smoke.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for _ in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:9569/health >/dev/null; then break; fi
+            sleep 0.25
+          done
+          ZWORKFORCE_BASE_URL=http://127.0.0.1:9569 bash scripts/smoke-test.sh
+      - name: Render production Compose
+        env:
+          ZWORKFORCE_POSTGRES_PASSWORD: ci-only-password
+          ZWORKFORCE_API_KEYS: ci-only-key:superadmin:default:bootstrap:*
+          ZARVIS_LOCAL_OWNER_TOKEN: ci-only-zarvis-owner-token-000000000001
+          ZARVIS_ACTION_WORKER_TOKEN: ci-only-zarvis-action-token-00000000001
+          ZARVIS_PROACTIVE_WORKER_TOKEN: ci-only-zarvis-proactive-token-00000001
+        run: docker compose config -q
+      - name: Verify release workflow capabilities
+        run: |
+          grep -q 'actions/attest-build-provenance@v4' .github/workflows/release.yml
+          grep -q 'provenance: mode=max' .github/workflows/release.yml
+          grep -q 'sbom: true' .github/workflows/release.yml
+          grep -q 'gh release create' .github/workflows/release.yml
+          grep -q 'id-token: write' .github/workflows/release.yml
+          grep -q 'azure/login@v3' .github/workflows/release.yml
+          grep -q 'azure/artifact-signing-action@v2' .github/workflows/release.yml
+          grep -q 'workflow_dispatch:' .github/workflows/windows-signed-candidate.yml
+          grep -q 'git merge-base --is-ancestor' .github/workflows/windows-signed-candidate.yml
+          grep -q 'azure/login@v3' .github/workflows/windows-signed-candidate.yml
+          grep -q 'azure/artifact-signing-action@v2' .github/workflows/windows-signed-candidate.yml
+          grep -q 'CANDIDATE_REF' .github/workflows/windows-signed-candidate.yml
+          grep -q 'Upload signed candidate evidence' .github/workflows/windows-signed-candidate.yml
+          grep -q 'Package-Client.ps1 -Configuration Release -Platform x64 -Unsigned' .github/workflows/release.yml
+          grep -q 'timestamp-rfc3161: http://timestamp.acs.microsoft.com' .github/workflows/release.yml
+          grep -q 'AppxPackageSigningEnabled=false' ZWorkforceClient/build/windows/Package-Client.ps1
+          legacy_signing_key="WINDOWS_MSIX_""PFX_BASE64"
+          ! grep -q "$legacy_signing_key" .github/workflows/release.yml
+          # Package-Client.ps1 -Unsigned is the production package path.
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - name: Build hardened image
+        shell: bash
+        run: |
+          VERSION="$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")"
+          docker build --build-arg VERSION="$VERSION" -t zworkforce:ci .
+
+  security-invariants:
+    needs: submodule-validation
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce submodule validation result
+        run: test "${{ needs.submodule-validation.result }}" = success
+      - uses: actions/checkout@v7
+      - name: No shell=True in runtime
+        run: '! grep -R --line-number --include="*.py" "shell=True" zworkforce'
+      - name: No provider secrets in static assets
+        run: '! grep -R --line-number -E "API_KEY|provider_api_key|Authorization: Bearer" zworkforce/static'
+      - name: Verify source version parity and no recovery workflow
+        run: |
+          python - <<'PY'
+          import tomllib
+          import zworkforce
+          with open('pyproject.toml', 'rb') as handle:
+              expected = tomllib.load(handle)['project']['version']
+          assert zworkforce.__version__ == expected, (zworkforce.__version__, expected)
+          PY
+          test ! -e .github/workflows/v3-rematerialize.yml
+          test ! -e .github/workflows/v3-materialize.yml
