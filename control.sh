@@ -121,14 +121,14 @@ cmd_install() {
         return 1
     fi
 
-    # 6. Top-level Monorepo Workspace (services & apps)
+    # 6. Top-level Monorepo Workspace (services & apps - mandatory)
     if [ -f "pnpm-workspace.yaml" ]; then
         log_info "Setting up root pnpm workspaces..."
-        if pnpm install; then
-            log_success "Root pnpm workspace installed."
-        else
-            log_warn "Root pnpm workspace install FAILED — some apps/services may be unavailable. Check lockfile drift or missing deps before releasing."
+        if ! pnpm install; then
+            log_error "Root pnpm workspace installation failed. Check dependencies, permissions, and lockfiles."
+            return 1
         fi
+        log_success "Root pnpm workspace installed."
     fi
 
     log_success "Monorepo installation complete!"
