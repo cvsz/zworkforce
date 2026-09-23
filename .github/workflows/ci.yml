@@ -339,6 +339,9 @@ jobs:
         env:
           ZWORKFORCE_POSTGRES_PASSWORD: ci-only-password
           ZWORKFORCE_API_KEYS: ci-only-key:superadmin:default:bootstrap:*
+          ZARVIS_LOCAL_OWNER_TOKEN: ci-only-zarvis-owner-token-000000000001
+          ZARVIS_ACTION_WORKER_TOKEN: ci-only-zarvis-action-token-00000000001
+          ZARVIS_PROACTIVE_WORKER_TOKEN: ci-only-zarvis-proactive-token-00000001
         run: docker compose config -q
       - name: Verify release workflow capabilities
         run: |
