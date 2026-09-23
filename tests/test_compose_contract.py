@@ -71,14 +71,22 @@ class ComposeHealthcheckContractTests(unittest.TestCase):
         self.assertIn(".storage.supabase.co/storage/v1/s3", source)
         self.assertNotIn(".supabase.co/storage/v1/s3", source.replace(".storage.supabase.co/storage/v1/s3", ""))
 
-
-    def test_zarvis_tokens_fail_closed_without_insecure_defaults(self):
-        for service in ("zarvis-action-gateway", "zarvis-action-worker", "zarvis-proactive", "zarvis-proactive-worker"):
+    def test_zarvis_tokens_are_profile_scoped_without_insecure_defaults(self):
+        expected_tokens = {
+            "zarvis-action-gateway": ("ZARVIS_LOCAL_OWNER_TOKEN", "ZARVIS_ACTION_WORKER_TOKEN"),
+            "zarvis-action-worker": ("ZARVIS_ACTION_WORKER_TOKEN",),
+            "zarvis-proactive": ("ZARVIS_LOCAL_OWNER_TOKEN", "ZARVIS_PROACTIVE_WORKER_TOKEN"),
+            "zarvis-proactive-worker": ("ZARVIS_PROACTIVE_WORKER_TOKEN",),
+        }
+        for service, tokens in expected_tokens.items():
             with self.subTest(service=service):
                 block = service_block(self.source, service)
                 self.assertNotIn("development-owner-token", block)
                 self.assertNotIn("development-worker-token", block)
-                self.assertRegex(block, r":\?set ZARVIS_.*_TOKEN")
+                self.assertIn('profiles: ["zarvis-local", "all"]', block)
+                for token in tokens:
+                    self.assertIn(f"{token}: ${{{token}:-}}", block)
+                    self.assertNotIn(f"${{{token}:?", block)
 
 
 if __name__ == "__main__":
