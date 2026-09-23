@@ -93,10 +93,14 @@ cmd_install() {
         (cd packages/zsp-aitool && npm run prisma:generate && npm run build)
     fi
 
-    # 4. Zider companion
+    # 4. Zider companion (optional — browser extension; failure is warned, not fatal)
     if [ -d "packages/zider" ]; then
         log_info "Setting up packages/zider..."
-        (cd packages/zider && npm install && npm run build || true)
+        if (cd packages/zider && npm install && npm run build); then
+            log_success "packages/zider built successfully."
+        else
+            log_warn "packages/zider build FAILED — browser extension will not be available. Fix before shipping a release."
+        fi
     fi
 
     # 5. Zok Conversational Commerce OS (pinned public submodule)
@@ -117,10 +121,14 @@ cmd_install() {
         return 1
     fi
 
-    # 6. Top-level Monorepo Workspace (services & apps)
+    # 6. Top-level Monorepo Workspace (services & apps - mandatory)
     if [ -f "pnpm-workspace.yaml" ]; then
         log_info "Setting up root pnpm workspaces..."
-        pnpm install || true
+        if ! pnpm install; then
+            log_error "Root pnpm workspace installation failed. Check dependencies, permissions, and lockfiles."
+            return 1
+        fi
+        log_success "Root pnpm workspace installed."
     fi
 
     log_success "Monorepo installation complete!"

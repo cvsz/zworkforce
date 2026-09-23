@@ -3,11 +3,13 @@ packages:
   - 'services/*'
   - 'apps/*'
 allowBuilds:
-  '@prisma/client': set this to true or false
-  '@prisma/engines': set this to true or false
-  esbuild: set this to true or false
-  prisma: set this to true or false
-  unrs-resolver: set this to true or false
+  # These packages have native build scripts required by packages/zsp-aitool.
+  # Confirmed via `pnpm why` on pnpm 11.25.0 — all are real native dependencies.
+  '@prisma/client': true
+  '@prisma/engines': true
+  esbuild: true
+  prisma: true
+  unrs-resolver: true
 minimumReleaseAgeExclude:
   - '@next/env@16.3.5'
   - '@next/eslint-plugin-next@16.3.5'
