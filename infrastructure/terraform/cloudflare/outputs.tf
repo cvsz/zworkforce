@@ -63,6 +63,11 @@ output "zmovie_url" {
   description = "Public zMovie AI production studio URL via Cloudflare Tunnel."
 }
 
+output "license_url" {
+  value       = "https://${var.license_hostname}"
+  description = "Public ZeaZ License Server URL via Cloudflare Tunnel."
+}
+
 output "cloudflared_ingress" {
   value = concat(
     [

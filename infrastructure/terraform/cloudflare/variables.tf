@@ -388,3 +388,25 @@ variable "zmovie_origin" {
     error_message = "zmovie_origin must use a loopback address."
   }
 }
+
+variable "license_hostname" {
+  type        = string
+  default     = "license.zeaz.dev"
+  description = "Public hostname for the first-party ZeaZ License Server (Nginx ingress)."
+
+  validation {
+    condition     = endswith(lower(var.license_hostname), ".${lower(var.zone_name)}")
+    error_message = "license_hostname must be a subdomain of zone_name."
+  }
+}
+
+variable "license_origin" {
+  type        = string
+  default     = "http://127.0.0.1:80"
+  description = "Loopback origin for the License Server at Nginx port 80 (Host-routed)."
+
+  validation {
+    condition     = can(regex("^http://127\\.0\\.0\\.1:[0-9]+$", var.license_origin))
+    error_message = "license_origin must use a loopback address."
+  }
+}
