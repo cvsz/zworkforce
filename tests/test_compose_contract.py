@@ -1,5 +1,8 @@
 from pathlib import Path
+import os
 import re
+import shutil
+import subprocess
 import unittest
 
 
@@ -10,6 +13,15 @@ HA_COMPOSES = (
     Path(__file__).resolve().parents[1] / "deploy" / "ha" / "compose.vm-b.yaml",
 )
 HA_ENV_EXAMPLE = Path(__file__).resolve().parents[1] / "deploy" / "ha" / "compose.shared.env.example"
+
+
+COMPOSE_REQUIRED_ENV = {
+    "ZWORKFORCE_POSTGRES_PASSWORD": "ci-only-postgres-password",
+    "ZWORKFORCE_API_KEYS": "ci-only-key:superadmin:default:bootstrap:*",
+    "ZARVIS_LOCAL_OWNER_TOKEN": "ci-only-owner-token-at-least-32-bytes-long",
+    "ZARVIS_ACTION_WORKER_TOKEN": "ci-only-action-worker-token-at-least-32-bytes",
+    "ZARVIS_PROACTIVE_WORKER_TOKEN": "ci-only-proactive-worker-token-at-least-32-bytes",
+}
 
 
 def service_block(source: str, service: str) -> str:
@@ -87,6 +99,50 @@ class ComposeHealthcheckContractTests(unittest.TestCase):
                 for token in tokens:
                     self.assertIn(f"{token}: ${{{token}:-}}", block)
                     self.assertNotIn(f"${{{token}:?", block)
+
+
+class ComposeSecretRenderingContractTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.docker = shutil.which("docker")
+        if cls.docker is None:
+            raise unittest.SkipTest("docker CLI is required for Compose rendering tests")
+        version = subprocess.run(
+            [cls.docker, "compose", "version"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if version.returncode != 0:
+            raise unittest.SkipTest("Docker Compose plugin is required for rendering tests")
+
+    def render_compose(self, environment):
+        return subprocess.run(
+            [self.docker, "compose", "--env-file", "/dev/null", "config", "-q"],
+            cwd=COMPOSE.parent,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    def test_render_fails_without_required_secrets(self):
+        result = self.render_compose({"PATH": os.environ.get("PATH", "")})
+
+        self.assertNotEqual(result.returncode, 0, result.stderr)
+        self.assertIn("required variable ZWORKFORCE_POSTGRES_PASSWORD", result.stderr)
+        self.assertIn("required variable ZWORKFORCE_API_KEYS", result.stderr)
+        self.assertIn("required variable ZARVIS_LOCAL_OWNER_TOKEN", result.stderr)
+        self.assertIn("required variable ZARVIS_ACTION_WORKER_TOKEN", result.stderr)
+        self.assertIn("required variable ZARVIS_PROACTIVE_WORKER_TOKEN", result.stderr)
+
+    def test_render_succeeds_with_explicit_ci_only_secrets(self):
+        environment = {"PATH": os.environ.get("PATH", "")}
+        environment.update(COMPOSE_REQUIRED_ENV)
+
+        result = self.render_compose(environment)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == "__main__":
