@@ -58,6 +58,11 @@ output "laps_url" {
   description = "Public LAPS URL after the proxied DNS record and tunnel ingress are active."
 }
 
+output "zmovie_url" {
+  value       = "https://${var.zmovie_hostname}"
+  description = "Public zMovie AI production studio URL via Cloudflare Tunnel."
+}
+
 output "cloudflared_ingress" {
   value = concat(
     [

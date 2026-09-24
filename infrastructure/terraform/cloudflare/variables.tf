@@ -366,3 +366,25 @@ variable "mcp_origin" {
     error_message = "mcp_origin must use a loopback address."
   }
 }
+
+variable "zmovie_hostname" {
+  type        = string
+  default     = "zmovie.zeaz.dev"
+  description = "Public hostname for the zMovie AI production studio."
+
+  validation {
+    condition     = endswith(lower(var.zmovie_hostname), ".${lower(var.zone_name)}")
+    error_message = "zmovie_hostname must be a subdomain of zone_name."
+  }
+}
+
+variable "zmovie_origin" {
+  type        = string
+  default     = "http://127.0.0.1:80"
+  description = "Loopback origin for zMovie WordPress at Nginx port 80."
+
+  validation {
+    condition     = can(regex("^http://127\\.0\\.0\\.1:[0-9]+$", var.zmovie_origin))
+    error_message = "zmovie_origin must use a loopback address."
+  }
+}
