@@ -41,6 +41,16 @@ resource "cloudflare_dns_record" "zttshop" {
   comment = "zttshop public app via Cloudflare Tunnel"
 }
 
+resource "cloudflare_dns_record" "zaffiliate" {
+  zone_id = var.cloudflare_zone_id
+  name    = var.zaffiliate_hostname
+  type    = "CNAME"
+  content = local.tunnel_cname
+  ttl     = 1
+  proxied = true
+  comment = "zaffiliate affiliate platform via Cloudflare Tunnel"
+}
+
 resource "cloudflare_dns_record" "qwen" {
   zone_id = var.cloudflare_zone_id
   name    = var.qwen_hostname
@@ -195,6 +205,7 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "moopiew" {
       [
         { hostname = var.moopiew_hostname, service = var.moopiew_origin },
         { hostname = var.zttshop_hostname, service = var.zttshop_origin },
+        { hostname = var.zaffiliate_hostname, service = var.zaffiliate_origin },
         { hostname = var.qwen_hostname, service = var.qwen_origin },
         { hostname = var.chat_hostname, service = var.chat_origin },
         { hostname = var.piewdash_hostname, service = var.piewdash_origin },

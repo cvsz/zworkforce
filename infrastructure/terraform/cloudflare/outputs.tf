@@ -13,6 +13,11 @@ output "zttshop_url" {
   description = "Public zttshop URL after the proxied DNS record and tunnel ingress are active."
 }
 
+output "zaffiliate_url" {
+  value       = "https://${var.zaffiliate_hostname}"
+  description = "Public zaffiliate URL after the proxied DNS record and tunnel ingress are active."
+}
+
 output "qwen_url" {
   value       = "https://${var.qwen_hostname}"
   description = "Public Qwen chat URL after the proxied DNS record and tunnel ingress are active."

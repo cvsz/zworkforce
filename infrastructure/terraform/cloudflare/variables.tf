@@ -102,6 +102,26 @@ variable "zttshop_origin" {
   }
 }
 
+variable "zaffiliate_hostname" {
+  type        = string
+  default     = "zaffiliate.zeaz.dev"
+  description = "Public hostname for the zaffiliate affiliate automation platform."
+  validation {
+    condition     = endswith(lower(var.zaffiliate_hostname), ".${lower(var.zone_name)}")
+    error_message = "zaffiliate_hostname must be a subdomain of zone_name."
+  }
+}
+
+variable "zaffiliate_origin" {
+  type        = string
+  default     = "http://127.0.0.1:3100"
+  description = "Loopback origin reached by cloudflared for zaffiliate. The zaffiliate API origin on :8788 is currently not listening, so the reviewed default is the :3100 origin recorded in the existing cloudflared configuration."
+  validation {
+    condition     = can(regex("^http://127\\.0\\.0\\.1:[0-9]+$", var.zaffiliate_origin))
+    error_message = "zaffiliate_origin must use a loopback address."
+  }
+}
+
 variable "qwen_hostname" {
   type        = string
   default     = "qwen.zeaz.dev"
