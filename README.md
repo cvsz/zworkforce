@@ -8,6 +8,14 @@
 
 zWorkforce turns one or more LLM endpoints into a governed AI workforce. A tenant dispatches work to named agents; a cost-aware Luna/Terra/Sol router chooses a model tier; durable workers claim tasks; approvals and policy-as-code gate risky actions; workflows/schedules/events compose tasks; evaluation suites compare model strategies; memory and artifacts preserve knowledge; and the control plane measures cost, SLOs and business outcomes.
 
+## ZeaZDev / `zeaz.dev` Infrastructure Context
+
+zWorkforce operates within the wider ZeaZDev ecosystem and is the AI/agent/automation engine and governed control plane. The `zeaz.dev` namespace is managed as infrastructure, with Cloudflare as the edge/DNS/Tunnel/security execution layer and Terraform as the intended infrastructure-as-code source of truth.
+
+For the owner, ecosystem architecture, all `*.zeaz.dev` service namespaces, Cloudflare + Terraform operating model, domain-to-service traceability, change-safety gates, security principles, local-first/cost controls, and production-grade requirements, see [`docs/ZEAZDEV-WORK-CONTEXT.md`](docs/ZEAZDEV-WORK-CONTEXT.md).
+
+AI agents must inspect repository and infrastructure state before mutation, preserve explicit product/service boundaries, use the smallest safe change that fully solves the requested problem, and never treat repository access as authorization for destructive production infrastructure operations.
+
 ## v3.0.4 highlights
 
 - **Production image hardening** installs the S3 runtime extra and uses an in-image Python healthcheck for the HA deployment, so the published image's declared artifact backend and liveness contract agree.
