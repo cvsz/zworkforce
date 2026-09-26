@@ -13,6 +13,11 @@ output "zttshop_url" {
   description = "Public zttshop URL after the proxied DNS record and tunnel ingress are active."
 }
 
+output "zaffiliate_url" {
+  value       = "https://${var.zaffiliate_hostname}"
+  description = "Public zaffiliate URL after the proxied DNS record and tunnel ingress are active."
+}
+
 output "qwen_url" {
   value       = "https://${var.qwen_hostname}"
   description = "Public Qwen chat URL after the proxied DNS record and tunnel ingress are active."
@@ -56,6 +61,16 @@ output "piewdash_access_audience" {
 output "laps_url" {
   value       = "https://${var.laps_hostname}"
   description = "Public LAPS URL after the proxied DNS record and tunnel ingress are active."
+}
+
+output "zmovie_url" {
+  value       = "https://${var.zmovie_hostname}"
+  description = "Public zMovie AI production studio URL via Cloudflare Tunnel."
+}
+
+output "license_url" {
+  value       = "https://${var.license_hostname}"
+  description = "Public ZeaZ License Server URL via Cloudflare Tunnel."
 }
 
 output "cloudflared_ingress" {

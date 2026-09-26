@@ -1,5 +1,8 @@
 from pathlib import Path
+import os
 import re
+import shutil
+import subprocess
 import unittest
 
 
@@ -10,6 +13,26 @@ HA_COMPOSES = (
     Path(__file__).resolve().parents[1] / "deploy" / "ha" / "compose.vm-b.yaml",
 )
 HA_ENV_EXAMPLE = Path(__file__).resolve().parents[1] / "deploy" / "ha" / "compose.shared.env.example"
+
+
+COMPOSE_REQUIRED_ENV = {
+    "ZWORKFORCE_POSTGRES_PASSWORD": "ci-only-postgres-password",
+    "ZWORKFORCE_API_KEYS": "ci-only-key:superadmin:default:bootstrap:*",
+    "ZARVIS_LOCAL_OWNER_TOKEN": "ci-only-owner-token-at-least-32-bytes-long",
+    "ZARVIS_ACTION_WORKER_TOKEN": "ci-only-action-worker-token-at-least-32-bytes",
+    "ZARVIS_PROACTIVE_WORKER_TOKEN": "ci-only-proactive-worker-token-at-least-32-bytes",
+}
+
+# Secrets the base Compose file treats as optional. They belong to services
+# behind the `zarvis-local` / `all` profiles, so the default render must succeed
+# without them and must not carry insecure development defaults.
+COMPOSE_OPTIONAL_ENV = frozenset(
+    {
+        "ZARVIS_LOCAL_OWNER_TOKEN",
+        "ZARVIS_ACTION_WORKER_TOKEN",
+        "ZARVIS_PROACTIVE_WORKER_TOKEN",
+    }
+)
 
 
 def service_block(source: str, service: str) -> str:
@@ -87,6 +110,68 @@ class ComposeHealthcheckContractTests(unittest.TestCase):
                 for token in tokens:
                     self.assertIn(f"{token}: ${{{token}:-}}", block)
                     self.assertNotIn(f"${{{token}:?", block)
+
+
+class ComposeSecretRenderingContractTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.docker = shutil.which("docker")
+        if cls.docker is None:
+            raise unittest.SkipTest("docker CLI is required for Compose rendering tests")
+        version = subprocess.run(
+            [cls.docker, "compose", "version"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if version.returncode != 0:
+            raise unittest.SkipTest("Docker Compose plugin is required for rendering tests")
+
+    def render_compose(self, environment):
+        return subprocess.run(
+            [self.docker, "compose", "--env-file", "/dev/null", "config", "-q"],
+            cwd=COMPOSE.parent,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    def test_render_fails_without_required_secrets(self):
+        # Only the always-required secrets are enforced in the default render.
+        # The ZARVIS tokens are deliberately profile-scoped and optional in the
+        # base file (see test_zarvis_tokens_are_profile_scoped_without_insecure_defaults),
+        # so they are asserted as optional here rather than as fail-closed.
+        # Each required variable is checked in isolation: every other secret is
+        # supplied so the only missing one is the variable under test. Asserting
+        # that one render lists them all is fragile, because Compose stops at
+        # the first interpolation error and the number of reported variables
+        # differs between Compose versions.
+        for missing in COMPOSE_REQUIRED_ENV:
+            with self.subTest(missing=missing):
+                environment = {"PATH": os.environ.get("PATH", "")}
+                environment.update(COMPOSE_REQUIRED_ENV)
+                environment.pop(missing)
+
+                result = self.render_compose(environment)
+
+                if missing in COMPOSE_OPTIONAL_ENV:
+                    self.assertEqual(
+                        result.returncode,
+                        0,
+                        f"{missing} must stay optional in the default render: {result.stderr}",
+                    )
+                else:
+                    self.assertNotEqual(result.returncode, 0, result.stderr)
+                    self.assertIn(f"required variable {missing}", result.stderr)
+
+    def test_render_succeeds_with_explicit_ci_only_secrets(self):
+        environment = {"PATH": os.environ.get("PATH", "")}
+        environment.update(COMPOSE_REQUIRED_ENV)
+
+        result = self.render_compose(environment)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == "__main__":

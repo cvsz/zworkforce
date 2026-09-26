@@ -135,6 +135,8 @@ locals {
     { hostname = var.zarvis_hostname, service = var.zarvis_origin },
     { hostname = var.zider_hostname, service = var.zider_origin },
     { hostname = var.mcp_hostname, service = var.mcp_origin },
+    { hostname = var.zmovie_hostname, service = var.zmovie_origin },
+    { hostname = var.license_hostname, service = var.license_origin },
   ]
 
   ha_ingress = [
@@ -226,6 +228,26 @@ resource "cloudflare_dns_record" "mcp" {
   ttl     = 1
   proxied = true
   comment = "zWorkforce standard-MCP bridge via Cloudflare Tunnel"
+}
+
+resource "cloudflare_dns_record" "zmovie" {
+  zone_id = var.cloudflare_zone_id
+  name    = var.zmovie_hostname
+  type    = "CNAME"
+  content = local.tunnel_cname
+  ttl     = 1
+  proxied = true
+  comment = "zMovie AI production studio via Cloudflare Tunnel"
+}
+
+resource "cloudflare_dns_record" "license" {
+  zone_id = var.cloudflare_zone_id
+  name    = var.license_hostname
+  type    = "CNAME"
+  content = local.tunnel_cname
+  ttl     = 1
+  proxied = true
+  comment = "First-party ZeaZ License Server via Cloudflare Tunnel"
 }
 
 output "zwf_url" {

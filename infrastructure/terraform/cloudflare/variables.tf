@@ -102,6 +102,26 @@ variable "zttshop_origin" {
   }
 }
 
+variable "zaffiliate_hostname" {
+  type        = string
+  default     = "zaffiliate.zeaz.dev"
+  description = "Public hostname for the zaffiliate affiliate automation platform."
+  validation {
+    condition     = endswith(lower(var.zaffiliate_hostname), ".${lower(var.zone_name)}")
+    error_message = "zaffiliate_hostname must be a subdomain of zone_name."
+  }
+}
+
+variable "zaffiliate_origin" {
+  type        = string
+  default     = "http://127.0.0.1:3100"
+  description = "Loopback origin reached by cloudflared for zaffiliate. The zaffiliate API origin on :8788 is currently not listening, so the reviewed default is the :3100 origin recorded in the existing cloudflared configuration."
+  validation {
+    condition     = can(regex("^http://127\\.0\\.0\\.1:[0-9]+$", var.zaffiliate_origin))
+    error_message = "zaffiliate_origin must use a loopback address."
+  }
+}
+
 variable "qwen_hostname" {
   type        = string
   default     = "qwen.zeaz.dev"
@@ -364,5 +384,71 @@ variable "mcp_origin" {
   validation {
     condition     = can(regex("^http://127\\.0\\.0\\.1:[0-9]+$", var.mcp_origin))
     error_message = "mcp_origin must use a loopback address."
+  }
+}
+
+variable "zmovie_hostname" {
+  type        = string
+  default     = "zmovie.zeaz.dev"
+  description = "Public hostname for the zMovie AI production studio."
+
+  validation {
+    condition     = endswith(lower(var.zmovie_hostname), ".${lower(var.zone_name)}")
+    error_message = "zmovie_hostname must be a subdomain of zone_name."
+  }
+}
+
+variable "zmovie_origin" {
+  type        = string
+  default     = "http://127.0.0.1:80"
+  description = "Loopback origin for zMovie WordPress at Nginx port 80."
+
+  validation {
+    condition     = can(regex("^http://127\\.0\\.0\\.1:[0-9]+$", var.zmovie_origin))
+    error_message = "zmovie_origin must use a loopback address."
+  }
+}
+
+variable "license_hostname" {
+  type        = string
+  default     = "license.zeaz.dev"
+  description = "Public hostname for the first-party ZeaZ License Server (Nginx ingress)."
+
+  validation {
+    condition     = endswith(lower(var.license_hostname), ".${lower(var.zone_name)}")
+    error_message = "license_hostname must be a subdomain of zone_name."
+  }
+}
+
+variable "license_origin" {
+  type        = string
+  default     = "http://127.0.0.1:80"
+  description = "Loopback origin for the License Server at Nginx port 80 (Host-routed)."
+
+  validation {
+    condition     = can(regex("^http://127\\.0\\.0\\.1:[0-9]+$", var.license_origin))
+    error_message = "license_origin must use a loopback address."
+  }
+}
+
+variable "zttato_hostname" {
+  type        = string
+  default     = "zttato.zeaz.dev"
+  description = "Public hostname for the zTTato TikTok Creator Platform."
+
+  validation {
+    condition     = endswith(lower(var.zttato_hostname), ".${lower(var.zone_name)}")
+    error_message = "zttato_hostname must be a subdomain of zone_name."
+  }
+}
+
+variable "zttato_origin" {
+  type        = string
+  default     = "http://127.0.0.1:8000"
+  description = "Loopback origin for zTTato Creator Platform (FastAPI on port 8000)."
+
+  validation {
+    condition     = can(regex("^http://127\\.0\\.0\\.1:[0-9]+$", var.zttato_origin))
+    error_message = "zttato_origin must use a loopback address."
   }
 }
