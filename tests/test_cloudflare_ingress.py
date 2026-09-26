@@ -1,3 +1,4 @@
+import re
 import unittest
 from pathlib import Path
 
@@ -105,6 +106,42 @@ class CloudflareIngressTests(unittest.TestCase):
         self.assertIn("piewdash_access_allowed_emails", main)
         self.assertIn("length(var.piewdash_access_allowed_emails) > 0", variables)
         self.assertNotIn("everyone", main)
+
+    def test_dashboard_access_policy_matches_emails_exactly_not_by_domain(self):
+        # The variable name and the absence of "everyone" are not enough. A
+        # domain-wide selector computed from the same variable would widen the
+        # policy to a whole domain while every other assertion still passed, so
+        # the resource is matched on its own and its include block is inspected.
+        main = (ROOT / "infrastructure" / "terraform" / "cloudflare" / "main.tf").read_text(
+            encoding="utf-8"
+        )
+        resource = re.search(
+            r'resource\s+"cloudflare_zero_trust_access_application"\s+"piewdash"\s*\{'
+            r"(?P<body>.*?)\n\}",
+            main,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(resource, "piewdash access application not found")
+        body = resource.group("body")
+
+        include = re.search(r"include\s*=\s*\[(?P<items>.*?)\]", body, re.DOTALL)
+        self.assertIsNotNone(include, "policy has no include block")
+        items = include.group("items")
+
+        self.assertIn("var.piewdash_access_allowed_emails", items)
+        for domain_wide in ("email_domain", "anyone", "everyone"):
+            with self.subTest(selector=domain_wide):
+                self.assertNotIn(
+                    domain_wide,
+                    items,
+                    "a domain-wide selector widens the policy past the "
+                    "exact allowlist; see cloudflare/README.md",
+                )
+        self.assertRegex(
+            items,
+            re.compile(r"\{\s*email\s*=\s*\{\s*email\s*="),
+            "each allowlist entry must match one exact address",
+        )
 
 
 if __name__ == "__main__":
