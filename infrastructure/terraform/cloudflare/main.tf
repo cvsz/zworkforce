@@ -1,4 +1,31 @@
 locals {
+  # Single source of truth for the shared-tunnel routes. Both the managed
+  # tunnel config and the cloudflared_ingress output must read this list, so a
+  # hostname added here cannot be missing from a local-config deployment.
+  shared_tunnel_ingress = [
+    { hostname = var.moopiew_hostname, service = var.moopiew_origin },
+    { hostname = var.zttshop_hostname, service = var.zttshop_origin },
+    { hostname = var.zaffiliate_hostname, service = var.zaffiliate_origin },
+    { hostname = var.zttato_hostname, service = var.zttato_origin },
+    { hostname = var.qwen_hostname, service = var.qwen_origin },
+    { hostname = var.chat_hostname, service = var.chat_origin },
+    { hostname = var.piewdash_hostname, service = var.piewdash_origin },
+    { hostname = var.zdash_hostname, service = var.zdash_origin },
+    { hostname = var.zerp_hostname, service = var.zerp_origin },
+    { hostname = var.cmeerp_hostname, service = var.cmeerp_origin },
+    { hostname = var.arin_hostname, service = var.arin_origin },
+    { hostname = var.zai_hostname, service = var.zai_origin },
+    { hostname = var.autoc_hostname, service = var.autoc_origin },
+    { hostname = var.zany_hostname, service = var.zany_origin },
+    { hostname = var.auth_hostname, service = var.auth_origin },
+    { hostname = var.laps_hostname, service = var.laps_origin },
+    { hostname = var.dbc_hostname, service = var.dbc_origin },
+    { hostname = var.coin_hostname, service = var.coin_origin },
+    { hostname = var.zksato_hostname, service = var.zksato_origin },
+    { hostname = var.zksato_api_hostname, service = var.zksato_api_origin },
+    { hostname = var.zksato_dash_hostname, service = var.zksato_dash_origin },
+    { hostname = var.llmwiki_hostname, service = var.llmwiki_origin },
+  ]
   tunnel_id_compact = lower(replace(var.cloudflare_tunnel_id, "-", ""))
   tunnel_uuid = format(
     "%s-%s-%s-%s-%s",
@@ -212,26 +239,7 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "moopiew" {
 
   config = {
     ingress = concat(
-      [
-        { hostname = var.moopiew_hostname, service = var.moopiew_origin },
-        { hostname = var.zttshop_hostname, service = var.zttshop_origin },
-        { hostname = var.zaffiliate_hostname, service = var.zaffiliate_origin },
-        { hostname = var.zttato_hostname, service = var.zttato_origin },
-        { hostname = var.qwen_hostname, service = var.qwen_origin },
-        { hostname = var.chat_hostname, service = var.chat_origin },
-        { hostname = var.piewdash_hostname, service = var.piewdash_origin },
-        { hostname = var.zdash_hostname, service = var.zdash_origin },
-        { hostname = var.zerp_hostname, service = var.zerp_origin },
-        { hostname = var.cmeerp_hostname, service = var.cmeerp_origin },
-        { hostname = var.arin_hostname, service = var.arin_origin },
-        { hostname = var.zai_hostname, service = var.zai_origin },
-        { hostname = var.autoc_hostname, service = var.autoc_origin },
-        { hostname = var.zany_hostname, service = var.zany_origin },
-        { hostname = var.auth_hostname, service = var.auth_origin },
-        { hostname = var.laps_hostname, service = var.laps_origin },
-        { hostname = var.dbc_hostname, service = var.dbc_origin },
-        { hostname = var.coin_hostname, service = var.coin_origin },
-      ],
+      local.shared_tunnel_ingress,
       local.zneon_ingress,
       local.zworkforce_ingress,
       local.zeaz_one_ingress,
