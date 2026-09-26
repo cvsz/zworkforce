@@ -29,8 +29,14 @@ variable "tiktok_verification_code" {
   description = "TikTok Domain Verification code / file content for developers.tiktok.com ownership check (tiktok-developers-site-verification=*)."
 }
 
+variable "zttato_tiktok_verification_code" {
+  type        = string
+  default     = "9WurARgpbnJkdus0r4bfvSZydNYNxKUC"
+  description = "TikTok Domain Verification code for zttato.zeaz.dev (from web/tiktok-site-verification.txt)."
+}
+
 # ------------------------------------------------------------------------------
-# TikTok Domain Ownership Verification (TXT Record)
+# TikTok Domain Ownership Verification (TXT Record) for zttshop
 # ------------------------------------------------------------------------------
 resource "cloudflare_dns_record" "tiktok_verification" {
   count   = var.enable_tiktok_developer_integration && var.tiktok_verification_code != "" ? 1 : 0
@@ -40,6 +46,19 @@ resource "cloudflare_dns_record" "tiktok_verification" {
   content = "tiktok-developers-site-verification=${var.tiktok_verification_code}"
   ttl     = 300
   comment = "TikTok Developer Portal domain verification for zttshop.zeaz.dev"
+}
+
+# ------------------------------------------------------------------------------
+# TikTok Domain Ownership Verification (TXT Record) for zttato
+# ------------------------------------------------------------------------------
+resource "cloudflare_dns_record" "zttato_tiktok_verification" {
+  count   = var.enable_tiktok_developer_integration && var.zttato_tiktok_verification_code != "" ? 1 : 0
+  zone_id = var.cloudflare_zone_id
+  name    = var.zttato_hostname
+  type    = "TXT"
+  content = "tiktok-developers-site-verification=${var.zttato_tiktok_verification_code}"
+  ttl     = 300
+  comment = "TikTok Developer Portal domain verification for zttato.zeaz.dev"
 }
 
 # ------------------------------------------------------------------------------
