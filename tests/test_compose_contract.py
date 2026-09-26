@@ -23,6 +23,17 @@ COMPOSE_REQUIRED_ENV = {
     "ZARVIS_PROACTIVE_WORKER_TOKEN": "ci-only-proactive-worker-token-at-least-32-bytes",
 }
 
+# Secrets the base Compose file treats as optional. They belong to services
+# behind the `zarvis-local` / `all` profiles, so the default render must succeed
+# without them and must not carry insecure development defaults.
+COMPOSE_OPTIONAL_ENV = frozenset(
+    {
+        "ZARVIS_LOCAL_OWNER_TOKEN",
+        "ZARVIS_ACTION_WORKER_TOKEN",
+        "ZARVIS_PROACTIVE_WORKER_TOKEN",
+    }
+)
+
 
 def service_block(source: str, service: str) -> str:
     lines = source.splitlines()
@@ -127,14 +138,32 @@ class ComposeSecretRenderingContractTests(unittest.TestCase):
         )
 
     def test_render_fails_without_required_secrets(self):
-        result = self.render_compose({"PATH": os.environ.get("PATH", "")})
+        # Only the always-required secrets are enforced in the default render.
+        # The ZARVIS tokens are deliberately profile-scoped and optional in the
+        # base file (see test_zarvis_tokens_are_profile_scoped_without_insecure_defaults),
+        # so they are asserted as optional here rather than as fail-closed.
+        # Each required variable is checked in isolation: every other secret is
+        # supplied so the only missing one is the variable under test. Asserting
+        # that one render lists them all is fragile, because Compose stops at
+        # the first interpolation error and the number of reported variables
+        # differs between Compose versions.
+        for missing in COMPOSE_REQUIRED_ENV:
+            with self.subTest(missing=missing):
+                environment = {"PATH": os.environ.get("PATH", "")}
+                environment.update(COMPOSE_REQUIRED_ENV)
+                environment.pop(missing)
 
-        self.assertNotEqual(result.returncode, 0, result.stderr)
-        self.assertIn("required variable ZWORKFORCE_POSTGRES_PASSWORD", result.stderr)
-        self.assertIn("required variable ZWORKFORCE_API_KEYS", result.stderr)
-        self.assertIn("required variable ZARVIS_LOCAL_OWNER_TOKEN", result.stderr)
-        self.assertIn("required variable ZARVIS_ACTION_WORKER_TOKEN", result.stderr)
-        self.assertIn("required variable ZARVIS_PROACTIVE_WORKER_TOKEN", result.stderr)
+                result = self.render_compose(environment)
+
+                if missing in COMPOSE_OPTIONAL_ENV:
+                    self.assertEqual(
+                        result.returncode,
+                        0,
+                        f"{missing} must stay optional in the default render: {result.stderr}",
+                    )
+                else:
+                    self.assertNotEqual(result.returncode, 0, result.stderr)
+                    self.assertIn(f"required variable {missing}", result.stderr)
 
     def test_render_succeeds_with_explicit_ci_only_secrets(self):
         environment = {"PATH": os.environ.get("PATH", "")}
