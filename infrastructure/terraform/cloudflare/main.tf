@@ -234,6 +234,7 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "moopiew" {
         { hostname = var.zksato_hostname, service = var.zksato_origin },
         { hostname = var.zksato_api_hostname, service = var.zksato_api_origin },
         { hostname = var.zksato_dash_hostname, service = var.zksato_dash_origin },
+        { hostname = var.llmwiki_hostname, service = var.llmwiki_origin },
       ],
       local.zneon_ingress,
       local.zworkforce_ingress,
