@@ -192,6 +192,16 @@ resource "cloudflare_dns_record" "core" {
   comment = "Windows build host private IP"
 }
 
+resource "cloudflare_dns_record" "zttato" {
+  zone_id = var.cloudflare_zone_id
+  name    = var.zttato_hostname
+  type    = "CNAME"
+  content = local.tunnel_cname
+  ttl     = 1
+  proxied = true
+  comment = "zTTato TikTok Creator Platform via Cloudflare Tunnel"
+}
+
 # This is deliberately opt-in: applying it without first importing a live
 # tunnel configuration could replace unrelated ingress rules.
 resource "cloudflare_zero_trust_tunnel_cloudflared_config" "moopiew" {
@@ -206,6 +216,7 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "moopiew" {
         { hostname = var.moopiew_hostname, service = var.moopiew_origin },
         { hostname = var.zttshop_hostname, service = var.zttshop_origin },
         { hostname = var.zaffiliate_hostname, service = var.zaffiliate_origin },
+        { hostname = var.zttato_hostname, service = var.zttato_origin },
         { hostname = var.qwen_hostname, service = var.qwen_origin },
         { hostname = var.chat_hostname, service = var.chat_origin },
         { hostname = var.piewdash_hostname, service = var.piewdash_origin },

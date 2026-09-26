@@ -430,3 +430,25 @@ variable "license_origin" {
     error_message = "license_origin must use a loopback address."
   }
 }
+
+variable "zttato_hostname" {
+  type        = string
+  default     = "zttato.zeaz.dev"
+  description = "Public hostname for the zTTato TikTok Creator Platform."
+
+  validation {
+    condition     = endswith(lower(var.zttato_hostname), ".${lower(var.zone_name)}")
+    error_message = "zttato_hostname must be a subdomain of zone_name."
+  }
+}
+
+variable "zttato_origin" {
+  type        = string
+  default     = "http://127.0.0.1:8000"
+  description = "Loopback origin for zTTato Creator Platform (FastAPI on port 8000)."
+
+  validation {
+    condition     = can(regex("^http://127\\.0\\.0\\.1:[0-9]+$", var.zttato_origin))
+    error_message = "zttato_origin must use a loopback address."
+  }
+}
