@@ -8,13 +8,13 @@
 
 zWorkforce turns one or more LLM endpoints into a governed AI workforce. A tenant dispatches work to named agents; a cost-aware Luna/Terra/Sol router chooses a model tier; durable workers claim tasks; approvals and policy-as-code gate risky actions; workflows/schedules/events compose tasks; evaluation suites compare model strategies; memory and artifacts preserve knowledge; and the control plane measures cost, SLOs and business outcomes.
 
-## ZeaZDev / `zeaz.dev` Infrastructure Context
+## บริบทโครงสร้างพื้นฐานของ ZeaZDev / `zeaz.dev`
 
-zWorkforce operates within the wider ZeaZDev ecosystem and is the AI/agent/automation engine and governed control plane. The `zeaz.dev` namespace is managed as infrastructure, with Cloudflare as the edge/DNS/Tunnel/security execution layer and Terraform as the intended infrastructure-as-code source of truth.
+zWorkforce เป็นส่วนหนึ่งของระบบนิเวศ ZeaZDev และทำหน้าที่เป็นเครื่องมือด้าน AI/agent/automation พร้อม governed control plane โดยจัดการ namespace `zeaz.dev` ในฐานะทรัพยากรโครงสร้างพื้นฐาน ใช้ Cloudflare เป็นชั้น edge/DNS/Tunnel/security และใช้ Terraform เป็นแหล่งอ้างอิงการกำหนดค่า infrastructure-as-code ที่ต้องการ
 
-For the owner, ecosystem architecture, all `*.zeaz.dev` service namespaces, Cloudflare + Terraform operating model, domain-to-service traceability, change-safety gates, security principles, local-first/cost controls, and production-grade requirements, see [`docs/ZEAZDEV-WORK-CONTEXT.md`](docs/ZEAZDEV-WORK-CONTEXT.md).
+ดูภาพรวมระบบนิเวศ ตัวอย่าง hostname ที่ทราบ แนวทาง Cloudflare + Terraform การเชื่อมโยงโดเมนกับบริการ ขั้นตอนควบคุมความปลอดภัย หลักการด้าน security และ local-first/cost ตลอดจนเกณฑ์ production ได้ที่ [`docs/ZEAZDEV-WORK-CONTEXT.md`](docs/ZEAZDEV-WORK-CONTEXT.md)
 
-AI agents must inspect repository and infrastructure state before mutation, preserve explicit product/service boundaries, use the smallest safe change that fully solves the requested problem, and never treat repository access as authorization for destructive production infrastructure operations.
+AI agents ต้องตรวจสอบสถานะ repository และ infrastructure ก่อนแก้ไข รักษาขอบเขตระหว่างผลิตภัณฑ์และบริการ ใช้การเปลี่ยนแปลงที่ปลอดภัยและเล็กที่สุดซึ่งแก้ปัญหาได้ครบ และห้ามถือว่าการเข้าถึง repository เป็นการอนุญาตให้ทำ destructive production infrastructure operations
 
 ## v3.0.4 highlights
 
