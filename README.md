@@ -10,11 +10,11 @@ zWorkforce turns one or more LLM endpoints into a governed AI workforce. A tenan
 
 ## บริบทโครงสร้างพื้นฐานของ ZeaZDev / `zeaz.dev`
 
-zWorkforce เป็นส่วนหนึ่งของระบบนิเวศ ZeaZDev และทำหน้าที่เป็นเครื่องมือด้าน AI/agent/automation พร้อม governed control plane โดยจัดการ namespace `zeaz.dev` ในฐานะทรัพยากรโครงสร้างพื้นฐาน ใช้ Cloudflare เป็นชั้น edge/DNS/Tunnel/security และใช้ Terraform เป็นแหล่งอ้างอิงการกำหนดค่า infrastructure-as-code ที่ต้องการ
+zWorkforce เป็นส่วนหนึ่งของระบบนิเวศ ZeaZDev และทำหน้าที่เป็นเครื่องมือด้าน AI/agent/automation พร้อม governed control plane repository นี้จัดการเฉพาะ Cloudflare resources และ hostnames ที่ประกาศ ownership ไว้ใน Terraform ของ repository เท่านั้น ไม่ได้เป็นเจ้าของทั้ง zone หรือ namespace `zeaz.dev`; corporate `www.zeaz.dev` routes อยู่ภายใต้ `cvsz/zeaz-platform` ตามตัวอย่าง configuration ปัจจุบัน ก่อนแก้ route ใด ๆ ต้องตรวจ owner และ resource ที่ประกาศไว้สำหรับ route นั้น
 
 ดูภาพรวมระบบนิเวศ ตัวอย่าง hostname ที่ทราบ แนวทาง Cloudflare + Terraform การเชื่อมโยงโดเมนกับบริการ ขั้นตอนควบคุมความปลอดภัย หลักการด้าน security และ local-first/cost ตลอดจนเกณฑ์ production ได้ที่ [`docs/ZEAZDEV-WORK-CONTEXT.md`](docs/ZEAZDEV-WORK-CONTEXT.md)
 
-AI agents ต้องตรวจสอบสถานะ repository และ infrastructure ก่อนแก้ไข รักษาขอบเขตระหว่างผลิตภัณฑ์และบริการ ใช้การเปลี่ยนแปลงที่ปลอดภัยและเล็กที่สุดซึ่งแก้ปัญหาได้ครบ และห้ามถือว่าการเข้าถึง repository เป็นการอนุญาตให้ทำ destructive production infrastructure operations
+AI agents ต้องตรวจสอบสถานะ repository, owner ของ route และ infrastructure ก่อนแก้ไข รักษาขอบเขตระหว่างผลิตภัณฑ์และบริการ ใช้การเปลี่ยนแปลงที่ปลอดภัยและเล็กที่สุดซึ่งแก้ปัญหาได้ครบ และห้ามถือว่าการเข้าถึง repository เป็นการอนุญาตให้ทำ production infrastructure operations
 
 ## v3.0.4 highlights
 

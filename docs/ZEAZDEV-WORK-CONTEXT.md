@@ -32,9 +32,11 @@ repository นี้เป็น product monorepo ที่มี Python control
 
 ## โดเมนหลัก: zeaz.dev
 
-zeaz.dev เป็น namespace โดเมนหลักของระบบนิเวศ ZeaZDev
+`zeaz.dev` เป็นโดเมนที่หลาย repository และบริการในระบบนิเวศ ZeaZDev ใช้ร่วมกัน `zworkforce` จัดการเฉพาะ Cloudflare resources และ hostname ที่มี Terraform resource ประกาศ ownership ไว้ใน repository นี้เท่านั้น ไม่ได้เป็นเจ้าของทั้ง Cloudflare zone หรือ namespace ตัวอย่างเช่น corporate `www.zeaz.dev` routes ระบุว่าเป็นของ `cvsz/zeaz-platform` ใน `infrastructure/terraform/cloudflare/terraform.tfvars.example`
 
-hostname สำหรับ production ภายใต้ zeaz.dev ควรเชื่อมโยงกับบริการ environment, origin, security boundary และ deployment configuration ที่ตั้งใจใช้ได้ รายการด้านล่างเป็นเพียง hostname ตัวอย่างบางส่วนที่ทราบ ไม่ใช่ inventory ที่ครบถ้วนหรือแหล่งอ้างอิงสำหรับการเปลี่ยน infrastructure
+ก่อนแก้ route ให้ตรวจ Terraform resource, repository owner และสถานะจริงใน Cloudflare สำหรับ hostname นั้นโดยเฉพาะ การอยู่ใน zone เดียวกันหรือการมี credentials เข้าถึง zone ไม่ได้แปลว่า repository นี้เป็นเจ้าของ route นั้น
+
+hostname สำหรับ production ภายใต้ `zeaz.dev` ควรเชื่อมโยงกับบริการ environment, origin, security boundary และ deployment configuration ที่ตั้งใจใช้ได้ รายการด้านล่างเป็นเพียง hostname ตัวอย่างบางส่วนที่ทราบ ไม่ใช่ inventory ที่ครบถ้วนหรือแหล่งอ้างอิงสำหรับการเปลี่ยน infrastructure
 
 ### ตัวอย่าง hostname บางส่วน
 
@@ -90,26 +92,30 @@ Change
   ↓
 Git
   ↓
+Terraform init for the selected backend
+  ↓
 Terraform fmt
   ↓
 Terraform validate
   ↓
 Static / security checks
   ↓
-Terraform plan
+Terraform plan saved to a protected file
   ↓
-Impact review
+Review the exact plan, target account, zone and workspace
   ↓
-Operator approval for exact plan
+Authorized operator approval bound to the plan SHA-256
   ↓
-Controlled apply
+Apply the same saved plan after digest verification
   ↓
 Cloudflare
   ↓
 Post-deployment validation
 ```
 
-กำหนด variables อย่างชัดเจน ตรวจสอบค่าด้วย validation ใช้ least privilege แยก environments ปกป้อง Terraform state ทำ CI validation ตรวจ drift และแยก secrets ออกจาก source code ห้าม commit production credentials ลง Git โดยค่าเริ่มต้น workflow ต้องหยุดหลังสร้าง plan และ review; ห้ามเรียก terraform apply จนกว่า operator ที่ได้รับมอบอำนาจจะอนุมัติ plan, resource และ environment ที่ระบุไว้อย่างชัดเจน การเข้าถึง repository หรือคำสั่งจาก agent ไม่ถือเป็น authorization สำหรับ apply
+กำหนด variables อย่างชัดเจน ตรวจสอบค่าด้วย validation ใช้ least privilege แยก environments ปกป้อง Terraform state ทำ CI validation ตรวจ drift และแยก secrets ออกจาก source code ห้าม commit production credentials ลง Git การเรียก `terraform validate` ต้องเกิดหลัง initialize backend และ providers; ใช้ `scripts/cloudflare-apply.sh` เพื่อให้ลำดับนี้ถูกต้องและเก็บ plan ไว้เป็นไฟล์ mode 0600
+
+ตรวจ plan ทั้งหมด พร้อม target account, zone และ workspace ก่อนอนุมัติ การ apply ต้องใช้ไฟล์เดิม โดยส่ง digest SHA-256 ที่พิมพ์หลังสร้าง plan ผ่าน `--approved-plan-sha256`; helper จะตรวจ digest และ apply สำเนาส่วนตัวที่ตรงกับ digest เท่านั้น โดยไม่ import DNS หรือสร้าง plan ใหม่ หากไฟล์, backend state หรือ configuration เปลี่ยน ให้สร้าง plan ใหม่และขอการอนุมัติใหม่ workflow `HA Infrastructure` ทำได้เฉพาะ plan และไม่มี production apply path การเข้าถึง repository หรือคำสั่งจาก agent ไม่ถือเป็น authorization สำหรับ apply
 
 ## การเชื่อมโยง hostname กับบริการ
 
@@ -143,6 +149,8 @@ Health validation
 ```
 
 production DNS records ที่ไม่ทราบที่มา ซ้ำซ้อน หรือสร้างด้วยมือเป็น infrastructure debt ต้องสืบหาที่มาและผลกระทบก่อน ห้ามลบโดยคาดเดา
+
+เมื่อสร้าง plan บน GitHub Actions runner ไฟล์ saved plan อยู่บน runner ชั่วคราวและไม่ได้ถูกเผยแพร่เป็น artifact สำหรับ apply; การ apply จริงต้องสร้างและ review plan บนเครื่อง operator ที่ได้รับอนุญาต แล้วใช้ไฟล์เดิมกับ digest ที่ตรงกัน
 
 ## ความรับผิดชอบของ zWorkforce
 
