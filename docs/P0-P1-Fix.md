@@ -9,13 +9,9 @@
 
 GitHub is successfully delivering webhook requests to `https://zwf.zeaz.dev/github/webhook`, but the ingress forwards those requests to `http://127.0.0.1:9570/github/webhook`, where the upstream returns `404 Not Found`.
 
-The repository source currently exposes the GitHub webhook handler at:
+The production Compose service bound to host port `9570` is the root `zworkforce` image (`Dockerfile` copies only `zworkforce/` and runs `zworkforce serve`). Before this fix, `zworkforce/api.py` exposed neither `/github/webhook` nor `/webhooks/github`, so the live origin necessarily returned `404` for GitHub deliveries.
 
-```text
-POST /webhooks/github
-```
-
-in `services/zc-api/app.py`, not at `/github/webhook`. This establishes a concrete route-contract mismatch between the observed production ingress path and the application route.
+A separate staging/verification FastAPI surface in `services/zc-api/app.py` already exposed `POST /webhooks/github`, but that directory is not copied into the production root image. Treating that staging route as the deployed handler would therefore not remediate the incident.
 
 **P0 objective:** restore a working GitHub webhook path without weakening signature verification or event-processing guarantees.
 
@@ -80,46 +76,18 @@ This means the application already has a webhook implementation and test surface
 
 ## 3. P0 — Restore the production route contract
 
-### Required decision
+### Implemented compatibility contract
 
-Choose one canonical public webhook path and make every layer agree on it.
-
-Preferred canonical application route:
+The production root API now accepts both:
 
 ```text
+POST /github/webhook
 POST /webhooks/github
 ```
 
-Two safe implementation strategies exist:
+through the same handler path in `zworkforce/api.py`. Both paths enforce the same raw-body `HMAC-SHA256` verification using `X-Hub-Signature-256`, require `X-GitHub-Delivery`, preserve the delivery ID in the response header, bound request size, validate JSON, and fail closed when `GITHUB_WEBHOOK_SECRET` is absent.
 
-### Option A — Preferred: ingress rewrite
-
-Keep the public GitHub webhook URL unchanged if GitHub is already configured with:
-
-```text
-https://zwf.zeaz.dev/github/webhook
-```
-
-and rewrite:
-
-```text
-/github/webhook -> /webhooks/github
-```
-
-before the request reaches `127.0.0.1:9570`.
-
-Advantages:
-
-- no application API compatibility change;
-- no duplicate webhook handler;
-- preserves the existing GitHub webhook URL;
-- smallest blast radius.
-
-### Option B — Application compatibility route
-
-Expose `/github/webhook` as a compatibility route that delegates to the existing `/webhooks/github` handler.
-
-If this option is selected, both paths must share exactly the same signature verification, parsing, persistence, idempotency, and event dispatch implementation. Do not duplicate business logic.
+`compose.yaml` now passes `GITHUB_WEBHOOK_SECRET` into the production API container, and `.env.example` documents the variable. This keeps the existing GitHub public URL compatible without requiring an ingress rewrite as the P0 fix.
 
 ### P0 acceptance criteria
 
@@ -242,11 +210,9 @@ Verify the exact production contract:
 ```text
 POST /github/webhook
         ↓
-proxy/ingress rewrite
+Cloudflare Tunnel → 127.0.0.1:9570
         ↓
-POST /webhooks/github
-        ↓
-application
+production root API handler
 ```
 
 Also verify the direct application endpoint:
@@ -348,5 +314,7 @@ Keep the P0 change narrowly scoped to restoring the webhook route contract and p
 ## Source evidence
 
 - Production ingress log supplied for the incident: repeated `POST /github/webhook` requests to `127.0.0.1:9570` returning `404 Not Found`.
-- `services/zc-api/app.py`: current application route is `POST /webhooks/github` with `X-Hub-Signature-256` verification.
-- `services/zc-api/tests/test_github_webhook.py`: existing webhook regression/unit-test surface.
+- `Dockerfile` + `compose.yaml`: production `:9570` serves the root `zworkforce` package, not `services/zc-api`.
+- `zworkforce/api.py`: production webhook handler and compatibility routes.
+- `tests/test_api_v2.py`: signed-delivery, invalid-signature, and missing-secret regression coverage.
+- `services/zc-api/app.py`: separate staging/verification webhook implementation retained as reference.
