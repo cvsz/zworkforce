@@ -12,15 +12,6 @@ on:
       - "scripts/verify-zarvis-online.sh"
       - "docs/HA-CLOUDFLARE-SUPABASE.md"
   workflow_dispatch:
-    inputs:
-      action:
-        description: "Production action"
-        required: true
-        default: plan
-        type: choice
-        options:
-          - plan
-          - apply
 
 permissions:
   contents: read
@@ -78,7 +69,7 @@ jobs:
         run: bash -n scripts/verify-zarvis-online.sh
 
   production:
-    name: ${{ inputs.action }}-ha-production
+    name: plan-ha-production
     if: github.event_name == 'workflow_dispatch'
     needs: validate
     runs-on: ubuntu-latest
@@ -119,7 +110,59 @@ jobs:
       - name: HA-B Supabase database preflight
         env:
           SUPABASE_DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
-        run: psql "$SUPABASE_DATABASE_URL" -v ON_ERROR_STOP=1 -Atc "select 1"
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          service_file="$(mktemp "$RUNNER_TEMP/zworkforce-pgservice.XXXXXX")"
+          chmod 600 "$service_file"
+          trap 'rm -f -- "$service_file"' EXIT
+          PGSERVICEFILE="$service_file" python3 - <<'PY'
+          import os
+          from pathlib import Path
+          from urllib.parse import parse_qs, unquote, urlsplit
+
+          parsed = urlsplit(os.environ["SUPABASE_DATABASE_URL"])
+          if parsed.scheme not in {"postgres", "postgresql"} or not parsed.hostname:
+              raise SystemExit("SUPABASE_DATABASE_URL must be a PostgreSQL URL")
+          try:
+              port = parsed.port or 5432
+          except ValueError as exc:
+              raise SystemExit("SUPABASE_DATABASE_URL has an invalid port") from exc
+
+          parameters = {
+              "host": parsed.hostname,
+              "port": str(port),
+              "dbname": unquote(parsed.path.lstrip("/")),
+              "user": unquote(parsed.username or ""),
+              "password": unquote(parsed.password or ""),
+          }
+          query = parse_qs(parsed.query, keep_blank_values=True)
+          allowed_query = {"sslmode", "connect_timeout", "application_name", "options"}
+          unsupported = set(query) - allowed_query
+          if unsupported:
+              raise SystemExit("SUPABASE_DATABASE_URL has unsupported connection options")
+          for key, values in query.items():
+              if len(values) != 1:
+                  raise SystemExit("SUPABASE_DATABASE_URL has repeated connection options")
+              parameters[key] = values[0]
+          if not parameters["dbname"] or not parameters["user"] or not parameters["password"]:
+              raise SystemExit("SUPABASE_DATABASE_URL is missing a database, user, or password")
+
+          def quote(value):
+              if any(ord(char) < 32 or ord(char) == 127 for char in value):
+                  raise SystemExit("SUPABASE_DATABASE_URL contains a control character")
+              return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
+
+          service = "[zworkforce-preflight]\n" + "".join(
+              f"{key}={quote(value)}\n" for key, value in parameters.items()
+          )
+          service_path = Path(os.environ["PGSERVICEFILE"])
+          service_path.write_text(service, encoding="utf-8")
+          service_path.chmod(0o600)
+          PY
+          unset SUPABASE_DATABASE_URL
+          PGSERVICEFILE="$service_file" PGSERVICE=zworkforce-preflight \
+            psql -v ON_ERROR_STOP=1 -Atc "select 1"
       - name: Render protected Cloudflare environment
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -133,42 +176,56 @@ jobs:
           CLOUDFLARE_ACCESS_SECRET_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
         shell: bash
         run: |
-          set -euo pipefail
+          set -Eeuo pipefail
           umask 077
-          cat > .env.cloudflare <<EOF
-          CLOUDFLARE_API_TOKEN=$CLOUDFLARE_API_TOKEN
-          CLOUDFLARE_ACCOUNT_ID=$CLOUDFLARE_ACCOUNT_ID
-          CLOUDFLARE_ZONE_ID=$CLOUDFLARE_ZONE_ID
-          CLOUDFLARE_TUNNEL_ID=$CLOUDFLARE_TUNNEL_ID
-          PIEWDASH_ACCESS_ALLOWED_EMAILS=$PIEWDASH_ACCESS_ALLOWED_EMAILS
-          TERRAFORM_BACKEND_TYPE=r2
-          ALLOW_R2_WRITE=true
-          TERRAFORM_STATE_BUCKET=$TERRAFORM_STATE_BUCKET
-          CLOUDFLARE_S3_API_ENDPOINT=$CLOUDFLARE_S3_API_ENDPOINT
-          CLOUDFLARE_ACCESS_KEY_ID=$CLOUDFLARE_ACCESS_KEY_ID
-          CLOUDFLARE_ACCESS_SECRET_KEY=$CLOUDFLARE_ACCESS_SECRET_KEY
-          MANAGE_TUNNEL_CONFIG=false
-          STUDIO_ORIGIN=http://127.0.0.1:3005
-          ZWF_ORIGIN=http://127.0.0.1:9570
-          ZWF_API_HOSTNAME=zwf-api.zeaz.dev
-          ZSLOG_HOSTNAME=zslog.zeaz.dev
-          ZSLOG_ORIGIN=http://127.0.0.1:9581
-          ZARVIS_ORIGIN=http://127.0.0.1:9570
-          ZIDER_ORIGIN=http://127.0.0.1:8085
-          EOF
-          chmod 600 .env.cloudflare
-      - name: Cloudflare reconcile and plan
-        if: inputs.action == 'plan'
+          python3 - <<'PY'
+          import os
+          import shlex
+          from pathlib import Path
+
+          secret_names = (
+              "CLOUDFLARE_API_TOKEN",
+              "CLOUDFLARE_ACCOUNT_ID",
+              "CLOUDFLARE_ZONE_ID",
+              "CLOUDFLARE_TUNNEL_ID",
+              "PIEWDASH_ACCESS_ALLOWED_EMAILS",
+              "TERRAFORM_STATE_BUCKET",
+              "CLOUDFLARE_S3_API_ENDPOINT",
+              "CLOUDFLARE_ACCESS_KEY_ID",
+              "CLOUDFLARE_ACCESS_SECRET_KEY",
+          )
+          missing = [name for name in secret_names if not os.environ.get(name)]
+          if missing:
+              raise SystemExit(
+                  "Missing required workflow environment values: " + ", ".join(missing)
+              )
+          values = {name: os.environ[name] for name in secret_names}
+          values.update(
+              {
+                  "TERRAFORM_BACKEND_TYPE": "r2",
+                  "ALLOW_R2_WRITE": "true",
+                  "MANAGE_TUNNEL_CONFIG": "false",
+                  "STUDIO_ORIGIN": "http://127.0.0.1:3005",
+                  "ZWF_ORIGIN": "http://127.0.0.1:9570",
+                  "ZWF_API_HOSTNAME": "zwf-api.zeaz.dev",
+                  "ZSLOG_HOSTNAME": "zslog.zeaz.dev",
+                  "ZSLOG_ORIGIN": "http://127.0.0.1:9581",
+                  "ZARVIS_ORIGIN": "http://127.0.0.1:9570",
+                  "ZIDER_ORIGIN": "http://127.0.0.1:8085",
+              }
+          )
+          for name, value in values.items():
+              if any(character in value for character in ("\n", "\r", "\0")):
+                  raise SystemExit(f"Workflow environment value contains a control character: {name}")
+          env_file = Path(".env.cloudflare")
+          with env_file.open("x", encoding="utf-8") as stream:
+              stream.write(
+                  "".join(f"{name}={shlex.quote(value)}\n" for name, value in values.items())
+              )
+          env_file.chmod(0o600)
+          PY
+      - name: Cloudflare reconcile and create a non-applying plan
         run: ./scripts/cloudflare-apply.sh --all-dns
-      - name: Cloudflare reconcile and apply reviewed plan
-        if: inputs.action == 'apply'
-        run: ./scripts/cloudflare-apply.sh --all-dns --apply
-      - name: Verify HA-A and Z.A.R.V.I.S. public health
-        if: inputs.action == 'apply'
-        run: |
-          set -euo pipefail
-          curl --fail --silent --show-error --max-time 20 https://zwf.zeaz.dev/health >/dev/null
-          bash scripts/verify-zarvis-online.sh
       - name: Remove rendered secret file
         if: always()
         run: rm -f .env.cloudflare

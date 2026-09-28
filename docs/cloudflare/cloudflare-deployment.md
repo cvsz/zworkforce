@@ -46,15 +46,23 @@ The API token and tunnel token are distinct secrets. Never commit either one.
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 ./scripts/start.sh
-./scripts/cloudflare-plan.sh
+./scripts/cloudflare-apply.sh --skip-import
 ```
 
-If Cloudflare already has a record for any hostname, import each applicable
-records before applying the reviewed plan. Confirm the plan keeps each CNAME
-proxied and targets the selected tunnel. Keep `manage_tunnel_config = false`;
-merge the generated ingress fragment into the existing tunnel config instead,
-unless the entire existing remote configuration has been imported and
-reviewed.
+หาก Cloudflare มี record ของ hostname อยู่แล้ว ให้ import record นั้นก่อน
+สร้าง plan เพื่อ review ตรวจว่า CNAME ยังคง proxied และชี้ไปยัง tunnel
+ที่เลือกไว้ คงค่า `manage_tunnel_config = false`; ให้นำ ingress fragment
+ที่สร้างขึ้นไปรวมกับ tunnel config เดิม เว้นแต่จะ import และ review remote
+configuration ทั้งหมดแล้ว
+
+ตรวจ saved plan และ target ทั้งหมด helper จะสร้าง manifest แบบ protected ที่
+ผูก plan digest กับ Cloudflare account, zone, workspace, backend,
+`.env.cloudflare`, Terraform source, tfvars, lockfile และ ZEAZ One feature flags
+JSON จาก `terraform show -json` ส่งเข้า helper โดยตรงและไม่บันทึกลง disk ให้ apply
+ด้วยคำสั่งที่ `cloudflare-apply.sh` พิมพ์ออกมาเท่านั้น
+helper จะตรวจ approval digest, target และ configuration ปัจจุบันก่อน apply
+saved plan เดิม หากค่าเหล่านี้เปลี่ยนให้สร้าง plan ใหม่ ห้ามเรียก
+`terraform apply` โดยตรง
 
 Start the connector on the origin host with:
 
