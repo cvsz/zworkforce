@@ -160,6 +160,12 @@ class CloudflareApplyApprovalTests(unittest.TestCase):
         self.assertNotIn("--apply", workflow)
         self.assertNotRegex(workflow, re.compile(r"^\s+- apply\s*$", re.MULTILINE))
         self.assertIn("create a non-applying plan", workflow)
+        self.assertIn("PGSERVICEFILE", workflow)
+        self.assertIn("PGSERVICE=zworkforce-preflight", workflow)
+        self.assertIn("unset SUPABASE_DATABASE_URL", workflow)
+        self.assertNotIn('psql "$SUPABASE_DATABASE_URL"', workflow)
+        self.assertNotIn("CLOUDFLARE_API_TOKEN=$CLOUDFLARE_API_TOKEN", workflow)
+        self.assertIn("shlex.quote(value)", workflow)
 
 
 if __name__ == "__main__":
