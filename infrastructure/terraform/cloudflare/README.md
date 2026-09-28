@@ -32,7 +32,7 @@ the origin is not published as a directly reachable DNS target.
 cp .env.cloudflare.example .env.cloudflare
 chmod 600 .env.cloudflare
 $EDITOR .env.cloudflare
-./scripts/cloudflare-plan.sh
+./scripts/cloudflare-apply.sh --skip-import
 ```
 
 The API token needs Zone DNS Edit, Tunnel Read/Edit, and Account Access: Apps
@@ -64,7 +64,7 @@ CLOUDFLARE_ACCESS_KEY_ID=replace-with-bucket-scoped-access-key
 CLOUDFLARE_ACCESS_SECRET_KEY=replace-with-bucket-scoped-secret
 ./scripts/cloudflare-state.sh migrate
 ./scripts/cloudflare-state.sh verify
-./scripts/cloudflare-plan.sh
+./scripts/cloudflare-apply.sh --skip-import
 ```
 
 Migration refuses a symlink, group/world-accessible state, an empty resource
@@ -82,8 +82,8 @@ lineage and resource addresses, and follow the recovery procedure in
 Never disable `use_lockfile` to bypass a lock; investigate the current writer
 first.
 
-The plan script never applies. If any hostname already exists, import it
-before planning to prevent Terraform from attempting to create a duplicate:
+โหมด plan ของ `cloudflare-apply.sh` จะไม่ apply หาก hostname มีอยู่แล้ว ให้
+import record ที่เกี่ยวข้องก่อนสร้าง plan เพื่อป้องกัน Terraform สร้างซ้ำ:
 
 The canonical public zWorkforce hostname managed by this stack is
 `zwf.zeaz.dev`, represented by the single `cloudflare_dns_record.zwf` resource.
@@ -114,13 +114,21 @@ terraform -chdir=infrastructure/terraform/cloudflare import \
   cloudflare_dns_record.cmeerp "<zone-id>/<dns-record-id>"
 terraform -chdir=infrastructure/terraform/cloudflare import \
   cloudflare_dns_record.dbc "<zone-id>/<dns-record-id>"
-./scripts/cloudflare-plan.sh
+./scripts/cloudflare-apply.sh --skip-import
 ```
 
-Only after review, an operator may apply `tfplan` manually. Keep
-`manage_tunnel_config = false` unless all existing ingress rules have first
-been imported and reviewed. For a local cloudflared configuration, merge the
-rendered `cloudflared_ingress` output before its final fallback rule. The
-reviewed origins are deliberately restricted to `127.0.0.1`: application
-traffic uses Caddy port 8080 and dashboard and ERP traffic uses authenticated
-Caddy port 80; zERP traffic uses Caddy port 80 and is forwarded to port 3001.
+helper จะสร้าง saved plan และ manifest ที่อยู่ข้างกันโดยตั้ง permission เป็น
+mode `0600` ตรวจ plan ทั้งหมด รวมถึง account, zone, workspace, backend,
+`.env.cloudflare`, Terraform source, tfvars, lockfile และ feature flags ก่อนอนุมัติ
+JSON จาก `terraform show -json` จะส่งเข้า helper โดยตรงและไม่บันทึกลง disk เพราะ
+อาจมี sensitive values ค่า **Approval SHA-256** ที่พิมพ์ออกมาผูก bytes ของ saved
+plan เข้ากับ manifest ให้ apply ด้วยคำสั่งที่ helper พิมพ์เท่านั้น
+คำสั่งจะตรวจ digest และ target ปัจจุบันให้ตรงกับ manifest ก่อน apply สำเนา
+ส่วนตัวของ saved plan เดิม หาก plan, manifest, target, backend, environment
+หรือ Terraform configuration เปลี่ยน ให้สร้างและ review plan ใหม่ ห้ามเรียก `terraform apply` โดยตรงสำหรับ stack นี้
+คงค่า `manage_tunnel_config = false` ไว้จนกว่าจะ import และ review ingress
+rules เดิมทั้งหมด สำหรับ local cloudflared configuration ให้นำ output
+`cloudflared_ingress` ที่ render แล้วไป merge ก่อน fallback rule ตัวสุดท้าย
+origins ที่ review แล้วจำกัดไว้ที่ `127.0.0.1`: application traffic ใช้
+Caddy port 8080 ส่วน dashboard และ ERP ใช้ authenticated Caddy port 80;
+zERP traffic ใช้ Caddy port 80 และส่งต่อไป port 3001

@@ -115,7 +115,8 @@ Post-deployment validation
 
 กำหนด variables อย่างชัดเจน ตรวจสอบค่าด้วย validation ใช้ least privilege แยก environments ปกป้อง Terraform state ทำ CI validation ตรวจ drift และแยก secrets ออกจาก source code ห้าม commit production credentials ลง Git การเรียก `terraform validate` ต้องเกิดหลัง initialize backend และ providers; ใช้ `scripts/cloudflare-apply.sh` เพื่อให้ลำดับนี้ถูกต้องและเก็บ plan ไว้เป็นไฟล์ mode 0600
 
-ตรวจ plan ทั้งหมด พร้อม target account, zone และ workspace ก่อนอนุมัติ การ apply ต้องใช้ไฟล์เดิม โดยส่ง digest SHA-256 ที่พิมพ์หลังสร้าง plan ผ่าน `--approved-plan-sha256`; helper จะตรวจ digest และ apply สำเนาส่วนตัวที่ตรงกับ digest เท่านั้น โดยไม่ import DNS หรือสร้าง plan ใหม่ หากไฟล์, backend state หรือ configuration เปลี่ยน ให้สร้าง plan ใหม่และขอการอนุมัติใหม่ workflow `HA Infrastructure` ทำได้เฉพาะ plan และไม่มี production apply path การเข้าถึง repository หรือคำสั่งจาก agent ไม่ถือเป็น authorization สำหรับ apply
+ตรวจ plan ทั้งหมด พร้อม target account, zone, workspace, backend และ feature flags ก่อนอนุมัติ helper จะสร้าง manifest mode 0600 ที่ผูก plan SHA-256 กับ account, zone, workspace, backend,
+ไฟล์ `.env.cloudflare`, Terraform source, tfvars, lockfile และ feature flags พร้อมพิมพ์ Approval SHA-256 สำหรับ `--approved-plan-sha256` การ apply ตรวจ digest และ target ปัจจุบันก่อนเริ่ม backend แล้ว apply สำเนาส่วนตัวของ plan เดิมเท่านั้น โดยไม่ import DNS หรือสร้าง plan ใหม่ หาก plan, manifest, target, backend, environment หรือ Terraform configuration เปลี่ยน ให้สร้าง plan ใหม่และขอการอนุมัติใหม่ หลัง apply helper ตรวจ `https://zwf.zeaz.dev/health` และ Z.A.R.V.I.S. public routes แบบ fail-closed จากนั้นตรวจ ZEAZ One endpoints ตาม feature flags ที่ผูกไว้ใน manifest workflow `HA Infrastructure` ทำได้เฉพาะ plan และไม่มี production apply path การเข้าถึง repository หรือคำสั่งจาก agent ไม่ถือเป็น authorization สำหรับ apply
 
 ## การเชื่อมโยง hostname กับบริการ
 
