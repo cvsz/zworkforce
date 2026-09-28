@@ -102,6 +102,8 @@ Terraform plan
   ↓
 Impact review
   ↓
+Operator approval for exact plan
+  ↓
 Controlled apply
   ↓
 Cloudflare
@@ -109,7 +111,7 @@ Cloudflare
 Post-deployment validation
 ```
 
-กำหนด variables อย่างชัดเจน ตรวจสอบค่าด้วย validation ใช้ least privilege แยก environments ปกป้อง Terraform state ทำ CI validation ตรวจ drift และแยก secrets ออกจาก source code ห้าม commit production credentials ลง Git
+กำหนด variables อย่างชัดเจน ตรวจสอบค่าด้วย validation ใช้ least privilege แยก environments ปกป้อง Terraform state ทำ CI validation ตรวจ drift และแยก secrets ออกจาก source code ห้าม commit production credentials ลง Git โดยค่าเริ่มต้น workflow ต้องหยุดหลังสร้าง plan และ review; ห้ามเรียก terraform apply จนกว่า operator ที่ได้รับมอบอำนาจจะอนุมัติ plan, resource และ environment ที่ระบุไว้อย่างชัดเจน การเข้าถึง repository หรือคำสั่งจาก agent ไม่ถือเป็น authorization สำหรับ apply
 
 ## การเชื่อมโยง hostname กับบริการ
 
