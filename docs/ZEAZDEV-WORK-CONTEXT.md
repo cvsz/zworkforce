@@ -28,7 +28,7 @@ Application Services
 Products / User Interfaces
 ```
 
-ขอบเขตของแต่ละ repository ต้องชัดเจน zWorkforce รับผิดชอบ orchestration และ AI engine ส่วน repository ของแต่ละผลิตภัณฑ์รับผิดชอบ implementation และ domain ของผลิตภัณฑ์นั้น
+repository นี้เป็น product monorepo ที่มี Python control plane อยู่ใน zworkforce/ และ product implementations อยู่ภายใน apps/, services/ และ packages/ ขอบเขตของแต่ละผลิตภัณฑ์ใน monorepo กำหนดตาม subtree และ AGENTS.md ที่ใกล้ที่สุด ห้ามสรุปว่า implementation ของผลิตภัณฑ์ใน tree นี้ต้องอยู่ใน repository อื่น
 
 ## โดเมนหลัก: zeaz.dev
 
@@ -59,24 +59,22 @@ inventory ที่เชื่อถือได้ต้องตรวจส�
 
 ```text
 Internet
-   │
-   ▼
+    │
+    ▼
 Cloudflare
-   ├── DNS
-   ├── Proxy
-   ├── SSL/TLS
-   ├── Zero Trust / Access where required
-   ├── Cloudflare Tunnel
-   ├── WAF / security controls
-   └── Edge routing
-          │
-          ▼
-Origin Infrastructure
-   ├── Docker
-   ├── Kubernetes / k3s where justified
-   ├── Internal services
-   ├── Web applications
-   └── AI / automation services
+    ├── DNS / Proxy / SSL/TLS / WAF / Access
+    └── Routing
+        ├── Worker routes (for example, www.zeaz.dev)
+        │     └── Cloudflare Workers ── D1 when configured
+        │
+        └── Origin routes
+              └── Cloudflare Tunnel when configured
+                    └── Origin Infrastructure
+                          ├── Docker
+                          ├── Kubernetes / k3s where justified
+                          ├── Internal services
+                          ├── Web applications
+                          └── AI / automation services
 ```
 
 เมื่อใช้ Cloudflare Tunnel ควรรักษา origin ให้เป็น private เท่าที่ทำได้ แทนการเปิด inbound ports โดยไม่จำเป็น
@@ -296,7 +294,7 @@ Git Repository
       Runtime Environment
 ```
 
-runtime state เป็นหลักฐานของสิ่งที่ deploy อยู่ ส่วน Git/Terraform แสดง desired state ต้องตรวจพบ ทำความเข้าใจ และแก้ drift อย่างตั้งใจ เอกสารหรือ configuration ใน repository เพียงอย่างเดียวไม่ใช่หลักฐานว่า external infrastructure ถูก provision หรือผ่านการทดสอบแล้ว
+runtime state ใช้ยืนยันสิ่งที่สังเกตพบ ณ เวลานั้น ส่วน Git/Terraform แสดง desired state; ให้ตรวจพบ ทำความเข้าใจ และแก้ drift อย่างตั้งใจ runtime probes หรือผลจาก terminal ที่ไม่ได้เก็บเป็นหลักฐานถาวรเป็น operational observation เท่านั้น และห้ามใช้ปิด release gate สำหรับ gate ที่กำหนด external evidence ให้บันทึก environment, timestamp, command/run reference, result และ durable artifact/reference โดยผูกกับ exact candidate SHA ใน docs/PRODUCTION-EVIDENCE.md จนกว่าจะบันทึกครบ ให้คงสถานะ PENDING EXTERNAL EVIDENCE; CI output, source code และ transient observations ใช้แทนหลักฐานดังกล่าวไม่ได้
 
 ## แนวทางปฏิบัติสำหรับ agents
 
