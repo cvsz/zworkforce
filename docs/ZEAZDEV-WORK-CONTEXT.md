@@ -1,26 +1,20 @@
-# ZeaZDev Work Context & Domain Infrastructure
+# บริบทการทำงานของ ZeaZDev และโครงสร้างพื้นฐานโดเมน
 
-## Purpose
+## วัตถุประสงค์
 
-This is the canonical ZeaZDev ecosystem context for zWorkforce agents, operators, developers, and automation workflows. It defines the relationship between the ZeaZDev software ecosystem, the `zeaz.dev` domain namespace, Cloudflare edge infrastructure, Terraform infrastructure-as-code, and zWorkforce.
+เอกสารนี้เป็นบริบทของระบบนิเวศ ZeaZDev สำหรับ agents, operators, developers และ automation workflows ใน zWorkforce โดยอธิบายความสัมพันธ์ระหว่างซอฟต์แวร์ของ ZeaZDev, namespace zeaz.dev, Cloudflare edge infrastructure, Terraform infrastructure-as-code และ zWorkforce
 
-## About the Owner
+## หลักการด้านวิศวกรรม
 
-**PHIPHAT PHOEMSUK** is the founder and CEO of ZeaZDev and a Senior Staff Software Engineer / System Architect focused on production-grade distributed systems, platform engineering, automation, AI-assisted engineering, and cost-efficient infrastructure.
+> โค้ดเป็นภาระ ยิ่งมีโค้ดและส่วนประกอบน้อย สถาปัตยกรรมยิ่งชัดเจนและระบบยิ่งเชื่อถือได้
 
-Engineering principle:
+แนวทางที่ต้องการคือ secure-by-default, ทำซ้ำได้, สังเกตการณ์ได้, กู้คืนได้, กำหนด infrastructure-as-code, ใช้ local-first หรือ self-hosted เมื่อเหมาะสม และดูแลต่อเนื่องได้ในระยะยาว
 
-> Code is a liability — less code, fewer moving parts, stronger architecture, higher reliability.
+## ระบบนิเวศ ZeaZDev
 
-The preferred approach is secure-by-default, reproducible, observable, recoverable, infrastructure-as-code driven, local-first/self-hosted where practical, and optimized for long-term maintainability.
+ZeaZDev เป็นระบบนิเวศเทคโนโลยีที่เชื่อมโยง applications, platforms, AI systems, automation, infrastructure และ business products เข้าด้วยกัน
 
-## ZeaZDev Ecosystem
-
-ZeaZDev is a connected technology ecosystem containing applications, platforms, AI systems, automation, infrastructure, and business products.
-
-zWorkforce is the AI/agent/automation engine and governed control plane. It provides durable tasks, workflows, scheduling, events, agents, provider/model routing, policy-as-code, approvals, MCP, memory, artifacts, FinOps, observability, and operational controls.
-
-Architecture:
+zWorkforce ทำหน้าที่เป็นเครื่องมือด้าน AI/agent/automation และ governed control plane โดยรองรับ durable tasks, workflows, scheduling, events, agents, provider/model routing, policy-as-code, approvals, MCP, memory, artifacts, FinOps, observability และ operational controls
 
 ```text
 Infrastructure
@@ -34,19 +28,18 @@ Application Services
 Products / User Interfaces
 ```
 
-Repository boundaries remain explicit. zWorkforce is the orchestration/AI engine; individual product repositories remain responsible for product-specific implementation and domain concerns.
+ขอบเขตของแต่ละ repository ต้องชัดเจน zWorkforce รับผิดชอบ orchestration และ AI engine ส่วน repository ของแต่ละผลิตภัณฑ์รับผิดชอบ implementation และ domain ของผลิตภัณฑ์นั้น
 
-## Primary Domain: zeaz.dev
+## โดเมนหลัก: zeaz.dev
 
-`zeaz.dev` is the primary domain namespace for the ZeaZDev ecosystem.
+zeaz.dev เป็น namespace โดเมนหลักของระบบนิเวศ ZeaZDev
 
-All production `*.zeaz.dev` hostnames are managed infrastructure resources and must be traceable to their intended service, environment, origin, security boundary, and deployment configuration.
+hostname สำหรับ production ภายใต้ zeaz.dev ควรเชื่อมโยงกับบริการ environment, origin, security boundary และ deployment configuration ที่ตั้งใจใช้ได้ รายการด้านล่างเป็นเพียง hostname ตัวอย่างบางส่วนที่ทราบ ไม่ใช่ inventory ที่ครบถ้วนหรือแหล่งอ้างอิงสำหรับการเปลี่ยน infrastructure
 
-Known namespaces include:
+### ตัวอย่าง hostname บางส่วน
 
 ```text
 zeaz.dev
-*.zeaz.dev
 
 app.zeaz.dev
 api.zeaz.dev
@@ -60,9 +53,9 @@ zttato.zeaz.dev
 zneon.zeaz.dev
 ```
 
-This list is contextual, not authoritative. The authoritative inventory must be discoverable from Terraform and validated against actual Cloudflare state.
+inventory ที่เชื่อถือได้ต้องตรวจสอบจาก Terraform และยืนยันเทียบกับสถานะจริงใน Cloudflare ก่อนใช้อ้างอิงหรือทำการเปลี่ยนแปลง
 
-## Cloudflare + Terraform Architecture
+## สถาปัตยกรรม Cloudflare และ Terraform
 
 ```text
 Internet
@@ -86,15 +79,13 @@ Origin Infrastructure
    └── AI / automation services
 ```
 
-Where Cloudflare Tunnel is used, origins should remain private whenever practical instead of unnecessarily exposing inbound ports.
+เมื่อใช้ Cloudflare Tunnel ควรรักษา origin ให้เป็น private เท่าที่ทำได้ แทนการเปิด inbound ports โดยไม่จำเป็น
 
-Terraform is the source of truth for intended Cloudflare infrastructure configuration. Cloudflare is the execution/edge layer. Git provides version history, review, and traceability.
+แนวทางที่ตั้งใจใช้คือให้ Terraform อธิบาย desired state ของ Cloudflare infrastructure ให้ Cloudflare ทำหน้าที่เป็น edge/execution layer และใช้ Git เก็บประวัติ การ review และ traceability การเปลี่ยนแปลงจาก Cloudflare dashboard ต้องไม่กลายเป็น permanent source of truth โดยไม่มีการบันทึกและตรวจสอบใน repository
 
-Manual Cloudflare dashboard changes must not silently become the permanent source of truth.
+## วงจรการเปลี่ยนแปลง Terraform
 
-## Terraform Lifecycle
-
-Infrastructure changes should follow:
+การเปลี่ยน infrastructure ควรผ่านขั้นตอนต่อไปนี้:
 
 ```text
 Change
@@ -118,26 +109,24 @@ Cloudflare
 Post-deployment validation
 ```
 
-Use explicit variables, strong validation, least privilege, environment separation, protected state, CI validation, drift detection, and secret separation. Production credentials must never be committed to Git.
+กำหนด variables อย่างชัดเจน ตรวจสอบค่าด้วย validation ใช้ least privilege แยก environments ปกป้อง Terraform state ทำ CI validation ตรวจ drift และแยก secrets ออกจาก source code ห้าม commit production credentials ลง Git
 
-## Domain-to-Service Traceability
+## การเชื่อมโยง hostname กับบริการ
 
-For every production hostname, zWorkforce should be able to determine:
+สำหรับ production hostname แต่ละรายการ ควรตรวจสอบข้อมูลต่อไปนี้:
 
-- What the hostname is for.
-- Which service owns it.
-- Which repository owns the service.
-- Which environment it belongs to.
-- Where the origin runs.
-- Whether Cloudflare proxying is enabled.
-- Whether Cloudflare Tunnel is used.
-- Which Terraform resource manages it.
-- Which security and access controls apply.
-- Which health/readiness checks validate it.
-- How it is deployed.
-- How it is rolled back or recovered.
+- วัตถุประสงค์ของ hostname
+- บริการและ repository ที่เป็นเจ้าของ
+- environment ที่ใช้งาน
+- ตำแหน่งของ origin
+- สถานะ Cloudflare proxy
+- การใช้ Cloudflare Tunnel
+- Terraform resource ที่จัดการ
+- security และ access controls ที่บังคับใช้
+- health/readiness checks ที่ใช้ตรวจสอบ
+- วิธี deploy, rollback และ recovery
 
-Desired relationship:
+ความสัมพันธ์ที่ต้องการ:
 
 ```text
 Hostname
@@ -153,13 +142,11 @@ Origin service
 Health validation
 ```
 
-Unknown, orphaned, duplicated, or manually-created production DNS records are infrastructure debt and must be investigated rather than blindly deleted.
+production DNS records ที่ไม่ทราบที่มา ซ้ำซ้อน หรือสร้างด้วยมือเป็น infrastructure debt ต้องสืบหาที่มาและผลกระทบก่อน ห้ามลบโดยคาดเดา
 
-## ZWorkforce Responsibilities
+## ความรับผิดชอบของ zWorkforce
 
-zWorkforce acts as the AI workforce and automation control layer across the ZeaZDev ecosystem.
-
-Relevant agent roles include:
+zWorkforce เป็น control layer สำหรับ AI workforce และ automation ในระบบนิเวศ ZeaZDev บทบาทที่เกี่ยวข้องประกอบด้วย:
 
 - Architect
 - Developer
@@ -174,54 +161,54 @@ Relevant agent roles include:
 - CI/CD
 - Production Readiness
 
-Agents must inspect current state before changes and preserve existing architecture and public interfaces unless the requested work explicitly requires change.
+ก่อนแก้ไข agents ต้องตรวจสอบสถานะปัจจุบันและรักษาสถาปัตยกรรมกับ public interfaces เดิม เว้นแต่คำขอจะระบุให้เปลี่ยนโดยชัดเจน
 
-## Change-Safety Gate
+## ขั้นตอนควบคุมความปลอดภัยของการเปลี่ยนแปลง
 
-Cloudflare, Terraform, DNS, Tunnel, authentication, networking, and production mutations require explicit change-safety analysis.
+การเปลี่ยน Cloudflare, Terraform, DNS, Tunnel, authentication, networking หรือ production ต้องมีการวิเคราะห์ผลกระทบและความปลอดภัยอย่างชัดเจน
 
-Before a mutation determine:
+ก่อนทำการเปลี่ยนแปลง ให้ระบุ:
 
-1. Resource affected.
-2. Hostname(s) affected.
-3. Environment affected.
-4. Origin affected.
-5. DNS behavior.
-6. Traffic-routing behavior.
-7. Tunnel ingress behavior.
-8. Security-policy impact.
-9. Expected service interruption.
-10. Rollback/recovery path.
+1. resource ที่ได้รับผลกระทบ
+2. hostname ที่เกี่ยวข้อง
+3. environment ที่ได้รับผลกระทบ
+4. origin ที่เกี่ยวข้อง
+5. พฤติกรรม DNS
+6. ผลต่อ traffic routing
+7. ผลต่อ Tunnel ingress
+8. ผลต่อ security policy
+9. ระยะเวลาหรือโอกาสที่บริการหยุดชะงัก
+10. วิธี rollback หรือ recovery
 
-Preferred flow:
+ขั้นตอนที่แนะนำ:
 
 ```text
 Inspect → Understand → Validate → Plan → Review impact → Apply → Verify
 ```
 
-Agents must not perform destructive infrastructure changes merely because a configuration appears inconsistent.
+ห้ามทำ destructive infrastructure changes เพียงเพราะ configuration ดูไม่สอดคล้องกัน
 
-## Security Principles
+## หลักการด้าน Security
 
-ZeaZDev and zWorkforce follow:
+ZeaZDev และ zWorkforce ยึดหลักต่อไปนี้:
 
-- Least privilege.
-- Zero-trust principles where applicable.
-- Secret isolation.
-- Secure credential handling.
-- No plaintext production secrets in Git.
-- Strong authentication and explicit authorization.
-- Secure API boundaries.
-- Dependency and container security.
-- Infrastructure validation.
-- Auditability.
-- Safe automation.
+- Least privilege
+- Zero-trust principles เมื่อเหมาะสม
+- แยก secrets ออกจากข้อมูลทั่วไป
+- จัดการ credentials อย่างปลอดภัย
+- ห้ามเก็บ production secrets แบบ plaintext ใน Git
+- ใช้ authentication ที่เข้มแข็งและ authorization ที่ชัดเจน
+- รักษาความปลอดภัยของ API boundaries
+- ตรวจสอบ dependencies และ containers
+- ตรวจสอบ infrastructure ก่อนใช้งาน
+- เก็บ audit trail
+- ทำ automation อย่างปลอดภัย
 
-Repository access does not automatically imply authorization to perform destructive infrastructure operations.
+การเข้าถึง repository ไม่ได้ให้อำนาจทำ destructive infrastructure operations โดยอัตโนมัติ
 
-## Local-First and Cost Control
+## Local-first และการควบคุมต้นทุน
 
-Preferred infrastructure hierarchy:
+ลำดับทางเลือกด้าน infrastructure ที่ต้องการ:
 
 ```text
 Existing hardware
@@ -235,54 +222,57 @@ Free tiers
 Paid services only when justified
 ```
 
-Architecture decisions should account for compute, storage, network, API/model, Cloudflare, managed-service, and operational costs. Avoid unnecessary vendor lock-in and unnecessary managed services when reliable self-hosted alternatives exist.
+การตัดสินใจด้าน architecture ควรคำนึงถึงค่า compute, storage, network, API/model, Cloudflare, managed services และ operational costs หลีกเลี่ยง vendor lock-in และ managed services ที่ไม่จำเป็น เมื่อมีทางเลือก self-hosted ที่เชื่อถือได้
 
-## Production-Grade Definition
+## เกณฑ์ Production readiness
 
-Production readiness is broader than a successful build.
-
-Validate the relevant scope for:
+Production readiness ครอบคลุมมากกว่าการ build ผ่าน ควรตรวจสอบหัวข้อที่เกี่ยวข้องดังนี้:
 
 ### Application
-- Functional correctness.
-- API contracts.
-- Authentication and authorization.
-- Error handling.
-- Data integrity.
+
+- Functional correctness
+- API contracts
+- Authentication และ authorization
+- Error handling
+- Data integrity
 
 ### Infrastructure
-- Reproducible deployment.
-- Terraform validation.
-- Cloudflare configuration.
-- DNS correctness.
-- Tunnel routing.
-- Origin health.
+
+- Reproducible deployment
+- Terraform validation
+- Cloudflare configuration
+- DNS correctness
+- Tunnel routing
+- Origin health
 
 ### Security
-- Secrets.
-- Dependencies.
-- Access control.
-- Network exposure.
-- Container configuration.
-- Security policies.
+
+- Secrets
+- Dependencies
+- Access control
+- Network exposure
+- Container configuration
+- Security policies
 
 ### Operations
-- Logging.
-- Metrics and tracing where applicable.
-- Health/readiness checks.
-- Backup and recovery.
-- Rollback.
-- Operational documentation.
+
+- Logging
+- Metrics และ tracing เมื่อเกี่ยวข้อง
+- Health/readiness checks
+- Backup และ recovery
+- Rollback
+- Operational documentation
 
 ### Engineering
-- Automated tests.
-- CI/CD.
-- Code quality.
-- Documentation.
-- Dependency management.
-- Version control and traceability.
 
-## Single Source of Truth
+- Automated tests
+- CI/CD
+- Code quality
+- Documentation
+- Dependency management
+- Version control และ traceability
+
+## แหล่งอ้างอิงสถานะระบบ
 
 ```text
 Git Repository
@@ -304,11 +294,11 @@ Git Repository
       Runtime Environment
 ```
 
-Runtime state is evidence of what is deployed. Git/Terraform expresses intended state. Drift must be detected, understood, and reconciled deliberately.
+runtime state เป็นหลักฐานของสิ่งที่ deploy อยู่ ส่วน Git/Terraform แสดง desired state ต้องตรวจพบ ทำความเข้าใจ และแก้ drift อย่างตั้งใจ เอกสารหรือ configuration ใน repository เพียงอย่างเดียวไม่ใช่หลักฐานว่า external infrastructure ถูก provision หรือผ่านการทดสอบแล้ว
 
-## Agent Operating Rule
+## แนวทางปฏิบัติสำหรับ agents
 
-Every zWorkforce agent operating on the ZeaZDev ecosystem should work as an engineering operator:
+agents ที่ทำงานกับระบบนิเวศ ZeaZDev ควรปฏิบัติงานตามลำดับ:
 
 ```text
 Discover
@@ -322,13 +312,11 @@ Discover
 → Validate
 ```
 
-Prefer the smallest safe change that completely solves the requested problem.
+เลือกการเปลี่ยนแปลงที่ปลอดภัยและเล็กที่สุดซึ่งแก้ปัญหาได้ครบ หลีกเลี่ยง implementation ซ้ำซ้อน abstractions หรือ dependencies ที่ไม่จำเป็น placeholders, tests ปลอมหรือถูกปิดใช้งาน, hardcoded secrets, configuration ที่ต้องทำด้วยมือเท่านั้น, Terraform ที่ไม่ผ่าน validation และการทำให้ระบบอื่นเสียหายโดยไม่เกี่ยวข้อง
 
-Avoid duplicate implementations, unnecessary abstractions/dependencies, placeholder implementations, fake or disabled tests, hardcoded secrets, manual-only production configuration, unvalidated Terraform changes, and unrelated production breakage.
+## เป้าหมายหลัก
 
-## Core Objective
-
-Make zWorkforce the intelligent engineering and automation layer for the ZeaZDev ecosystem, with safe traceability from AI agent action to repository, Terraform configuration, Cloudflare resource, `*.zeaz.dev` hostname, origin service, and production validation.
+ทำให้ zWorkforce เป็นชั้น engineering และ automation ที่เชื่อมโยง agent actions กับ repository, Terraform configuration, Cloudflare resources, hostname ภายใต้ zeaz.dev, origin services และ production validation ได้อย่างปลอดภัย
 
 ```text
                     ZEA ZDEV ECOSYSTEM
@@ -355,4 +343,4 @@ Make zWorkforce the intelligent engineering and automation layer for the ZeaZDev
                   Production Services
 ```
 
-This document provides ecosystem context. It does not replace repository security policy, Terraform-specific rules, Cloudflare provider documentation, deployment runbooks, or application-specific operational documentation.
+เอกสารนี้ให้บริบทของระบบนิเวศเท่านั้น ไม่ใช้แทน repository security policy, Terraform-specific rules, Cloudflare provider documentation, deployment runbooks หรือ operational documentation ของแต่ละ application
