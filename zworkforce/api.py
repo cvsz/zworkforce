@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import base64
+import hashlib
+import hmac
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -400,6 +402,42 @@ class App:
                 self._prepare()
                 path = urllib.parse.urlsplit(self.path).path
                 try:
+                    if path in {"/github/webhook", "/webhooks/github"}:
+                        secret = os.getenv("GITHUB_WEBHOOK_SECRET", "").strip()
+                        if not secret:
+                            return self._error(503, "github_webhook_unconfigured", "github webhook secret not configured")
+                        try:
+                            content_length = int(self.headers.get("Content-Length", "0"))
+                        except ValueError:
+                            return self._error(400, "invalid_request", "invalid Content-Length")
+                        if content_length < 0 or content_length > app.settings.max_request_bytes:
+                            return self._error(413, "request_too_large", "request body too large")
+                        content_type = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
+                        if content_type != "application/json":
+                            return self._error(400, "invalid_request", "Content-Type must be application/json")
+                        raw = self.rfile.read(content_length) if content_length else b"{}"
+                        signature = _sanitize_header_value(self.headers.get("X-Hub-Signature-256", ""))
+                        expected = "sha256=" + hmac.new(secret.encode("utf-8"), raw, hashlib.sha256).hexdigest()
+                        if not signature or not hmac.compare_digest(expected, signature):
+                            return self._error(401, "invalid_github_signature", "invalid github webhook signature")
+                        try:
+                            payload = json.loads(raw or b"{}")
+                        except json.JSONDecodeError:
+                            return self._error(400, "invalid_github_payload", "invalid github payload")
+                        if not isinstance(payload, dict):
+                            return self._error(400, "invalid_github_payload", "github payload must be an object")
+                        delivery = _sanitize_header_value(self.headers.get("X-GitHub-Delivery", "")).strip()
+                        event = _sanitize_header_value(self.headers.get("X-GitHub-Event", "unknown")).strip() or "unknown"
+                        if not delivery or len(delivery) > 128 or len(event) > 128:
+                            return self._error(400, "invalid_github_headers", "invalid github webhook headers")
+                        record = {
+                            "status": "accepted",
+                            "delivery": delivery,
+                            "event": event,
+                            "repository": (payload.get("repository") or {}).get("full_name"),
+                            "action": payload.get("action"),
+                        }
+                        return self._json(200, record, {"X-GitHub-Delivery": delivery})
                     if path == "/mcp":
                         ctx, response = self._principal("viewer", "workforce:read")
                         if response: return response

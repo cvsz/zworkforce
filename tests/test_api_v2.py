@@ -1,4 +1,7 @@
+import hashlib
+import hmac
 import json
+import os
 import threading
 import unittest
 import urllib.request
@@ -12,6 +15,8 @@ from zworkforce.api import App, _sanitize_header_value
 
 class ApiV2Tests(unittest.TestCase):
     def setUp(self):
+        self._previous_github_webhook_secret = os.environ.get("GITHUB_WEBHOOK_SECRET")
+        os.environ["GITHUB_WEBHOOK_SECRET"] = "test-secret"
         self.temp,self.settings,self.db,self.provider,self.engine,self.auth=stack()
         self.app=App(self.settings,self.db,self.engine,self.auth,self.provider)
         self.server=ThreadingHTTPServer(("127.0.0.1",0),self.app.handler())
@@ -19,6 +24,10 @@ class ApiV2Tests(unittest.TestCase):
         self.base=f"http://127.0.0.1:{self.server.server_address[1]}"
     def tearDown(self):
         self.server.shutdown(); self.server.server_close(); self.engine.shutdown(); self.temp.cleanup()
+        if self._previous_github_webhook_secret is None:
+            os.environ.pop("GITHUB_WEBHOOK_SECRET", None)
+        else:
+            os.environ["GITHUB_WEBHOOK_SECRET"] = self._previous_github_webhook_secret
     def req(self,path,method="GET",body=None,headers=None,timeout=15):
         h={"Authorization":"Bearer test-admin-secret",**(headers or {})}
         data=None
@@ -102,6 +111,69 @@ class ApiV2Tests(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as ctx:
             urllib.request.urlopen(req, timeout=5)
         self.assertEqual(ctx.exception.code, 401)
+
+
+    def webhook_req(self, path, body, signature):
+        headers = {
+            "Content-Type": "application/json",
+            "X-GitHub-Event": "check_run",
+            "X-GitHub-Delivery": "51e66fb4-baf5-11f1-8ef7-9a4a53b184e9",
+            "X-Hub-Signature-256": signature,
+        }
+        req = urllib.request.Request(self.base + path, data=body, headers=headers, method="POST")
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            return resp.status, dict(resp.headers), json.loads(resp.read())
+
+    def test_github_webhook_public_and_canonical_paths_accept_signed_delivery(self):
+        body = json.dumps({
+            "action": "completed",
+            "repository": {"full_name": "cvsz/zworkforce"},
+        }).encode("utf-8")
+        signature = "sha256=" + hmac.new(b"test-secret", body, hashlib.sha256).hexdigest()
+        for path in ("/github/webhook", "/webhooks/github"):
+            status, headers, payload = self.webhook_req(path, body, signature)
+            self.assertEqual(status, 200)
+            self.assertEqual(payload["status"], "accepted")
+            self.assertEqual(payload["event"], "check_run")
+            self.assertEqual(payload["delivery"], "51e66fb4-baf5-11f1-8ef7-9a4a53b184e9")
+            self.assertEqual(payload["repository"], "cvsz/zworkforce")
+            self.assertEqual(headers["X-GitHub-Delivery"], payload["delivery"])
+
+    def test_github_webhook_rejects_bad_signature_instead_of_404(self):
+        body = b"{}"
+        req = urllib.request.Request(
+            self.base + "/github/webhook",
+            data=body,
+            headers={
+                "Content-Type": "application/json",
+                "X-GitHub-Event": "check_run",
+                "X-GitHub-Delivery": "delivery-123",
+                "X-Hub-Signature-256": "sha256=deadbeef",
+            },
+            method="POST",
+        )
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            urllib.request.urlopen(req, timeout=5)
+        self.assertEqual(ctx.exception.code, 401)
+
+    def test_github_webhook_fails_closed_without_secret(self):
+        os.environ.pop("GITHUB_WEBHOOK_SECRET", None)
+        body = b"{}"
+        req = urllib.request.Request(
+            self.base + "/github/webhook",
+            data=body,
+            headers={
+                "Content-Type": "application/json",
+                "X-GitHub-Event": "check_run",
+                "X-GitHub-Delivery": "delivery-123",
+                "X-Hub-Signature-256": "sha256=deadbeef",
+            },
+            method="POST",
+        )
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            urllib.request.urlopen(req, timeout=5)
+        self.assertEqual(ctx.exception.code, 503)
+        os.environ["GITHUB_WEBHOOK_SECRET"] = "test-secret"
 
 
 if __name__ == "__main__":
