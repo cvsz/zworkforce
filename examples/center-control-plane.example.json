@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "repositories": [
+    {
+      "name": "cvsz/zworkforce",
+      "role": "control-plane",
+      "edgeOwnership": true,
+      "templateSource": "cvsz/ztemplate",
+      "readiness": "PARTIALLY VERIFIED"
+    },
+    {
+      "name": "cvsz/ztemplate",
+      "role": "template",
+      "edgeOwnership": false,
+      "templateSource": null,
+      "readiness": "VERIFIED"
+    }
+  ],
+  "hostnames": [
+    {
+      "hostname": "zwf.zeaz.dev",
+      "applicationRepository": "cvsz/zworkforce",
+      "edgeOwnerRepository": "cvsz/zworkforce",
+      "environment": "production",
+      "sourcePath": "infrastructure/terraform/cloudflare",
+      "origin": null,
+      "accessRequired": false,
+      "desiredState": "VERIFIED",
+      "effectiveState": "UNVERIFIED",
+      "evidenceReference": "docs/PRODUCTION-EVIDENCE.md"
+    }
+  ]
+}

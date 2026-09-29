@@ -89,3 +89,13 @@ Do not claim external infrastructure (Supabase, Cloudflare, provider endpoints, 
 
 ## Nested AGENTS.md
 Subdirectory `AGENTS.md` files (e.g., `apps/zwallet/AGENTS.md`, `services/billing-ledger/AGENTS.md`) define binding rules for their respective boundaries. Root rules apply unless explicitly overridden. Read the nearest `AGENTS.md` before modifying any subtree.
+
+## ZEAZ Center Control Plane rules
+
+- Treat `docs/CENTER-CONTROL-PLANE.md` as the cross-repository control-plane contract.
+- `zworkforce` may aggregate read-only GitHub and Cloudflare inventory across the ZEAZ ecosystem, but mutation authority remains resource/repository specific.
+- Never infer Cloudflare ownership from the `zeaz.dev` suffix or from possession of a zone-scoped credential. Require an explicit owning Terraform/configuration path.
+- Cross-repository updates must be audit-first and use focused pull requests. Do not bulk-overwrite project-specific AGENTS, CI, deployment, security, or ownership files.
+- Production Cloudflare, repository administration, release, deployment, credential-rotation, and destructive mutations require an exact preview/plan plus explicit approval and post-action verification.
+- The browser control panel is never a secret-bearing provider client. GitHub App keys, Cloudflare tokens, provider credentials and infrastructure secrets remain server-side.
+- Repository generation from `cvsz/ztemplate` creates a repository foundation only; it does not establish application production readiness.

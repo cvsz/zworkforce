@@ -162,3 +162,20 @@ These remain external deployment concerns rather than fake in-process features:
 The platform boundary remains extensible, but zWorkforce does not claim external
 infrastructure has been provisioned until credentials, accounts, controls,
 drills and sign-offs are recorded for the exact deployment.
+
+## Forward roadmap — ZEAZ Center Control Plane
+
+This is forward roadmap scope and is not a `v3.0.4` release blocker unless the
+governing release documents explicitly bind an item into that candidate.
+
+- [x] Define center-control-plane ownership, approval, evidence and mutation contract.
+- [x] Add machine-readable repository/hostname inventory schema and safe example.
+- [x] Reframe `apps/agent-control-panel` as the browser operator surface.
+- [ ] Implement read-only GitHub fleet inventory using least-privilege GitHub App installations.
+- [ ] Implement read-only Cloudflare desired/effective-state inventory from repository-owned Terraform plus provider read-back.
+- [ ] Implement zTemplate-backed repository generator preview.
+- [ ] Implement approved repository creation and safe baseline-sync pull requests.
+- [ ] Implement GitHub ruleset/security mutation proposals with compare-and-set verification.
+- [ ] Implement Cloudflare Terraform preview/digest/approval/apply pipeline through the owning repository.
+- [ ] Add production-readiness, backup/restore, rollback and DR evidence dashboards.
+- [ ] Add accessibility/browser E2E and role/tenant/session-revocation coverage for the control panel.

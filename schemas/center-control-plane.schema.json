@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zeaz.dev/schemas/center-control-plane.schema.json",
+  "title": "ZEAZ Center Control Plane Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "repositories", "hostnames"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "repositories": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/repository"
+      }
+    },
+    "hostnames": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/hostname"
+      }
+    }
+  },
+  "$defs": {
+    "evidenceState": {
+      "enum": [
+        "VERIFIED",
+        "PARTIALLY VERIFIED",
+        "UNVERIFIED",
+        "BLOCKED",
+        "NOT APPLICABLE"
+      ]
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "role", "edgeOwnership"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+        },
+        "role": {
+          "enum": [
+            "application",
+            "platform",
+            "infrastructure",
+            "template",
+            "library",
+            "control-plane"
+          ]
+        },
+        "edgeOwnership": {
+          "type": "boolean"
+        },
+        "templateSource": {
+          "type": ["string", "null"]
+        },
+        "readiness": {
+          "$ref": "#/$defs/evidenceState"
+        }
+      }
+    },
+    "hostname": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hostname",
+        "applicationRepository",
+        "edgeOwnerRepository",
+        "environment",
+        "sourcePath"
+      ],
+      "properties": {
+        "hostname": {
+          "type": "string",
+          "minLength": 1
+        },
+        "applicationRepository": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+        },
+        "edgeOwnerRepository": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+        },
+        "environment": {
+          "enum": ["development", "staging", "production"]
+        },
+        "sourcePath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "origin": {
+          "type": ["string", "null"]
+        },
+        "accessRequired": {
+          "type": "boolean",
+          "default": false
+        },
+        "desiredState": {
+          "$ref": "#/$defs/evidenceState"
+        },
+        "effectiveState": {
+          "$ref": "#/$defs/evidenceState"
+        },
+        "evidenceReference": {
+          "type": ["string", "null"]
+        }
+      }
+    }
+  }
+}

@@ -116,3 +116,42 @@ voice gateway, queue, storage adapter or external integration is provisioned.
 - Scheduler/outbox: multiple replicas safe through service-leader leases.
 - Memory/artifacts: replace local adapters with Qdrant/S3.
 - Database: deploy PostgreSQL using the operator's HA/PITR topology.
+
+
+## ZEAZ ecosystem center control plane
+
+zWorkforce is also the coordination layer for cross-repository ZEAZ operations.
+This layer does not replace application-repository ownership. It aggregates
+GitHub repository state, Cloudflare edge ownership, release evidence and
+repository-foundation drift into an operator control plane.
+
+The canonical contract is [docs/CENTER-CONTROL-PLANE.md](docs/CENTER-CONTROL-PLANE.md).
+
+```text
+                    Operator / OIDC
+                           |
+                           v
+                agent-control-panel
+                           |
+                           v
++-----------------------------------------------------+
+| zWorkforce Center Control Plane                     |
+| inventory / policy / approvals / evidence / audit   |
++-------------+--------------------+------------------+
+              |                    |
+              v                    v
+       GitHub App/API       Cloudflare desired state
+       repo / PR / CI       Terraform-owned resources
+              |                    |
+              +---------+----------+
+                        |
+                        v
+               approved action gateway
+                        |
+                        v
+           repository-owned mutation path
+```
+
+Cross-repository or edge mutation must use explicit ownership plus
+proposal/approval/verification. A shared zone, broad credential or repository
+visibility is not mutation authority.
