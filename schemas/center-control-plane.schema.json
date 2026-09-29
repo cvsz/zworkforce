@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zeaz.dev/schemas/center-control-plane.schema.json",
+  "title": "ทะเบียน ZEAZ Center Control Plane",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "repositories", "hostnames"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "repositories": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/repository"
+      }
+    },
+    "hostnames": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^(?:\\*\\.)?[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/hostname"
+      }
+    }
+  },
+  "$defs": {
+    "evidenceState": {
+      "enum": [
+        "VERIFIED",
+        "PARTIALLY VERIFIED",
+        "UNVERIFIED",
+        "BLOCKED",
+        "NOT APPLICABLE"
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subjectRevision",
+        "environment",
+        "observedAt",
+        "commandOrRun",
+        "result",
+        "artifactReference"
+      ],
+      "properties": {
+        "subjectRevision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$",
+          "description": "Git commit SHA แบบเต็มของสิ่งที่ตรวจสอบ"
+        },
+        "environment": {
+          "enum": ["development", "staging", "production"]
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "commandOrRun": {
+          "type": "string",
+          "minLength": 1
+        },
+        "result": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifactReference": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "readinessGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/evidenceState"
+        },
+        "evidence": {
+          "$ref": "#/$defs/evidence"
+        }
+      },
+      "if": {
+        "properties": {
+          "status": {
+            "const": "VERIFIED"
+          }
+        },
+        "required": ["status"]
+      },
+      "then": {
+        "required": ["evidence"]
+      }
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "role", "edgeOwnership", "readinessGates"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+        },
+        "role": {
+          "enum": [
+            "application",
+            "platform",
+            "infrastructure",
+            "template",
+            "library",
+            "control-plane"
+          ]
+        },
+        "edgeOwnership": {
+          "type": "boolean"
+        },
+        "templateSource": {
+          "type": ["string", "null"]
+        },
+        "readinessGates": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9-]{0,63}$"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/readinessGate"
+          }
+        }
+      }
+    },
+    "hostname": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "applicationRepository",
+        "edgeOwnerRepository",
+        "environment",
+        "sourcePath",
+        "sourceResourceAddress",
+        "accessRequired",
+        "desiredState",
+        "effectiveState"
+      ],
+      "properties": {
+        "applicationRepository": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+        },
+        "edgeOwnerRepository": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+        },
+        "environment": {
+          "enum": ["development", "staging", "production"]
+        },
+        "sourcePath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceResourceAddress": {
+          "type": "string",
+          "minLength": 1
+        },
+        "origin": {
+          "type": ["string", "null"]
+        },
+        "accessRequired": {
+          "type": "boolean",
+          "default": false
+        },
+        "desiredState": {
+          "$ref": "#/$defs/evidenceState"
+        },
+        "effectiveState": {
+          "$ref": "#/$defs/evidenceState"
+        },
+        "evidence": {
+          "$ref": "#/$defs/evidence"
+        }
+      },
+      "if": {
+        "anyOf": [
+          {
+            "properties": {
+              "desiredState": {
+                "const": "VERIFIED"
+              }
+            },
+            "required": ["desiredState"]
+          },
+          {
+            "properties": {
+              "effectiveState": {
+                "const": "VERIFIED"
+              }
+            },
+            "required": ["effectiveState"]
+          }
+        ]
+      },
+      "then": {
+        "required": ["evidence"]
+      }
+    }
+  }
+}

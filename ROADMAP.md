@@ -162,3 +162,19 @@ These remain external deployment concerns rather than fake in-process features:
 The platform boundary remains extensible, but zWorkforce does not claim external
 infrastructure has been provisioned until credentials, accounts, controls,
 drills and sign-offs are recorded for the exact deployment.
+
+## แผนงานระยะถัดไป — ZEAZ Center Control Plane
+
+รายการนี้เป็นแผนงานระยะถัดไป และไม่ใช่ release blocker เว้นแต่เอกสาร release ที่มีอำนาจจะกำหนดให้เป็นส่วนหนึ่งของ candidate อย่างชัดเจน
+
+- [x] กำหนดสัญญา ownership, approval, evidence และ mutation ของ control plane
+- [x] เพิ่ม schema สำหรับ inventory ของ repository/hostname และตัวอย่างที่ไม่มี secret
+- [x] กำหนด `apps/agent-control-panel` เป็นพื้นฐานหน้า operator ใน browser
+- [ ] ทำ read-only GitHub fleet inventory ด้วย GitHub App แบบ least privilege
+- [ ] ทำ read-only Cloudflare inventory จาก Terraform ที่ repository เป็นเจ้าของและข้อมูล provider ที่อ่านกลับมา
+- [ ] ทำ preview สำหรับ repository generator ที่ใช้ zTemplate
+- [ ] ทำการสร้าง repository และ pull request สำหรับ baseline sync หลังอนุมัติ
+- [ ] ทำ proposal สำหรับ GitHub ruleset/security mutation พร้อมตรวจ compare-and-set
+- [ ] ทำ pipeline สำหรับ Cloudflare Terraform preview/digest/approval/apply ผ่าน repository เจ้าของ
+- [ ] เพิ่ม dashboard หลักฐาน production readiness, backup/restore, rollback และ DR
+- [ ] เพิ่ม accessibility, browser E2E และการตรวจ role/tenant/session revocation

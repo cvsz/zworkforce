@@ -116,3 +116,37 @@ voice gateway, queue, storage adapter or external integration is provisioned.
 - Scheduler/outbox: multiple replicas safe through service-leader leases.
 - Memory/artifacts: replace local adapters with Qdrant/S3.
 - Database: deploy PostgreSQL using the operator's HA/PITR topology.
+
+
+## แผนสถาปัตยกรรม ZEAZ Center Control Plane
+
+zWorkforce มีแผนพัฒนาเป็นชั้นประสานงานสำหรับการปฏิบัติงานข้าม repository ในระบบ ZEAZ โดยไม่แทนที่ ownership ของ repository แอปพลิเคชัน ปัจจุบันมีเฉพาะ Phase 0 ได้แก่ contract, schema และตัวอย่าง inventory ยังไม่มี runtime ที่ aggregate สถานะ GitHub, Cloudflare, release evidence หรือ repository drift
+
+เอกสาร contract อยู่ที่ [docs/CENTER-CONTROL-PLANE.md](docs/CENTER-CONTROL-PLANE.md)
+
+```text
+                    Operator / OIDC
+                           |
+                           v
+                agent-control-panel
+                           |
+                           v
++-----------------------------------------------------+
+| zWorkforce Center Control Plane                     |
+| inventory / policy / approvals / evidence / audit   |
++-------------+--------------------+------------------+
+              |                    |
+              v                    v
+       GitHub App/API       Cloudflare desired state
+       repo / PR / CI       Terraform-owned resources
+              |                    |
+              +---------+----------+
+                        |
+                        v
+               approved action gateway
+                        |
+                        v
+           repository-owned mutation path
+```
+
+เมื่อพัฒนา mutation ข้าม repository หรือ edge ในอนาคต ต้องใช้ ownership ที่ระบุชัด พร้อม proposal/approval/verification การอยู่ใน shared zone การมี credential ที่สิทธิ์กว้าง หรือการมองเห็น repository ไม่ได้ให้สิทธิ์ mutation

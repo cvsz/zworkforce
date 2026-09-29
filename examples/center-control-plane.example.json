@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "repositories": [
+    {
+      "name": "cvsz/zworkforce",
+      "role": "control-plane",
+      "edgeOwnership": true,
+      "templateSource": "cvsz/ztemplate",
+      "readinessGates": {
+        "production-evidence": {
+          "status": "UNVERIFIED"
+        }
+      }
+    },
+    {
+      "name": "cvsz/ztemplate",
+      "role": "template",
+      "edgeOwnership": false,
+      "templateSource": null,
+      "readinessGates": {
+        "foundation-review": {
+          "status": "UNVERIFIED"
+        }
+      }
+    }
+  ],
+  "hostnames": {
+    "zwf.zeaz.dev": {
+      "applicationRepository": "cvsz/zworkforce",
+      "edgeOwnerRepository": "cvsz/zworkforce",
+      "environment": "production",
+      "sourcePath": "infrastructure/terraform/cloudflare/zworkforce.tf",
+      "sourceResourceAddress": "cloudflare_dns_record.zwf",
+      "origin": null,
+      "accessRequired": false,
+      "desiredState": "UNVERIFIED",
+      "effectiveState": "UNVERIFIED"
+    }
+  }
+}

@@ -179,3 +179,33 @@ When GitHub automation is part of an incident or release decision, record:
 - artifact names and checksums;
 - package image tag and digest;
 - alert number, advisory ID, or CodeQL rule ID when applicable.
+
+
+## Center control plane fleet operations
+
+zWorkforce may aggregate read-only GitHub state for other ZEAZ repositories as
+part of the center control plane defined in
+[`CENTER-CONTROL-PLANE.md`](CENTER-CONTROL-PLANE.md).
+
+Fleet inventory may include repository metadata, default-branch SHA, pull
+requests, workflow results, CodeQL/dependency/security signals, releases and
+repository-foundation drift.
+
+Cross-repository mutation remains repository-scoped:
+
+1. identify the exact repository and current head;
+2. read repository-local AGENTS/governance before changing files;
+3. generate a minimal preview/diff;
+4. open a focused branch/pull request;
+5. require the target repository's checks and reviews;
+6. never force-merge or bypass target rulesets;
+7. record the resulting PR/commit/check evidence.
+
+For multi-repository automation, prefer a least-privilege GitHub App installation
+with only the repositories and permissions required by the action. Read access
+to fleet state is not authorization for repository administration, releases,
+production deployment or secret mutation.
+
+The repository generator uses `cvsz/ztemplate` as a repository-foundation
+source. Existing repositories use audit-first baseline synchronization rather
+than wholesale template replacement.

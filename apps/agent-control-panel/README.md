@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# zWorkforce Agent Control Panel
 
-## Getting Started
+หน้า operator ที่พัฒนาด้วย Next.js/React สำหรับ ZEAZ Center Control Plane
 
-First, run the development server:
+Browser ใช้สำหรับแสดงข้อมูลและอนุมัติเท่านั้น ห้ามส่ง GitHub App private keys, Cloudflare API tokens, provider credentials, database passwords หรือ server-side secrets อื่นมายัง browser
+
+ดูรายละเอียด contract ได้ที่ [ZEAZ Center Control Plane](../../docs/CENTER-CONTROL-PLANE.md)
+
+## หน้าสำหรับ operator ในแผนงาน
+
+- ภาพรวม SLO, queue และสถานะ workforce
+- inventory ของ repository
+- repository generator
+- GitHub pull requests, Actions, security และ releases
+- ownership ของ Cloudflare hostname และ desired/effective state
+- หลักฐาน production readiness
+- AI agents, skills และ automations
+- durable audit log
+
+Control ที่เปลี่ยนแปลงระบบต้องใช้ contract แบบ proposal/approval/execution หน้า UI ห้ามเรียก provider API ที่มี privileged access โดยตรง
+
+## Theme ของ Dashboard
+
+แอปยังใช้ Next.js/React ต่อไป
+
+อาจเพิ่ม AdminLTE เป็น visual/design adapter เสริมได้ แต่ไม่ใช่ dependency บังคับของ control plane การปรับ theme ต้องรักษาสิ่งต่อไปนี้:
+
+- Next.js routing และ server/client boundaries
+- keyboard/focus behavior ที่เข้าถึงได้
+- responsive layout
+- auth/RBAC boundaries ที่มีอยู่
+- loading/error/empty states ที่ทดสอบได้
+- ไม่มี configuration ที่บรรจุ secret ใน browser
+
+## พัฒนาในเครื่อง
+
+ใช้ package manager ของ repository:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm --filter agent-control-panel dev
+pnpm --filter agent-control-panel lint
+pnpm --filter agent-control-panel build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+การรัน UI ในเครื่องไม่ได้ยืนยันว่ามีการตั้งค่า GitHub, Cloudflare, deployment หรือ production mutation permissions แล้ว
