@@ -90,12 +90,12 @@ Do not claim external infrastructure (Supabase, Cloudflare, provider endpoints, 
 ## Nested AGENTS.md
 Subdirectory `AGENTS.md` files (e.g., `apps/zwallet/AGENTS.md`, `services/billing-ledger/AGENTS.md`) define binding rules for their respective boundaries. Root rules apply unless explicitly overridden. Read the nearest `AGENTS.md` before modifying any subtree.
 
-## ZEAZ Center Control Plane rules
+## กฎ ZEAZ Center Control Plane
 
-- Treat `docs/CENTER-CONTROL-PLANE.md` as the cross-repository control-plane contract.
-- `zworkforce` may aggregate read-only GitHub and Cloudflare inventory across the ZEAZ ecosystem, but mutation authority remains resource/repository specific.
-- Never infer Cloudflare ownership from the `zeaz.dev` suffix or from possession of a zone-scoped credential. Require an explicit owning Terraform/configuration path.
-- Cross-repository updates must be audit-first and use focused pull requests. Do not bulk-overwrite project-specific AGENTS, CI, deployment, security, or ownership files.
-- Production Cloudflare, repository administration, release, deployment, credential-rotation, and destructive mutations require an exact preview/plan plus explicit approval and post-action verification.
-- The browser control panel is never a secret-bearing provider client. GitHub App keys, Cloudflare tokens, provider credentials and infrastructure secrets remain server-side.
-- Repository generation from `cvsz/ztemplate` creates a repository foundation only; it does not establish application production readiness.
+- ใช้ `docs/CENTER-CONTROL-PLANE.md` เป็น contract สำหรับ control plane ข้าม repository
+- การ aggregate inventory จาก GitHub และ Cloudflare เป็นแผนงานระยะถัดไป ส่วน mutation ต้องอิง resource/repository ที่เป็นเจ้าของโดยชัดเจน
+- ห้ามอนุมาน Cloudflare ownership จาก suffix `zeaz.dev` หรือการมี zone-scoped credential ต้องระบุ Terraform/configuration path ของเจ้าของ
+- การแก้ข้าม repository ต้องเริ่มจาก audit และใช้ pull request ที่มีขอบเขตชัด ห้ามเขียนทับไฟล์ AGENTS, CI, deployment, security หรือ ownership เฉพาะโครงการเป็นชุด
+- การแก้ Cloudflare, repository administration, release, deployment, credential rotation และ destructive mutation ใน production ต้องมี preview/plan ที่แน่นอน, explicit approval และ post-action verification
+- หน้า control panel ใน browser ต้องไม่รับ secret ของ provider; GitHub App keys, Cloudflare tokens, provider credentials และ infrastructure secrets ต้องอยู่ฝั่ง server
+- การสร้าง repository จาก `cvsz/ztemplate` สร้างเฉพาะพื้นฐาน repository ไม่ได้ยืนยัน production readiness ของแอปพลิเคชัน

@@ -163,19 +163,18 @@ The platform boundary remains extensible, but zWorkforce does not claim external
 infrastructure has been provisioned until credentials, accounts, controls,
 drills and sign-offs are recorded for the exact deployment.
 
-## Forward roadmap — ZEAZ Center Control Plane
+## แผนงานระยะถัดไป — ZEAZ Center Control Plane
 
-This is forward roadmap scope and is not a `v3.0.4` release blocker unless the
-governing release documents explicitly bind an item into that candidate.
+รายการนี้เป็นแผนงานระยะถัดไป และไม่ใช่ release blocker เว้นแต่เอกสาร release ที่มีอำนาจจะกำหนดให้เป็นส่วนหนึ่งของ candidate อย่างชัดเจน
 
-- [x] Define center-control-plane ownership, approval, evidence and mutation contract.
-- [x] Add machine-readable repository/hostname inventory schema and safe example.
-- [x] Reframe `apps/agent-control-panel` as the browser operator surface.
-- [ ] Implement read-only GitHub fleet inventory using least-privilege GitHub App installations.
-- [ ] Implement read-only Cloudflare desired/effective-state inventory from repository-owned Terraform plus provider read-back.
-- [ ] Implement zTemplate-backed repository generator preview.
-- [ ] Implement approved repository creation and safe baseline-sync pull requests.
-- [ ] Implement GitHub ruleset/security mutation proposals with compare-and-set verification.
-- [ ] Implement Cloudflare Terraform preview/digest/approval/apply pipeline through the owning repository.
-- [ ] Add production-readiness, backup/restore, rollback and DR evidence dashboards.
-- [ ] Add accessibility/browser E2E and role/tenant/session-revocation coverage for the control panel.
+- [x] กำหนดสัญญา ownership, approval, evidence และ mutation ของ control plane
+- [x] เพิ่ม schema สำหรับ inventory ของ repository/hostname และตัวอย่างที่ไม่มี secret
+- [x] กำหนด `apps/agent-control-panel` เป็นพื้นฐานหน้า operator ใน browser
+- [ ] ทำ read-only GitHub fleet inventory ด้วย GitHub App แบบ least privilege
+- [ ] ทำ read-only Cloudflare inventory จาก Terraform ที่ repository เป็นเจ้าของและข้อมูล provider ที่อ่านกลับมา
+- [ ] ทำ preview สำหรับ repository generator ที่ใช้ zTemplate
+- [ ] ทำการสร้าง repository และ pull request สำหรับ baseline sync หลังอนุมัติ
+- [ ] ทำ proposal สำหรับ GitHub ruleset/security mutation พร้อมตรวจ compare-and-set
+- [ ] ทำ pipeline สำหรับ Cloudflare Terraform preview/digest/approval/apply ผ่าน repository เจ้าของ
+- [ ] เพิ่ม dashboard หลักฐาน production readiness, backup/restore, rollback และ DR
+- [ ] เพิ่ม accessibility, browser E2E และการตรวจ role/tenant/session revocation

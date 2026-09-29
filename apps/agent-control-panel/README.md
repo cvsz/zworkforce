@@ -1,44 +1,40 @@
 # zWorkforce Agent Control Panel
 
-Next.js/React operator surface for the ZEAZ Center Control Plane.
+หน้า operator ที่พัฒนาด้วย Next.js/React สำหรับ ZEAZ Center Control Plane
 
-The browser is a **view and approval surface**. It must not receive GitHub App
-private keys, Cloudflare API tokens, provider credentials, database passwords,
-or other server-side secrets.
+Browser ใช้สำหรับแสดงข้อมูลและอนุมัติเท่านั้น ห้ามส่ง GitHub App private keys, Cloudflare API tokens, provider credentials, database passwords หรือ server-side secrets อื่นมายัง browser
 
-See [ZEAZ Center Control Plane](../../docs/CENTER-CONTROL-PLANE.md).
+ดูรายละเอียด contract ได้ที่ [ZEAZ Center Control Plane](../../docs/CENTER-CONTROL-PLANE.md)
 
-## Planned operator surfaces
+## หน้าสำหรับ operator ในแผนงาน
 
-- Overview / SLO / queue / workforce state
-- Repository fleet inventory
-- Repository generator
-- GitHub pull requests / Actions / security / releases
-- Cloudflare hostname ownership and desired/effective state
-- Production-readiness evidence
-- AI agents / skills / automations
-- Durable audit log
+- ภาพรวม SLO, queue และสถานะ workforce
+- inventory ของ repository
+- repository generator
+- GitHub pull requests, Actions, security และ releases
+- ownership ของ Cloudflare hostname และ desired/effective state
+- หลักฐาน production readiness
+- AI agents, skills และ automations
+- durable audit log
 
-Mutation-capable controls must use the control-plane proposal/approval/execution
-contract. The UI must not call privileged provider APIs directly.
+Control ที่เปลี่ยนแปลงระบบต้องใช้ contract แบบ proposal/approval/execution หน้า UI ห้ามเรียก provider API ที่มี privileged access โดยตรง
 
-## Dashboard theming
+## Theme ของ Dashboard
 
-The application remains Next.js/React-native.
+แอปยังใช้ Next.js/React ต่อไป
 
-AdminLTE may be adopted as an optional visual/design adapter, but it is not a
-required control-plane dependency. Any theme integration must preserve:
+อาจเพิ่ม AdminLTE เป็น visual/design adapter เสริมได้ แต่ไม่ใช่ dependency บังคับของ control plane การปรับ theme ต้องรักษาสิ่งต่อไปนี้:
 
-- Next.js routing and server/client boundaries;
-- accessible keyboard/focus behavior;
-- responsive layouts;
-- existing auth/RBAC boundaries;
-- testable loading/error/empty states;
-- no secret-bearing browser configuration.
+- Next.js routing และ server/client boundaries
+- keyboard/focus behavior ที่เข้าถึงได้
+- responsive layout
+- auth/RBAC boundaries ที่มีอยู่
+- loading/error/empty states ที่ทดสอบได้
+- ไม่มี configuration ที่บรรจุ secret ใน browser
 
-## Development
+## พัฒนาในเครื่อง
 
-Use the repository package manager:
+ใช้ package manager ของ repository:
 
 ```bash
 pnpm --filter agent-control-panel dev
@@ -46,5 +42,4 @@ pnpm --filter agent-control-panel lint
 pnpm --filter agent-control-panel build
 ```
 
-The local UI is not evidence that GitHub, Cloudflare, deployment, or production
-mutation permissions are configured.
+การรัน UI ในเครื่องไม่ได้ยืนยันว่ามีการตั้งค่า GitHub, Cloudflare, deployment หรือ production mutation permissions แล้ว

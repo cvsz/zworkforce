@@ -6,28 +6,35 @@
       "role": "control-plane",
       "edgeOwnership": true,
       "templateSource": "cvsz/ztemplate",
-      "readiness": "PARTIALLY VERIFIED"
+      "readinessGates": {
+        "production-evidence": {
+          "status": "UNVERIFIED"
+        }
+      }
     },
     {
       "name": "cvsz/ztemplate",
       "role": "template",
       "edgeOwnership": false,
       "templateSource": null,
-      "readiness": "VERIFIED"
+      "readinessGates": {
+        "foundation-review": {
+          "status": "UNVERIFIED"
+        }
+      }
     }
   ],
-  "hostnames": [
-    {
-      "hostname": "zwf.zeaz.dev",
+  "hostnames": {
+    "zwf.zeaz.dev": {
       "applicationRepository": "cvsz/zworkforce",
       "edgeOwnerRepository": "cvsz/zworkforce",
       "environment": "production",
-      "sourcePath": "infrastructure/terraform/cloudflare",
+      "sourcePath": "infrastructure/terraform/cloudflare/zworkforce.tf",
+      "sourceResourceAddress": "cloudflare_dns_record.zwf",
       "origin": null,
       "accessRequired": false,
-      "desiredState": "VERIFIED",
-      "effectiveState": "UNVERIFIED",
-      "evidenceReference": "docs/PRODUCTION-EVIDENCE.md"
+      "desiredState": "UNVERIFIED",
+      "effectiveState": "UNVERIFIED"
     }
-  ]
+  }
 }

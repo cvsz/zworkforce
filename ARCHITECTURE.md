@@ -118,14 +118,11 @@ voice gateway, queue, storage adapter or external integration is provisioned.
 - Database: deploy PostgreSQL using the operator's HA/PITR topology.
 
 
-## ZEAZ ecosystem center control plane
+## แผนสถาปัตยกรรม ZEAZ Center Control Plane
 
-zWorkforce is also the coordination layer for cross-repository ZEAZ operations.
-This layer does not replace application-repository ownership. It aggregates
-GitHub repository state, Cloudflare edge ownership, release evidence and
-repository-foundation drift into an operator control plane.
+zWorkforce มีแผนพัฒนาเป็นชั้นประสานงานสำหรับการปฏิบัติงานข้าม repository ในระบบ ZEAZ โดยไม่แทนที่ ownership ของ repository แอปพลิเคชัน ปัจจุบันมีเฉพาะ Phase 0 ได้แก่ contract, schema และตัวอย่าง inventory ยังไม่มี runtime ที่ aggregate สถานะ GitHub, Cloudflare, release evidence หรือ repository drift
 
-The canonical contract is [docs/CENTER-CONTROL-PLANE.md](docs/CENTER-CONTROL-PLANE.md).
+เอกสาร contract อยู่ที่ [docs/CENTER-CONTROL-PLANE.md](docs/CENTER-CONTROL-PLANE.md)
 
 ```text
                     Operator / OIDC
@@ -152,6 +149,4 @@ The canonical contract is [docs/CENTER-CONTROL-PLANE.md](docs/CENTER-CONTROL-PLA
            repository-owned mutation path
 ```
 
-Cross-repository or edge mutation must use explicit ownership plus
-proposal/approval/verification. A shared zone, broad credential or repository
-visibility is not mutation authority.
+เมื่อพัฒนา mutation ข้าม repository หรือ edge ในอนาคต ต้องใช้ ownership ที่ระบุชัด พร้อม proposal/approval/verification การอยู่ใน shared zone การมี credential ที่สิทธิ์กว้าง หรือการมองเห็น repository ไม่ได้ให้สิทธิ์ mutation
