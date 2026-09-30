@@ -252,6 +252,27 @@ Result: BLOCKED
 Artifact/reference: operator must retain rerun output without secrets
 ```
 
+### Stage F rerun command
+
+Use the intended Supabase project only. Secrets remain in the operator secret boundary:
+
+```bash
+export FROZEN_CANDIDATE="$(git rev-parse origin/main)"
+export SUPABASE_EXPECTED_PROJECT_REF=qhprcfdgajhmdzvnsffb
+export SUPABASE_S3_ENDPOINT=https://qhprcfdgajhmdzvnsffb.storage.supabase.co/storage/v1/s3
+export SUPABASE_S3_BUCKET=zworkforce
+export SUPABASE_S3_REGION=ap-northeast-1
+export SUPABASE_S3_ACCESS_KEY='<from secret manager>'
+export SUPABASE_S3_SECRET_KEY='<from secret manager>'
+
+./scripts/close-zworkforce-external-gates.sh F
+```
+
+A valid PASS now fails closed unless the endpoint host/path matches the intended
+project, verifies Put/Get/SHA-256/delete behavior, and writes a candidate-bound
+JSON evidence file plus its SHA-256 under `.release-evidence-logs/`.
+Do not commit the credentials or local evidence directory.
+
 ## Stage G — observability and SLO evidence
 
 Status: **PARTIAL / FAIL — current scrape targets and Alertmanager readiness were observed, but exact-candidate synthetic trace correlation and receipt-capable alert delivery are incomplete.**
