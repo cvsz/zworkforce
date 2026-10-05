@@ -57,6 +57,26 @@ export class ZcApiClient {
     return response.json() as Promise<T>;
   }
 
+  private async listAll<T>(path: string, query = new URLSearchParams()): Promise<T[]> {
+    const pageSize = 200;
+    const results: T[] = [];
+    let offset = 0;
+    let total = Number.POSITIVE_INFINITY;
+
+    query.set("limit", String(pageSize));
+    while (offset < total) {
+      query.set("offset", String(offset));
+      const page = await this.request<Page<T>>(`${path}?${query.toString()}`);
+      results.push(...page.data);
+      total = page.meta.total;
+
+      const nextOffset = page.meta.offset + page.meta.limit;
+      if (!page.data.length || nextOffset <= offset) break;
+      offset = nextOffset;
+    }
+    return results;
+  }
+
   async listSessions(): Promise<ChatSession[]> {
     return (await this.request<Page<ChatSession>>("/v1/chat/sessions")).data;
   }
@@ -110,7 +130,7 @@ export class ZcApiClient {
   }
 
   async listProjects(): Promise<ProjectRecord[]> {
-    return (await this.request<Page<ProjectRecord>>("/v1/projects?limit=100")).data;
+    return this.listAll<ProjectRecord>("/v1/projects");
   }
 
   async getProject(id: string): Promise<ProjectRecord> {
@@ -146,9 +166,9 @@ export class ZcApiClient {
   }
 
   async listArtifacts(projectId?: string): Promise<ArtifactRecord[]> {
-    const query = new URLSearchParams({ limit: "100" });
+    const query = new URLSearchParams();
     if (projectId) query.set("project_id", projectId);
-    return (await this.request<Page<ArtifactRecord>>(`/v1/artifacts?${query.toString()}`)).data;
+    return this.listAll<ArtifactRecord>("/v1/artifacts", query);
   }
 
   async createArtifact(input: {
@@ -166,10 +186,10 @@ export class ZcApiClient {
     })).data;
   }
 
-  async iterateArtifact(id: string, feedback: string, model?: string): Promise<ArtifactRecord> {
+  async iterateArtifact(id: string, feedback: string, model?: string, sourceVersion?: number): Promise<ArtifactRecord> {
     return (await this.request<Envelope<ArtifactRecord>>(`/v1/artifacts/${encodeURIComponent(id)}/versions`, {
       method: "POST",
-      body: JSON.stringify({ feedback, model: model || undefined }),
+      body: JSON.stringify({ feedback, model: model || undefined, source_version: sourceVersion }),
     })).data;
   }
 

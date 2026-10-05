@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { ZcApiClient, ZcApiError } from "../api";
 import { Markdown } from "./Markdown";
 import type { ProjectRecord, ProjectTask, ResponseOptions } from "../types";
@@ -6,6 +6,7 @@ import type { ProjectRecord, ProjectTask, ResponseOptions } from "../types";
 interface ProjectWorkspaceProps {
   api: ZcApiClient;
   models: string[];
+  agents: string[];
   options: ResponseOptions;
   onOpenArtifacts: (artifactId: string) => void;
   onOpenSettings: () => void;
@@ -29,13 +30,15 @@ function label(value: string) {
   return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-export function ProjectWorkspace({ api, models, options, onOpenArtifacts, onOpenSettings }: ProjectWorkspaceProps) {
+export function ProjectWorkspace({ api, models, agents, options, onOpenArtifacts, onOpenSettings }: ProjectWorkspaceProps) {
   const [projects, setProjects] = useState<ProjectRecord[]>([]);
   const [active, setActive] = useState<ProjectRecord | null>(null);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [planning, setPlanning] = useState(false);
   const [runningTask, setRunningTask] = useState(false);
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [creatingTask, setCreatingTask] = useState(false);
   const [savingArtifact, setSavingArtifact] = useState(false);
   const [error, setError] = useState("");
   const [projectDialog, setProjectDialog] = useState(false);
@@ -45,8 +48,10 @@ export function ProjectWorkspace({ api, models, options, onOpenArtifacts, onOpen
   const [projectTemplate, setProjectTemplate] = useState("blank");
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
-  const [taskAgent, setTaskAgent] = useState("code_generator");
+  const [taskAgent, setTaskAgent] = useState("");
   const [taskPriority, setTaskPriority] = useState<ProjectTask["priority"]>("medium");
+  const projectSubmitLock = useRef(false);
+  const taskSubmitLock = useRef(false);
 
   const reportError = (caught: unknown, fallback: string) => {
     if (caught instanceof ZcApiError && caught.status === 401) {
@@ -79,6 +84,10 @@ export function ProjectWorkspace({ api, models, options, onOpenArtifacts, onOpen
     void loadProjects();
   }, []); // Load the project index once when this view opens.
 
+  useEffect(() => {
+    if (!agents.includes(taskAgent)) setTaskAgent(agents[0] ?? "");
+  }, [agents, taskAgent]);
+
   const selectedTask = useMemo(
     () => active?.tasks.find((task) => task.id === activeTaskId) ?? null,
     [active, activeTaskId],
@@ -91,6 +100,10 @@ export function ProjectWorkspace({ api, models, options, onOpenArtifacts, onOpen
 
   const createProject = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (projectSubmitLock.current) return;
+    projectSubmitLock.current = true;
+    setCreatingProject(true);
+    setError("");
     try {
       const project = await api.createProject({
         name: projectName.trim(),
@@ -106,6 +119,9 @@ export function ProjectWorkspace({ api, models, options, onOpenArtifacts, onOpen
       setError("");
     } catch (caught) {
       reportError(caught, "Unable to create project.");
+    } finally {
+      projectSubmitLock.current = false;
+      setCreatingProject(false);
     }
   };
 
@@ -126,25 +142,30 @@ export function ProjectWorkspace({ api, models, options, onOpenArtifacts, onOpen
 
   const createTask = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!active) return;
+    if (!active || taskSubmitLock.current) return;
+    taskSubmitLock.current = true;
+    setCreatingTask(true);
+    setError("");
     try {
-      await api.createProjectTask(active.id, {
+      const task = await api.createProjectTask(active.id, {
         title: taskTitle.trim(),
         description: taskDescription.trim(),
         agent: taskAgent,
         priority: taskPriority,
       });
-      const project = await api.getProject(active.id);
-      replaceProject(project);
-      setActiveTaskId(project.tasks[project.tasks.length - 1]?.id ?? null);
+      replaceProject({ ...active, tasks: [...active.tasks, task] });
+      setActiveTaskId(task.id);
       setTaskDialog(false);
       setTaskTitle("");
       setTaskDescription("");
-      setTaskAgent("code_generator");
+      setTaskAgent(agents[0] ?? "");
       setTaskPriority("medium");
       setError("");
     } catch (caught) {
       reportError(caught, "Unable to add task.");
+    } finally {
+      taskSubmitLock.current = false;
+      setCreatingTask(false);
     }
   };
 
@@ -196,7 +217,7 @@ export function ProjectWorkspace({ api, models, options, onOpenArtifacts, onOpen
             <p>{active.description || "Add project context to keep the work focused."}</p>
           </div>
           <div className="heading-actions">
-            <button className="button-secondary" onClick={() => void createPlan()} disabled={planning || !models.length}>
+            <button className="button-secondary" onClick={() => void createPlan()} disabled={planning}>
               {planning ? <><span className="spinner" /> Planning…</> : "✦ Plan with agent"}
             </button>
             <button className="button-primary" onClick={() => setTaskDialog(true)}>＋ Add task</button>
@@ -250,11 +271,11 @@ export function ProjectWorkspace({ api, models, options, onOpenArtifacts, onOpen
                 ) : (
                   <div className="result-placeholder"><span className="result-glyph">↳</span><strong>Ready for an agent run</strong><span>The agent will return a saved result for this task.</span></div>
                 )}
-                <button className="button-primary run-task-button" onClick={() => void runTask()} disabled={runningTask || !models.length}>
+                <button className="button-primary run-task-button" onClick={() => void runTask()} disabled={runningTask}>
                   {runningTask ? <><span className="spinner" /> Running task…</> : selectedTask.status === "done" ? "↻ Run again" : "▶ Run with ZCoder"}
                 </button>
                 <p className="field-hint">Runs return an AI result and don’t edit repository files from this screen.</p>
-                {!models.length && <p className="field-hint">Connect to the ZC API to load models and run tasks.</p>}
+                {!models.length && <p className="field-hint">No model selected; the ZC API will use its configured default.</p>}
               </>
             ) : (
               <div className="detail-empty"><span className="detail-empty-icon">⌁</span><strong>Select a task</strong><span>Choose a task to review its instructions and agent result.</span></div>
@@ -275,13 +296,15 @@ export function ProjectWorkspace({ api, models, options, onOpenArtifacts, onOpen
         )}
 
         {taskDialog && (
-          <div className="modal-backdrop" onMouseDown={() => setTaskDialog(false)}>
+          <div className="modal-backdrop" onMouseDown={() => { if (!creatingTask) setTaskDialog(false); }}>
             <form className="modal-card" onSubmit={(event) => void createTask(event)} onMouseDown={(event) => event.stopPropagation()}>
-              <div className="modal-title"><div><span className="eyebrow">Project plan</span><h2>Add a task</h2></div><button type="button" className="icon-button" onClick={() => setTaskDialog(false)} aria-label="Close">×</button></div>
+              <div className="modal-title"><div><span className="eyebrow">Project plan</span><h2>Add a task</h2></div><button type="button" className="icon-button" onClick={() => setTaskDialog(false)} aria-label="Close" disabled={creatingTask}>×</button></div>
+              {error && <div className="inline-error" role="alert"><span>{error}</span><button type="button" onClick={() => setError("")} aria-label="Dismiss error">×</button></div>}
               <label>Task title<input value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} maxLength={300} required autoFocus placeholder="Implement sign-in flow" /></label>
               <label>Instructions<textarea value={taskDescription} onChange={(event) => setTaskDescription(event.target.value)} rows={4} maxLength={20_000} placeholder="Describe the outcome and constraints" /></label>
-              <div className="form-pair"><label>Agent<select value={taskAgent} onChange={(event) => setTaskAgent(event.target.value)}><option value="code_generator">Code generator</option><option value="code_reviewer">Code reviewer</option><option value="testing_agent">Testing agent</option><option value="documentation_agent">Documentation agent</option><option value="security_auditor">Security auditor</option><option value="full_stack">Full stack</option></select></label><label>Priority<select value={taskPriority} onChange={(event) => setTaskPriority(event.target.value as ProjectTask["priority"])}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="critical">Critical</option></select></label></div>
-              <div className="modal-actions"><button type="button" className="button-secondary" onClick={() => setTaskDialog(false)}>Cancel</button><button type="submit" className="button-primary">Add task</button></div>
+              <div className="form-pair"><label>Agent<select value={taskAgent} onChange={(event) => setTaskAgent(event.target.value)} disabled={!agents.length || creatingTask}>{agents.map((agent) => <option key={agent} value={agent}>{label(agent)}</option>)}</select></label><label>Priority<select value={taskPriority} onChange={(event) => setTaskPriority(event.target.value as ProjectTask["priority"])} disabled={creatingTask}><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="critical">Critical</option></select></label></div>
+              {!agents.length && <p className="field-hint">No agent capabilities were discovered from the ZC API yet.</p>}
+              <div className="modal-actions"><button type="button" className="button-secondary" onClick={() => setTaskDialog(false)} disabled={creatingTask}>Cancel</button><button type="submit" className="button-primary" disabled={creatingTask || !taskAgent}>{creatingTask ? <><span className="spinner" /> Adding…</> : "Add task"}</button></div>
             </form>
           </div>
         )}
@@ -313,13 +336,14 @@ export function ProjectWorkspace({ api, models, options, onOpenArtifacts, onOpen
       )}
 
       {projectDialog && (
-        <div className="modal-backdrop" onMouseDown={() => setProjectDialog(false)}>
+        <div className="modal-backdrop" onMouseDown={() => { if (!creatingProject) setProjectDialog(false); }}>
           <form className="modal-card" onSubmit={(event) => void createProject(event)} onMouseDown={(event) => event.stopPropagation()}>
-            <div className="modal-title"><div><span className="eyebrow">ZCoder workspace</span><h2>New project</h2></div><button type="button" className="icon-button" onClick={() => setProjectDialog(false)} aria-label="Close">×</button></div>
+            <div className="modal-title"><div><span className="eyebrow">ZCoder workspace</span><h2>New project</h2></div><button type="button" className="icon-button" onClick={() => setProjectDialog(false)} aria-label="Close" disabled={creatingProject}>×</button></div>
+            {error && <div className="inline-error" role="alert"><span>{error}</span><button type="button" onClick={() => setError("")} aria-label="Dismiss error">×</button></div>}
             <label>Project name<input value={projectName} onChange={(event) => setProjectName(event.target.value)} maxLength={200} required autoFocus placeholder="Website redesign" /></label>
             <label>Goal and context<textarea value={projectDescription} onChange={(event) => setProjectDescription(event.target.value)} rows={4} maxLength={20_000} placeholder="What should the agent help you deliver?" /></label>
             <label>Starting template<select value={projectTemplate} onChange={(event) => setProjectTemplate(event.target.value)}>{TEMPLATES.map(([value, name]) => <option value={value} key={value}>{name}</option>)}</select></label>
-            <div className="modal-actions"><button type="button" className="button-secondary" onClick={() => setProjectDialog(false)}>Cancel</button><button type="submit" className="button-primary">Create project</button></div>
+            <div className="modal-actions"><button type="button" className="button-secondary" onClick={() => setProjectDialog(false)} disabled={creatingProject}>Cancel</button><button type="submit" className="button-primary" disabled={creatingProject}>{creatingProject ? <><span className="spinner" /> Creating…</> : "Create project"}</button></div>
           </form>
         </div>
       )}

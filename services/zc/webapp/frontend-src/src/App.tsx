@@ -68,6 +68,7 @@ export default function App() {
   const [artifactToOpen, setArtifactToOpen] = useState<string | null>(null);
   const controller = useRef<AbortController | null>(null);
   const transcript = useRef<HTMLDivElement>(null);
+  const didBootstrapDiscovery = useRef(false);
 
   useEffect(() => { tokenRef.current = token; }, [token]);
 
@@ -90,14 +91,6 @@ export default function App() {
     }
   }, [active, api]);
 
-  useEffect(() => {
-    void Promise.all([
-      readPreference<ResponseOptions>("response-options", DEFAULT_OPTIONS).then(setOptions),
-      readPreference<string>("draft", "").then(setDraft),
-    ]);
-    void refresh();
-  }, []); // The initial chat bootstrap intentionally runs once.
-
   useEffect(() => { void writePreference("draft", draft); }, [draft]);
   useEffect(() => { void writePreference("response-options", options); }, [options]);
   useEffect(() => {
@@ -115,11 +108,22 @@ export default function App() {
       setApiReady(false);
       if (caught instanceof ZcApiError && caught.status === 401) {
         setError("The application token was not accepted. Check it in Workspace settings.");
+        setSettingsOpen(true);
       } else {
         setError(caught instanceof Error ? caught.message : "Unable to connect to ZCoder.");
       }
     }
   }, [api, refresh]);
+
+  useEffect(() => {
+    if (didBootstrapDiscovery.current) return;
+    didBootstrapDiscovery.current = true;
+    void Promise.all([
+      readPreference<ResponseOptions>("response-options", DEFAULT_OPTIONS).then(setOptions),
+      readPreference<string>("draft", "").then(setDraft),
+    ]);
+    void loadDiscovery();
+  }, [loadDiscovery]); // Bootstrap sessions and server capabilities once.
 
   const createSession = async () => {
     setView("chat");
@@ -317,7 +321,7 @@ export default function App() {
             </div>
           </>
         ) : view === "projects" ? (
-          <ProjectWorkspace key={apiReady ? "authenticated" : "waiting-for-token"} api={api} models={models} options={options} onOpenArtifacts={(id) => { setArtifactToOpen(id); setView("artifacts"); }} onOpenSettings={() => setSettingsOpen(true)} />
+          <ProjectWorkspace key={apiReady ? "authenticated" : "waiting-for-token"} api={api} models={models} agents={capabilities.agents} options={options} onOpenArtifacts={(id) => { setArtifactToOpen(id); setView("artifacts"); }} onOpenSettings={() => setSettingsOpen(true)} />
         ) : (
           <ArtifactsWorkspace key={apiReady ? "authenticated" : "waiting-for-token"} api={api} models={models} options={options} onOpenSettings={() => setSettingsOpen(true)} initialArtifactId={artifactToOpen ?? undefined} onArtifactOpened={() => setArtifactToOpen(null)} />
         )}
