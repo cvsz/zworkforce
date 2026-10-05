@@ -240,6 +240,7 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "moopiew" {
   config = {
     ingress = concat(
       local.shared_tunnel_ingress,
+      local.zwsl_ingress,
       local.zneon_ingress,
       local.zworkforce_ingress,
       local.zeaz_one_ingress,
