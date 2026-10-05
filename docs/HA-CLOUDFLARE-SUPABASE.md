@@ -245,3 +245,18 @@ Create a protected GitHub Environment named `production` and set these secrets:
 - **Do not point `ha-b.zeaz.dev` at Supabase.** It must resolve to VM-B's zWorkforce API runtime.
 - **Do not place `ha-a`, `ha-b`, `obs` in the Cloudflare Tunnel ingress.** They are private A records for internal operator access and observability only.
 - **Runtime HA is not achieved by making Supabase an HTTP origin.** The secondary pool must be another zWorkforce runtime implementing the same API and health contract.
+
+## Supabase Stage F project binding
+
+External Stage F storage verification is pinned to the intended Supabase
+project instead of accepting an arbitrary S3-compatible endpoint.
+
+```bash
+SUPABASE_EXPECTED_PROJECT_REF=qhprcfdgajhmdzvnsffb
+SUPABASE_S3_ENDPOINT=https://qhprcfdgajhmdzvnsffb.storage.supabase.co/storage/v1/s3
+./scripts/close-zworkforce-external-gates.sh F
+```
+
+The verifier rejects non-HTTPS endpoints, a different project hostname, or a
+path other than `/storage/v1/s3`. Credentials remain external and are never
+written to the evidence JSON.

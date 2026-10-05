@@ -34,7 +34,8 @@
       "origin": null,
       "accessRequired": false,
       "desiredState": "UNVERIFIED",
-      "effectiveState": "UNVERIFIED"
+      "effectiveState": "UNVERIFIED",
+      "tunnelReference": "cloudflare_tunnel.zeaz_shared"
     }
   }
 }
