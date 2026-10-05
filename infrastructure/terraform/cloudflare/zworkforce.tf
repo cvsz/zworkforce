@@ -2,6 +2,28 @@
 # zWorkforce & ZSP Studio Cloudflare Stack Specification (*.zeaz.dev)
 # ==============================================================================
 
+variable "zwsl_hostname" {
+  type        = string
+  default     = "zwsl.zeaz.dev"
+  description = "Public hostname for the zwslcore Provider and Open WebUI stack."
+
+  validation {
+    condition     = endswith(lower(var.zwsl_hostname), ".${lower(var.zone_name)}")
+    error_message = "zwsl_hostname must be a subdomain of zone_name."
+  }
+}
+
+variable "zwsl_origin" {
+  type        = string
+  default     = "http://127.0.0.1:80"
+  description = "Loopback Caddy origin routing zwslcore paths to its private services."
+
+  validation {
+    condition     = var.zwsl_origin == "http://127.0.0.1:80"
+    error_message = "zwsl_origin must use the reviewed loopback Caddy proxy at http://127.0.0.1:80."
+  }
+}
+
 variable "zwf_hostname" {
   type        = string
   default     = "zwf.zeaz.dev"
@@ -127,6 +149,10 @@ variable "zider_origin" {
 # DNS declarations prevents the local cloudflared manifest and managed tunnel
 # configuration from silently diverging.
 locals {
+  zwsl_ingress = [
+    { hostname = var.zwsl_hostname, service = var.zwsl_origin },
+  ]
+
   zworkforce_ingress = [
     { hostname = var.zwf_hostname, service = var.zwf_origin },
     { hostname = var.zwf_api_hostname, service = var.zwf_origin },
@@ -145,6 +171,16 @@ locals {
     { hostname = var.obs_hostname, service = "http://${var.obs_ip}:9456" },
     { hostname = var.core_hostname, service = "http://${var.core_ip}:80" },
   ]
+}
+
+resource "cloudflare_dns_record" "zwsl" {
+  zone_id = var.cloudflare_zone_id
+  name    = var.zwsl_hostname
+  type    = "CNAME"
+  content = local.tunnel_cname
+  ttl     = 1
+  proxied = true
+  comment = "zwslcore Provider and Open WebUI via the existing Cloudflare Tunnel"
 }
 
 resource "cloudflare_dns_record" "zwf" {
@@ -248,6 +284,11 @@ resource "cloudflare_dns_record" "license" {
   ttl     = 1
   proxied = true
   comment = "First-party ZeaZ License Server via Cloudflare Tunnel"
+}
+
+output "zwsl_url" {
+  value       = "https://${var.zwsl_hostname}"
+  description = "Public zwslcore Provider and Open WebUI URL after DNS and tunnel routing are active."
 }
 
 output "zwf_url" {

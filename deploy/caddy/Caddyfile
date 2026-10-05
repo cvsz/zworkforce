@@ -24,6 +24,65 @@ http://chat.zeaz.dev:8080, http://chat.zeaz.dev:80 {
 	}
 }
 
+http://zwsl.zeaz.dev:80 {
+	bind 127.0.0.1
+
+	header {
+		-Server
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	@zwsl_provider_api path /api/v1/models /api/v1/chat/completions /api/v1/messages /api/v1/responses
+	@zwsl_data path /data /data/*
+	@zwsl_auth path /auth /auth/*
+
+	route {
+		handle @zwsl_provider_api {
+			uri strip_prefix /api
+			reverse_proxy 127.0.0.1:18086 {
+				header_up Host {http.request.host}
+				header_up X-Forwarded-Proto https
+				header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+				header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+				flush_interval -1
+			}
+		}
+
+		handle @zwsl_data {
+			uri replace /data /api/v1/files 1
+			reverse_proxy 127.0.0.1:18087 {
+				header_up Host {http.request.host}
+				header_up X-Forwarded-Proto https
+				header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+				header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+				header_down Cache-Control "no-store"
+				flush_interval -1
+			}
+		}
+
+		handle @zwsl_auth {
+			uri replace /auth /api/v1/auths 1
+			reverse_proxy 127.0.0.1:18087 {
+				header_up Host {http.request.host}
+				header_up X-Forwarded-Proto https
+				header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+				header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+				header_down Cache-Control "no-store"
+				flush_interval -1
+			}
+		}
+
+		reverse_proxy 127.0.0.1:18087 {
+			header_up Host {http.request.host}
+			header_up X-Forwarded-Proto https
+			header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+			flush_interval -1
+		}
+	}
+}
+
 http://nextchat.zeaz.dev:8080, http://nextchat.zeaz.dev:80 {
 	bind 127.0.0.1
 	reverse_proxy 127.0.0.1:3000 {
@@ -175,7 +234,6 @@ http://cme.zeaz.dev:80 {
 	}
 }
 
-
 http://ggtmoni.zeaz.dev:80 {
 	bind 127.0.0.1
 
@@ -239,5 +297,3 @@ http://zany.zeaz.dev:8080, http://zany.zeaz.dev:80 {
 		header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
 	}
 }
-
-

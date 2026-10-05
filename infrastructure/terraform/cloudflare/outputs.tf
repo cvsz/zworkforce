@@ -76,6 +76,7 @@ output "license_url" {
 output "cloudflared_ingress" {
   value = concat(
     local.shared_tunnel_ingress,
+    local.zwsl_ingress,
     local.zneon_ingress,
     local.zworkforce_ingress,
     local.zeaz_one_ingress,

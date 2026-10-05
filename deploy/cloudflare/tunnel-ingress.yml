@@ -28,6 +28,10 @@ ingress:
   - hostname: zider.zeaz.dev
     service: http://127.0.0.1:8085
 
+  # zwslcore path gateway served by the loopback Caddy listener
+  - hostname: zwsl.zeaz.dev
+    service: http://127.0.0.1:80
+
   # 5. OpenWebUI Multi-Model AI Interface
   - hostname: chat.zeaz.dev
     service: http://127.0.0.1:8080
