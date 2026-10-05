@@ -4,6 +4,9 @@ interface ComposerProps {
   value: string;
   busy: boolean;
   disabled: boolean;
+  agent?: string;
+  model?: string;
+  onOpenSettings: () => void;
   onChange: (value: string) => void;
   onSubmit: () => void;
   onStop: () => void;
@@ -13,6 +16,9 @@ export function Composer({
   value,
   busy,
   disabled,
+  agent,
+  model,
+  onOpenSettings,
   onChange,
   onSubmit,
   onStop,
@@ -41,7 +47,7 @@ export function Composer({
           disabled={disabled}
           rows={1}
           maxLength={200_000}
-          placeholder="Ask zc to build, review, explain, or investigate…"
+          placeholder="Ask ZCoder to build, review, explain, or investigate…"
           aria-label="Message"
         />
         {busy ? (
@@ -59,7 +65,13 @@ export function Composer({
           </button>
         )}
       </div>
-      <p>Enter to send · Shift + Enter for a new line</p>
+      <div className="composer-foot">
+        <div className="composer-context">
+          <button onClick={onOpenSettings}><span className="context-mark">◈</span>{agent || "General agent"}<span>⌄</span></button>
+          <button onClick={onOpenSettings}>{model || "Default model"}<span>⌄</span></button>
+        </div>
+        <p>Enter to send <span>·</span> Shift + Enter for a new line</p>
+      </div>
     </div>
   );
 }

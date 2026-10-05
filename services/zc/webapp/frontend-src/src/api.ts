@@ -1,8 +1,11 @@
 import type {
   Capabilities,
+  ArtifactRecord,
   ChatSession,
+  ProjectRecord,
   ResponseOptions,
   StreamEvent,
+  ProjectTask,
 } from "./types";
 
 interface Envelope<T> {
@@ -104,6 +107,77 @@ export class ZcApiClient {
     return (
       await this.request<Envelope<Capabilities>>("/v1/ai/capabilities")
     ).data;
+  }
+
+  async listProjects(): Promise<ProjectRecord[]> {
+    return (await this.request<Page<ProjectRecord>>("/v1/projects?limit=100")).data;
+  }
+
+  async getProject(id: string): Promise<ProjectRecord> {
+    return (await this.request<Envelope<ProjectRecord>>(`/v1/projects/${encodeURIComponent(id)}`)).data;
+  }
+
+  async createProject(input: { name: string; description: string; template: string }): Promise<ProjectRecord> {
+    return (await this.request<Envelope<ProjectRecord>>("/v1/projects", {
+      method: "POST",
+      body: JSON.stringify(input),
+    })).data;
+  }
+
+  async planProject(id: string, model?: string): Promise<ProjectRecord> {
+    return (await this.request<Envelope<ProjectRecord>>(`/v1/projects/${encodeURIComponent(id)}/plans`, {
+      method: "POST",
+      body: JSON.stringify({ model: model || undefined }),
+    })).data;
+  }
+
+  async createProjectTask(id: string, input: Pick<ProjectTask, "title" | "description" | "agent" | "priority">): Promise<ProjectTask> {
+    return (await this.request<Envelope<ProjectTask>>(`/v1/projects/${encodeURIComponent(id)}/tasks`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    })).data;
+  }
+
+  async runProjectTask(id: string, taskId: string, model?: string): Promise<ProjectTask> {
+    return (await this.request<Envelope<ProjectTask>>(
+      `/v1/projects/${encodeURIComponent(id)}/tasks/${encodeURIComponent(taskId)}/runs`,
+      { method: "POST", body: JSON.stringify({ model: model || undefined }) },
+    )).data;
+  }
+
+  async listArtifacts(projectId?: string): Promise<ArtifactRecord[]> {
+    const query = new URLSearchParams({ limit: "100" });
+    if (projectId) query.set("project_id", projectId);
+    return (await this.request<Page<ArtifactRecord>>(`/v1/artifacts?${query.toString()}`)).data;
+  }
+
+  async createArtifact(input: {
+    name: string;
+    artifact_type: ArtifactRecord["artifact_type"];
+    language?: string;
+    content?: string;
+    prompt?: string;
+    project_id?: string;
+    model?: string;
+  }): Promise<ArtifactRecord> {
+    return (await this.request<Envelope<ArtifactRecord>>("/v1/artifacts", {
+      method: "POST",
+      body: JSON.stringify(input),
+    })).data;
+  }
+
+  async iterateArtifact(id: string, feedback: string, model?: string): Promise<ArtifactRecord> {
+    return (await this.request<Envelope<ArtifactRecord>>(`/v1/artifacts/${encodeURIComponent(id)}/versions`, {
+      method: "POST",
+      body: JSON.stringify({ feedback, model: model || undefined }),
+    })).data;
+  }
+
+  async artifactDiff(id: string, fromVersion: number, toVersion: number): Promise<string> {
+    const query = new URLSearchParams({ from_version: String(fromVersion), to_version: String(toVersion) });
+    return (await this.request<Envelope<{ diff: string }>>(
+      `/v1/artifacts/${encodeURIComponent(id)}/diff?${query.toString()}`,
+    )).data.diff;
   }
 
   async streamResponse(
