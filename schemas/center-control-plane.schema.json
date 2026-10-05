@@ -4,11 +4,15 @@
   "title": "ทะเบียน ZEAZ Center Control Plane",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "repositories", "hostnames"],
+  "required": [
+    "version",
+    "repositories",
+    "hostnames"
+  ],
   "properties": {
     "version": {
       "type": "integer",
-      "minimum": 1
+      "const": 1
     },
     "repositories": {
       "type": "array",
@@ -54,7 +58,11 @@
           "description": "Git commit SHA แบบเต็มของสิ่งที่ตรวจสอบ"
         },
         "environment": {
-          "enum": ["development", "staging", "production"]
+          "enum": [
+            "development",
+            "staging",
+            "production"
+          ]
         },
         "observedAt": {
           "type": "string",
@@ -77,7 +85,9 @@
     "readinessGate": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["status"],
+      "required": [
+        "status"
+      ],
       "properties": {
         "status": {
           "$ref": "#/$defs/evidenceState"
@@ -92,16 +102,25 @@
             "const": "VERIFIED"
           }
         },
-        "required": ["status"]
+        "required": [
+          "status"
+        ]
       },
       "then": {
-        "required": ["evidence"]
+        "required": [
+          "evidence"
+        ]
       }
     },
     "repository": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "role", "edgeOwnership", "readinessGates"],
+      "required": [
+        "name",
+        "role",
+        "edgeOwnership",
+        "readinessGates"
+      ],
       "properties": {
         "name": {
           "type": "string",
@@ -121,7 +140,10 @@
           "type": "boolean"
         },
         "templateSource": {
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "readinessGates": {
           "type": "object",
@@ -157,7 +179,11 @@
           "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
         },
         "environment": {
-          "enum": ["development", "staging", "production"]
+          "enum": [
+            "development",
+            "staging",
+            "production"
+          ]
         },
         "sourcePath": {
           "type": "string",
@@ -168,7 +194,10 @@
           "minLength": 1
         },
         "origin": {
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "accessRequired": {
           "type": "boolean",
@@ -182,6 +211,13 @@
         },
         "evidence": {
           "$ref": "#/$defs/evidence"
+        },
+        "tunnelReference": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
         }
       },
       "if": {
@@ -192,7 +228,9 @@
                 "const": "VERIFIED"
               }
             },
-            "required": ["desiredState"]
+            "required": [
+              "desiredState"
+            ]
           },
           {
             "properties": {
@@ -200,13 +238,109 @@
                 "const": "VERIFIED"
               }
             },
-            "required": ["effectiveState"]
+            "required": [
+              "effectiveState"
+            ]
           }
         ]
       },
       "then": {
-        "required": ["evidence"]
-      }
+        "required": [
+          "evidence"
+        ]
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "environment": {
+                "const": "development"
+              }
+            },
+            "required": [
+              "environment"
+            ]
+          },
+          "then": {
+            "properties": {
+              "evidence": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/evidence"
+                  },
+                  {
+                    "properties": {
+                      "environment": {
+                        "const": "development"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "environment": {
+                "const": "staging"
+              }
+            },
+            "required": [
+              "environment"
+            ]
+          },
+          "then": {
+            "properties": {
+              "evidence": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/evidence"
+                  },
+                  {
+                    "properties": {
+                      "environment": {
+                        "const": "staging"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "environment": {
+                "const": "production"
+              }
+            },
+            "required": [
+              "environment"
+            ]
+          },
+          "then": {
+            "properties": {
+              "evidence": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/evidence"
+                  },
+                  {
+                    "properties": {
+                      "environment": {
+                        "const": "production"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }
