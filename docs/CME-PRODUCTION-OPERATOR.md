@@ -5,7 +5,8 @@ zWorkforce owns the external `zeaz.dev` edge and production evidence for CMe. Th
 ## Edge contract
 
 - Public host: `cme.zeaz.dev`
-- Managed DNS: `infrastructure/terraform/cloudflare/cme.tf`
+- Managed DNS: existing `cloudflare_dns_record.cmeerp` in `infrastructure/terraform/cloudflare/main.tf`; do not duplicate its Terraform state address
+- Cloudflare Access protection: `infrastructure/terraform/cloudflare/cme.tf`
 - Tunnel ingress: `deploy/cloudflare/tunnel-ingress.yml`
 - Reviewed loopback origin: `http://127.0.0.1:8001`
 
@@ -17,9 +18,9 @@ Do not place CMe database credentials, session secrets or Cloudflare credentials
 2. Run Terraform plan from the Cloudflare stack with operator credentials and retain the plan artifact.
 3. Obtain explicit production-change approval before applying Cloudflare mutations.
 4. Deploy the exact CMe artifact to the reviewed loopback origin.
-5. Write the immutable deployed commit/image digest to an operator-controlled release evidence file.
-6. Run:
-   `python3 scripts/verify-cme-production.py --expected-release <digest-or-sha> --release-file <path> --output <evidence.json>`
+5. Expose immutable deployed commit/image identity from a runtime/deployment metadata endpoint that returns JSON `{\"release\": \"<digest-or-sha>\"}` and is bound to the serving deployment, not an operator-written file.
+6. Run with a new output path for every attempt:
+   `python3 scripts/verify-cme-production.py --expected-release <digest-or-sha> --runtime-release-url <https-runtime-metadata-url> --output <immutable-evidence.json>`
 7. Retain the JSON evidence with operator identity, Terraform plan/apply reference, deployment reference and alert receipt.
 8. Exercise rollback to the prior immutable artifact, repeat verification, measure recovery time, then restore the intended artifact and verify again.
 
