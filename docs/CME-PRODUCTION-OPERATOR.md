@@ -16,13 +16,15 @@ Do not place CMe database credentials, session secrets or Cloudflare credentials
 
 1. Freeze the exact CMe commit/image digest to deploy.
 2. Run Terraform plan from the Cloudflare stack with operator credentials and retain the plan artifact.
-3. Obtain explicit production-change approval before applying Cloudflare mutations.
-4. Deploy the exact CMe artifact to the reviewed loopback origin.
-5. Expose immutable deployed commit/image identity from a runtime/deployment metadata endpoint that returns JSON `{\"release\": \"<digest-or-sha>\"}` and is bound to the serving deployment, not an operator-written file.
-6. Run with a new output path for every attempt:
+3. Obtain explicit production-change approval for the saved Terraform plan/digest before applying Cloudflare mutations.
+4. Apply exactly the approved saved Terraform plan, retain the apply result, and verify the Access application/policies are present. Never run an unreviewed fresh plan as the apply step.
+5. Deploy the exact CMe artifact to the reviewed loopback origin.
+6. Expose immutable deployed commit/image identity from a runtime/deployment metadata endpoint that returns JSON `{\"release\": \"<digest-or-sha>\"}` and is bound to the serving deployment, not an operator-written file.
+7. Export the machine-verification Access credentials from the protected operator secret store as `ZWORKFORCE_ACCESS_ID` and `ZWORKFORCE_ACCESS_TOKEN`; never write them to repository files or evidence.
+8. Run with a new output path for every attempt:
    `python3 scripts/verify-cme-production.py --expected-release <digest-or-sha> --runtime-release-url <https-runtime-metadata-url> --output <immutable-evidence.json>`
-7. Retain the JSON evidence with operator identity, Terraform plan/apply reference, deployment reference and alert receipt.
-8. Exercise rollback to the prior immutable artifact, repeat verification, measure recovery time, then restore the intended artifact and verify again.
+9. Retain the JSON evidence with operator identity, Terraform plan/apply reference, deployment reference and alert receipt.
+10. Exercise rollback to the prior immutable artifact, repeat verification, measure recovery time, then restore the intended artifact and verify again.
 
 ## Required PASS evidence
 
