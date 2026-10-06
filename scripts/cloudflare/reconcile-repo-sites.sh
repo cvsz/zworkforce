@@ -134,12 +134,11 @@ probe_path(){
   : > "$probe_body"
   if [[ "$host" == "cme.${ZONE}" ]]; then
     if [[ -z "${ZWORKFORCE_ACCESS_ID:-}" || -z "${ZWORKFORCE_ACCESS_TOKEN:-}" ]]; then
-      printf "000"
-      return 0
+      fail "CMe probing requires ZWORKFORCE_ACCESS_ID and ZWORKFORCE_ACCESS_TOKEN; refusing to classify protected origin without them"
     fi
     access_headers=(-H "CF-Access-Client-Id: ${ZWORKFORCE_ACCESS_ID}" -H "CF-Access-Client-Secret: ${ZWORKFORCE_ACCESS_TOKEN}")
   fi
-  code="$(curl --silent --show-error --location \
+  code="$(curl --silent --show-error \
     --connect-timeout 3 --max-time 8 \
     "${access_headers[@]}" \
     --output "$probe_body" --write-out '%{http_code}' \
