@@ -25,8 +25,15 @@ jobs:
         run: |
           grep -q 'hostname: cme.zeaz.dev' deploy/cloudflare/tunnel-ingress.yml
           grep -q 'service: http://127.0.0.1:8001' deploy/cloudflare/tunnel-ingress.yml
-          grep -q 'default     = "cme.zeaz.dev"' infrastructure/terraform/cloudflare/cme.tf
-          grep -q 'default     = "http://127.0.0.1:8001"' infrastructure/terraform/cloudflare/cme.tf
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path('deploy/cloudflare/tunnel-ingress.yml').read_text()
+          expected = '  - hostname: cme.zeaz.dev\n    service: http://127.0.0.1:8001'
+          assert expected in text, 'CMe hostname/origin mapping drifted'
+          tf = Path('infrastructure/terraform/cloudflare/cme.tf').read_text()
+          assert 'var.cmeerp_hostname' in tf
+          assert 'cloudflare_zero_trust_access_application' in tf
+          PY
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
         with:
           terraform_version: 1.13.3
