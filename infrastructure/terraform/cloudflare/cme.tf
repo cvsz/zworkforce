@@ -1,3 +1,14 @@
+variable "cme_access_service_token_id" {
+  type        = string
+  description = "Cloudflare Access service-token ID used by machine verification. Supply from protected operator configuration; never commit its secret."
+  sensitive   = true
+
+  validation {
+    condition     = length(trimspace(var.cme_access_service_token_id)) > 0
+    error_message = "cme_access_service_token_id must identify the provisioned verification service token."
+  }
+}
+
 # CMe ownership contract.
 # DNS and origin are already managed by cloudflare_dns_record.cmeerp and
 # var.cmeerp_* in main.tf/variables.tf. Do not create a second state address.
@@ -12,15 +23,25 @@ resource "cloudflare_zero_trust_access_application" "cme" {
   enable_binding_cookie      = true
   http_only_cookie_attribute = true
 
-  policies = [{
-    name       = "Approved CMe operators"
-    precedence = 1
-    decision   = "allow"
-    include = [
-      for email in sort(tolist(var.piewdash_access_allowed_emails)) :
-      { email = { email = lower(email) } }
-    ]
-  }]
+  policies = [
+    {
+      name       = "Approved CMe operators"
+      precedence = 1
+      decision   = "allow"
+      include = [
+        for email in sort(tolist(var.piewdash_access_allowed_emails)) :
+        { email = { email = lower(email) } }
+      ]
+    },
+    {
+      name       = "CMe machine verification"
+      precedence = 2
+      decision   = "non_identity"
+      include = [{
+        service_token = { token_id = var.cme_access_service_token_id }
+      }]
+    }
+  ]
 }
 
 output "cme_url" {
