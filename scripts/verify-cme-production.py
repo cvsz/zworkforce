@@ -26,16 +26,15 @@ def write_evidence(path: Path, evidence: dict[str, object]) -> None:
 
 def fetch_json(url: str, timeout: float, host: str) -> tuple[int, dict[str, object]]:
     parsed = urlparse(url)
-    if parsed.scheme != "https" or parsed.hostname != host:
+    if parsed.scheme != "https" or parsed.hostname != host or parsed.port not in (None, 443):
         raise RuntimeError("verification URL must use the expected CMe HTTPS host")
     headers = {"User-Agent": "zworkforce-cme-verifier/1"}
     access_id = os.environ.get("ZWORKFORCE_ACCESS_ID")
     access_token = os.environ.get("ZWORKFORCE_ACCESS_TOKEN")
-    if bool(access_id) != bool(access_token):
-        raise RuntimeError("machine Access credentials are incomplete")
-    if access_id and access_token:
-        headers["CF-Access-Client-Id"] = access_id
-        headers["CF-Access-Client-Secret"] = access_token
+    if not access_id or not access_token:
+        raise RuntimeError("machine Access credentials are required")
+    headers["CF-Access-Client-Id"] = access_id
+    headers["CF-Access-Client-Secret"] = access_token
     opener = urllib.request.build_opener(NoRedirect)
     request = urllib.request.Request(url, headers=headers)
     with opener.open(request, timeout=timeout) as response:
