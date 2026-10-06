@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import socket
 import ssl
 import time
@@ -23,9 +24,20 @@ def write_evidence(path: Path, evidence: dict[str, object]) -> None:
         handle.write("\n")
 
 
-def fetch_json(url: str, timeout: float) -> tuple[int, dict[str, object]]:
+def fetch_json(url: str, timeout: float, host: str) -> tuple[int, dict[str, object]]:
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or parsed.hostname != host:
+        raise RuntimeError("verification URL must use the expected CMe HTTPS host")
+    headers = {"User-Agent": "zworkforce-cme-verifier/1"}
+    access_id = os.environ.get("ZWORKFORCE_ACCESS_ID")
+    access_token = os.environ.get("ZWORKFORCE_ACCESS_TOKEN")
+    if bool(access_id) != bool(access_token):
+        raise RuntimeError("machine Access credentials are incomplete")
+    if access_id and access_token:
+        headers["CF-Access-Client-Id"] = access_id
+        headers["CF-Access-Client-Secret"] = access_token
     opener = urllib.request.build_opener(NoRedirect)
-    request = urllib.request.Request(url, headers={"User-Agent": "zworkforce-cme-verifier/1"})
+    request = urllib.request.Request(url, headers=headers)
     with opener.open(request, timeout=timeout) as response:
         final = urlparse(response.geturl())
         requested = urlparse(url)
@@ -52,6 +64,7 @@ def main() -> int:
         "timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "host": args.host,
         "expected_release": args.expected_release,
+        "runtime_release_url": args.runtime_release_url,
         "result": "FAIL",
     }
     try:
@@ -70,13 +83,13 @@ def main() -> int:
                     "certificate_not_after": certificate.get("notAfter"),
                 })
 
-        release_status, release_payload = fetch_json(args.runtime_release_url, args.timeout)
+        release_status, release_payload = fetch_json(args.runtime_release_url, args.timeout, args.host)
         observed_release = release_payload.get("release")
         if release_status != 200 or observed_release != args.expected_release:
             raise RuntimeError("runtime release identity mismatch")
 
-        health_status, health = fetch_json(f"https://{args.host}/health", args.timeout)
-        ready_status, ready = fetch_json(f"https://{args.host}/ready", args.timeout)
+        health_status, health = fetch_json(f"https://{args.host}/health", args.timeout, args.host)
+        ready_status, ready = fetch_json(f"https://{args.host}/ready", args.timeout, args.host)
         if health_status != 200 or health.get("status") != "ok":
             raise RuntimeError("health verification failed")
         if ready_status != 200 or ready.get("status") != "ready":
