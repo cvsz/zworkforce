@@ -3,9 +3,10 @@ name: CMe Operator Contract
 on:
   pull_request:
     paths:
-      - "infrastructure/terraform/cloudflare/cme.tf"
+      - "infrastructure/terraform/cloudflare/*.tf"
       - "deploy/cloudflare/tunnel-ingress.yml"
       - "scripts/verify-cme-production.py"
+      - "scripts/cloudflare/reconcile-repo-sites.sh"
       - "docs/CME-PRODUCTION-OPERATOR.md"
       - ".github/workflows/cme-operator-contract.yml"
   push:
@@ -31,8 +32,13 @@ jobs:
           expected = '  - hostname: cme.zeaz.dev\n    service: http://127.0.0.1:8001'
           assert expected in text, 'CMe hostname/origin mapping drifted'
           tf = Path('infrastructure/terraform/cloudflare/cme.tf').read_text()
+          main = Path('infrastructure/terraform/cloudflare/main.tf').read_text()
+          variables = Path('infrastructure/terraform/cloudflare/variables.tf').read_text()
           assert 'var.cmeerp_hostname' in tf
           assert 'cloudflare_zero_trust_access_application' in tf
+          assert 'resource "cloudflare_dns_record" "cmeerp"' in main
+          assert 'default     = "cme.zeaz.dev"' in variables
+          assert 'default     = "http://127.0.0.1:8001"' in variables
           PY
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
         with:
