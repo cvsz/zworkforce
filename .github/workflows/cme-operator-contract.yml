@@ -27,5 +27,8 @@ jobs:
           grep -q 'service: http://127.0.0.1:8001' deploy/cloudflare/tunnel-ingress.yml
           grep -q 'default     = "cme.zeaz.dev"' infrastructure/terraform/cloudflare/cme.tf
           grep -q 'default     = "http://127.0.0.1:8001"' infrastructure/terraform/cloudflare/cme.tf
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: 1.13.3
       - name: Terraform format
         run: terraform fmt -check infrastructure/terraform/cloudflare/cme.tf
