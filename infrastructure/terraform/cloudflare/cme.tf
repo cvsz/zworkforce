@@ -1,8 +1,6 @@
 variable "cme_access_service_token_id" {
   type        = string
   description = "Cloudflare Access service-token ID used by machine verification. Supply from protected operator configuration; never commit its secret."
-  sensitive   = true
-
   validation {
     condition     = length(trimspace(var.cme_access_service_token_id)) > 0
     error_message = "cme_access_service_token_id must identify the provisioned verification service token."
@@ -29,7 +27,7 @@ resource "cloudflare_zero_trust_access_application" "cme" {
       precedence = 1
       decision   = "allow"
       include = [
-        for email in sort(tolist(var.piewdash_access_allowed_emails)) :
+        for email in sort(tolist(var.cme_access_allowed_emails)) :
         { email = { email = lower(email) } }
       ]
     },
