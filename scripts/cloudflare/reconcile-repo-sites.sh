@@ -130,9 +130,18 @@ is_forced_live(){
 
 probe_path(){
   local host="$1" path="$2" code
+  local -a access_headers=()
   : > "$probe_body"
+  if [[ "$host" == "cme.${ZONE}" ]]; then
+    if [[ -z "${ZWORKFORCE_ACCESS_ID:-}" || -z "${ZWORKFORCE_ACCESS_TOKEN:-}" ]]; then
+      printf "000"
+      return 0
+    fi
+    access_headers=(-H "CF-Access-Client-Id: ${ZWORKFORCE_ACCESS_ID}" -H "CF-Access-Client-Secret: ${ZWORKFORCE_ACCESS_TOKEN}")
+  fi
   code="$(curl --silent --show-error --location \
     --connect-timeout 3 --max-time 8 \
+    "${access_headers[@]}" \
     --output "$probe_body" --write-out '%{http_code}' \
     "https://${host}${path}" 2>/dev/null || true)"
   [[ "$code" =~ ^[0-9]{3}$ ]] || code="000"
