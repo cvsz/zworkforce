@@ -1,0 +1,31 @@
+name: CMe Operator Contract
+
+on:
+  pull_request:
+    paths:
+      - "infrastructure/terraform/cloudflare/cme.tf"
+      - "deploy/cloudflare/tunnel-ingress.yml"
+      - "scripts/verify-cme-production.py"
+      - "docs/CME-PRODUCTION-OPERATOR.md"
+      - ".github/workflows/cme-operator-contract.yml"
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      - name: Compile verifier
+        run: python3 -m py_compile scripts/verify-cme-production.py
+      - name: Verify ingress contract
+        run: |
+          grep -q 'hostname: cme.zeaz.dev' deploy/cloudflare/tunnel-ingress.yml
+          grep -q 'service: http://127.0.0.1:8001' deploy/cloudflare/tunnel-ingress.yml
+          grep -q 'default     = "cme.zeaz.dev"' infrastructure/terraform/cloudflare/cme.tf
+          grep -q 'default     = "http://127.0.0.1:8001"' infrastructure/terraform/cloudflare/cme.tf
+      - name: Terraform format
+        run: terraform fmt -check infrastructure/terraform/cloudflare/cme.tf
