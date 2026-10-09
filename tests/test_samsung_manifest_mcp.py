@@ -19,6 +19,15 @@ class SamsungManifestTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             analyze("ßa", [])
 
+    def test_public_schema_matches_validator(self):
+        schema = MCP_TOOLS["samsung.source_manifest"]["inputSchema"]
+        self.assertEqual(schema["properties"]["model"]["minLength"], 2)
+        self.assertEqual(schema["properties"]["model"]["maxLength"], 64)
+        package = schema["properties"]["packages"]["items"]
+        self.assertEqual(set(package["required"]), {"name", "license", "sha256"})
+        self.assertFalse(package["additionalProperties"])
+        self.assertIn("pattern", package["properties"]["sha256"])
+
     def test_mcp_authorization(self):
         request = {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
                    "params": {"name": "samsung.source_manifest", "arguments": {"model": "UA40F5500AR", "packages": []}}}
