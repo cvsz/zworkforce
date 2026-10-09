@@ -33,13 +33,10 @@ class MCPTests(unittest.TestCase):
             "clientInfo": {"name": "codex", "version": "test"},
             "capabilities": {},
         })
-        # Initialize currently negotiates the supported legacy contract.
-        self.assertIn(MCP_PROTOCOL_VERSION, initialized["supportedVersions"])
+        # Modern initialize proposals counter-offer the latest legacy handshake.
+        self.assertEqual(initialized["protocolVersion"], "2025-11-25")
         self.assertIn("tools", initialized["capabilities"])
-        self.assertEqual(
-            initialized["_meta"]["io.modelcontextprotocol/serverInfo"]["name"],
-            "zworkforce",
-        )
+        self.assertEqual(initialized["serverInfo"]["name"], "zworkforce")
 
     def test_submit_and_get_task(self):
         created=self.client.call_tool("workforce.submit_task",{"agent_id":"researcher","prompt":"MCP task"})
