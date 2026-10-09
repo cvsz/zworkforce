@@ -14,12 +14,12 @@ DOCS = {
     "tunnels": "https://developers.cloudflare.com/tunnel/get-started/",
 }
 OPERATIONS = {
-    "dns.list": {"method": "GET", "path": "/zones/{zone_id}/dns_records", "permission": "Zone DNS Read", "resource": "zone"},
+    "dns.list": {"method": "GET", "path": "/zones/{zone_id}/dns_records", "permission": "DNS Read", "resource": "zone"},
     "zone.get": {"method": "GET", "path": "/zones/{zone_id}", "permission": "Zone Read", "resource": "zone"},
-    "tunnel.list": {"method": "GET", "path": "/accounts/{account_id}/cfd_tunnel", "permission": "Account Cloudflare Tunnel Read", "resource": "account"},
-    "dns.create": {"method": "POST", "path": "/zones/{zone_id}/dns_records", "permission": "Zone DNS Write", "resource": "zone"},
-    "dns.delete": {"method": "DELETE", "path": "/zones/{zone_id}/dns_records/{record_id}", "permission": "Zone DNS Write", "resource": "zone"},
-    "tunnel.create": {"method": "POST", "path": "/accounts/{account_id}/cfd_tunnel", "permission": "Account Cloudflare Tunnel Write", "resource": "account"},
+    "tunnel.list": {"method": "GET", "path": "/accounts/{account_id}/cfd_tunnel", "permission": "Cloudflare Tunnel Read", "resource": "account"},
+    "dns.create": {"method": "POST", "path": "/zones/{zone_id}/dns_records", "permission": "DNS Write", "resource": "zone"},
+    "dns.delete": {"method": "DELETE", "path": "/zones/{zone_id}/dns_records/{record_id}", "permission": "DNS Write", "resource": "zone"},
+    "tunnel.create": {"method": "POST", "path": "/accounts/{account_id}/cfd_tunnel", "permission": "Cloudflare Tunnel Write", "resource": "account"},
 }
 IDENTIFIER = re.compile(r"^[a-z][a-z0-9_.]{2,63}$")
 
