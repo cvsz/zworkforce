@@ -16,6 +16,18 @@ from . import cloudflare_live
 from .security import AuthManager
 
 MCP_PROTOCOL_VERSION = "2026-07-28"
+MCP_LEGACY_PROTOCOL_VERSION = "2025-11-25"
+MCP_LEGACY_PROTOCOL_VERSIONS = (
+    MCP_LEGACY_PROTOCOL_VERSION,
+    "2025-06-18",
+    "2025-03-26",
+    "2024-11-05",
+)
+MCP_SUPPORTED_PROTOCOL_VERSIONS = (MCP_PROTOCOL_VERSION, *MCP_LEGACY_PROTOCOL_VERSIONS)
+MCP_PROTOCOL_VERSION_META_KEY = "io.modelcontextprotocol/protocolVersion"
+MCP_CLIENT_INFO_META_KEY = "io.modelcontextprotocol/clientInfo"
+MCP_CLIENT_CAPABILITIES_META_KEY = "io.modelcontextprotocol/clientCapabilities"
+MCP_SERVER_INFO_META_KEY = "io.modelcontextprotocol/serverInfo"
 
 
 class MCPError(RuntimeError):
@@ -137,18 +149,63 @@ MCP_TOOLS: dict[str, dict[str, Any]] = {
 }
 
 
-def handle_mcp(app, principal, tenant_id: str, request: dict[str, Any], header_method: str = "", header_name: str = "") -> dict[str, Any]:
+def mcp_protocol_version(request: dict[str, Any], header_version: str = "") -> str | None:
+    method = str(request.get("method") or "")
+    params = request.get("params") if isinstance(request.get("params"), dict) else {}
+    if method == "initialize":
+        requested = str(params.get("protocolVersion") or "")
+        if not requested:
+            return MCP_LEGACY_PROTOCOL_VERSION
+        if requested in MCP_SUPPORTED_PROTOCOL_VERSIONS:
+            return requested
+        return None
+
+    meta = params.get("_meta") if isinstance(params.get("_meta"), dict) else {}
+    meta_version = str(meta.get(MCP_PROTOCOL_VERSION_META_KEY) or "")
+    if header_version and meta_version and header_version != meta_version:
+        return None
+    version = header_version or meta_version or MCP_LEGACY_PROTOCOL_VERSION
+    if version == MCP_PROTOCOL_VERSION and header_version != MCP_PROTOCOL_VERSION:
+        return None
+    if version == MCP_PROTOCOL_VERSION and meta_version != MCP_PROTOCOL_VERSION:
+        return None
+    return version if version in MCP_SUPPORTED_PROTOCOL_VERSIONS else None
+
+
+def handle_mcp(
+    app,
+    principal,
+    tenant_id: str,
+    request: dict[str, Any],
+    header_method: str = "",
+    header_name: str = "",
+    protocol_version: str | None = None,
+) -> dict[str, Any] | None:
     request_id = request.get("id")
     method = str(request.get("method") or "")
-    if header_method and header_method != method:
-        return _error(request_id, -32600, "Mcp-Method header does not match JSON-RPC method")
     params = request.get("params") or {}
     if not isinstance(params, dict):
         return _error(request_id, -32602, "params must be an object")
-    if method in {"initialize", "server/discover"}:
-        return _result(request_id, _server_metadata())
-    if method == "notifications/initialized":
-        return _result(request_id, {})
+    if protocol_version is None:
+        return _error(request_id, -32022, "unsupported or mismatched MCP protocol version")
+    if protocol_version == MCP_PROTOCOL_VERSION:
+        if not header_method or header_method != method:
+            return _error(request_id, -32020, "Mcp-Method header is required and must match the JSON-RPC method")
+        expected_name = _mcp_header_name(method, params)
+        if expected_name is not None and (not expected_name or header_name != expected_name):
+            return _error(request_id, -32020, "Mcp-Name header is required and must match the JSON-RPC request")
+    elif header_method and header_method != method:
+        return _error(request_id, -32600, "Mcp-Method header does not match JSON-RPC method")
+    if method == "initialize":
+        if protocol_version == MCP_PROTOCOL_VERSION:
+            return _result(request_id, _modern_server_metadata())
+        return _result(request_id, _legacy_server_metadata(protocol_version))
+    if method == "server/discover":
+        if protocol_version != MCP_PROTOCOL_VERSION:
+            return _error(request_id, -32601, "method not found")
+        return _result(request_id, _modern_server_metadata())
+    if method.startswith("notifications/"):
+        return None
     if method == "tools/list":
         return _result(request_id, {"tools": [MCP_TOOLS[name] for name in sorted(MCP_TOOLS)]})
     if method != "tools/call":
@@ -275,8 +332,49 @@ def _version() -> str:
     return __version__
 
 
-def _server_metadata() -> dict[str, Any]:
-    return {"protocolVersion": MCP_PROTOCOL_VERSION, "serverInfo": {"name": "zworkforce", "version": _version()}, "capabilities": {"tools": {}}}
+def _server_info() -> dict[str, str]:
+    return {"name": "zworkforce", "version": _version()}
+
+
+def _legacy_server_metadata(protocol_version: str) -> dict[str, Any]:
+    return {
+        "protocolVersion": protocol_version,
+        "serverInfo": _server_info(),
+        "capabilities": {"tools": {}},
+    }
+
+
+def _modern_server_metadata() -> dict[str, Any]:
+    return {
+        "capabilities": {"tools": {}},
+        "supportedVersions": list(MCP_SUPPORTED_PROTOCOL_VERSIONS),
+        "_meta": {MCP_SERVER_INFO_META_KEY: _server_info()},
+    }
+
+
+def add_modern_mcp_metadata(response: dict[str, Any], method: str) -> None:
+    result = response.get("result")
+    if not isinstance(result, dict):
+        return
+    result.setdefault("resultType", "complete")
+    meta = result.get("_meta")
+    if not isinstance(meta, dict):
+        meta = {}
+        result["_meta"] = meta
+    meta.setdefault(MCP_SERVER_INFO_META_KEY, _server_info())
+    if method in {"server/discover", "tools/list"}:
+        result.setdefault("ttlMs", 0)
+        result.setdefault("cacheScope", "private")
+
+
+def _mcp_header_name(method: str, params: dict[str, Any]) -> str | None:
+    if method in {"tools/call", "prompts/get"}:
+        value = params.get("name")
+    elif method == "resources/read":
+        value = params.get("uri")
+    else:
+        return None
+    return str(value) if value is not None else ""
 
 
 def _result(request_id, result):
@@ -302,7 +400,9 @@ class RemoteMCPClient:
         self._counter += 1
         params = dict(params or {})
         meta = params.get("_meta") if isinstance(params.get("_meta"), dict) else {}
-        meta["io.modelcontextprotocol/clientInfo"] = {"name": self.client_name, "version": _version()}
+        meta[MCP_PROTOCOL_VERSION_META_KEY] = MCP_PROTOCOL_VERSION
+        meta[MCP_CLIENT_INFO_META_KEY] = {"name": self.client_name, "version": _version()}
+        meta.setdefault(MCP_CLIENT_CAPABILITIES_META_KEY, {})
         params["_meta"] = meta
         body = {"jsonrpc": "2.0", "id": self._counter, "method": method, "params": params}
         headers = {"Content-Type": "application/json", "Accept": "application/json", "MCP-Protocol-Version": MCP_PROTOCOL_VERSION, "Mcp-Method": method}
