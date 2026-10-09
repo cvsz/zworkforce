@@ -24,7 +24,7 @@ class SamsungTVMCPTests(unittest.TestCase):
         self.assertEqual(result["verification_status"], "unverified")
 
     def test_invalid_model(self):
-        for value in ("", "../etc/passwd", "a b", "x" * 65):
+        for value in ("", "../etc/passwd", "a b", "x" * 65, "ßa", "ſ1", "ﬀ1"):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 samsung_tv.model_guidance(value)
 
