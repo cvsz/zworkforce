@@ -1,10 +1,10 @@
-# Cloudflare Live Read-Only MCP
+# Cloudflare Live Read-only MCP
 
-This is an **opt-in server-side** adapter for a bounded first page of Cloudflare zones, DNS records, or Cloudflare Tunnel inventory. It does not make any modifications.
+Adapter นี้เป็นการอ่าน Cloudflare API แบบ Opt-in ผ่าน Server เท่านั้น รองรับ `zones`, `dns_records` และ `tunnels` ไม่มีความสามารถในการแก้ไขทรัพยากร
 
 ## Configuration
 
-Configure on the **server only** (prefer the existing secret-reference/mounted environment mechanism). Do not put these values in Git, the browser, or a prompt.
+กำหนดค่าผ่าน Server-side Environment หรือ Secret Manager เท่านั้น ห้ามใส่ Token ใน Git, Browser หรือ Prompt
 
 ```bash
 export ZWORKFORCE_CLOUDFLARE_READ_TENANTS='{
@@ -14,30 +14,28 @@ export ZWORKFORCE_CLOUDFLARE_READ_TENANTS='{
     "token_env": "ZWORKFORCE_CF_TOKEN_PRODUCTION"
   }
 }'
-# Inject ZWORKFORCE_CF_TOKEN_PRODUCTION through the approved secret manager.
 ```
 
-These are **illustrative placeholder IDs**, not authoritative ownership claims. The config key is the tenant ID resolved from the authenticated MCP request, not an argument chosen by the client.
+ตัวอย่าง ID เป็น Placeholder ไม่ใช่หลักฐาน Ownership ต้องตรวจ Owner จาก `docs/CENTER-CONTROL-PLANE.md` ก่อนใช้งานจริง
 
-## Tool
+## MCP Tool
 
-`cloudflare.live_inventory` accepts `resource` in `zones`, `dns_records`, `tunnels`. The last two require the exact 32-hex-character `resource_id` of an allowlisted zone or account.
+`cloudflare.live_inventory` ใช้ `resource` เป็น `zones`, `dns_records` หรือ `tunnels`; สำหรับสองประเภทหลังต้องระบุ `resource_id` แบบ Hex 32 ตัวอักษรที่อยู่ใน Tenant Allowlist
 
-Access requires `viewer` role and `workforce:read` scope. The server uses a fixed Cloudflare API origin, GET-only requests, no redirect following, bounded 8-second timeout, 1 MiB response cap, narrow field projections and no token echoes.
+ค่า `page` เป็น Integer ตั้งแต่ 1–10 (Default 1) ดู [Pagination Contract](CLOUDFLARE-MCP-PAGINATION.md)
 
-Results are explicitly marked `partial: true` because they only include page 1 (up to 50). Never treat this output as a complete inventory or full Cloudflare ownership proof. Zone listing is further filtered to zone IDs on the trusted tenant allowlist.
+ต้องมี Role `viewer` และ Scope `workforce:read` ตัว Adapter ใช้ HTTPS Endpoint ที่กำหนดตายตัว, GET-only, 8-second Timeout, 1 MiB Response Limit และไม่ตาม Redirects
 
-## Operational boundaries
+ทุก Response มี `partial: true` ค่า `has_more` อาจเป็น `null` โดยเฉพาะ `zones` เพื่อป้องกันการเปิดเผยจำนวน Zone ข้าม Tenant ห้ามตีความผลเป็น Complete Inventory
 
-- Configure an API token with the minimum necessary `Zone Read`, `DNS Read` and/or `Cloudflare Tunnel Read` permissions and resource restrictions.
-- This adapter assumes the operator has already reviewed tenant-to-account/zone ownership evidence under `docs/CENTER-CONTROL-PLANE.md`. It does not prove ownership by itself.
-- No write endpoints, arbitrary HTTP URLs, mutation approvals, DNS edits or Tunnel creates.
-- No live Cloudflare credentials or provider-backed integration evidence were available during development.
-- Run the focused test suite, then perform an operator-authorized live read in staging with redacted evidence before production activation.
+## Operational Gates
+
+ใช้ API Token แบบ Least Privilege: `Zone Read`, `DNS Read` และ/หรือ `Cloudflare Tunnel Read` โดยจำกัด Resource จริง ต้องตรวจ Ownership และทดสอบ Live Staging ก่อนเปิด Production ระบบนี้ไม่รองรับ Mutation และยังไม่มี Durable Audit หรือ Automatic Retry
 
 ## Tests
 
 ```bash
 PYTHONPATH=. python3 -m unittest discover -s tests -p 'test_cloudflare_live_mcp.py' -v
+PYTHONPATH=. python3 -m unittest discover -s tests -p 'test_cloudflare_pagination_mcp.py' -v
 python3 -m compileall -q zworkforce tests
 ```
