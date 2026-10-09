@@ -227,7 +227,7 @@ class App:
                 self.send_response(204)
                 self.send_header("Access-Control-Allow-Origin", origin)
                 self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-                self.send_header("Access-Control-Allow-Headers", "Authorization,Content-Type,Idempotency-Key,X-API-Key,X-Request-ID,X-Tenant-ID,X-ZWorkforce-Event-Cursor")
+                self.send_header("Access-Control-Allow-Headers", "Authorization,Content-Type,Idempotency-Key,X-API-Key,X-Request-ID,X-Tenant-ID,X-ZWorkforce-Event-Cursor,MCP-Protocol-Version,Mcp-Method,Mcp-Name")
                 self.send_header("Access-Control-Max-Age", "600")
                 self.send_header("Vary", "Origin")
                 self._security_headers()
@@ -243,6 +243,8 @@ class App:
                         return self._static(path[1:])
                     if path.startswith("/dashboard/"):
                         return self._static(path[1:])
+                    if path == "/mcp":
+                        return self._empty(405, {"Allow": "POST, OPTIONS"})
                     if path == "/health":
                         return self._json(200, {"status": "ok", "version": __version__})
                     if path == "/ready":
@@ -473,8 +475,14 @@ class App:
                                 or (meta_version == modern and header_version != modern)
                             )
                             malformed_meta = bool(
-                                header_version == modern and meta_version == modern
-                                and not isinstance(meta.get("io.modelcontextprotocol/clientCapabilities"), dict)
+                                header_version == modern
+                                and (
+                                    not meta_version
+                                    or (
+                                        meta_version == modern
+                                        and not isinstance(meta.get("io.modelcontextprotocol/clientCapabilities"), dict)
+                                    )
+                                )
                             )
                             error_code = -32020 if mismatch else (-32602 if malformed_meta else -32022)
                             error_message = (
@@ -487,7 +495,10 @@ class App:
                                 "error": {
                                     "code": error_code,
                                     "message": error_message,
-                                    "data": {"supportedVersions": list(MCP_SUPPORTED_PROTOCOL_VERSIONS)},
+                                    "data": {
+                                        "supported": list(MCP_SUPPORTED_PROTOCOL_VERSIONS),
+                                        "requested": header_version or meta_version or None,
+                                    },
                                 },
                             }
                             return self._json(400, error_body)
@@ -503,8 +514,11 @@ class App:
                         if result is None:
                             return self._empty(202, {"MCP-Protocol-Version": protocol_version})
                         if protocol_version == MCP_PROTOCOL_VERSION:
-                            if result.get("error", {}).get("code") == -32020:
+                            code = result.get("error", {}).get("code")
+                            if code == -32020:
                                 return self._json(400, result, {"MCP-Protocol-Version": protocol_version})
+                            if code == -32601:
+                                return self._json(404, result, {"MCP-Protocol-Version": protocol_version})
                             add_modern_mcp_metadata(result, str(body.get("method") or ""))
                         response_version = protocol_version
                         if body.get("method") == "initialize":
