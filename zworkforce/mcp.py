@@ -81,7 +81,8 @@ MCP_TOOLS: dict[str, dict[str, Any]] = {
         "description": "Read bounded Cloudflare inventory for a server-configured tenant and resource allowlist.",
         "inputSchema": {"type": "object", "properties": {
             "resource": {"type": "string", "enum": ["zones", "dns_records", "tunnels"]},
-            "resource_id": {"type": "string", "pattern": "^[a-fA-F0-9]{32}$"}},
+            "resource_id": {"type": "string", "pattern": "^[a-fA-F0-9]{32}$"},
+            "page": {"type": "integer", "minimum": 1, "maximum": 10}},
             "required": ["resource"], "additionalProperties": False},
         "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
     },
@@ -136,11 +137,11 @@ def handle_mcp(app, principal, tenant_id: str, request: dict[str, Any], header_m
 def _call_tool(app, principal, tenant_id: str, name: str, args: dict[str, Any]) -> Any:
     if name == "cloudflare.live_inventory":
         _require(principal, "viewer", "workforce:read")
-        if set(args) - {"resource", "resource_id"} or not isinstance(args.get("resource"), str):
+        if set(args) - {"resource", "resource_id", "page"} or not isinstance(args.get("resource"), str):
             raise ValueError("Invalid Cloudflare read arguments")
         if not isinstance(args.get("resource_id", ""), str):
             raise ValueError("Invalid Cloudflare resource ID")
-        return cloudflare_live.read(tenant_id, args["resource"], args.get("resource_id", ""))
+        return cloudflare_live.read(tenant_id, args["resource"], args.get("resource_id", ""), args.get("page", 1))
     if name == "cloudflare.references":
         _require(principal, "viewer", "workforce:read")
         if args:
