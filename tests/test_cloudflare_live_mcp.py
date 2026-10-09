@@ -2,6 +2,7 @@ import json
 import os
 import unittest
 from unittest.mock import patch, Mock
+from types import SimpleNamespace
 
 from zworkforce import cloudflare_live
 from zworkforce.mcp import handle_mcp
@@ -79,7 +80,7 @@ class CloudflareLiveTests(unittest.TestCase):
         self.assertTrue(denied["result"]["isError"])
         with patch("zworkforce.mcp.AuthManager.require", return_value=True):
             with patch("zworkforce.cloudflare_live.urllib.request.build_opener", return_value=FakeOpener()):
-                granted = handle_mcp(Mock(db=Mock()), Mock(name="auditor"), "tenant-a", request)
+                granted = handle_mcp(Mock(db=Mock()), SimpleNamespace(name="auditor"), "tenant-a", request)
         self.assertFalse(granted["result"]["isError"])
         self.assertEqual(len(granted["result"]["structuredContent"]["items"]), 1)
 
