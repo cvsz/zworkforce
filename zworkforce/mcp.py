@@ -6,6 +6,7 @@ import urllib.request
 from typing import Any
 
 from .prometa import install_prometa_catalog
+from . import samsung_tv
 from .security import AuthManager
 
 MCP_PROTOCOL_VERSION = "2026-07-28"
@@ -51,6 +52,18 @@ MCP_TOOLS: dict[str, dict[str, Any]] = {
         "inputSchema": {"type": "object", "properties": {"sign_skills": {"type": "boolean"}}},
         "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
     },
+    "samsung.sources": {
+        "name": "samsung.sources",
+        "description": "List curated official Samsung Smart TV documentation and open-source release URLs (not live search).",
+        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "samsung.model_guidance": {
+        "name": "samsung.model_guidance",
+        "description": "Return safe unverified model investigation steps and official Samsung source locations.",
+        "inputSchema": {"type": "object", "properties": {"model": {"type": "string", "minLength": 2, "maxLength": 64}}, "required": ["model"], "additionalProperties": False},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
 }
 
 
@@ -86,6 +99,16 @@ def handle_mcp(app, principal, tenant_id: str, request: dict[str, Any], header_m
 
 
 def _call_tool(app, principal, tenant_id: str, name: str, args: dict[str, Any]) -> Any:
+    if name == "samsung.sources":
+        _require(principal, "viewer", "workforce:read")
+        if args:
+            raise ValueError("samsung.sources does not accept arguments")
+        return samsung_tv.sources()
+    if name == "samsung.model_guidance":
+        _require(principal, "viewer", "workforce:read")
+        if set(args) != {"model"} or not isinstance(args.get("model"), str):
+            raise ValueError("samsung.model_guidance requires a string model")
+        return samsung_tv.model_guidance(args["model"])
     if name == "workforce.get_task":
         _require(principal, "viewer", "workforce:read")
         task = app.db.get_task(tenant_id, str(args.get("task_id", "")))
