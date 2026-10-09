@@ -1,4 +1,6 @@
 import json
+import urllib.error
+import urllib.request
 import threading
 import unittest
 from http.server import ThreadingHTTPServer
@@ -37,6 +39,59 @@ class MCPTests(unittest.TestCase):
         self.assertEqual(initialized["protocolVersion"], "2025-11-25")
         self.assertIn("tools", initialized["capabilities"])
         self.assertEqual(initialized["serverInfo"]["name"], "zworkforce")
+
+    def _post_mcp(self, data, headers):
+        request = urllib.request.Request(
+            self.endpoint, data=json.dumps(data).encode(),
+            headers={"Authorization": "Bearer test-admin-secret",
+                     "Content-Type": "application/json", **headers},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=10) as response:
+                return response.status, json.loads(response.read())
+        except urllib.error.HTTPError as exc:
+            with exc:
+                return exc.code, json.loads(exc.read())
+
+    def test_modern_metadata_malformed_returns_jsonrpc_error(self):
+        request = {"jsonrpc": "2.0", "id": 49, "method": "tools/list", "params": {"_meta": {
+            "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+        }}}
+        status, body = self._post_mcp(request, {
+            "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
+            "Mcp-Method": "tools/list",
+        })
+        self.assertEqual(status, 400)
+        self.assertEqual(body["jsonrpc"], "2.0")
+        self.assertEqual(body["id"], 49)
+        self.assertEqual(body["error"]["code"], -32022)
+
+    def test_version_mismatch_returns_jsonrpc_error(self):
+        request = {"jsonrpc": "2.0", "id": 50, "method": "tools/list", "params": {"_meta": {
+            "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+            "io.modelcontextprotocol/clientCapabilities": {},
+        }}}
+        status, body = self._post_mcp(request, {
+            "MCP-Protocol-Version": "2025-11-25",
+            "Mcp-Method": "tools/list",
+        })
+        self.assertEqual(status, 400)
+        self.assertEqual(body["id"], 50)
+        self.assertEqual(body["error"]["code"], -32020)
+
+    def test_modern_method_header_mismatch_rejected(self):
+        request = {"jsonrpc": "2.0", "id": 51, "method": "tools/list", "params": {"_meta": {
+            "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+            "io.modelcontextprotocol/clientCapabilities": {},
+        }}}
+        status, body = self._post_mcp(request, {
+            "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
+            "Mcp-Method": "tools/call",
+        })
+        self.assertEqual(status, 400)
+        self.assertEqual(body["id"], 51)
+        self.assertEqual(body["error"]["code"], -32020)
 
     def test_submit_and_get_task(self):
         created=self.client.call_tool("workforce.submit_task",{"agent_id":"researcher","prompt":"MCP task"})
