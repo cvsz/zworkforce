@@ -85,6 +85,12 @@ def read(tenant_id: str, resource: str, resource_id: str = "", page: int = 1) ->
             if response.status != 200:
                 raise CloudflareReadError("Cloudflare API returned non-success status")
             raw = response.read(_MAX_BYTES + 1)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 429:
+            raise CloudflareReadError("Cloudflare API rate limit exceeded; retry later") from None
+        if exc.code in (401, 403):
+            raise PermissionError("Cloudflare API token lacks access") from None
+        raise CloudflareReadError("Cloudflare API returned an HTTP error") from None
     except (OSError, urllib.error.URLError) as exc:
         raise CloudflareReadError("Cloudflare API request failed") from exc
     if len(raw) > _MAX_BYTES:
