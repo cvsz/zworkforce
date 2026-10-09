@@ -7,6 +7,7 @@ from typing import Any
 
 from .prometa import install_prometa_catalog
 from . import samsung_tv
+from . import cloudflare_api
 from .security import AuthManager
 
 MCP_PROTOCOL_VERSION = "2026-07-28"
@@ -64,6 +65,20 @@ MCP_TOOLS: dict[str, dict[str, Any]] = {
         "inputSchema": {"type": "object", "properties": {"model": {"type": "string", "minLength": 2, "maxLength": 64}}, "required": ["model"], "additionalProperties": False},
         "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
     },
+    "cloudflare.references": {
+        "name": "cloudflare.references",
+        "description": "List vetted official Cloudflare API docs and authentication references without making API calls.",
+        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "cloudflare.operation_plan": {
+        "name": "cloudflare.operation_plan",
+        "description": "Describe allowlisted Cloudflare API operations, minimum permissions and safety gates; never executes.",
+        "inputSchema": {"type": "object", "properties": {
+            "operation": {"type": "string", "minLength": 3, "maxLength": 64}},
+            "required": ["operation"], "additionalProperties": False},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
 }
 
 
@@ -99,6 +114,16 @@ def handle_mcp(app, principal, tenant_id: str, request: dict[str, Any], header_m
 
 
 def _call_tool(app, principal, tenant_id: str, name: str, args: dict[str, Any]) -> Any:
+    if name == "cloudflare.references":
+        _require(principal, "viewer", "workforce:read")
+        if args:
+            raise ValueError("cloudflare.references does not accept arguments")
+        return cloudflare_api.references()
+    if name == "cloudflare.operation_plan":
+        _require(principal, "viewer", "workforce:read")
+        if set(args) != {"operation"} or not isinstance(args.get("operation"), str):
+            raise ValueError("cloudflare.operation_plan requires a string operation")
+        return cloudflare_api.operation_plan(args["operation"])
     if name == "samsung.sources":
         _require(principal, "viewer", "workforce:read")
         if args:
