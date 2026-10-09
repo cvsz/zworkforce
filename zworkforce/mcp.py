@@ -164,7 +164,7 @@ def mcp_protocol_version(request: dict[str, Any], header_version: str = "") -> s
             return None
     if header_version and meta_version and header_version != meta_version:
         return None
-    version = header_version or meta_version or MCP_LEGACY_PROTOCOL_VERSION
+    version = header_version or meta_version or "2025-03-26"
     if version == MCP_PROTOCOL_VERSION and header_version != MCP_PROTOCOL_VERSION:
         return None
     if version == MCP_PROTOCOL_VERSION and meta_version != MCP_PROTOCOL_VERSION:
