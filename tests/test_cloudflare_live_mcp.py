@@ -23,10 +23,9 @@ class FakeResponse:
         return False
 
     def read(self, size):
-        return json.dumps({"success": True, "result": [
-            {"id": ZONE, "name": "example.com", "status": "active",
-             "secret": "must-not-expose"},
-            {"id": "f" * 32, "name": "unowned.test", "status": "active"}]}).encode()
+        return json.dumps({"success": True, "result": {
+            "id": ZONE, "name": "example.com", "status": "active",
+            "secret": "must-not-expose"}}).encode()
 
 
 class FakeOpener:
