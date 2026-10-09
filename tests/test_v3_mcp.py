@@ -104,6 +104,54 @@ class MCPTests(unittest.TestCase):
         self.assertEqual(body["id"], 51)
         self.assertEqual(body["error"]["code"], -32020)
 
+    def test_missing_modern_meta_returns_invalid_params(self):
+        request = {"jsonrpc": "2.0", "id": 71, "method": "tools/list", "params": {}}
+        status, body = self._post_mcp(request, {
+            "MCP-Protocol-Version": MCP_PROTOCOL_VERSION, "Mcp-Method": "tools/list",
+        })
+        self.assertEqual(status, 400)
+        self.assertEqual(body["id"], 71)
+        self.assertEqual(body["error"]["code"], -32602)
+
+    def test_modern_missing_header_is_mismatch(self):
+        request = {"jsonrpc": "2.0", "id": 72, "method": "tools/list", "params": {"_meta": {
+            "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+            "io.modelcontextprotocol/clientCapabilities": {},
+        }}}
+        status, body = self._post_mcp(request, {"Mcp-Method": "tools/list"})
+        self.assertEqual(status, 400)
+        self.assertEqual(body["id"], 72)
+        self.assertEqual(body["error"]["code"], -32020)
+
+    def test_unsupported_version_has_fallback_fields(self):
+        request = {"jsonrpc": "2.0", "id": 73, "method": "tools/list", "params": {}}
+        status, body = self._post_mcp(request, {"MCP-Protocol-Version": "2099-01-01"})
+        self.assertEqual(status, 400)
+        self.assertEqual(body["id"], 73)
+        self.assertEqual(body["error"]["code"], -32022)
+        self.assertEqual(body["error"]["data"]["requested"], "2099-01-01")
+        self.assertIn("2025-03-26", body["error"]["data"]["supported"])
+
+    def test_unknown_modern_method_returns_http_404(self):
+        request = {"jsonrpc": "2.0", "id": 74, "method": "resources/read", "params": {
+            "uri": "test://item", "_meta": {
+                "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+                "io.modelcontextprotocol/clientCapabilities": {},
+            },
+        }}
+        status, body = self._post_mcp(request, {
+            "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
+            "Mcp-Method": "resources/read", "Mcp-Name": "test://item",
+        })
+        self.assertEqual(status, 404)
+        self.assertEqual(body["error"]["code"], -32601)
+
+    def test_legacy_get_returns_405(self):
+        request = urllib.request.Request(self.endpoint, method="GET")
+        with self.assertRaises(urllib.error.HTTPError) as caught:
+            urllib.request.urlopen(request, timeout=10)
+        self.assertEqual(caught.exception.code, 405)
+
     def test_submit_and_get_task(self):
         created=self.client.call_tool("workforce.submit_task",{"agent_id":"researcher","prompt":"MCP task"})
         task_id=created["structuredContent"]["task"]["id"]
