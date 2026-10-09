@@ -105,5 +105,12 @@ def read(tenant_id: str, resource: str, resource_id: str = "", page: int = 1) ->
         info = {}
     total_pages = info.get("total_pages")
     has_more = total_pages > page if type(total_pages) is int and total_pages >= 1 else None
+    if resource == "tunnels" and has_more is None:
+        total_count = info.get("total_count")
+        if type(total_count) is int and total_count >= 0:
+            has_more = page * 50 < total_count
+    if resource == "zones":
+        # Provider totals describe zones outside the tenant allowlist.
+        has_more = None
     return {"resource": resource, "items": items, "page": page, "has_more": has_more, "partial": True,
             "source": "Cloudflare API", "live": True}
