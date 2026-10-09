@@ -1,6 +1,6 @@
 # Samsung Smart TV MCP Integration
 
-Status: **implemented (curated read-only discovery only)**. Live Samsung Open Source Release Center search, SDK build, SDB/USB installation, package signing and firmware operations are **not implemented**.
+สถานะ: **Read-only MCP reference, compatibility advisory และ offline manifest validation**. Live Samsung Open Source Release Center search, SDK build, SDB/USB installation, package signing and firmware operations are **not implemented**.
 
 ## Official references
 
@@ -15,6 +15,8 @@ Existing zWorkforce `POST /mcp` uses the tenant-scoped identity and authorizatio
 | --- | --- | --- |
 | `samsung.sources` | `{}` | Curated official URLs, descriptions and `live_verified: false` |
 | `samsung.model_guidance` | `{"model":"UA40F5500AR"}` | Normalized model, verification checklist and source links |
+| `samsung.compatibility` | `{"model":"UA40F5500AR","model_year":2013}` | Year-based advisory, not hardware verification |
+| `samsung.source_manifest` | `{"model":"UA40F5500AR","packages":[]}` | Validate operator-supplied unverified source license/hash declarations |
 
 The model tool **does not guess** OS version or app format. Verify legacy Samsung TV platform versus Tizen via official model support documentation before choosing a packaging path.
 
@@ -27,6 +29,8 @@ zworkforce mcp-call https://workforce.example.com/mcp samsung.model_guidance --a
 ```
 
 `ZWORKFORCE_MCP_TOKEN` must be configured as described in [MCP.md](MCP.md).
+
+รายละเอียด [Samsung Source Manifest MCP](SAMSUNG-SOURCE-MANIFEST-MCP.md) และ [Samsung Compatibility](SAMSUNG-TV-MCP-PHASE2.md) ไม่ได้หมายถึง Live OSRC Search หรือการยืนยัน Hash จริง
 
 ## Future scoped work
 
