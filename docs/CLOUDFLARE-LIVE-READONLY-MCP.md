@@ -26,7 +26,7 @@ export ZWORKFORCE_CLOUDFLARE_READ_TENANTS='{
 
 ต้องมี Role `viewer` และ Scope `workforce:read` ตัว Adapter ใช้ HTTPS Endpoint ที่กำหนดตายตัว, GET-only, 8-second Timeout, 1 MiB Response Limit และไม่ตาม Redirects
 
-ทุก Response มี `partial: true` ค่า `has_more` อาจเป็น `null` โดยเฉพาะ `zones` เพื่อป้องกันการเปิดเผยจำนวน Zone ข้าม Tenant ห้ามตีความผลเป็น Complete Inventory
+ทุก Response มี `partial: true` สำหรับ `zones` ระบบอ่าน `GET /zones/{zone_id}` ตาม Allowlist เพียงหนึ่ง Zone ต่อหน้า และคำนวณ `has_more` จากรายการของ Tenant โดยไม่เปิดเผย Metadata ของ Provider-wide Zone List ห้ามตีความผลเป็น Complete Inventory
 
 ## Operational Gates
 
