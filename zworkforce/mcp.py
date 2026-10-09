@@ -9,6 +9,7 @@ from .prometa import install_prometa_catalog
 from . import samsung_tv
 from . import samsung_compat
 from . import samsung_sdk_probe
+from . import samsung_builder_preflight
 from . import samsung_manifest
 from . import cloudflare_api
 from . import cloudflare_live
@@ -56,6 +57,15 @@ MCP_TOOLS: dict[str, dict[str, Any]] = {
         "description": "Install the built-in ProMeta agents, skills, agent templates and workflows for the tenant.",
         "inputSchema": {"type": "object", "properties": {"sign_skills": {"type": "boolean"}}},
         "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "samsung.builder_preflight": {
+        "name": "samsung.builder_preflight",
+        "description": "Non-executing builder prerequisite assessment; never verifies signing or builds packages.",
+        "inputSchema": {"type": "object", "properties": {
+            "model": {"type": "string", "minLength": 2, "maxLength": 64},
+            "model_year": {"type": "integer", "minimum": 2010, "maximum": 2026}},
+            "required": ["model", "model_year"], "additionalProperties": False},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
     },
     "samsung.sdk_environment": {
         "name": "samsung.sdk_environment",
@@ -190,6 +200,11 @@ def _call_tool(app, principal, tenant_id: str, name: str, args: dict[str, Any]) 
         if set(args) != {"operation"} or not isinstance(args.get("operation"), str):
             raise ValueError("cloudflare.operation_plan requires a string operation")
         return cloudflare_api.operation_plan(args["operation"])
+    if name == "samsung.builder_preflight":
+        _require(principal, "viewer", "workforce:read")
+        if set(args) != {"model", "model_year"}:
+            raise ValueError("model and model_year required")
+        return samsung_builder_preflight.assess(args["model"], args["model_year"])
     if name == "samsung.sdk_environment":
         _require(principal, "viewer", "workforce:read")
         if set(args) != {"platform"} or not isinstance(args["platform"], str):
