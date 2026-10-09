@@ -465,13 +465,28 @@ class App:
                             meta = params.get("_meta") if isinstance(params, dict) else None
                             meta_version = meta.get("io.modelcontextprotocol/protocolVersion") if isinstance(meta, dict) else None
                             header_version = self.headers.get("MCP-Protocol-Version", "")
-                            mismatch = bool(header_version and meta_version and header_version != meta_version)
-                            error_code = -32020 if mismatch else -32022
+                            # Distinguish invalid params, a missing/mismatched modern
+                            # routing header, and an unsupported protocol revision.
+                            modern = "2026-07-28"
+                            mismatch = bool(
+                                (header_version and meta_version and header_version != meta_version)
+                                or (meta_version == modern and header_version != modern)
+                            )
+                            malformed_meta = bool(
+                                header_version == modern and meta_version == modern
+                                and not isinstance(meta.get("io.modelcontextprotocol/clientCapabilities"), dict)
+                            )
+                            error_code = -32020 if mismatch else (-32602 if malformed_meta else -32022)
+                            error_message = (
+                                "MCP protocol header/metadata mismatch" if mismatch
+                                else "invalid MCP clientCapabilities metadata" if malformed_meta
+                                else "unsupported MCP protocol version"
+                            )
                             error_body = {
                                 "jsonrpc": "2.0", "id": body.get("id"),
                                 "error": {
                                     "code": error_code,
-                                    "message": "MCP protocol header/metadata mismatch" if mismatch else "unsupported or malformed MCP protocol version",
+                                    "message": error_message,
                                     "data": {"supportedVersions": list(MCP_SUPPORTED_PROTOCOL_VERSIONS)},
                                 },
                             }

@@ -65,7 +65,7 @@ class MCPTests(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertEqual(body["jsonrpc"], "2.0")
         self.assertEqual(body["id"], 49)
-        self.assertEqual(body["error"]["code"], -32022)
+        self.assertEqual(body["error"]["code"], -32602)
 
     def test_version_mismatch_returns_jsonrpc_error(self):
         request = {"jsonrpc": "2.0", "id": 50, "method": "tools/list", "params": {"_meta": {
@@ -78,6 +78,17 @@ class MCPTests(unittest.TestCase):
         })
         self.assertEqual(status, 400)
         self.assertEqual(body["id"], 50)
+        self.assertEqual(body["error"]["code"], -32020)
+
+    def test_missing_modern_version_header_returns_header_mismatch(self):
+        request = {"jsonrpc": "2.0", "id": 52, "method": "tools/list", "params": {"_meta": {
+            "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+            "io.modelcontextprotocol/clientCapabilities": {},
+        }}}
+        status, body = self._post_mcp(request, {"Mcp-Method": "tools/list"})
+        self.assertEqual(status, 400)
+        self.assertEqual(body["jsonrpc"], "2.0")
+        self.assertEqual(body["id"], 52)
         self.assertEqual(body["error"]["code"], -32020)
 
     def test_modern_method_header_mismatch_rejected(self):
