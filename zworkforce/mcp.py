@@ -165,7 +165,21 @@ def _call_tool(app, principal, tenant_id: str, name: str, args: dict[str, Any]) 
             raise ValueError("Invalid Cloudflare read arguments")
         if not isinstance(args.get("resource_id", ""), str):
             raise ValueError("Invalid Cloudflare resource ID")
-        return cloudflare_live.read(tenant_id, args["resource"], args.get("resource_id", ""), args.get("page", 1))
+        resource = args["resource"]
+        resource_id = args.get("resource_id", "")
+        page = args.get("page", 1)
+        # Log only non-secret identifiers and outcome. Audit writes are mandatory.
+        if app is None or not hasattr(app, "db") or not hasattr(app.db, "audit"):
+            raise ValueError("Cloudflare inventory requires an audit-capable database")
+        try:
+            value = cloudflare_live.read(tenant_id, resource, resource_id, page)
+        except (ValueError, PermissionError):
+            app.db.audit(tenant_id, principal.name, "cloudflare.inventory.read", resource,
+                         resource_id, {"outcome": "denied_or_failed", "page": page})
+            raise
+        app.db.audit(tenant_id, principal.name, "cloudflare.inventory.read", resource,
+                     resource_id, {"outcome": "success", "page": page, "item_count": len(value["items"])})
+        return value
     if name == "cloudflare.references":
         _require(principal, "viewer", "workforce:read")
         if args:
