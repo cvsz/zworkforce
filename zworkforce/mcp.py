@@ -8,6 +8,7 @@ from typing import Any
 from .prometa import install_prometa_catalog
 from . import samsung_tv
 from . import cloudflare_api
+from . import cloudflare_live
 from .security import AuthManager
 
 MCP_PROTOCOL_VERSION = "2026-07-28"
@@ -65,6 +66,15 @@ MCP_TOOLS: dict[str, dict[str, Any]] = {
         "inputSchema": {"type": "object", "properties": {"model": {"type": "string", "minLength": 2, "maxLength": 64}}, "required": ["model"], "additionalProperties": False},
         "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
     },
+    "cloudflare.live_inventory": {
+        "name": "cloudflare.live_inventory",
+        "description": "Read bounded Cloudflare inventory for a server-configured tenant and resource allowlist.",
+        "inputSchema": {"type": "object", "properties": {
+            "resource": {"type": "string", "enum": ["zones", "dns_records", "tunnels"]},
+            "resource_id": {"type": "string", "pattern": "^[a-fA-F0-9]{32}$"}},
+            "required": ["resource"], "additionalProperties": False},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+    },
     "cloudflare.references": {
         "name": "cloudflare.references",
         "description": "List vetted official Cloudflare API docs and authentication references without making API calls.",
@@ -114,6 +124,13 @@ def handle_mcp(app, principal, tenant_id: str, request: dict[str, Any], header_m
 
 
 def _call_tool(app, principal, tenant_id: str, name: str, args: dict[str, Any]) -> Any:
+    if name == "cloudflare.live_inventory":
+        _require(principal, "viewer", "workforce:read")
+        if set(args) - {"resource", "resource_id"} or not isinstance(args.get("resource"), str):
+            raise ValueError("Invalid Cloudflare read arguments")
+        if not isinstance(args.get("resource_id", ""), str):
+            raise ValueError("Invalid Cloudflare resource ID")
+        return cloudflare_live.read(tenant_id, args["resource"], args.get("resource_id", ""))
     if name == "cloudflare.references":
         _require(principal, "viewer", "workforce:read")
         if args:
