@@ -19,17 +19,22 @@ class CloudflarePaginationTests(unittest.TestCase):
                                "token_env": "ZWORKFORCE_CF_TOKEN_TEST"}}
         class Response:
             status = 200
+            is_zone = False
             def __enter__(self): return self
             def __exit__(self, *args): return False
             def read(self, size):
-                return json.dumps({"success": True, "result": [{"id": zid}],
+                return json.dumps({"success": True, "result": {"id": zid} if self.is_zone else [{"id": zid}],
                     "result_info": {"total_pages": 10, "total_count": 99}}).encode()
         class Opener:
-            def open(self, req, timeout): return Response()
+            def open(self, req, timeout):
+                response = Response()
+                response.is_zone = "/zones/" in req.full_url
+                return response
         with patch.dict(os.environ, {"ZWORKFORCE_CLOUDFLARE_READ_TENANTS": json.dumps(config),
                                       "ZWORKFORCE_CF_TOKEN_TEST": "test"}):
             with patch("zworkforce.cloudflare_live.urllib.request.build_opener", return_value=Opener()):
-                self.assertIsNone(cloudflare_live.read("tenant-a", "zones")["has_more"])
+                self.assertFalse(cloudflare_live.read("tenant-a", "zones")["has_more"])
+                self.assertEqual(cloudflare_live.read("tenant-a", "zones", page=2)["items"], [])
                 self.assertTrue(cloudflare_live.read("tenant-a", "tunnels", aid)["has_more"])
 
     def test_schema(self):
