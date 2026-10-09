@@ -33,6 +33,19 @@ class CloudflareAPIMCPTests(unittest.TestCase):
         read = cloudflare_api.operation_plan("dns.list")
         self.assertFalse(read["requires_explicit_approval"])
 
+    def test_canonical_permissions(self):
+        expected = {
+            "dns.list": "DNS Read",
+            "dns.create": "DNS Write",
+            "dns.delete": "DNS Write",
+            "zone.get": "Zone Read",
+            "tunnel.list": "Cloudflare Tunnel Read",
+            "tunnel.create": "Cloudflare Tunnel Write",
+        }
+        for name, permission in expected.items():
+            with self.subTest(operation=name):
+                self.assertEqual(cloudflare_api.operation_plan(name)["permission"], permission)
+
     def test_unauthorized(self):
         for name, args in (("cloudflare.references", {}),
                            ("cloudflare.operation_plan", {"operation": "dns.list"})):
