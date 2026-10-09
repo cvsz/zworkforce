@@ -14,8 +14,8 @@ from datetime import datetime, timedelta, timezone
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
-VERIFIER_DOMAIN = b"ZEAZ-PORTFOLIO-VERIFIER-v1\\x00"
-OPERATOR_DOMAIN = b"ZEAZ-PORTFOLIO-OPERATOR-v1\\x00"
+VERIFIER_DOMAIN = b"ZEAZ-PORTFOLIO-VERIFIER-v1\x00"
+OPERATOR_DOMAIN = b"ZEAZ-PORTFOLIO-OPERATOR-v1\x00"
 
 
 def canonical(value):
