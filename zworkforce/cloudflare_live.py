@@ -52,7 +52,9 @@ def _config(tenant_id: str, resource: str, resource_id: str) -> str:
     return token
 
 
-def read(tenant_id: str, resource: str, resource_id: str = "") -> dict[str, Any]:
+def read(tenant_id: str, resource: str, resource_id: str = "", page: int = 1) -> dict[str, Any]:
+    if type(page) is not int or not 1 <= page <= 10:
+        raise CloudflareReadError("page must be an integer between 1 and 10")
     if resource not in _ALLOWED:
         raise CloudflareReadError("Unsupported read resource")
     if resource == "zones":
@@ -67,7 +69,7 @@ def read(tenant_id: str, resource: str, resource_id: str = "") -> dict[str, Any]
         "tunnels": f"/accounts/{resource_id}/cfd_tunnel",
     }[resource]
     request = urllib.request.Request(
-        _API + path + "?per_page=50&page=1",
+        _API + path + f"?per_page=50&page={page}",
         headers={"Authorization": "Bearer " + token, "Accept": "application/json"},
         method="GET",
     )
@@ -98,5 +100,10 @@ def read(tenant_id: str, resource: str, resource_id: str = "") -> dict[str, Any]
         config = json.loads(os.environ["ZWORKFORCE_CLOUDFLARE_READ_TENANTS"])
         allowed = set(config[tenant_id]["zone_ids"])
         items = [item for item in items if item.get("id") in allowed]
-    return {"resource": resource, "items": items, "page": 1, "partial": True,
+    info = payload.get("result_info") or {}
+    if not isinstance(info, dict):
+        info = {}
+    total_pages = info.get("total_pages")
+    has_more = total_pages > page if type(total_pages) is int and total_pages >= 1 else None
+    return {"resource": resource, "items": items, "page": page, "has_more": has_more, "partial": True,
             "source": "Cloudflare API", "live": True}
