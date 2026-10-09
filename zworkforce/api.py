@@ -461,7 +461,21 @@ class App:
                         if not isinstance(body, dict): raise ValueError("MCP request must be a JSON object")
                         protocol_version = mcp_protocol_version(body, self.headers.get("MCP-Protocol-Version", ""))
                         if protocol_version is None:
-                            return self._error(400, "unsupported_mcp_protocol", "unsupported or mismatched MCP protocol version")
+                            params = body.get("params")
+                            meta = params.get("_meta") if isinstance(params, dict) else None
+                            meta_version = meta.get("io.modelcontextprotocol/protocolVersion") if isinstance(meta, dict) else None
+                            header_version = self.headers.get("MCP-Protocol-Version", "")
+                            mismatch = bool(header_version and meta_version and header_version != meta_version)
+                            error_code = -32020 if mismatch else -32022
+                            error_body = {
+                                "jsonrpc": "2.0", "id": body.get("id"),
+                                "error": {
+                                    "code": error_code,
+                                    "message": "MCP protocol header/metadata mismatch" if mismatch else "unsupported or malformed MCP protocol version",
+                                    "data": {"supportedVersions": list(MCP_SUPPORTED_PROTOCOL_VERSIONS)},
+                                },
+                            }
+                            return self._json(400, error_body)
                         result = handle_mcp(
                             app,
                             principal,
