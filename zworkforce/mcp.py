@@ -60,8 +60,13 @@ MCP_TOOLS: dict[str, dict[str, Any]] = {
         "name": "samsung.source_manifest",
         "description": "Validate operator-supplied unverified package license/hash metadata without fetching releases.",
         "inputSchema": {"type": "object", "properties": {
-            "model": {"type": "string"},
-            "packages": {"type": "array", "maxItems": 100, "items": {"type": "object"}}},
+            "model": {"type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{1,63}$"},
+            "packages": {"type": "array", "maxItems": 100, "items": {
+                "type": "object", "properties": {
+                    "name": {"type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{1,63}$"},
+                    "license": {"type": "string", "minLength": 1, "maxLength": 100, "pattern": "^[A-Za-z0-9][A-Za-z0-9.+-]{0,99}$"},
+                    "sha256": {"type": "string", "pattern": "^[a-fA-F0-9]{64}$"}},
+                "required": ["name", "license", "sha256"], "additionalProperties": False}}},
             "required": ["model", "packages"], "additionalProperties": False},
         "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
     },
