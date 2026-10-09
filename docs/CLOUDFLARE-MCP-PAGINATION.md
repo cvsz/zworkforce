@@ -1,5 +1,9 @@
-# Cloudflare MCP pagination
+# Cloudflare MCP — Pagination
 
-The optional `page` input is an integer between 1 and 10 (default: 1). The request uses GET on the fixed Cloudflare API URL and a server-validated tenant allowlist. Each page returns at most 50 provider records and a projected subset of fields. Response includes `has_more` when the Cloudflare API returns a valid `result_info.total_pages`. `partial` remains true: a page is not a verified full inventory.
+ฟังก์ชัน `cloudflare.live_inventory` รับค่า `page` เป็นจำนวนเต็มตั้งแต่ 1 ถึง 10 โดยค่าเริ่มต้นคือ 1 ใช้ HTTP GET ไปยัง Cloudflare API เท่านั้น และส่งข้อมูลไม่เกิน 50 รายการต่อหน้า
 
-The adapter does not have automatic retry or live audit persistence. Token-reference configuration, ownership evidence, staging verification, and operator logging remain rollout prerequisites. Do not assume the displayed DNS/zone list is exhaustive without traversing and validating all permitted pages. No mutation endpoints exist.
+ระบบส่ง `has_more` เมื่อ Cloudflare มีจำนวนหน้าหรือ `total_count` ที่ตรวจสอบได้ ยกเว้น `zones` ซึ่งตั้ง `has_more: null` เพื่อไม่เปิดเผยจำนวน Zone ที่อยู่นอก Tenant Allowlist
+
+ทุก Response มี `partial: true` และ **ไม่รับประกันว่าเป็น Inventory ทั้งหมด** โดยไม่มีการทำ Retry อัตโนมัติหรือบันทึก Durable Audit ใน Phase นี้
+
+ดูรายละเอียดการตั้งค่าและข้อจำกัดที่ [Cloudflare Live Read-only MCP](CLOUDFLARE-LIVE-READONLY-MCP.md)
