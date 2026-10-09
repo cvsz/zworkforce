@@ -28,9 +28,10 @@ def sources() -> dict[str, Any]:
 
 
 def model_guidance(model: str) -> dict[str, Any]:
-    normalized = model.strip().upper()
-    if not MODEL_PATTERN.fullmatch(normalized):
+    raw = model.strip()
+    if not MODEL_PATTERN.fullmatch(raw):
         raise ValueError("model must be 2-64 ASCII letters, numbers, dots, underscores or hyphens")
+    normalized = raw.upper()
     # Do not infer a firmware/SDK family from arbitrary model strings.
     return {
         "model": normalized,
