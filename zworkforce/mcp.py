@@ -21,7 +21,6 @@ MCP_LEGACY_PROTOCOL_VERSIONS = (
     MCP_LEGACY_PROTOCOL_VERSION,
     "2025-06-18",
     "2025-03-26",
-    "2024-11-05",
 )
 MCP_SUPPORTED_PROTOCOL_VERSIONS = (MCP_PROTOCOL_VERSION, *MCP_LEGACY_PROTOCOL_VERSIONS)
 MCP_PROTOCOL_VERSION_META_KEY = "io.modelcontextprotocol/protocolVersion"
@@ -153,15 +152,16 @@ def mcp_protocol_version(request: dict[str, Any], header_version: str = "") -> s
     method = str(request.get("method") or "")
     params = request.get("params") if isinstance(request.get("params"), dict) else {}
     if method == "initialize":
+        # Modern revisions use discovery. Legacy initialization counter-offers
+        # the newest handshake revision for unsupported or modern proposals.
         requested = str(params.get("protocolVersion") or "")
-        if not requested:
-            return MCP_LEGACY_PROTOCOL_VERSION
-        if requested in MCP_SUPPORTED_PROTOCOL_VERSIONS:
-            return requested
-        return None
+        return requested if requested in MCP_LEGACY_PROTOCOL_VERSIONS else MCP_LEGACY_PROTOCOL_VERSION
 
     meta = params.get("_meta") if isinstance(params.get("_meta"), dict) else {}
     meta_version = str(meta.get(MCP_PROTOCOL_VERSION_META_KEY) or "")
+    if header_version == MCP_PROTOCOL_VERSION or meta_version == MCP_PROTOCOL_VERSION:
+        if not isinstance(meta.get(MCP_CLIENT_CAPABILITIES_META_KEY), dict):
+            return None
     if header_version and meta_version and header_version != meta_version:
         return None
     version = header_version or meta_version or MCP_LEGACY_PROTOCOL_VERSION
@@ -197,8 +197,8 @@ def handle_mcp(
     elif header_method and header_method != method:
         return _error(request_id, -32600, "Mcp-Method header does not match JSON-RPC method")
     if method == "initialize":
-        if protocol_version == MCP_PROTOCOL_VERSION:
-            return _result(request_id, _modern_server_metadata())
+        if protocol_version not in MCP_LEGACY_PROTOCOL_VERSIONS:
+            return _error(request_id, -32022, "initialize requires a legacy handshake version")
         return _result(request_id, _legacy_server_metadata(protocol_version))
     if method == "server/discover":
         if protocol_version != MCP_PROTOCOL_VERSION:
