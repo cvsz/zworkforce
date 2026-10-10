@@ -42,7 +42,12 @@ def fetch_json(url: str, timeout: float, host: str) -> tuple[int, dict[str, obje
         requested = urlparse(url)
         if final.scheme != "https" or final.hostname != requested.hostname:
             raise RuntimeError("endpoint redirected away from requested HTTPS host")
-        payload = json.loads(response.read().decode("utf-8"))
+        # Bound response memory; connection timeout applies to individual reads.
+        max_bytes = 1024 * 1024
+        body = response.read(max_bytes + 1)
+        if len(body) > max_bytes:
+            raise RuntimeError("verification response exceeds 1 MiB")
+        payload = json.loads(body.decode("utf-8"))
         if not isinstance(payload, dict):
             raise RuntimeError("endpoint did not return a JSON object")
         return response.status, payload
