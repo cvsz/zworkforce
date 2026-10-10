@@ -2,8 +2,15 @@ import unittest
 from unittest.mock import patch
 
 from zworkforce.samsung_compat import compatibility
-from zworkforce.mcp import handle_mcp
+from zworkforce.mcp import handle_mcp as _handle_mcp, MCP_LEGACY_PROTOCOL_VERSION
 
+
+
+
+def handle_mcp(*args, **kwargs):
+    """Legacy protocol fixture for direct MCP handler unit tests."""
+    kwargs.setdefault("protocol_version", MCP_LEGACY_PROTOCOL_VERSION)
+    return _handle_mcp(*args, **kwargs)
 
 class SamsungCompatibilityTests(unittest.TestCase):
     def test_legacy(self):
