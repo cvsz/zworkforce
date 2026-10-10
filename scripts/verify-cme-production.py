@@ -54,10 +54,26 @@ def main() -> int:
     parser.add_argument("--expected-release", required=True)
     parser.add_argument("--runtime-release-url", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--operator", required=True)
+    parser.add_argument("--approval-reference", required=True)
+    parser.add_argument("--terraform-plan-reference", required=True)
+    parser.add_argument("--terraform-apply-reference", required=True)
+    parser.add_argument("--deployment-reference", required=True)
+    parser.add_argument("--alert-receipt", required=True)
     parser.add_argument("--timeout", type=float, default=10)
     args = parser.parse_args()
 
     output = Path(args.output)
+    evidence_refs = {
+        "operator": args.operator,
+        "approval_reference": args.approval_reference,
+        "terraform_plan_reference": args.terraform_plan_reference,
+        "terraform_apply_reference": args.terraform_apply_reference,
+        "deployment_reference": args.deployment_reference,
+        "alert_receipt": args.alert_receipt,
+    }
+    if any(not value.strip() for value in evidence_refs.values()):
+        parser.error("production evidence references must be non-empty")
     evidence: dict[str, object] = {
         "schema": "zeaz.cme.production-verification/v1",
         "timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -65,6 +81,7 @@ def main() -> int:
         "expected_release": args.expected_release,
         "runtime_release_url": args.runtime_release_url,
         "result": "FAIL",
+        **evidence_refs,
     }
     try:
         addresses = sorted({item[4][0] for item in socket.getaddrinfo(args.host, 443, type=socket.SOCK_STREAM)})
