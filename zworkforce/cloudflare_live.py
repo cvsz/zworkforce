@@ -52,7 +52,9 @@ def _config(tenant_id: str, resource: str, resource_id: str) -> str:
     return token
 
 
-def read(tenant_id: str, resource: str, resource_id: str = "") -> dict[str, Any]:
+def read(tenant_id: str, resource: str, resource_id: str = "", page: int = 1) -> dict[str, Any]:
+    if type(page) is not int or not 1 <= page <= 10:
+        raise CloudflareReadError("page must be an integer between 1 and 10")
     if resource not in _ALLOWED:
         raise CloudflareReadError("Unsupported read resource")
     if resource == "zones":
@@ -61,13 +63,20 @@ def read(tenant_id: str, resource: str, resource_id: str = "") -> dict[str, Any]
     elif not isinstance(resource_id, str) or not _ID.fullmatch(resource_id):
         raise CloudflareReadError("Invalid Cloudflare resource ID")
     token = _config(tenant_id, resource, resource_id)
-    path = {
-        "zones": "/zones",
-        "dns_records": f"/zones/{resource_id}/dns_records",
-        "tunnels": f"/accounts/{resource_id}/cfd_tunnel",
-    }[resource]
+    if resource == "zones":
+        config = json.loads(os.environ["ZWORKFORCE_CLOUDFLARE_READ_TENANTS"])
+        zone_ids = sorted(set(config[tenant_id]["zone_ids"]))
+        if page > len(zone_ids):
+            return {"resource": resource, "items": [], "page": page, "has_more": False,
+                    "partial": True, "source": "Cloudflare API", "live": True}
+        path = "/zones/" + zone_ids[page - 1]
+    else:
+        path = {
+            "dns_records": f"/zones/{resource_id}/dns_records",
+            "tunnels": f"/accounts/{resource_id}/cfd_tunnel",
+        }[resource]
     request = urllib.request.Request(
-        _API + path + "?per_page=50&page=1",
+        _API + path + ("" if resource == "zones" else f"?per_page=50&page={page}"),
         headers={"Authorization": "Bearer " + token, "Accept": "application/json"},
         method="GET",
     )
@@ -76,6 +85,12 @@ def read(tenant_id: str, resource: str, resource_id: str = "") -> dict[str, Any]
             if response.status != 200:
                 raise CloudflareReadError("Cloudflare API returned non-success status")
             raw = response.read(_MAX_BYTES + 1)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 429:
+            raise CloudflareReadError("Cloudflare API rate limit exceeded; retry later") from None
+        if exc.code in (401, 403):
+            raise PermissionError("Cloudflare API token lacks access") from None
+        raise CloudflareReadError("Cloudflare API returned an HTTP error") from None
     except (OSError, urllib.error.URLError) as exc:
         raise CloudflareReadError("Cloudflare API request failed") from exc
     if len(raw) > _MAX_BYTES:
@@ -84,7 +99,7 @@ def read(tenant_id: str, resource: str, resource_id: str = "") -> dict[str, Any]
         payload = json.loads(raw)
     except (ValueError, UnicodeDecodeError) as exc:
         raise CloudflareReadError("Invalid Cloudflare API response") from exc
-    if not isinstance(payload, dict) or payload.get("success") is not True or not isinstance(payload.get("result"), list):
+    if not isinstance(payload, dict) or payload.get("success") is not True or not isinstance(payload.get("result"), dict if resource == "zones" else list):
         raise CloudflareReadError("Cloudflare API returned an unsuccessful response")
     # No provider object is returned wholesale. Only inventory fields relevant to operators.
     fields = {
@@ -92,11 +107,21 @@ def read(tenant_id: str, resource: str, resource_id: str = "") -> dict[str, Any]
         "dns_records": ("id", "type", "name", "content", "proxied", "ttl"),
         "tunnels": ("id", "name", "status", "created_at"),
     }[resource]
+    rows = [payload["result"]] if resource == "zones" else payload["result"]
     items = [{key: row[key] for key in fields if key in row and isinstance(row[key], (str, int, bool, type(None)))}
-             for row in payload["result"] if isinstance(row, dict)]
+             for row in rows if isinstance(row, dict)]
+    if resource == "zones" and (len(items) != 1 or items[0].get("id") != zone_ids[page - 1]):
+        raise CloudflareReadError("Cloudflare zone identity mismatch")
+    info = payload.get("result_info") or {}
+    if not isinstance(info, dict):
+        info = {}
+    total_pages = info.get("total_pages")
+    has_more = total_pages > page if type(total_pages) is int and total_pages >= 1 else None
+    if resource == "tunnels" and has_more is None:
+        total_count = info.get("total_count")
+        if type(total_count) is int and total_count >= 0:
+            has_more = page * 50 < total_count
     if resource == "zones":
-        config = json.loads(os.environ["ZWORKFORCE_CLOUDFLARE_READ_TENANTS"])
-        allowed = set(config[tenant_id]["zone_ids"])
-        items = [item for item in items if item.get("id") in allowed]
-    return {"resource": resource, "items": items, "page": 1, "partial": True,
+        has_more = page < len(zone_ids)
+    return {"resource": resource, "items": items, "page": page, "has_more": has_more, "partial": True,
             "source": "Cloudflare API", "live": True}
