@@ -77,6 +77,8 @@ def main() -> int:
         "deployment_reference": args.deployment_reference,
         "alert_receipt": args.alert_receipt,
     }
+    if not args.expected_release.strip():
+        parser.error("expected release identity must be non-empty")
     if any(not value.strip() for value in evidence_refs.values()):
         parser.error("production evidence references must be non-empty")
     evidence: dict[str, object] = {
