@@ -162,6 +162,15 @@ def mcp_protocol_version(request: dict[str, Any], header_version: str = "") -> s
     if header_version == MCP_PROTOCOL_VERSION or meta_version == MCP_PROTOCOL_VERSION:
         if not isinstance(meta.get(MCP_CLIENT_CAPABILITIES_META_KEY), dict):
             return None
+        client_info = meta.get(MCP_CLIENT_INFO_META_KEY)
+        if (
+            not isinstance(client_info, dict)
+            or not isinstance(client_info.get("name"), str)
+            or not client_info["name"].strip()
+            or not isinstance(client_info.get("version"), str)
+            or not client_info["version"].strip()
+        ):
+            return None
     if header_version and meta_version and header_version != meta_version:
         return None
     version = header_version or meta_version or "2025-03-26"
@@ -204,6 +213,8 @@ def handle_mcp(
         if protocol_version != MCP_PROTOCOL_VERSION:
             return _error(request_id, -32601, "method not found")
         return _result(request_id, _modern_server_metadata())
+    if method == "ping":
+        return _result(request_id, {})
     if method.startswith("notifications/"):
         return None
     if method == "tools/list":
@@ -347,7 +358,7 @@ def _legacy_server_metadata(protocol_version: str) -> dict[str, Any]:
 def _modern_server_metadata() -> dict[str, Any]:
     return {
         "capabilities": {"tools": {}},
-        "supportedVersions": list(MCP_SUPPORTED_PROTOCOL_VERSIONS),
+        "supportedVersions": [MCP_PROTOCOL_VERSION],
         "_meta": {MCP_SERVER_INFO_META_KEY: _server_info()},
     }
 
