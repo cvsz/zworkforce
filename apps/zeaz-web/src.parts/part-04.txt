@@ -2,8 +2,8 @@ gba(101,230,255,.12),rgba(79,140,255,.04));transform:translateY(-8px)}.money{fon
 
 const adsenseLoader = '<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4971034675329740" crossorigin="anonymous"></script>';
 
-function landing() {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="ZEAZ One — secure premium business smartphone"><title>ZEAZ One — Your secure workday, in one phone.</title>${adsenseLoader}<style>${styles}</style></head><body>
+function landing({ ads = true } = {}) {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="ZEAZ One — secure premium business smartphone"><title>ZEAZ One — Your secure workday, in one phone.</title>${ads ? adsenseLoader : ""}<style>${styles}</style></head><body>
   <div class="nav"><nav class="container"><a class="brand" href="#top">ZEAZ ONE</a><div class="links"><a data-k="navWhy" href="#why"></a><a data-k="navSpecs" href="#specs"></a><a data-k="navAi" href="#ai"></a><a data-k="navSecurity" href="#security"></a><a data-k="navModels" href="#models"></a></div><div class="actions"><div class="lang"><button data-lang="en" class="active">EN</button><button data-lang="th">TH</button></div><a class="btn secondary nav-early" data-k="navEarly" href="#early"></a></div></nav></div>
   <main id="top"><header class="hero container"><div><div class="eyebrow" data-k="eyebrow"></div><h1><span data-k="heroA"></span> <span class="gradient" data-k="heroB"></span></h1><p class="lead" data-k="heroP"></p><div class="hero-buttons"><a class="btn primary" data-k="navEarly" href="#early"></a><a class="btn secondary" data-k="explore" href="#specs"></a></div><div class="proof"><span data-k="seven"></span><span data-k="private"></span><span data-k="global"></span></div></div><div class="device"><div class="orb"></div><div class="phone"><div class="island"></div><div class="screen"><small>Tuesday · Bangkok</small><div class="time">09:41</div><div class="screen-card"><small>ZEAZ Private AI</small><b>3 action items extracted locally</b></div><div class="screen-card"><small>Security</small><b>Verified boot · Protected</b></div><div class="screen-card"><small>Desktop</small><b>External display ready</b></div></div></div></div></header>
   <div class="trust"><div data-k="cards.0.0"></div><div data-k="cards.1.0"></div><div data-k="cards.3.0"></div><div data-k="cards.2.0"></div><div data-k="cards.5.0"></div></div>
@@ -31,6 +31,6 @@ export default { async fetch(request, env, ctx) {
     if (url.pathname === "/privacy" || url.pathname === "/privacy/") return html(legalPage("privacy"));
     if (url.pathname === "/terms" || url.pathname === "/terms/") return html(legalPage("terms"));
     if (url.pathname === "/" || url.pathname === "/index.html") return html(landing());
-    return html(landing(), 404);
+    return html(landing({ ads: false }), 404);
   } catch (error) { console.error("unhandled_request_error", error); return response("Internal Server Error", 500, { "content-type": "text/plain; charset=utf-8" }); }
 } };
