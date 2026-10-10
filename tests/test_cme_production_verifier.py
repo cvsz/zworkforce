@@ -29,8 +29,9 @@ class FakeResponse:
     def geturl(self):
         return self.url
 
-    def read(self):
-        return json.dumps(self.body).encode()
+    def read(self, size=-1):
+        data = json.dumps(self.body).encode()
+        return data if size < 0 else data[:size]
 
 
 class FakeOpener:
