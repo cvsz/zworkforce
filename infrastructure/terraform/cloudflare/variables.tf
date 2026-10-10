@@ -221,6 +221,19 @@ variable "manage_tunnel_config" {
   description = "Only true after importing and reviewing the current remote tunnel ingress."
 }
 
+variable "cme_access_allowed_emails" {
+  type        = set(string)
+  description = "Exact CMe production operators allowed through Cloudflare Access."
+
+  validation {
+    condition = length(var.cme_access_allowed_emails) > 0 && alltrue([
+      for email in var.cme_access_allowed_emails :
+      can(regex("^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$", lower(email)))
+    ])
+    error_message = "cme_access_allowed_emails must contain at least one valid CMe operator email."
+  }
+}
+
 variable "cmeerp_hostname" {
   type        = string
   default     = "cme.zeaz.dev"
