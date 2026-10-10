@@ -19,7 +19,7 @@ class ProductionGateTests(unittest.TestCase):
     def verify(self, evidence=None, **kw):
         return assert_sagi_production_ready(
             evidence=self.items if evidence is None else evidence,
-            deployment_sha=self.sha, now=self.now, **kw,
+            deployment_sha=kw.pop("deployment_sha", self.sha), now=self.now, **kw,
         )
 
     def test_complete_evidence_contract(self):
