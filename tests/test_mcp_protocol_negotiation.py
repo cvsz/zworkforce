@@ -47,6 +47,7 @@ class MCPProtocolNegotiationTests(unittest.TestCase):
         request = {"method": "tools/list", "params": {"_meta": {
             MCP_PROTOCOL_VERSION_META_KEY: MCP_PROTOCOL_VERSION,
             MCP_CLIENT_CAPABILITIES_META_KEY: {},
+            "io.modelcontextprotocol/clientInfo": {"name": "test-client", "version": "1.0"},
         }}}
         self.assertEqual(mcp_protocol_version(request, MCP_PROTOCOL_VERSION), MCP_PROTOCOL_VERSION)
 
