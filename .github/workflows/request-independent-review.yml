@@ -1,0 +1,32 @@
+name: Request independent PR review
+
+on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  request-review:
+    if: github.event.pull_request.draft == false && github.event.pull_request.user.login != 'policedbc'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request policedbc review
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          gh api --method POST "repos/$GH_REPO/pulls/$PR_NUMBER/requested_reviewers" \
+            -f 'reviewers[]=policedbc'
+
+# Repository administrator prerequisites:
+# - Invite policedbc as a collaborator and wait for acceptance.
+# - Protect the default branch with required status checks and 1+ approving review.
+# - Dismiss stale approvals when new commits are pushed.
+# - Restrict bypass and direct pushes to protected branches.
+# - Merge only with cvsz after checks and independent approval.
+# This workflow requests a review; it never self-approves or merges.
