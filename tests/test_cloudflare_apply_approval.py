@@ -47,6 +47,7 @@ class CloudflareApplyApprovalTests(unittest.TestCase):
             "CLOUDFLARE_ZONE_ID=zone-test\n"
             "CLOUDFLARE_TUNNEL_ID=tunnel-test\n"
             "CME_ACCESS_ALLOWED_EMAILS=[\"operator@example.com\"]\n"
+            "CME_ACCESS_SERVICE_TOKEN_ID=test-service-token-id\n"
             "PIEWDASH_ACCESS_ALLOWED_EMAILS=[\"operator@example.com\"]\n",
             encoding="utf-8",
         )
