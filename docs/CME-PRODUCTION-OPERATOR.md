@@ -22,7 +22,7 @@ Do not place CMe database credentials, session secrets or Cloudflare credentials
 6. Expose immutable deployed commit/image identity from a runtime/deployment metadata endpoint that returns JSON `{\"release\": \"<digest-or-sha>\"}` and is bound to the serving deployment, not an operator-written file.
 7. Export the machine-verification Access credentials from the protected operator secret store as `ZWORKFORCE_ACCESS_ID` and `ZWORKFORCE_ACCESS_TOKEN`; never write them to repository files or evidence.
 8. Run with a new output path for every attempt:
-   `python3 scripts/verify-cme-production.py --expected-release <digest-or-sha> --runtime-release-url <https-runtime-metadata-url> --output <immutable-evidence.json>`
+   `python3 scripts/verify-cme-production.py --expected-release <digest-or-sha> --runtime-release-url <https-runtime-metadata-url> --operator <operator-id> --approval-reference <approval-id> --terraform-plan-reference <plan-sha-or-uri> --terraform-apply-reference <apply-run-id> --deployment-reference <deployment-run-id> --alert-receipt <alert-delivery-id> --output <immutable-evidence.json>`
 9. Retain the JSON evidence with operator identity, Terraform plan/apply reference, deployment reference and alert receipt.
 10. Exercise rollback to the prior immutable artifact, repeat verification, measure recovery time, then restore the intended artifact and verify again.
 
