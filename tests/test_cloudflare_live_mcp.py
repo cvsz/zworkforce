@@ -1,10 +1,11 @@
 import json
 import os
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
+from types import SimpleNamespace
 
 from zworkforce import cloudflare_live
-from zworkforce.mcp import handle_mcp
+from zworkforce.mcp import handle_mcp as _handle_mcp, MCP_LEGACY_PROTOCOL_VERSION
 
 
 ZONE = "a" * 32
@@ -12,6 +13,13 @@ ACCOUNT = "b" * 32
 CONFIG = {"tenant-a": {"zone_ids": [ZONE], "account_ids": [ACCOUNT],
                        "token_env": "ZWORKFORCE_CF_TOKEN_TEST"}}
 
+
+
+
+def handle_mcp(*args, **kwargs):
+    """Legacy protocol fixture for direct MCP handler unit tests."""
+    kwargs.setdefault("protocol_version", MCP_LEGACY_PROTOCOL_VERSION)
+    return _handle_mcp(*args, **kwargs)
 
 class FakeResponse:
     status = 200
@@ -79,7 +87,7 @@ class CloudflareLiveTests(unittest.TestCase):
         self.assertTrue(denied["result"]["isError"])
         with patch("zworkforce.mcp.AuthManager.require", return_value=True):
             with patch("zworkforce.cloudflare_live.urllib.request.build_opener", return_value=FakeOpener()):
-                granted = handle_mcp(None, object(), "tenant-a", request)
+                granted = handle_mcp(Mock(db=Mock()), SimpleNamespace(name="auditor"), "tenant-a", request)
         self.assertFalse(granted["result"]["isError"])
         self.assertEqual(len(granted["result"]["structuredContent"]["items"]), 1)
 
