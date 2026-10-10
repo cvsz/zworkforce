@@ -141,7 +141,7 @@ probe_path(){
     [[ "${ZWORKFORCE_ACCESS_ID}" != *'"'* && "${ZWORKFORCE_ACCESS_TOKEN}" != *'"'* ]] ||
       fail "CMe Access credentials contain unsupported quotes"
     access_headers=(--config -)
-    access_config="$(printf 'header = "CF-Access-Client-Id: %s"\\nheader = "CF-Access-Client-Secret: %s"\\n' "${ZWORKFORCE_ACCESS_ID}" "${ZWORKFORCE_ACCESS_TOKEN}")"
+    access_config="$(printf 'header = "CF-Access-Client-Id: %s"\nheader = "CF-Access-Client-Secret: %s"\n' "${ZWORKFORCE_ACCESS_ID}" "${ZWORKFORCE_ACCESS_TOKEN}")"
   fi
   code="$(curl --silent --show-error \
     --connect-timeout 3 --max-time 8 \
