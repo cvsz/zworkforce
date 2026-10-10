@@ -71,6 +71,7 @@ class MCPTests(unittest.TestCase):
         request = {"jsonrpc": "2.0", "id": 50, "method": "tools/list", "params": {"_meta": {
             "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
             "io.modelcontextprotocol/clientCapabilities": {},
+            "io.modelcontextprotocol/clientInfo": {"name": "test-client", "version": "1.0"},
         }}}
         status, body = self._post_mcp(request, {
             "MCP-Protocol-Version": "2025-11-25",
@@ -84,6 +85,7 @@ class MCPTests(unittest.TestCase):
         request = {"jsonrpc": "2.0", "id": 52, "method": "tools/list", "params": {"_meta": {
             "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
             "io.modelcontextprotocol/clientCapabilities": {},
+            "io.modelcontextprotocol/clientInfo": {"name": "test-client", "version": "1.0"},
         }}}
         status, body = self._post_mcp(request, {"Mcp-Method": "tools/list"})
         self.assertEqual(status, 400)
@@ -95,6 +97,7 @@ class MCPTests(unittest.TestCase):
         request = {"jsonrpc": "2.0", "id": 51, "method": "tools/list", "params": {"_meta": {
             "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
             "io.modelcontextprotocol/clientCapabilities": {},
+            "io.modelcontextprotocol/clientInfo": {"name": "test-client", "version": "1.0"},
         }}}
         status, body = self._post_mcp(request, {
             "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
@@ -117,6 +120,7 @@ class MCPTests(unittest.TestCase):
         request = {"jsonrpc": "2.0", "id": 72, "method": "tools/list", "params": {"_meta": {
             "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
             "io.modelcontextprotocol/clientCapabilities": {},
+            "io.modelcontextprotocol/clientInfo": {"name": "test-client", "version": "1.0"},
         }}}
         status, body = self._post_mcp(request, {"Mcp-Method": "tools/list"})
         self.assertEqual(status, 400)
@@ -137,6 +141,7 @@ class MCPTests(unittest.TestCase):
             "uri": "test://item", "_meta": {
                 "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
                 "io.modelcontextprotocol/clientCapabilities": {},
+            "io.modelcontextprotocol/clientInfo": {"name": "test-client", "version": "1.0"},
             },
         }}
         status, body = self._post_mcp(request, {
@@ -151,6 +156,25 @@ class MCPTests(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as caught:
             urllib.request.urlopen(request, timeout=10)
         self.assertEqual(caught.exception.code, 405)
+
+    def test_delete_mcp_returns_405(self):
+        request = urllib.request.Request(self.endpoint, method="DELETE")
+        with self.assertRaises(urllib.error.HTTPError) as caught:
+            urllib.request.urlopen(request, timeout=10)
+        self.assertEqual(caught.exception.code, 405)
+
+    def test_invalid_client_info_rejected(self):
+        request = {"jsonrpc": "2.0", "id": 75, "method": "tools/list", "params": {"_meta": {
+            "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+            "io.modelcontextprotocol/clientCapabilities": {},
+            "io.modelcontextprotocol/clientInfo": "invalid",
+        }}}
+        status, body = self._post_mcp(request, {
+            "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
+            "Mcp-Method": "tools/list",
+        })
+        self.assertEqual(status, 400)
+        self.assertEqual(body["error"]["code"], -32602)
 
     def test_submit_and_get_task(self):
         created=self.client.call_tool("workforce.submit_task",{"agent_id":"researcher","prompt":"MCP task"})
