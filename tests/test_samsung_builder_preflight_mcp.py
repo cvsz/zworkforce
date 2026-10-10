@@ -18,9 +18,9 @@ class SamsungBuilderPreflightTests(unittest.TestCase):
                    "params": {"name": "samsung.builder_preflight",
                               "arguments": {"model": "UA40F5500AR", "model_year": 2013}}}
         with patch("zworkforce.mcp.AuthManager.require", return_value=False):
-            self.assertTrue(handle_mcp(None, object(), "t", request)["result"]["isError"])
+            self.assertTrue(handle_mcp(None, object(), "t", request, protocol_version="2025-11-25")["result"]["isError"])
         with patch("zworkforce.mcp.AuthManager.require", return_value=True):
-            self.assertFalse(handle_mcp(None, object(), "t", request)["result"]["isError"])
+            self.assertFalse(handle_mcp(None, object(), "t", request, protocol_version="2025-11-25")["result"]["isError"])
 
 
 if __name__ == "__main__":
