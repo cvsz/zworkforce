@@ -36,7 +36,7 @@ class FakeResponse:
 class FakeOpener:
     def __init__(self, url=None, body=None):
         self.url = url
-        self.body = body or {"release": "abc"}
+        self.body = {"release": "abc"} if body is None else body
 
     def open(self, request, timeout):
         return FakeResponse(self.url or request.full_url, self.body)
