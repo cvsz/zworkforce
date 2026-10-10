@@ -6,6 +6,7 @@ on:
       - "infrastructure/terraform/cloudflare/*.tf"
       - "deploy/cloudflare/tunnel-ingress.yml"
       - "scripts/verify-cme-production.py"
+      - "tests/test_cme_production_verifier.py"
       - "scripts/cloudflare/reconcile-repo-sites.sh"
       - "docs/CME-PRODUCTION-OPERATOR.md"
       - ".github/workflows/cme-operator-contract.yml"
@@ -22,6 +23,8 @@ jobs:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
       - name: Compile verifier
         run: python3 -m py_compile scripts/verify-cme-production.py
+      - name: Test verifier behavior
+        run: python3 -m unittest discover -s tests -p test_cme_production_verifier.py -v
       - name: Verify ingress contract
         run: |
           grep -q 'hostname: cme.zeaz.dev' deploy/cloudflare/tunnel-ingress.yml
