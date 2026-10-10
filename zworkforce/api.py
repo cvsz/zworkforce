@@ -233,6 +233,12 @@ class App:
                 self._security_headers()
                 self.end_headers()
 
+            def do_DELETE(self):
+                self._prepare()
+                if urllib.parse.urlsplit(self.path).path == "/mcp":
+                    return self._empty(405, {"Allow": "GET, POST, OPTIONS"})
+                return self._error(404, "not_found", "not found")
+
             def do_GET(self):
                 self._prepare()
                 path = urllib.parse.urlsplit(self.path).path
@@ -480,7 +486,14 @@ class App:
                                     not meta_version
                                     or (
                                         meta_version == modern
-                                        and not isinstance(meta.get("io.modelcontextprotocol/clientCapabilities"), dict)
+                                        and (
+                                            not isinstance(meta.get("io.modelcontextprotocol/clientCapabilities"), dict)
+                                            or not isinstance(meta.get("io.modelcontextprotocol/clientInfo"), dict)
+                                            or not isinstance(meta.get("io.modelcontextprotocol/clientInfo", {}).get("name"), str)
+                                            or not meta.get("io.modelcontextprotocol/clientInfo", {}).get("name", "").strip()
+                                            or not isinstance(meta.get("io.modelcontextprotocol/clientInfo", {}).get("version"), str)
+                                            or not meta.get("io.modelcontextprotocol/clientInfo", {}).get("version", "").strip()
+                                        )
                                     )
                                 )
                             )
