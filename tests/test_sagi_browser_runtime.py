@@ -19,11 +19,9 @@ class BrowserRuntimeTests(unittest.TestCase):
             action=ComputerAction.OBSERVE, target="https://example.com",
             screen_evidence_digest="b" * 64,
         )
-        self.click = prepare_computer_use_intent(
-            binding=binding, session_id="s1", step_id="a",
-            action=ComputerAction.CLICK, target="button",
-            screen_evidence_digest="b" * 64,
-        )
+        # Simulate an interactive intent at the browser authorization boundary.
+        # Browser runtime must reject it before any Playwright operation.
+        self.click = replace(self.observe, action=ComputerAction.CLICK)
 
     def test_denies_unapproved_observation_before_importing_playwright(self):
         with self.assertRaises(PermissionError):
