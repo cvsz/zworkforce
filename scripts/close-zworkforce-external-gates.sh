@@ -140,6 +140,26 @@ stage_f(){
   : "${SUPABASE_S3_REGION:?set SUPABASE_S3_REGION}"
   : "${SUPABASE_S3_ACCESS_KEY:?set SUPABASE_S3_ACCESS_KEY}"
   : "${SUPABASE_S3_SECRET_KEY:?set SUPABASE_S3_SECRET_KEY}"
+  local expected_project_ref="${SUPABASE_EXPECTED_PROJECT_REF:-qhprcfdgajhmdzvnsffb}"
+
+  python3 - "$SUPABASE_S3_ENDPOINT" "$expected_project_ref" <<'PY'
+import sys
+from urllib.parse import urlparse
+
+endpoint, expected = sys.argv[1], sys.argv[2]
+parsed = urlparse(endpoint)
+expected_host = f"{expected}.storage.supabase.co"
+if parsed.scheme != "https":
+    raise SystemExit("ERROR: SUPABASE_S3_ENDPOINT must use https")
+if parsed.hostname != expected_host:
+    raise SystemExit(
+        f"ERROR: SUPABASE_S3_ENDPOINT host must be {expected_host}; got {parsed.hostname or 'missing'}"
+    )
+if parsed.path.rstrip("/") != "/storage/v1/s3":
+    raise SystemExit("ERROR: SUPABASE_S3_ENDPOINT path must be /storage/v1/s3")
+print(f"supabase_project_ref={expected}")
+print(f"supabase_endpoint_host={expected_host}")
+PY
 
   local stamp work payload key_a key_b
   stamp="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -156,7 +176,11 @@ stage_f(){
   key_b="tenant-b/evidence/$expected_sha.txt"
 
   note "Stage F: testing Supabase S3-compatible storage"
+  local storage_result="$work/storage-result.json"
   PYTHONPATH="$REPO_DIR${PYTHONPATH:+:$PYTHONPATH}" \
+  STAGE_F_RESULT_FILE="$storage_result" \
+  STAGE_F_CANDIDATE="$FROZEN_CANDIDATE" \
+  STAGE_F_PROJECT_REF="$expected_project_ref" \
   STAGE_F_PAYLOAD="$payload" \
   STAGE_F_KEY_A="$key_a" \
   STAGE_F_KEY_B="$key_b" \
@@ -184,6 +208,9 @@ key_a=os.environ["STAGE_F_KEY_A"]
 key_b=os.environ["STAGE_F_KEY_B"]
 expected_sha=os.environ["STAGE_F_EXPECTED_SHA"]
 expected_size=int(os.environ["STAGE_F_EXPECTED_SIZE"])
+result_file=os.environ["STAGE_F_RESULT_FILE"]
+candidate=os.environ["STAGE_F_CANDIDATE"]
+project_ref=os.environ["STAGE_F_PROJECT_REF"]
 
 s3=boto3.client(
     "s3",
@@ -255,14 +282,25 @@ except ClientError:
 else:
     raise AssertionError("deleted object still readable")
 
-print(json.dumps({
+result = {
   "storage":"PASS",
+  "candidate": candidate,
+  "supabase_project_ref": project_ref,
+  "endpoint_host": f"{project_ref}.storage.supabase.co",
+  "bucket": bucket,
+  "region": region,
   "sha256":expected_sha,
   "bytes":expected_size,
   "mime":"text/plain",
+  "put_verified": True,
+  "get_verified": True,
   "presigned_url_generated":True,
   "delete_verified":True
-}))
+}
+with open(result_file, "w", encoding="utf-8") as handle:
+    json.dump(result, handle, sort_keys=True)
+    handle.write("\n")
+print(json.dumps(result, sort_keys=True))
 PY
 
   # Optional real Qdrant evidence
@@ -315,7 +353,11 @@ PY
     note "Stage F: QDRANT_URL not set; vector evidence remains optional/pending per release config"
   fi
 
-  mark F PASS "supabase_s3_verified"
+  local storage_result_sha
+  storage_result_sha="$(sha256_file "$storage_result")"
+  note "stage_f_evidence=$storage_result"
+  note "stage_f_evidence_sha256=$storage_result_sha"
+  mark F PASS "supabase_s3_verified evidence=$storage_result sha256=$storage_result_sha"
   note "STAGE F VERDICT: PASS"
 }
 

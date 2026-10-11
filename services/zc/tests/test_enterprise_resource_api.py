@@ -23,7 +23,11 @@ from app.services.resource_store import ResourceStore
 class FakeAIService:
     """Offline AI boundary shared by all migrated domain tests."""
 
+    def __init__(self) -> None:
+        self.requests = []
+
     async def create_response(self, request):
+        self.requests.append(request)
         output = f"generated:{request.prompt[:80]}"
         if "Return a JSON array" in request.prompt:
             output = (
@@ -156,9 +160,26 @@ async def test_artifact_versions_and_research_resources(
         assert iteration.json()["data"]["current_version"] == 2
         assert len(iteration.json()["data"]["versions"]) == 2
 
+        revision_from_old_version = await client.post(
+            f"/v1/artifacts/{artifact['id']}/versions",
+            json={"feedback": "Keep the first draft's structure", "source_version": 1},
+            headers=headers("tenant-a"),
+        )
+        assert revision_from_old_version.status_code == 201
+        assert revision_from_old_version.json()["data"]["current_version"] == 3
+        assert "artifact version 1" in resource_service.ai_service.requests[-1].prompt
+        assert "Artifact:\nversion one" in resource_service.ai_service.requests[-1].prompt
+
+        missing_source_version = await client.post(
+            f"/v1/artifacts/{artifact['id']}/versions",
+            json={"feedback": "Use a missing version", "source_version": 99},
+            headers=headers("tenant-a"),
+        )
+        assert missing_source_version.status_code == 404
+
         diff = await client.get(
             f"/v1/artifacts/{artifact['id']}/diff",
-            params={"from_version": 1, "to_version": 2},
+            params={"from_version": 1, "to_version": 3},
             headers=headers("tenant-a"),
         )
         assert diff.status_code == 200

@@ -13,6 +13,7 @@ CONTROL = ROOT / "control.sh"
 DEPENDENCY_REVIEW = ROOT / ".github" / "workflows" / "dependency-review.yml"
 WINDOWS = ROOT / ".github" / "workflows" / "windows-client.yml"
 ZARVIS = ROOT / ".github" / "workflows" / "zarvis.yml"
+INDEPENDENT_REVIEW = ROOT / ".github" / "workflows" / "request-independent-review.yml"
 
 
 class RepositoryPolicyTests(unittest.TestCase):
@@ -71,6 +72,21 @@ class RepositoryPolicyTests(unittest.TestCase):
 
         self.assertIn("dependency-review:", DEPENDENCY_REVIEW.read_text(encoding="utf-8"))
         self.assertIn("build-test-package:", WINDOWS.read_text(encoding="utf-8"))
+
+    def test_independent_review_workflow_is_request_only(self):
+        workflow = INDEPENDENT_REVIEW.read_text(encoding="utf-8")
+        runbook = (ROOT / "docs" / "GITHUB-OPERATIONS.md").read_text(encoding="utf-8")
+        self.assertIn("Request independent PR review", runbook)
+        self.assertIn("pull_request_target:", workflow)
+        self.assertIn("types: [opened, reopened, ready_for_review]", workflow)
+        self.assertIn("contents: read", workflow)
+        self.assertIn("pull-requests: write", workflow)
+        self.assertIn("github.event.pull_request.draft == false", workflow)
+        self.assertIn("github.event.pull_request.user.login != 'policedbc'", workflow)
+        self.assertIn("-f 'reviewers[]=policedbc'", workflow)
+        self.assertNotIn("actions/checkout", workflow)
+        self.assertNotIn("gh pr merge", workflow)
+        self.assertNotIn("gh pr review", workflow)
 
     def test_path_filtered_zarvis_checks_are_not_globally_required(self):
         zarvis = ZARVIS.read_text(encoding="utf-8")

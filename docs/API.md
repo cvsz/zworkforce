@@ -264,14 +264,36 @@ GET      /api/v1/tool-events
 
 ## MCP
 
-`POST /mcp` accepts stateless JSON-RPC requests with `MCP-Protocol-Version: 2026-07-28`. It uses the same API authentication and tenant authorization as REST.
+`POST /mcp` accepts authenticated, tenant-scoped JSON-RPC 2.0 requests. Modern
+`2026-07-28` messages require the following headers:
 
-Supported methods:
+- `MCP-Protocol-Version: 2026-07-28`
+- `Mcp-Method` exactly matching the JSON-RPC `method`
+- `Mcp-Name` exactly matching `params.name` for `tools/call`
+  (for `resources/read`, it mirrors `params.uri`)
 
-```text
-server/discover
-tools/list
-tools/call
+Modern `params._meta` must contain matching
+`io.modelcontextprotocol/protocolVersion` and an object-valued
+`io.modelcontextprotocol/clientCapabilities`. Invalid protocol versions or
+mismatched version metadata return HTTP 400 with a JSON-RPC `error` retaining
+the original request `id`. A mismatched method/name header also fails closed.
+
+`initialize` is a **legacy handshake** only; supported legacy versions are
+`2025-11-25`, `2025-06-18`, and `2025-03-26`. For an unknown or modern
+handshake proposal the server counter-offers `2025-11-25`. The older
+`2024-11-05` HTTP+SSE transport is not implemented and is not advertised.
+Modern clients should call `server/discover`.
+
+Example:
+
+```bash
+curl --fail-with-body -sS https://workforce.example.com/mcp \
+  -H "Authorization: Bearer $ZWORKFORCE_MCP_TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "MCP-Protocol-Version: 2026-07-28" \
+  -H "Mcp-Method: tools/call" \
+  -H "Mcp-Name: cloudflare.references" \
+  --data '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"cloudflare.references","arguments":{},"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}}}'
 ```
 
-Built-in MCP management tools are documented in [MCP.md](MCP.md).
+See [MCP.md](MCP.md) for discovery, initialize, complete examples and tool permissions.
