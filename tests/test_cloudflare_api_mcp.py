@@ -2,8 +2,15 @@ import unittest
 from unittest.mock import patch
 
 from zworkforce import cloudflare_api
-from zworkforce.mcp import MCP_TOOLS, handle_mcp
+from zworkforce.mcp import MCP_TOOLS, handle_mcp as _handle_mcp, MCP_LEGACY_PROTOCOL_VERSION
 
+
+
+
+def handle_mcp(*args, **kwargs):
+    """Legacy protocol fixture for direct MCP handler unit tests."""
+    kwargs.setdefault("protocol_version", MCP_LEGACY_PROTOCOL_VERSION)
+    return _handle_mcp(*args, **kwargs)
 
 class CloudflareAPIMCPTests(unittest.TestCase):
     def call(self, name, args, allowed=True):
