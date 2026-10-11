@@ -6,6 +6,8 @@ zWorkforce approval, queue, budget and audit services remain authoritative.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
+from itertools import islice
 from typing import Iterable
 import hashlib
 import json
@@ -47,6 +49,7 @@ class ValidatedPlan:
     goal: str
     steps: tuple[ProposedStep, ...]
     digest: str
+    limits: MissionLimits
 
     @property
     def requires_approval(self) -> bool:
@@ -64,12 +67,14 @@ def validate_plan(
     """Validate untrusted planner output; return data, never execute actions."""
     if not all(isinstance(v, str) and v.strip() for v in (tenant_id, actor_id, goal)):
         raise ValueError("tenant, actor and goal are required")
-    steps = tuple(proposed_steps)
+    steps = tuple(islice(iter(proposed_steps), limits.max_steps + 1))
     if not 1 <= len(steps) <= limits.max_steps:
         raise ValueError("step count out of bounds")
     ids: set[str] = set()
     fanout: dict[str, int] = {}
-    total_cost = 0.0
+    actual_depths: dict[str, int] = {}
+    total_cost = Decimal(0)
+    budget = Decimal(str(limits.max_cost))
     for step in steps:
         if not isinstance(step, ProposedStep):
             raise ValueError("invalid step")
@@ -93,14 +98,20 @@ def validate_plan(
             fanout[dep] = fanout.get(dep, 0) + 1
             if fanout[dep] > limits.max_fanout:
                 raise ValueError("max fanout exceeded")
+        actual_depth = 0 if not step.depends_on else 1 + max(actual_depths[dep] for dep in step.depends_on)
+        if actual_depth >= limits.max_depth:
+            raise ValueError("dependency DAG depth exceeds limit")
+        actual_depths[step.step_id] = actual_depth
         ids.add(step.step_id)
-        total_cost += step.estimated_cost
-        if total_cost > limits.max_cost:
+        total_cost += Decimal(str(step.estimated_cost))
+        if total_cost > budget:
             raise ValueError("estimated budget exceeded")
     canonical = {
         "tenant_id": tenant_id,
         "actor_id": actor_id,
         "goal": goal,
+        "limits": {"max_steps": limits.max_steps, "max_depth": limits.max_depth,
+                   "max_fanout": limits.max_fanout, "max_cost": str(budget)},
         "steps": [
             {"id": s.step_id, "description": s.description, "depends_on": list(s.depends_on),
              "depth": s.depth, "cost": s.estimated_cost, "mutation": s.mutation}
@@ -108,4 +119,4 @@ def validate_plan(
         ],
     }
     digest = hashlib.sha256(json.dumps(canonical, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
-    return ValidatedPlan(tenant_id, actor_id, goal, steps, digest)
+    return ValidatedPlan(tenant_id, actor_id, goal, steps, digest, limits)

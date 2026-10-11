@@ -20,7 +20,14 @@ from .artifacts import build_artifact_store
 from .economics import capacity_forecast, chargeback_report, slo_status
 from .evaluation_suite import EvaluationRunner
 from .metrics import prometheus
-from .mcp import MCP_PROTOCOL_VERSION, handle_mcp
+from .mcp import (
+    MCP_LEGACY_PROTOCOL_VERSION,
+    MCP_PROTOCOL_VERSION,
+    add_modern_mcp_metadata,
+    handle_mcp,
+    mcp_protocol_version,
+    MCP_SUPPORTED_PROTOCOL_VERSIONS,
+)
 from .acp import ACP_PROTOCOL_VERSION, handle_acp
 from .policy import PolicyError, validate_policy
 from .prometa import install_prometa_catalog
@@ -121,6 +128,14 @@ class App:
                 self.end_headers()
                 self.wfile.write(payload)
 
+            def _empty(self, status: int, headers: dict[str, str] | None = None):
+                self.send_response(status)
+                self.send_header("Content-Length", "0")
+                self._security_headers()
+                for k, v in (headers or {}).items():
+                    self.send_header(k, _sanitize_header_value(str(v)))
+                self.end_headers()
+
             def _error(self, status: int, code: str, message: str, details: Any = None):
                 body = {"error": {"code": code, "message": message}, "request_id": self.request_id}
                 if details is not None and app.settings.env != "production":
@@ -212,11 +227,17 @@ class App:
                 self.send_response(204)
                 self.send_header("Access-Control-Allow-Origin", origin)
                 self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-                self.send_header("Access-Control-Allow-Headers", "Authorization,Content-Type,Idempotency-Key,X-API-Key,X-Request-ID,X-Tenant-ID,X-ZWorkforce-Event-Cursor")
+                self.send_header("Access-Control-Allow-Headers", "Authorization,Content-Type,Idempotency-Key,X-API-Key,X-Request-ID,X-Tenant-ID,X-ZWorkforce-Event-Cursor,MCP-Protocol-Version,Mcp-Method,Mcp-Name")
                 self.send_header("Access-Control-Max-Age", "600")
                 self.send_header("Vary", "Origin")
                 self._security_headers()
                 self.end_headers()
+
+            def do_DELETE(self):
+                self._prepare()
+                if urllib.parse.urlsplit(self.path).path == "/mcp":
+                    return self._empty(405, {"Allow": "GET, POST, OPTIONS"})
+                return self._error(404, "not_found", "not found")
 
             def do_GET(self):
                 self._prepare()
@@ -228,6 +249,8 @@ class App:
                         return self._static(path[1:])
                     if path.startswith("/dashboard/"):
                         return self._static(path[1:])
+                    if path == "/mcp":
+                        return self._empty(405, {"Allow": "POST, OPTIONS"})
                     if path == "/health":
                         return self._json(200, {"status": "ok", "version": __version__})
                     if path == "/ready":
@@ -444,8 +467,80 @@ class App:
                         principal, tenant_id = ctx
                         body = self._body()
                         if not isinstance(body, dict): raise ValueError("MCP request must be a JSON object")
-                        result = handle_mcp(app, principal, tenant_id, body, self.headers.get("Mcp-Method", ""), self.headers.get("Mcp-Name", ""))
-                        return self._json(200, result, {"MCP-Protocol-Version": MCP_PROTOCOL_VERSION})
+                        protocol_version = mcp_protocol_version(body, self.headers.get("MCP-Protocol-Version", ""))
+                        if protocol_version is None:
+                            params = body.get("params")
+                            meta = params.get("_meta") if isinstance(params, dict) else None
+                            meta_version = meta.get("io.modelcontextprotocol/protocolVersion") if isinstance(meta, dict) else None
+                            header_version = self.headers.get("MCP-Protocol-Version", "")
+                            # Distinguish invalid params, a missing/mismatched modern
+                            # routing header, and an unsupported protocol revision.
+                            modern = "2026-07-28"
+                            mismatch = bool(
+                                (header_version and meta_version and header_version != meta_version)
+                                or (meta_version == modern and header_version != modern)
+                            )
+                            malformed_meta = bool(
+                                header_version == modern
+                                and (
+                                    not meta_version
+                                    or (
+                                        meta_version == modern
+                                        and (
+                                            not isinstance(meta.get("io.modelcontextprotocol/clientCapabilities"), dict)
+                                            or not isinstance(meta.get("io.modelcontextprotocol/clientInfo"), dict)
+                                            or not isinstance(meta.get("io.modelcontextprotocol/clientInfo", {}).get("name"), str)
+                                            or not meta.get("io.modelcontextprotocol/clientInfo", {}).get("name", "").strip()
+                                            or not isinstance(meta.get("io.modelcontextprotocol/clientInfo", {}).get("version"), str)
+                                            or not meta.get("io.modelcontextprotocol/clientInfo", {}).get("version", "").strip()
+                                        )
+                                    )
+                                )
+                            )
+                            error_code = -32020 if mismatch else (-32602 if malformed_meta else -32022)
+                            error_message = (
+                                "MCP protocol header/metadata mismatch" if mismatch
+                                else "invalid MCP clientCapabilities metadata" if malformed_meta
+                                else "unsupported MCP protocol version"
+                            )
+                            error_body = {
+                                "jsonrpc": "2.0", "id": body.get("id"),
+                                "error": {
+                                    "code": error_code,
+                                    "message": error_message,
+                                    "data": {
+                                        "supported": list(MCP_SUPPORTED_PROTOCOL_VERSIONS),
+                                        "requested": header_version or meta_version or None,
+                                    },
+                                },
+                            }
+                            return self._json(400, error_body)
+                        result = handle_mcp(
+                            app,
+                            principal,
+                            tenant_id,
+                            body,
+                            self.headers.get("Mcp-Method", ""),
+                            self.headers.get("Mcp-Name", ""),
+                            protocol_version,
+                        )
+                        if result is None:
+                            return self._empty(202, {"MCP-Protocol-Version": protocol_version})
+                        if protocol_version == MCP_PROTOCOL_VERSION:
+                            code = result.get("error", {}).get("code")
+                            if code == -32020:
+                                return self._json(400, result, {"MCP-Protocol-Version": protocol_version})
+                            if code == -32601:
+                                return self._json(404, result, {"MCP-Protocol-Version": protocol_version})
+                            add_modern_mcp_metadata(result, str(body.get("method") or ""))
+                        response_version = protocol_version
+                        if body.get("method") == "initialize":
+                            payload = result.get("result")
+                            if isinstance(payload, dict):
+                                negotiated = payload.get("protocolVersion")
+                                if negotiated in MCP_SUPPORTED_PROTOCOL_VERSIONS:
+                                    response_version = negotiated
+                        return self._json(200, result, {"MCP-Protocol-Version": response_version})
                     if path == "/acp":
                         ctx, response = self._principal("viewer", "workforce:read")
                         if response: return response

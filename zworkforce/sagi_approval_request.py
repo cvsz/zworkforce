@@ -20,6 +20,7 @@ class ApprovalRequest:
     plan_digest: str
     action: str
     target: str
+    step_id: str
     idempotency_key: str
 
 
@@ -65,5 +66,6 @@ def create_approval_request(
         plan_digest=binding.plan_digest,
         action=action,
         target=target,
+        step_id=step_id,
         idempotency_key=fingerprint,
     )

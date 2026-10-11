@@ -12,6 +12,7 @@ import json
 import re
 
 from zworkforce.sagi_zloop_binding import PlanBinding
+from zworkforce.sagi_planning import ValidatedPlan
 
 
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
@@ -36,6 +37,7 @@ class ComputerUseIntent:
     action: ComputerAction
     target: str
     screen_evidence_digest: str
+    parameters: tuple[tuple[str, object], ...]
     request_digest: str
     requires_approval: bool
 
@@ -48,6 +50,11 @@ def prepare_computer_use_intent(
     action: ComputerAction,
     target: str,
     screen_evidence_digest: str,
+    plan: ValidatedPlan | None = None,
+    text: str | None = None,
+    scroll_delta: int | None = None,
+    key: str | None = None,
+    modifiers: tuple[str, ...] = (),
 ) -> ComputerUseIntent:
     """Produce non-executable proposal metadata for downstream policy review.
 
@@ -69,14 +76,49 @@ def prepare_computer_use_intent(
     if not isinstance(screen_evidence_digest, str) or not _SHA256.fullmatch(screen_evidence_digest):
         raise ValueError("screen evidence digest required")
     is_mutation = action is not ComputerAction.OBSERVE
-    if is_mutation and binding.requires_approval is not True:
-        raise ValueError("mutation must be covered by a mutating plan")
+    if is_mutation:
+        if binding.requires_approval is not True or not isinstance(plan, ValidatedPlan):
+            raise ValueError("mutation requires a validated plan")
+        if (plan.digest, plan.tenant_id, plan.actor_id) != (
+            binding.plan_digest, binding.tenant_id, binding.actor_id
+        ):
+            raise ValueError("plan binding mismatch")
+        if not any(step.step_id == step_id and step.mutation is True for step in plan.steps):
+            raise ValueError("step is not an authorized mutating plan step")
+    elif plan is not None and (not isinstance(plan, ValidatedPlan) or
+                              plan.digest != binding.plan_digest):
+        raise ValueError("observation plan mismatch")
+    if not isinstance(modifiers, tuple) or len(modifiers) > 4 or any(
+        not isinstance(m, str) or m not in ("Shift", "Ctrl", "Alt", "Meta") for m in modifiers
+    ) or len(set(modifiers)) != len(modifiers):
+        raise ValueError("invalid modifiers")
+    if action is ComputerAction.TYPE:
+        if not isinstance(text, str) or not 1 <= len(text) <= 4096:
+            raise ValueError("invalid type text")
+    elif text is not None:
+        raise ValueError("text is only valid for TYPE")
+    if action is ComputerAction.SCROLL:
+        if type(scroll_delta) is not int or not -10000 <= scroll_delta <= 10000 or scroll_delta == 0:
+            raise ValueError("invalid scroll distance")
+    elif scroll_delta is not None:
+        raise ValueError("scroll distance is only valid for SCROLL")
+    if action is ComputerAction.KEY:
+        if not isinstance(key, str) or not re.fullmatch(r"[A-Za-z0-9]{1,32}", key):
+            raise ValueError("invalid key")
+    elif key is not None:
+        raise ValueError("key is only valid for KEY")
+    if modifiers and action not in (ComputerAction.KEY, ComputerAction.CLICK):
+        raise ValueError("modifiers are invalid for this action")
+    params = tuple(sorted((name, value) for name, value in (
+        ("text", text), ("scroll_delta", scroll_delta), ("key", key)
+    ) if value is not None)) + (("modifiers", modifiers),)
     payload = {
         "tenant_id": binding.tenant_id, "actor_id": binding.actor_id,
         "loop_id": binding.loop_id, "plan_digest": binding.plan_digest,
         "session_id": session_id, "step_id": step_id,
         "action": action.value, "target": target,
         "screen_evidence_digest": screen_evidence_digest,
+        "parameters": dict(params),
     }
     digest = sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     return ComputerUseIntent(
@@ -84,5 +126,5 @@ def prepare_computer_use_intent(
         loop_id=binding.loop_id, plan_digest=binding.plan_digest,
         session_id=session_id, step_id=step_id, action=action,
         target=target, screen_evidence_digest=screen_evidence_digest,
-        request_digest=digest, requires_approval=is_mutation,
+        parameters=params, request_digest=digest, requires_approval=is_mutation,
     )
