@@ -31,7 +31,8 @@ class BrowserPolicy:
             try:
                 ipaddress.ip_address(parts.hostname)
             except ValueError:
-                if parts.hostname == "localhost" or "." not in parts.hostname:
+                hostname = parts.hostname.rstrip(".").lower()
+                if hostname == "localhost" or hostname.endswith(".localhost") or "." not in hostname or hostname != parts.hostname:
                     raise ValueError("private hostname not allowed")
             else:
                 raise ValueError("IP address origins are not allowed")
@@ -66,7 +67,9 @@ def run_browser_action(
     if intent.action is not ComputerAction.OBSERVE:
         raise PermissionError("interactive computer actions are disabled")
     validate_navigation(url, policy)
-    if not authorized(intent):
+    if url != intent.target:
+        raise PermissionError("navigation target differs from authorized intent")
+    if authorized(intent) is not True:
         raise PermissionError("canonical permission denied")
     try:
         from playwright.sync_api import sync_playwright
@@ -83,13 +86,26 @@ def run_browser_action(
             )
             try:
                 def guard(route):
+                    request = route.request
                     try:
-                        validate_navigation(route.request.url, policy)
+                        validate_navigation(request.url, policy)
+                        if request.method.upper() not in ("GET", "HEAD"):
+                            raise PermissionError("unsafe request method")
+                        # Do not allow Chromium to follow network redirects
+                        # outside the guarded request boundary.
+                        response = route.fetch(max_redirects=0, timeout=policy.timeout_ms)
+                        if 300 <= response.status < 400:
+                            raise PermissionError("redirects are disabled")
                     except PermissionError:
                         route.abort()
                     else:
-                        route.continue_()
+                        route.fulfill(response=response)
 
+                # WebSocket traffic is not covered by HTTP routing.
+                # Fail closed if this Playwright runtime lacks the guard API.
+                if not hasattr(context, "route_web_socket"):
+                    raise RuntimeError("WebSocket interception is required")
+                context.route_web_socket("**/*", lambda ws: ws.close())
                 context.route("**/*", guard)
                 page = context.new_page()
                 page.goto(url, wait_until="domcontentloaded", timeout=policy.timeout_ms)
