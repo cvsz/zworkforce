@@ -47,6 +47,42 @@ class SagiPlanningTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.plan([ProposedStep("a", "A", estimated_cost=True)])
 
+    def test_rejects_dependency_depth_even_with_claimed_zero_depth(self):
+        steps = [ProposedStep("a", "root"), ProposedStep("b", "child", ("a",))]
+        with self.assertRaises(ValueError):
+            self.plan(steps, limits=MissionLimits(max_depth=1))
+
+    def test_unbounded_generator_is_consumed_only_up_to_limit(self):
+        consumed = []
+        def produce():
+            index = 0
+            while True:
+                consumed.append(index)
+                yield ProposedStep(str(index), "read")
+                index += 1
+        with self.assertRaises(ValueError):
+            self.plan(produce(), limits=MissionLimits(max_steps=2))
+        self.assertEqual(len(consumed), 3)
+
+    def test_digest_binds_limits_and_result_preserves_them(self):
+        steps = [ProposedStep("a", "read")]
+        strict = MissionLimits(max_cost=1)
+        relaxed = MissionLimits(max_cost=100)
+        first = self.plan(steps, limits=strict)
+        second = self.plan(steps, limits=relaxed)
+        self.assertNotEqual(first.digest, second.digest)
+        self.assertEqual(first.limits, strict)
+
+    def test_decimal_cost_boundary(self):
+        steps = [
+            ProposedStep("a", "read", estimated_cost=0.1),
+            ProposedStep("b", "read", estimated_cost=0.2),
+        ]
+        self.plan(steps, limits=MissionLimits(max_cost=0.3))
+        with self.assertRaises(ValueError):
+            self.plan(steps + [ProposedStep("c", "read", estimated_cost=0.01)],
+                      limits=MissionLimits(max_cost=0.3))
+
     def test_requires_identity_and_bounded_steps(self):
         with self.assertRaises(ValueError):
             self.plan([], limits=MissionLimits())

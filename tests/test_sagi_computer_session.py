@@ -7,6 +7,7 @@ from zworkforce.sagi_computer_session import (
 from zworkforce.sagi_computer_use import (
     ComputerAction, prepare_computer_use_intent,
 )
+from zworkforce.sagi_planning import MissionLimits, ProposedStep, validate_plan
 from zworkforce.sagi_zloop_binding import PlanBinding
 
 
@@ -19,9 +20,14 @@ class Store:
 class ComputerSessionTests(unittest.TestCase):
     def setUp(self):
         self.now = datetime(2026, 10, 10, tzinfo=timezone.utc)
-        binding = PlanBinding("loop", "tenant", "actor", "a" * 64, True)
+        self.plan = validate_plan(
+            tenant_id="tenant", actor_id="actor", goal="test",
+            proposed_steps=[ProposedStep("step", "click", mutation=True)],
+            limits=MissionLimits(),
+        )
+        binding = PlanBinding("loop", "tenant", "actor", self.plan.digest, True)
         self.intent = prepare_computer_use_intent(
-            binding=binding, session_id="session", step_id="step",
+            binding=binding, plan=self.plan, session_id="session", step_id="step",
             action=ComputerAction.CLICK, target="button",
             screen_evidence_digest="b" * 64,
         )
