@@ -17,6 +17,14 @@ Open `http://127.0.0.1:8000/`.
 The production bundle is committed under `frontend-dist/` and included in the
 Python wheel and container image. Node.js is not required at runtime.
 
+## Workspace features
+
+The browser workspace has three areas: Chat for interactive sessions, Projects
+for tenant-scoped plans and task runs, and Artifacts for generated outputs and
+their version history. Project task runs save an AI response to the task; they
+do not read or modify a repository from the browser workspace. Artifacts can be
+revised, compared with a unified diff, and downloaded.
+
 ## Frontend development
 
 ```bash

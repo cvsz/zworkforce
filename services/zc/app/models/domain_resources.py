@@ -70,6 +70,7 @@ class ProjectTaskRunCreate(StrictModel):
 class ArtifactIteration(StrictModel):
     feedback: str = Field(min_length=1, max_length=200_000)
     model: str | None = Field(default=None, max_length=128)
+    source_version: int | None = Field(default=None, ge=1)
 
 
 class ArtifactPatch(StrictModel):

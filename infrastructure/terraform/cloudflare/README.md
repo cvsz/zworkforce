@@ -2,7 +2,8 @@
 
 This stack follows the Cloudflare Tunnel DNS ownership model used by
 `z-platform`: proxied CNAMEs send `moopiew.zeaz.dev`, `arin.zeaz.dev`, `zttshop.zeaz.dev`,
-`piewdash.zeaz.dev`, `qwen.zeaz.dev`, `chat.zeaz.dev`, `zerp.zeaz.dev`, `cme.zeaz.dev`,
+`piewdash.zeaz.dev`, `qwen.zeaz.dev`, `chat.zeaz.dev`, `zwsl.zeaz.dev`,
+`zerp.zeaz.dev`, `cme.zeaz.dev`,
 `dbc.zeaz.dev`, and
 `zwf.zeaz.dev` to
 an existing tunnel. Cloudflared forwards the public app hostnames to Caddy on
@@ -25,6 +26,13 @@ The stack accepts the tunnel ID as either its canonical UUID or the compact
 32-character identifier used by the existing z-platform environment.
 All DNS records are Cloudflare-proxied (`proxied = true`, automatic TTL), so
 the origin is not published as a directly reachable DNS target.
+
+สำหรับ `zwsl.zeaz.dev` Terraform ส่ง traffic ผ่าน Tunnel ไปยัง Caddy ที่
+`127.0.0.1:80`; Caddy route `/api/v1/{models,chat/completions,messages,responses}`
+ไป Provider ที่ `127.0.0.1:18086` และ route `/data/`, `/auth/` กับหน้า UI ไป
+Open WebUI ที่ `127.0.0.1:18087` ให้ใช้ `make cloudflare-up` ใน zwslcore
+เพื่อเตรียมพอร์ตเหล่านี้ ทั้งสอง service ต้อง bind เฉพาะ loopback
+ห้ามชี้ Tunnel ตรงไปยัง Ollama หรือ LiteLLM
 
 ## Safe setup
 

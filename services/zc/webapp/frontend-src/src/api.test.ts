@@ -1,5 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ZcApiClient } from "./api";
+
+afterEach(() => vi.restoreAllMocks());
 
 describe("ZcApiClient", () => {
   it("keeps provider credentials out of request contracts", async () => {
@@ -21,6 +23,46 @@ describe("ZcApiClient", () => {
     });
     expect(JSON.stringify(init)).not.toContain("ANTHROPIC_API_KEY");
     expect(JSON.stringify(init)).not.toContain("OPENAI_API_KEY");
+  });
+
+  it("fetches every page of projects and artifacts", async () => {
+    const projectRows = Array.from({ length: 200 }, (_, index) => ({ id: `project-${index}` }));
+    const artifactRows = Array.from({ length: 200 }, (_, index) => ({ id: `artifact-${index}` }));
+    const jsonResponse = (body: unknown) => new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse({ data: projectRows, meta: { total: 201, limit: 200, offset: 0 } }))
+      .mockResolvedValueOnce(jsonResponse({ data: [{ id: "project-200" }], meta: { total: 201, limit: 200, offset: 200 } }))
+      .mockResolvedValueOnce(jsonResponse({ data: artifactRows, meta: { total: 201, limit: 200, offset: 0 } }))
+      .mockResolvedValueOnce(jsonResponse({ data: [{ id: "artifact-200" }], meta: { total: 201, limit: 200, offset: 200 } }));
+    const client = new ZcApiClient(() => "");
+
+    expect(await client.listProjects()).toHaveLength(201);
+    expect(await client.listArtifacts("project-a")).toHaveLength(201);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(String(fetchMock.mock.calls[1][0])).toContain("offset=200");
+    expect(String(fetchMock.mock.calls[2][0])).toContain("project_id=project-a");
+    expect(String(fetchMock.mock.calls[3][0])).toContain("offset=200");
+  });
+
+  it("sends the selected artifact version when requesting a revision", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ data: { id: "artifact-1" } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    const client = new ZcApiClient(() => "");
+
+    await client.iterateArtifact("artifact-1", "Use the selected version", undefined, 2);
+
+    const [, init] = vi.mocked(fetch).mock.calls[0];
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      feedback: "Use the selected version",
+      source_version: 2,
+    });
   });
 
   it("parses fragmented SSE events and supports cancellation", async () => {
