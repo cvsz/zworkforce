@@ -3,14 +3,21 @@ from datetime import datetime, timedelta, timezone
 
 from zworkforce.sagi_screen_freshness import TrustedScreenSnapshot, require_fresh_screen
 from zworkforce.sagi_computer_use import ComputerAction, prepare_computer_use_intent
+from zworkforce.sagi_planning import MissionLimits, ProposedStep, validate_plan
 from zworkforce.sagi_zloop_binding import PlanBinding
 
 
 class ScreenFreshnessTests(unittest.TestCase):
     def setUp(self):
         self.now = datetime(2026, 10, 10, tzinfo=timezone.utc)
+        self.plan = validate_plan(
+            tenant_id="tenant", actor_id="actor", goal="test",
+            proposed_steps=[ProposedStep("step", "click", mutation=True)],
+            limits=MissionLimits(),
+        )
         self.intent = prepare_computer_use_intent(
-            binding=PlanBinding("loop", "tenant", "actor", "a" * 64, True),
+            binding=PlanBinding("loop", "tenant", "actor", self.plan.digest, True),
+            plan=self.plan,
             session_id="session", step_id="step", action=ComputerAction.CLICK,
             target="button:save", screen_evidence_digest="b" * 64,
         )
