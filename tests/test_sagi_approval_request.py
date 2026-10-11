@@ -18,6 +18,7 @@ class SagiApprovalRequestTests(unittest.TestCase):
 
     def test_deterministic_and_bound_to_identity_and_digest(self):
         self.assertEqual(self.request(), self.request())
+        self.assertEqual(self.request().step_id, "step-1")
         changed = PlanBinding("loop-1", "tenant-b", "actor-a", "a" * 64, True)
         self.assertNotEqual(self.request().idempotency_key,
                             self.request(binding=changed).idempotency_key)
@@ -26,6 +27,7 @@ class SagiApprovalRequestTests(unittest.TestCase):
         baseline = self.request().idempotency_key
         self.assertNotEqual(baseline, self.request(target="repo:another").idempotency_key)
         self.assertNotEqual(baseline, self.request(action="repair").idempotency_key)
+        self.assertNotEqual(baseline, self.request(step_id="step-2").idempotency_key)
         changed = PlanBinding("loop-1", "tenant-a", "actor-a", "b" * 64, True)
         self.assertNotEqual(baseline, self.request(binding=changed).idempotency_key)
 

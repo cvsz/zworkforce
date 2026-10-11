@@ -3,7 +3,16 @@ import unittest
 from tests.common import stack
 from zworkforce.sagi_canonical_browser_effect import CanonicalComputerEffect
 from zworkforce.sagi_computer_use import ComputerAction, prepare_computer_use_intent
+from zworkforce.sagi_planning import MissionLimits, ProposedStep, validate_plan
 from zworkforce.sagi_zloop_binding import PlanBinding
+
+
+def _plan_for(tenant, actor):
+    return validate_plan(
+        tenant_id=tenant, actor_id=actor, goal="test",
+        proposed_steps=[ProposedStep("step", "click", mutation=True)],
+        limits=MissionLimits(),
+    )
 
 
 class CanonicalBrowserEffectTests(unittest.TestCase):
@@ -12,8 +21,10 @@ class CanonicalBrowserEffectTests(unittest.TestCase):
         self.addCleanup(self.engine.shutdown)
         self.addCleanup(self.temp.cleanup)
         self.adapter = CanonicalComputerEffect(self.db)
+        self.plan = _plan_for("default", "requester")
         self.intent = prepare_computer_use_intent(
-            binding=PlanBinding("loop", "default", "requester", "a" * 64, True),
+            binding=PlanBinding("loop", "default", "requester", self.plan.digest, True),
+            plan=self.plan,
             session_id="session", step_id="step", action=ComputerAction.CLICK,
             target="button:save", screen_evidence_digest="b" * 64,
         )
@@ -45,8 +56,10 @@ class CanonicalBrowserEffectTests(unittest.TestCase):
 
     def test_wrong_tenant_denied(self):
         self.db.ensure_tenant("other", "Other")
+        other_plan = _plan_for("other", "requester")
         other = prepare_computer_use_intent(
-            binding=PlanBinding("loop", "other", "requester", "a" * 64, True),
+            binding=PlanBinding("loop", "other", "requester", other_plan.digest, True),
+            plan=other_plan,
             session_id="session", step_id="step", action=ComputerAction.CLICK,
             target="button:save", screen_evidence_digest="b" * 64,
         )
