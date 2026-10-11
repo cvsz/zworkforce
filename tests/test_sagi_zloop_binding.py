@@ -59,6 +59,41 @@ class SagiZLoopBindingTests(unittest.TestCase):
         self.state.cost_used = 3.5
         self.assertEqual(self.bind().plan_digest, self.plan.digest)
 
+    def test_invalid_counters_fail_closed(self):
+        for field in ("iteration", "repairs", "tokens_used"):
+            original = getattr(self.state, field)
+            for invalid in (float("nan"), True, -1, 0.5):
+                setattr(self.state, field, invalid)
+                with self.subTest(field=field, invalid=repr(invalid)):
+                    with self.assertRaises(ValueError):
+                        self.bind()
+            setattr(self.state, field, original)
+
+    def test_invalid_budget_counters_fail_closed(self):
+        for field in ("max_iterations", "max_repairs", "max_tokens"):
+            for invalid in (float("nan"), float("inf"), True, 0, -1):
+                budget = LoopBudget()
+                try:
+                    setattr(budget, field, invalid)
+                except (AttributeError, TypeError):
+                    from dataclasses import replace
+                    budget = replace(budget, **{field: invalid})
+                with self.subTest(field=field, invalid=repr(invalid)):
+                    with self.assertRaises(ValueError):
+                        bind_plan_to_loop(plan=self.plan, state=self.state, loop_budget=budget)
+
+    def test_fractional_budget_exact_boundary(self):
+        self.plan = validate_plan(
+            tenant_id="tenant-a", actor_id="actor-a", goal="inspect repository",
+            proposed_steps=[ProposedStep("a", "read", estimated_cost=0.1),
+                            ProposedStep("b", "read", estimated_cost=0.1)],
+            limits=MissionLimits(max_cost=0.3),
+        )
+        self.state.cost_used = 0.1
+        budget = LoopBudget(max_cost=0.3)
+        self.assertEqual(bind_plan_to_loop(plan=self.plan, state=self.state,
+                                          loop_budget=budget).plan_digest, self.plan.digest)
+
     def test_exhausted_iteration_and_invalid_cost_fail_closed(self):
         self.state.iteration = 12
         with self.assertRaises(ValueError):
