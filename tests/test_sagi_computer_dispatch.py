@@ -6,6 +6,7 @@ from zworkforce.sagi_browser_runtime import BrowserPolicy
 from zworkforce.sagi_computer_dispatch import observe_approved_page
 from zworkforce.sagi_computer_session import SessionSnapshot
 from zworkforce.sagi_computer_use import ComputerAction, prepare_computer_use_intent
+from zworkforce.sagi_planning import MissionLimits, ProposedStep, validate_plan
 from zworkforce.sagi_zloop_binding import PlanBinding
 
 
@@ -21,7 +22,12 @@ class Approvals:
 class ComputerDispatchTests(unittest.TestCase):
     def setUp(self):
         self.now = datetime(2026, 10, 10, tzinfo=timezone.utc)
-        self.binding = PlanBinding("loop", "tenant", "actor", "a" * 64, True)
+        self.plan = validate_plan(
+            tenant_id="tenant", actor_id="actor", goal="test",
+            proposed_steps=[ProposedStep("step", "click", mutation=True)],
+            limits=MissionLimits(),
+        )
+        self.binding = PlanBinding("loop", "tenant", "actor", self.plan.digest, True)
         self.session = SessionSnapshot("session", "tenant", "actor",
             self.now + timedelta(minutes=5), False, False, True)
         self.url = "https://example.com/page"
@@ -29,7 +35,7 @@ class ComputerDispatchTests(unittest.TestCase):
 
     def intent(self, action=ComputerAction.OBSERVE, target=None):
         return prepare_computer_use_intent(
-            binding=self.binding, session_id="session", step_id="step",
+            binding=self.binding, plan=self.plan, session_id="session", step_id="step",
             action=action, target=target or self.url,
             screen_evidence_digest="b" * 64,
         )
