@@ -1,0 +1,36 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sagi-browser-deny-all
+  namespace: sagi-browser
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: sagi-browser-worker
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress: []
+---
+# Enable this second policy ONLY after a trusted egress proxy is deployed
+# in the namespace and has its own verified destination and IP filtering.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sagi-browser-proxy-only
+  namespace: sagi-browser
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: sagi-browser-worker
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: sagi-browser-egress-proxy
+      ports:
+        - protocol: TCP
+          port: 3128
