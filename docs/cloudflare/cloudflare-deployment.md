@@ -22,6 +22,24 @@ OpenWebUI is published through the same tunnel at `chat.zeaz.dev` and reaches
 the host-published container port `127.0.0.1:3000`. Keep the tunnel origin on
 the host port; the container's internal port `8080` is not the tunnel target.
 
+## zwslcore on `zwsl.zeaz.dev`
+
+Terraform creates a proxied CNAME to the existing tunnel and one hostname-wide
+ingress rule to Caddy on `127.0.0.1:80`. Caddy handles path routing while
+cloudflared preserves each incoming path.
+
+| Public path | Caddy destination | Authentication |
+| --- | --- | --- |
+| `/api/v1/models`, `/api/v1/chat/completions`, `/api/v1/messages`, `/api/v1/responses` | Provider on `127.0.0.1:18086`; Caddy removes the leading `/api` | Provider Bearer key |
+| `/data/` | Open WebUI `/api/v1/files/` on `127.0.0.1:18087` | Open WebUI login/API token |
+| `/auth/` | Open WebUI `/api/v1/auths/` on `127.0.0.1:18087` | Open WebUI authentication flow |
+| Other paths, including `/oauth/` | Open WebUI on `127.0.0.1:18087` | Open WebUI login |
+
+เตรียมพอร์ต zwslcore ด้วย `make cloudflare-up` ใน repository zwslcore ก่อน
+เปิดใช้ route พอร์ต `18086` และ `18087` ต้อง bind เฉพาะ loopback; ห้ามเปิด
+Ollama หรือ LiteLLM ผ่าน Tunnel โดยตรง คง signup เป็น disabled และยืนยันว่า
+Provider Bearer authentication ทำงานก่อนเปิด hostname ต่อสาธารณะ
+
 ## Required operator values
 
 Populate `.env.cloudflare` locally from the Cloudflare account that owns

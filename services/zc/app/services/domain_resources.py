@@ -236,12 +236,26 @@ class DomainResourceService:
         self, tenant_id: str, artifact_id: str, request: ArtifactIteration
     ) -> dict[str, Any]:
         artifact = await self.store.get(tenant_id, "artifacts", artifact_id)
-        current = artifact["versions"][-1]["content"]
+        versions = artifact.get("versions", [])
+        source = (
+            next(
+                (
+                    version
+                    for version in versions
+                    if int(version["version"]) == request.source_version
+                ),
+                None,
+            )
+            if request.source_version is not None
+            else (versions[-1] if versions else None)
+        )
+        if source is None:
+            raise ResourceNotFoundError("artifact version not found")
         response = await self.ai_service.create_response(
             AIResponseRequest(
                 prompt=(
-                    f"Revise this artifact using the feedback.\n\n"
-                    f"Artifact:\n{current}\n\nFeedback:\n{request.feedback}"
+                    f"Revise artifact version {source['version']} using the feedback.\n\n"
+                    f"Artifact:\n{source['content']}\n\nFeedback:\n{request.feedback}"
                 ),
                 model=request.model,
             )
