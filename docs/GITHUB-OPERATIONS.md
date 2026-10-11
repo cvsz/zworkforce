@@ -56,6 +56,7 @@ The repository uses these GitHub Actions as release and merge evidence:
 | `CodeQL Advanced` | Static analysis for Actions and Python surfaces. |
 | `Dependency Review` | Blocks vulnerable or disallowed dependency changes in pull requests. |
 | `Automatic Dependency Submission` | Submits dependency graph data for NuGet and related ecosystems. |
+| `Request independent PR review` | On non-draft PR opened/reopened/ready-for-review, requests `policedbc` as reviewer using a read-only contents token plus pull-request write permission; it never approves or merges. Requires accepted collaborator access; branch protection and human approval remain separate enforced gates. |
 
 The canonical globally required contexts are recorded in the ruleset contract
 and regression-tested by `tests/test_repository_policy.py`. If a workflow or
