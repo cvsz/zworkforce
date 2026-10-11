@@ -6,6 +6,7 @@ It never dispatches work, approves mutations or persists state.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
 import math
 
 from zworkforce.sagi_planning import ValidatedPlan
@@ -44,11 +45,17 @@ def bind_plan_to_loop(
         raise ValueError("plan and loop identities do not match")
     if state.phase != LoopPhase.PLAN:
         raise ValueError("plan binding is only allowed during PLAN phase")
-    if state.iteration < 0 or state.repairs < 0 or state.tokens_used < 0:
-        raise ValueError("invalid loop counters")
-    if not math.isfinite(state.cost_used) or state.cost_used < 0:
+    for count in (state.iteration, state.repairs, state.tokens_used):
+        if type(count) is not int or count < 0:
+            raise ValueError("invalid loop counters")
+    if not isinstance(loop_budget, LoopBudget):
+        raise ValueError("invalid loop budget")
+    for count in (loop_budget.max_iterations, loop_budget.max_repairs, loop_budget.max_tokens):
+        if type(count) is not int or count <= 0:
+            raise ValueError("invalid loop budget counters")
+    if isinstance(state.cost_used, bool) or not isinstance(state.cost_used, (int, float)) or not math.isfinite(state.cost_used) or state.cost_used < 0:
         raise ValueError("invalid loop cost")
-    if not math.isfinite(loop_budget.max_cost) or loop_budget.max_cost <= 0:
+    if isinstance(loop_budget.max_cost, bool) or not isinstance(loop_budget.max_cost, (int, float)) or not math.isfinite(loop_budget.max_cost) or loop_budget.max_cost <= 0:
         raise ValueError("invalid loop budget")
     if (state.iteration >= loop_budget.max_iterations
         or state.repairs > loop_budget.max_repairs
@@ -57,8 +64,8 @@ def bind_plan_to_loop(
         raise ValueError("loop budget exhausted")
     if not plan.steps or not isinstance(plan.digest, str) or len(plan.digest) != 64:
         raise ValueError("invalid validated plan")
-    projected = sum(step.estimated_cost for step in plan.steps)
-    if not math.isfinite(projected) or projected > loop_budget.max_cost - state.cost_used:
+    projected = sum((Decimal(str(step.estimated_cost)) for step in plan.steps), Decimal(0))
+    if projected > Decimal(str(loop_budget.max_cost)) - Decimal(str(state.cost_used)):
         raise ValueError("plan exceeds remaining loop budget")
     return PlanBinding(
         loop_id=state.loop_id,
