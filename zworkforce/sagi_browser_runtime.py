@@ -48,6 +48,48 @@ def validate_navigation(url: str, policy: BrowserPolicy) -> None:
         raise PermissionError("destination not permitted")
 
 
+def _abort_route(route) -> None:
+    """Fail-closed abort that never propagates handler errors."""
+    try:
+        route.abort()
+    except Exception:
+        pass
+
+
+def handle_browser_route(route, policy: BrowserPolicy) -> None:
+    """Guard every browser request: exact origin, safe method, no redirects.
+
+    Any validation or network failure aborts the request so forbidden
+    destinations are never reached. Separated for deterministic testing
+    with real Chromium and local servers; production defaults unchanged.
+    """
+    request = route.request
+    try:
+        validate_navigation(request.url, policy)
+        if request.method.upper() not in ("GET", "HEAD"):
+            raise PermissionError("unsafe request method")
+        # Do not allow Chromium to follow network redirects
+        # outside the guarded request boundary.
+        response = route.fetch(max_redirects=0, timeout=policy.timeout_ms)
+        if 300 <= response.status < 400:
+            raise PermissionError("redirects are disabled")
+    except Exception:
+        _abort_route(route)
+    else:
+        try:
+            route.fulfill(response=response)
+        except Exception:
+            _abort_route(route)
+
+
+def close_browser_socket(ws) -> None:
+    """Deny every WebSocket so no socket dials its destination."""
+    try:
+        ws.close()
+    except Exception:
+        pass
+
+
 def run_browser_action(
     *,
     intent: ComputerUseIntent,
@@ -85,28 +127,12 @@ def run_browser_action(
                 service_workers="block",
             )
             try:
-                def guard(route):
-                    request = route.request
-                    try:
-                        validate_navigation(request.url, policy)
-                        if request.method.upper() not in ("GET", "HEAD"):
-                            raise PermissionError("unsafe request method")
-                        # Do not allow Chromium to follow network redirects
-                        # outside the guarded request boundary.
-                        response = route.fetch(max_redirects=0, timeout=policy.timeout_ms)
-                        if 300 <= response.status < 400:
-                            raise PermissionError("redirects are disabled")
-                    except PermissionError:
-                        route.abort()
-                    else:
-                        route.fulfill(response=response)
-
                 # WebSocket traffic is not covered by HTTP routing.
                 # Fail closed if this Playwright runtime lacks the guard API.
                 if not hasattr(context, "route_web_socket"):
                     raise RuntimeError("WebSocket interception is required")
-                context.route_web_socket("**/*", lambda ws: ws.close())
-                context.route("**/*", guard)
+                context.route_web_socket("**/*", close_browser_socket)
+                context.route("**/*", lambda route: handle_browser_route(route, policy))
                 page = context.new_page()
                 page.goto(url, wait_until="domcontentloaded", timeout=policy.timeout_ms)
                 return page.screenshot(timeout=policy.timeout_ms)
