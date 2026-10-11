@@ -1,4 +1,5 @@
 import unittest
+from dataclasses import replace
 
 from zworkforce.sagi_browser_runtime import (
     BrowserPolicy, run_browser_action, validate_navigation,
@@ -29,6 +30,17 @@ class BrowserRuntimeTests(unittest.TestCase):
             run_browser_action(intent=self.observe, policy=self.policy,
                                url="https://example.com", authorized=lambda _: False)
 
+    def test_requires_explicit_true_authorization(self):
+        for verdict in ("deny", object(), None, 1):
+            with self.subTest(verdict=repr(verdict)), self.assertRaises(PermissionError):
+                run_browser_action(intent=self.observe, policy=self.policy,
+                                   url="https://example.com", authorized=lambda _: verdict)
+
+    def test_denies_changed_navigation_target(self):
+        with self.assertRaises(PermissionError):
+            run_browser_action(intent=self.observe, policy=self.policy,
+                               url="https://example.com/other", authorized=lambda _: True)
+
     def test_denies_interactive_actions(self):
         with self.assertRaises(PermissionError):
             run_browser_action(intent=self.click, policy=self.policy,
@@ -44,7 +56,8 @@ class BrowserRuntimeTests(unittest.TestCase):
 
     def test_cannot_allow_ip_localhost_or_bad_origin(self):
         for origin in ("http://example.com", "https://localhost",
-                       "https://127.0.0.1", "https://example.com/path"):
+                       "https://127.0.0.1", "https://example.com/path",
+                       "https://foo.localhost", "https://localhost."):
             with self.subTest(origin=origin), self.assertRaises(ValueError):
                 BrowserPolicy(frozenset({origin}))
 
