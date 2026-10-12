@@ -59,6 +59,7 @@ Addresses the ~35 Codex review findings on PR #285 (all valid ones fixed, with r
 - Character-review MCP creates a real approval row; MCP parent checks + scripted-status/usage parity with HTTP; analytics snapshots audited with actor.
 - Translation status durable via translator runs; unreviewed variants blocked from render and publish prepare.
 - 42 tests green (15 new hardening regressions).
+- CI installs FFmpeg for the test job: the honesty fix exposed that CI runners have no FFmpeg, so every prior green render was a placeholder marked `succeeded`. Renders are now real 1080p MP4s in CI too.
 
 ## NEXT (after review + merge)
 

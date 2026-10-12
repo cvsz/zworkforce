@@ -176,7 +176,7 @@ class KidsApiEndToEndTests(unittest.TestCase):
             h["Content-Type"] = "application/json"
         r = urllib.request.Request(self.base + path, data=data, headers=h, method=method)
         try:
-            with urllib.request.urlopen(r, timeout=30) as resp:
+            with urllib.request.urlopen(r, timeout=120) as resp:
                 return resp.status, json.loads(resp.read() or b"{}")
         except urllib.error.HTTPError as exc:
             return exc.code, json.loads(exc.read() or b"{}")
