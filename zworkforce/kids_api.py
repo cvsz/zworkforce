@@ -8,19 +8,23 @@ from typing import Any
 from .kids_factory import (
     KidsValidationError,
     build_storyboard,
+    check_brand_quota,
     estimate_cost,
     kids_safety_check,
     mock_youtube_upload,
     prepare_youtube_metadata,
     render_deterministic_video,
     storyboard_to_timeline,
+    synth_preview_wav,
     validate_brand,
     validate_character,
     validate_episode,
     validate_media_upload,
+    validate_music_track,
     validate_scene,
     validate_script,
     validate_timeline,
+    validate_voice_profile,
 )
 
 SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
@@ -111,6 +115,12 @@ def kids_get(app, tenant_id: str, path: str, query: dict) -> tuple[bool, Any]:
         return True, {"items": db.kids_list_analytics(tenant_id, channel_id=_strq(query, "channel_id"))}
     if path == "/api/v1/kids/agent-runs":
         return True, {"items": db.kids_list_agent_runs(tenant_id, episode_id=_strq(query, "episode_id"))}
+    if path == "/api/v1/kids/voices":
+        return True, {"items": db.kids_list_voices(tenant_id, language=_strq(query, "language"))}
+    if path == "/api/v1/kids/music":
+        return True, {"items": db.kids_list_music(tenant_id, episode_id=_strq(query, "episode_id"))}
+    if path == "/api/v1/kids/derivations":
+        return True, {"items": db.kids_list_derivations(tenant_id, parent_id=_strq(query, "parent_id"))}
     if path == "/api/v1/kids/providers":
         return True, {"items": [
             {"capability": "llm", "provider": "mock", "mode": "mock", "enabled": True},
@@ -177,6 +187,7 @@ def kids_post(app, principal, tenant_id: str, path: str, body: dict, *, idempote
         if not db.kids_get_brand(tenant_id, brand_id):
             raise KidsValidationError("episode.brand_id does not exist in this tenant")
         validated = validate_episode(body)
+        check_brand_quota(db, tenant_id, brand_id, extra_episodes=1)
         episode, created = db.kids_create_episode(tenant_id, ep_id, brand_id, validated, actor,
                                                   channel_id=str(body.get("channel_id", ""))[:64],
                                                   idempotency_key=idempotency_key or str(body.get("idempotency_key", "")))
@@ -360,6 +371,61 @@ def kids_post(app, principal, tenant_id: str, path: str, body: dict, *, idempote
                                                   "metrics": body.get("metrics") or {"note": "synthetic fixture, not real YouTube data"},
                                                   "synthetic": True})
         return True, snap, 201
+    if path == "/api/v1/kids/voices":
+        voice_id = _slug_or_raise(body.get("id", ""), "voice.id")
+        validated = validate_voice_profile(body)
+        return True, db.kids_upsert_voice(tenant_id, voice_id, validated, actor), 201
+    if path == "/api/v1/kids/voices/preview":
+        voice = db.kids_get_voice(tenant_id, str(body.get("voice_id", "")))
+        if not voice:
+            return True, {"error": {"code": "voice_not_found", "message": "voice profile not found"}}, 404
+        line = str(body.get("line", "Hello friends!"))[:280] or "Hello friends!"
+        data = synth_preview_wav(text=line, speed=float(voice.get("speed", 1.0)))
+        artifact = app.artifacts.put_bytes(tenant_id, f"voice-preview-{voice['id']}.wav", data, actor=actor,
+                                           content_type="audio/wav",
+                                           metadata={"kids_voice": voice["id"], "synthetic": True,
+                                                     "rights": voice.get("rights", {})})
+        asset = db.kids_register_asset(tenant_id, {
+            "episode_id": str(body.get("episode_id", "")), "scene_id": "", "kind": "audio",
+            "name": f"voice-preview-{voice['id']}.wav", "storage_uri": artifact.get("storage_uri", ""),
+            "sha256": artifact.get("sha256", ""), "size_bytes": artifact.get("size_bytes", len(data)),
+            "provenance": {"provider": voice.get("provider", "mock"), "voice_id": voice.get("voice_id", ""),
+                           "synthetic": True, "rights": voice.get("rights", {})}}, actor)
+        db.kids_record_usage(tenant_id, str(body.get("episode_id", "")), voice.get("provider", "mock"), "tts_preview", 1.0, 0.1)
+        return True, {"artifact": artifact, "asset": asset}, 201
+    if path == "/api/v1/kids/music":
+        validated = validate_music_track(body)
+        return True, db.kids_register_music(tenant_id, validated, actor,
+                                            episode_id=str(body.get("episode_id", ""))), 201
+    m = re.fullmatch(r"/api/v1/kids/episodes/([a-z0-9][a-z0-9-]{0,62})/shorts", path)
+    if m:
+        parent_id = m.group(1)
+        parent = db.kids_get_episode(tenant_id, parent_id)
+        if not parent:
+            return True, {"error": {"code": "episode_not_found", "message": "episode not found"}}, 404
+        child_id = _slug_or_raise(body.get("id", f"{parent_id}-shorts"), "episode.id")
+        check_brand_quota(db, tenant_id, parent["brand_id"], extra_episodes=1)
+        child_validated = validate_episode({"title": f"{parent['title']} (Shorts)",
+                                            "summary": parent.get("summary", ""),
+                                            "age_band": parent.get("age_band", "preschool"),
+                                            "language": parent.get("language", "en"),
+                                            "objectives": parent.get("objectives", []),
+                                            "vocabulary": parent.get("vocabulary", [])})
+        child, created = db.kids_create_episode(tenant_id, child_id, parent["brand_id"], child_validated, actor,
+                                                channel_id=parent.get("channel_id", ""),
+                                                idempotency_key=idempotency_key or f"shorts:{parent_id}:{child_id}")
+        if created:
+            parent_scenes = db.kids_list_scenes(tenant_id, parent_id)[:3]
+            for index, scene in enumerate(parent_scenes):
+                scene_validated = validate_scene({**scene, "ordering": index,
+                                                  "duration_seconds": min(float(scene.get("duration_seconds", 5)), 6.0)})
+                db.kids_upsert_scene(tenant_id, child_id, f"s{index + 1:02d}", scene_validated, actor)
+            tracks = storyboard_to_timeline(db.kids_list_scenes(tenant_id, child_id))
+            db.kids_save_timeline(tenant_id, child_id, tracks, actor)
+            db.kids_record_derivation(tenant_id, parent_id, child_id, "shorts", actor)
+            db.kids_set_episode_status(tenant_id, child_id, "storyboarded", actor)
+        derivation = db.kids_get_derivation(tenant_id, child_id)
+        return True, {"episode": child, "derivation": derivation, "preset": "portrait_1080x1920"}, 201 if created else 200
     m = re.fullmatch(r"/api/v1/kids/episodes/([a-z0-9][a-z0-9-]{0,62})/pipeline", path)
     if m:
         from .kids_workflow import run_episode_pipeline

@@ -14,6 +14,7 @@ from typing import Any
 from .kids_factory import (
     KidsValidationError,
     build_storyboard,
+    check_brand_quota,
     estimate_cost,
     kids_safety_check,
     render_deterministic_video,
@@ -143,7 +144,12 @@ def run_episode_pipeline(app, tenant_id: str, episode_id: str, actor: str, *, pr
     estimated = estimate_cost(num_scenes=len(scenes), duration_total=total)
     try:
         check_budget(db, tenant_id, episode, estimated)
+        check_brand_quota(db, tenant_id, episode.get("brand_id", ""), extra_cost=estimated)
     except KidsBudgetBlocked as exc:
+        record("render", "blocked", "v1", {"estimated": estimated}, str(exc))
+        return {"episode_id": episode_id, "completed": completed, "skipped": skipped, "failed": "render",
+                "error": str(exc), "estimated_cost_credits": estimated}
+    except KidsValidationError as exc:
         record("render", "blocked", "v1", {"estimated": estimated}, str(exc))
         return {"episode_id": episode_id, "completed": completed, "skipped": skipped, "failed": "render",
                 "error": str(exc), "estimated_cost_credits": estimated}

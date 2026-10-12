@@ -22,6 +22,13 @@ KIDS_MCP_TOOLS: dict[str, dict[str, Any]] = {
             "topic": {"type": "string"}}, "required": ["id", "brand_id", "name"]},
         "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
     },
+    "kids.derive_shorts": {
+        "name": "kids.derive_shorts",
+        "description": "Derive a 9:16 short-form episode from a landscape episode (requires automation:write).",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "id": {"type": "string"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
     "kids.list_brands": {
         "name": "kids.list_brands",
         "description": "List Kids Factory brand profiles for the tenant.",
@@ -138,6 +145,30 @@ def call_kids_tool(app, principal, tenant_id: str, name: str, args: dict[str, An
         return run_episode_pipeline(app, tenant_id, str(args.get("episode_id", "")), actor,
                                     preset=str(args.get("preset", "landscape_1080p")),
                                     num_scenes=int(args.get("num_scenes", 4) or 4))
+    if name == "kids.derive_shorts":
+        require("operator", "automation:write")
+        from .kids_api import _slug_or_raise
+        from .kids_factory import check_brand_quota, storyboard_to_timeline, validate_episode, validate_scene
+        parent_id = str(args.get("episode_id", ""))
+        parent = db.kids_get_episode(tenant_id, parent_id)
+        if not parent:
+            raise ValueError("episode not found")
+        child_id = _slug_or_raise(args.get("id", f"{parent_id}-shorts"), "episode.id")
+        check_brand_quota(db, tenant_id, parent["brand_id"], extra_episodes=1)
+        child_validated = validate_episode({"title": f"{parent['title']} (Shorts)", "summary": parent.get("summary", ""),
+                                            "age_band": parent.get("age_band", "preschool"),
+                                            "language": parent.get("language", "en"),
+                                            "objectives": parent.get("objectives", []),
+                                            "vocabulary": parent.get("vocabulary", [])})
+        child, created = db.kids_create_episode(tenant_id, child_id, parent["brand_id"], child_validated, actor,
+                                                channel_id=parent.get("channel_id", ""))
+        if created:
+            for index, scene in enumerate(db.kids_list_scenes(tenant_id, parent_id)[:3]):
+                db.kids_upsert_scene(tenant_id, child_id, f"s{index + 1:02d}",
+                                     validate_scene({**scene, "ordering": index}), actor)
+            db.kids_save_timeline(tenant_id, child_id, storyboard_to_timeline(db.kids_list_scenes(tenant_id, child_id)), actor)
+            db.kids_record_derivation(tenant_id, parent_id, child_id, "shorts", actor)
+        return {"created": created, "episode": child, "preset": "portrait_1080x1920"}
     if name == "kids.create_episode_draft":
         require("operator", "automation:write")
         validated = validate_episode(args)

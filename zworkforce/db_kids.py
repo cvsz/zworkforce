@@ -583,3 +583,77 @@ class KidsMixin:
                                             (tenant_id, episode_id, limit)).fetchall())
             return self._rows(c.execute("SELECT * FROM kids_agent_runs WHERE tenant_id=? ORDER BY created_at DESC LIMIT ?",
                                         (tenant_id, limit)).fetchall())
+
+    # ----- derivations (e.g. Shorts from landscape episodes) -----
+    def kids_record_derivation(self, tenant_id: str, parent_id: str, child_id: str, kind: str, actor: str) -> dict:
+        from .db_base import utcnow as _now
+        with self.connection() as c:
+            c.execute("INSERT INTO kids_derivations(tenant_id,parent_episode_id,child_episode_id,kind,created_by,created_at) VALUES(?,?,?,?,?,?)",
+                      (tenant_id, parent_id, child_id, kind[:24], actor, _now()))
+            row = c.execute("SELECT * FROM kids_derivations WHERE tenant_id=? AND child_episode_id=?", (tenant_id, child_id)).fetchone()
+            return dict(row) if row else {}
+
+    def kids_get_derivation(self, tenant_id: str, child_id: str) -> dict | None:
+        with self.connection() as c:
+            row = c.execute("SELECT * FROM kids_derivations WHERE tenant_id=? AND child_episode_id=?", (tenant_id, child_id)).fetchone()
+            return dict(row) if row else None
+
+    def kids_list_derivations(self, tenant_id: str, *, parent_id: str = "") -> list[dict]:
+        with self.connection() as c:
+            if parent_id:
+                rows = c.execute("SELECT * FROM kids_derivations WHERE tenant_id=? AND parent_episode_id=? ORDER BY created_at",
+                                 (tenant_id, parent_id)).fetchall()
+            else:
+                rows = c.execute("SELECT * FROM kids_derivations WHERE tenant_id=? ORDER BY created_at DESC LIMIT 200", (tenant_id,)).fetchall()
+            return [dict(r) for r in rows]
+
+    # ----- voice profiles -----
+    def kids_upsert_voice(self, tenant_id: str, voice_id: str, validated: dict, actor: str) -> dict:
+        now = utcnow()
+        with self.connection() as c:
+            c.execute(
+                """INSERT INTO kids_voice_profiles(tenant_id,id,name,provider,model,voice_id,language,style,speed,rights_json,created_by,created_at,updated_at)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(tenant_id,id) DO UPDATE SET name=excluded.name,provider=excluded.provider,
+                model=excluded.model,voice_id=excluded.voice_id,language=excluded.language,style=excluded.style,speed=excluded.speed,
+                rights_json=excluded.rights_json,updated_at=excluded.updated_at""",
+                (tenant_id, voice_id, validated["name"], validated["provider"], validated["model"], validated["voice_id"],
+                 validated["language"], validated["style"], float(validated["speed"]), json_dumps(validated["rights"]), actor, now, now),
+            )
+            row = c.execute("SELECT * FROM kids_voice_profiles WHERE tenant_id=? AND id=?", (tenant_id, voice_id)).fetchone()
+            result = self._decode(dict(row)) if row else {}
+        self.audit(tenant_id, actor, "kids.voice.upsert", "kids_voice", voice_id, {"language": validated["language"]})
+        return result
+
+    def kids_list_voices(self, tenant_id: str, *, language: str = "") -> list[dict]:
+        with self.connection() as c:
+            if language:
+                return self._rows(c.execute("SELECT * FROM kids_voice_profiles WHERE tenant_id=? AND language=? ORDER BY name",
+                                            (tenant_id, language)).fetchall())
+            return self._rows(c.execute("SELECT * FROM kids_voice_profiles WHERE tenant_id=? ORDER BY name", (tenant_id,)).fetchall())
+
+    def kids_get_voice(self, tenant_id: str, voice_id: str) -> dict | None:
+        with self.connection() as c:
+            row = c.execute("SELECT * FROM kids_voice_profiles WHERE tenant_id=? AND id=?", (tenant_id, voice_id)).fetchone()
+            return self._decode(dict(row)) if row else None
+
+    # ----- music tracks -----
+    def kids_register_music(self, tenant_id: str, validated: dict, actor: str, *, episode_id: str = "", asset_id: str = "") -> dict:
+        import uuid as _uuid
+        track_id = _uuid.uuid4().hex[:12]
+        with self.connection() as c:
+            c.execute("INSERT INTO kids_music_tracks(id,tenant_id,episode_id,title,provider,license,provenance_json,duration_seconds,asset_id,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                      (track_id, tenant_id, episode_id[:32], validated["title"], validated["provider"], validated["license"],
+                       json_dumps({**validated["provenance"], "synthetic": True}), float(validated["duration_seconds"]),
+                       asset_id[:32], actor, utcnow()))
+            row = c.execute("SELECT * FROM kids_music_tracks WHERE id=?", (track_id,)).fetchone()
+            result = self._decode(dict(row)) if row else {}
+        self.audit(tenant_id, actor, "kids.music.register", "kids_music", track_id, {"license": validated["license"][:40]})
+        return result
+
+    def kids_list_music(self, tenant_id: str, *, episode_id: str = "") -> list[dict]:
+        with self.connection() as c:
+            if episode_id:
+                return self._rows(c.execute("SELECT * FROM kids_music_tracks WHERE tenant_id=? AND episode_id=? ORDER BY created_at",
+                                            (tenant_id, episode_id)).fetchall())
+            return self._rows(c.execute("SELECT * FROM kids_music_tracks WHERE tenant_id=? ORDER BY created_at DESC LIMIT 200",
+                                        (tenant_id,)).fetchall())

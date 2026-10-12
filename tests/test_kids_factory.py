@@ -381,5 +381,112 @@ def succeeds_or_empty(status, renders):
     return status == 200 and len(renders["items"]) == 0
 
 
+class KidsSlice3Tests(unittest.TestCase):
+    def setUp(self):
+        self.temp, self.settings, self.db, self.provider, self.engine, self.auth = stack()
+        self.app = App(self.settings, self.db, self.engine, self.auth, self.provider)
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), self.app.handler())
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.base = f"http://127.0.0.1:{self.server.server_address[1]}"
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.engine.shutdown()
+        self.temp.cleanup()
+
+    def req(self, path, method="GET", body=None, headers=None):
+        h = {"Authorization": "Bearer test-admin-secret", **(headers or {})}
+        data = None
+        if body is not None:
+            data = json.dumps(body).encode()
+            h["Content-Type"] = "application/json"
+        r = urllib.request.Request(self.base + path, data=data, headers=h, method=method)
+        try:
+            with urllib.request.urlopen(r, timeout=60) as resp:
+                return resp.status, json.loads(resp.read() or b"{}")
+        except urllib.error.HTTPError as exc:
+            return exc.code, json.loads(exc.read() or b"{}")
+
+    def _seed_parent(self, prefix="sh"):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": f"{prefix}-brand", "name": "Shorts Brand", "language": "en"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes", "POST", {"id": f"{prefix}-ep", "brand_id": f"{prefix}-brand",
+                                                          "title": "Long Episode", "summary": "learn colors and numbers",
+                                                          "age_band": "preschool", "language": "en",
+                                                          "objectives": ["colors"], "vocabulary": ["red"]})
+        self.assertIn(s, (200, 201))
+        s, _ = self.req(f"/api/v1/kids/episodes/{prefix}-ep/storyboard", "POST", {"num_scenes": 4})
+        self.assertEqual(s, 201)
+
+    def test_shorts_derivation_end_to_end(self):
+        self._seed_parent("sh")
+        s, result = self.req("/api/v1/kids/episodes/sh-ep/shorts", "POST", {"id": "sh-ep-shorts"})
+        self.assertEqual(s, 201)
+        self.assertIn("Shorts", result["episode"]["title"])
+        self.assertEqual(result["derivation"]["parent_episode_id"], "sh-ep")
+        self.assertEqual(result["preset"], "portrait_1080x1920")
+        # child มี storyboard ย่อ + timeline พร้อม render ต่อแบบ portrait
+        s, scenes = self.req("/api/v1/kids/episodes/sh-ep-shorts/scenes")
+        self.assertEqual(s, 200)
+        self.assertLessEqual(len(scenes["items"]), 3)
+        s, render = self.req("/api/v1/kids/render-jobs", "POST",
+                             {"episode_id": "sh-ep-shorts", "preset": "portrait_1080x1920"},
+                             headers={"Idempotency-Key": "shorts-render-1"})
+        self.assertEqual(s, 201)
+        self.assertEqual(render["status"], "succeeded")
+        # parent ไม่ถูกแตะต้อง
+        s, parent_scenes = self.req("/api/v1/kids/episodes/sh-ep/scenes")
+        self.assertEqual(len(parent_scenes["items"]), 4)
+        # idempotent rerun
+        s, again = self.req("/api/v1/kids/episodes/sh-ep/shorts", "POST", {"id": "sh-ep-shorts"},
+                            headers={"Idempotency-Key": "shorts:sh-ep:sh-ep-shorts"})
+        self.assertIn(s, (200, 201))
+
+    def test_voice_profiles_and_clone_consent(self):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": "vbrand", "name": "Voice Brand", "language": "en"})
+        self.assertEqual(s, 201)
+        s, voice = self.req("/api/v1/kids/voices", "POST", {"id": "lumi-voice", "name": "Lumi Narrator",
+                                                             "provider": "mock", "model": "mock-tts-1",
+                                                             "voice_id": "narrator-default", "language": "en"})
+        self.assertEqual(s, 201)
+        # clone โดยไม่มี consent ต้องถูกปฏิเสธ
+        s, denied = self.req("/api/v1/kids/voices", "POST", {"id": "evil-clone", "name": "Clone",
+                                                             "voice_id": "clone-someone", "language": "en"})
+        self.assertEqual(s, 400)
+        s, ok = self.req("/api/v1/kids/voices", "POST", {"id": "ok-clone", "name": "Consented Clone",
+                                                         "voice_id": "clone-actor-a", "language": "en",
+                                                         "rights": {"consent_ref": "consent-2026-001"}})
+        self.assertEqual(s, 201)
+        # preview ได้ไฟล์เสียง synthetic พร้อม provenance
+        s, preview = self.req("/api/v1/kids/voices/preview", "POST", {"voice_id": "lumi-voice", "line": "Hello friends!"})
+        self.assertEqual(s, 201)
+        self.assertTrue(preview["artifact"]["sha256"])
+        self.assertEqual(preview["asset"]["kind"], "audio")
+
+    def test_music_requires_license(self):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": "mbrand", "name": "Music Brand", "language": "en"})
+        self.assertEqual(s, 201)
+        s, denied = self.req("/api/v1/kids/music", "POST", {"title": "No License Song"})
+        self.assertEqual(s, 400)
+        s, track = self.req("/api/v1/kids/music", "POST", {"title": "Sunny Tune", "provider": "mock",
+                                                            "license": "original-in-house-2026", "duration_seconds": 30})
+        self.assertEqual(s, 201)
+        self.assertEqual(track["license"], "original-in-house-2026")
+
+    def test_brand_quota_blocks_extra_episodes(self):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": "qbrand", "name": "Quota Brand", "language": "en",
+                                                        "publishing": {"max_episodes": 1}})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes", "POST", {"id": "q-ep-1", "brand_id": "qbrand",
+                                                          "title": "First", "summary": "ok"})
+        self.assertEqual(s, 201)
+        s, blocked = self.req("/api/v1/kids/episodes", "POST", {"id": "q-ep-2", "brand_id": "qbrand",
+                                                                 "title": "Second", "summary": "ok"})
+        self.assertEqual(s, 400)
+        self.assertIn("quota", blocked["error"]["message"])
+
+
 if __name__ == "__main__":
     unittest.main()

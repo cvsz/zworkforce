@@ -298,7 +298,6 @@ def storyboard_to_timeline(scenes: list[dict[str, Any]], *, brand_name: str = ""
 
 
 def validate_media_upload(*, filename: str, content_type: str, size_bytes: int, max_bytes: int = 25 * 1024 * 1024) -> None:
-    """Tenant-scoped upload guard: type, size, traversal, SSRF-adjacent names."""
     if not filename or len(filename) > 180:
         raise KidsValidationError("asset filename must be 1..180 chars")
     lowered = filename.lower()
@@ -408,3 +407,91 @@ def mock_youtube_upload(*, metadata: dict[str, Any], idempotency_key: str, sha25
     seed = hashlib.sha256(f"{idempotency_key}:{sha256}".encode()).hexdigest()
     return {"external_id": f"mock-yt-{seed[:11]}", "status": "uploaded_mock",
             "url": f"https://youtube.example/videos/{seed[:11]}", "metadata": metadata}
+
+
+def validate_voice_profile(payload: dict[str, Any]) -> dict[str, Any]:
+    """Voice profile with rights/consent metadata. Cloning requires documented consent."""
+    name = _text(payload.get("name"), "voice.name", max_len=80, required=True)
+    language = str(payload.get("language", "en")).strip().lower()
+    if language not in LANGUAGES:
+        raise KidsValidationError("voice.language must be 'en' or 'th'")
+    speed = float(payload.get("speed", 1.0) or 1.0)
+    if not 0.5 <= speed <= 2.0:
+        raise KidsValidationError("voice.speed must be 0.5..2.0")
+    voice_id = _text(payload.get("voice_id"), "voice.voice_id", max_len=120)
+    rights = dict(payload.get("rights") or {})
+    if voice_id.startswith("clone-") and not str(rights.get("consent_ref", "")).strip():
+        raise KidsValidationError("voice cloning requires rights.consent_ref (documented authorization)")
+    return {
+        "name": name,
+        "provider": _text(payload.get("provider", "mock"), "voice.provider", max_len=40) or "mock",
+        "model": _text(payload.get("model", "mock-tts-1"), "voice.model", max_len=80) or "mock-tts-1",
+        "voice_id": voice_id or "narrator-default",
+        "language": language,
+        "style": _text(payload.get("style", "cheerful"), "voice.style", max_len=40) or "cheerful",
+        "speed": speed,
+        "rights": rights,
+    }
+
+
+def validate_music_track(payload: dict[str, Any]) -> dict[str, Any]:
+    """Music must carry provider + license provenance. AI output is not assumed copyright-free."""
+    title = _text(payload.get("title"), "music.title", max_len=120, required=True)
+    license_name = _text(payload.get("license"), "music.license", max_len=120, required=True)
+    duration = float(payload.get("duration_seconds", 0) or 0)
+    if not 0 <= duration <= 600:
+        raise KidsValidationError("music.duration_seconds must be 0..600")
+    return {
+        "title": title,
+        "provider": _text(payload.get("provider", "mock"), "music.provider", max_len=40) or "mock",
+        "license": license_name,
+        "provenance": dict(payload.get("provenance") or {}),
+        "duration_seconds": duration,
+    }
+
+
+def synth_preview_wav(*, text: str, speed: float = 1.0, sample_rate: int = 16000) -> bytes:
+    """Deterministic synthetic voice preview (pure-python sine WAV, clearly labeled mock)."""
+    import math
+    import struct
+    import wave
+    from io import BytesIO
+    seed = int(hashlib.sha256(text.encode()).hexdigest(), 16)
+    duration = min(max(0.5, len(text) / (40.0 * max(0.5, speed))), 5.0)
+    n = int(sample_rate * duration)
+    buf = BytesIO()
+    with wave.open(buf, "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(sample_rate)
+        frames = bytearray()
+        for i in range(n):
+            freq = 440 + (seed % 5) * 40
+            sample = int(8000 * math.sin(2 * math.pi * freq * i / sample_rate))
+            frames += struct.pack("<h", sample)
+        wav.writeframes(bytes(frames))
+    return buf.getvalue()
+
+
+def check_brand_quota(db, tenant_id: str, brand_id: str, *, extra_episodes: int = 0, extra_cost: float = 0.0) -> None:
+    """Enforce per-brand quotas declared in brand.publishing (max_episodes, max_cost_credits)."""
+    brand = db.kids_get_brand(tenant_id, brand_id)
+    if not brand:
+        return
+    quota = brand.get("publishing") or {}
+    try:
+        max_episodes = int(quota.get("max_episodes", 0) or 0)
+    except (TypeError, ValueError):
+        max_episodes = 0
+    try:
+        max_cost = float(quota.get("max_cost_credits", 0) or 0)
+    except (TypeError, ValueError):
+        max_cost = 0.0
+    if max_episodes > 0:
+        current = len(db.kids_list_episodes(tenant_id, brand_id=brand_id))
+        if current + extra_episodes > max_episodes:
+            raise KidsValidationError(f"brand quota exceeded: max_episodes={max_episodes} (have {current})")
+    if max_cost > 0:
+        spent = db.kids_usage_summary(tenant_id).get("cost_credits", 0.0)
+        if spent + extra_cost > max_cost:
+            raise KidsValidationError(f"brand quota exceeded: max_cost_credits={max_cost} (spent {spent})")

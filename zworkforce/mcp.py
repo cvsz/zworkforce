@@ -51,6 +51,13 @@ MCP_TOOLS: dict[str, dict[str, Any]] = {
             "required": ["id", "brand_id", "title"]},
         "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
     },
+    "kids.derive_shorts": {
+        "name": "kids.derive_shorts",
+        "description": "Derive a 9:16 short-form episode from a landscape episode (requires automation:write).",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "id": {"type": "string"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
     "kids.create_storyboard": {
         "name": "kids.create_storyboard",
         "description": "Build a deterministic storyboard from the latest script.",
@@ -113,6 +120,14 @@ MCP_TOOLS: dict[str, dict[str, Any]] = {
         "description": "Submit a deterministic sample render (FFmpeg local, synthetic).",
         "inputSchema": {"type": "object", "properties": {
             "episode_id": {"type": "string"}, "preset": {"type": "string"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.run_episode_pipeline": {
+        "name": "kids.run_episode_pipeline",
+        "description": "Run the pre-publish agent pipeline for an episode (bounded, idempotent steps; publishing stays manual).",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "preset": {"type": "string"}, "num_scenes": {"type": "integer"}},
+            "required": ["episode_id"]},
         "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
     },
     "kids.run_episode_pipeline": {

@@ -297,4 +297,47 @@ CREATE TABLE IF NOT EXISTS kids_agent_runs(
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_kids_agent_runs_idem ON kids_agent_runs(tenant_id,idempotency_key) WHERE idempotency_key <> '';
 CREATE INDEX IF NOT EXISTS idx_kids_agent_runs_ep ON kids_agent_runs(tenant_id,episode_id,agent);
+
+CREATE TABLE IF NOT EXISTS kids_derivations(
+    tenant_id TEXT NOT NULL,
+    parent_episode_id TEXT NOT NULL,
+    child_episode_id TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'shorts',
+    created_by TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(tenant_id,child_episode_id)
+);
+CREATE INDEX IF NOT EXISTS idx_kids_deriv_parent ON kids_derivations(tenant_id,parent_episode_id);
+
+CREATE TABLE IF NOT EXISTS kids_voice_profiles(
+    tenant_id TEXT NOT NULL,
+    id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    provider TEXT NOT NULL DEFAULT 'mock',
+    model TEXT NOT NULL DEFAULT 'mock-tts-1',
+    voice_id TEXT NOT NULL DEFAULT '',
+    language TEXT NOT NULL DEFAULT 'en',
+    style TEXT NOT NULL DEFAULT 'cheerful',
+    speed REAL NOT NULL DEFAULT 1.0,
+    rights_json TEXT NOT NULL DEFAULT '{}',
+    created_by TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(tenant_id,id)
+);
+
+CREATE TABLE IF NOT EXISTS kids_music_tracks(
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    episode_id TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL DEFAULT '',
+    provider TEXT NOT NULL DEFAULT 'mock',
+    license TEXT NOT NULL DEFAULT '',
+    provenance_json TEXT NOT NULL DEFAULT '{}',
+    duration_seconds REAL NOT NULL DEFAULT 0,
+    asset_id TEXT NOT NULL DEFAULT '',
+    created_by TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_kids_music_ep ON kids_music_tracks(tenant_id,episode_id);
 """
