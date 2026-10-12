@@ -605,6 +605,69 @@ class KidsSlice3Tests(unittest.TestCase):
                              {"scenes": [{"id": "s99", "dialogue_line": "x"}]})
         self.assertEqual(s, 400)
 
+    def test_schedules_require_future_tz_and_reject_conflicts(self):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": "sbrand", "name": "Sched Brand", "language": "en"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/channels", "POST", {"id": "sched-chan", "brand_id": "sbrand", "name": "Chan"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes", "POST", {"id": "s-ep", "brand_id": "sbrand",
+                                                          "title": "Sched", "summary": "ok"})
+        self.assertEqual(s, 201)
+        # ไม่มี timezone ต้องถูกปฏิเสธ
+        s, denied = self.req("/api/v1/kids/schedules", "POST", {"channel_id": "sched-chan", "episode_id": "s-ep",
+                                                                 "slot_at": "2030-01-01T09:00:00"})
+        self.assertEqual(s, 400)
+        # slot อดีตต้องถูกปฏิเสธ
+        s, denied = self.req("/api/v1/kids/schedules", "POST", {"channel_id": "sched-chan", "episode_id": "s-ep",
+                                                                 "slot_at": "2020-01-01T09:00:00+00:00"})
+        self.assertEqual(s, 400)
+        slot = "2030-05-01T09:00:00+07:00"
+        s, sched = self.req("/api/v1/kids/schedules", "POST", {"channel_id": "sched-chan", "episode_id": "s-ep",
+                                                                "slot_at": slot, "timezone": "Asia/Bangkok"})
+        self.assertEqual(s, 201)
+        # จอง slot เดิมซ้ำต้อง conflict
+        s, conflict = self.req("/api/v1/kids/schedules", "POST", {"channel_id": "sched-chan", "episode_id": "s-ep",
+                                                                    "slot_at": slot})
+        self.assertEqual(s, 409)
+        s, listed = self.req("/api/v1/kids/schedules?channel_id=sched-chan")
+        self.assertEqual(len(listed["items"]), 1)
+        s, canceled = self.req(f"/api/v1/kids/schedules/{sched['id']}/cancel", "POST", {})
+        self.assertEqual(s, 200)
+        self.assertEqual(canceled["status"], "canceled")
+
+    def test_provider_routes_resolve_with_disabled_externals(self):
+        s, resolved = self.req("/api/v1/kids/providers/routes/llm")
+        self.assertEqual(s, 200)
+        self.assertEqual(resolved["primary"]["provider"], "mock")
+        s, saved = self.req("/api/v1/kids/providers/routes", "POST", {"capability": "image",
+                                                                       "providers": ["openai", "mock"]})
+        self.assertEqual(s, 201)
+        # openai ต้อง disabled จนกว่าจะมี operator config
+        self.assertFalse(saved["resolved"]["route"][0]["enabled"])
+        self.assertTrue(saved["resolved"]["route"][1]["enabled"])
+        s, denied = self.req("/api/v1/kids/providers/routes", "POST", {"capability": "image",
+                                                                         "providers": ["unknown-xyz"]})
+        self.assertEqual(s, 400)
+        s, denied = self.req("/api/v1/kids/providers/routes/nope")
+        self.assertEqual(s, 404)
+
+    def test_export_bundle_contains_full_episode(self):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": "ebrand", "name": "Export Brand", "language": "en"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes", "POST", {"id": "e-ep", "brand_id": "ebrand",
+                                                          "title": "Export", "summary": "ok"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes/e-ep/script", "POST", {"content_type": "nursery_rhyme",
+                                                                       "body": {"verses": "hi"}})
+        self.assertEqual(s, 201)
+        s, bundle = self.req("/api/v1/kids/episodes/e-ep/export")
+        self.assertEqual(s, 200)
+        self.assertEqual(bundle["format"], "kids-export-1")
+        self.assertEqual(bundle["episode"]["id"], "e-ep")
+        self.assertEqual(len(bundle["scripts"]), 1)
+        s, missing = self.req("/api/v1/kids/episodes/nope/export")
+        self.assertEqual(s, 404)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -7,6 +7,7 @@ from typing import Any
 
 from .kids_factory import (
     KidsValidationError,
+    PROVIDER_CAPABILITIES,
     build_language_variant,
     build_storyboard,
     check_brand_quota,
@@ -14,6 +15,7 @@ from .kids_factory import (
     kids_safety_check,
     mock_youtube_upload,
     prepare_youtube_metadata,
+    resolve_provider_route,
     storyboard_to_timeline,
     suggest_marketing,
     synth_preview_wav,
@@ -22,7 +24,9 @@ from .kids_factory import (
     validate_episode,
     validate_media_upload,
     validate_music_track,
+    validate_provider_route,
     validate_scene,
+    validate_schedule_slot,
     validate_script,
     validate_timeline,
     validate_voice_profile,
@@ -118,6 +122,25 @@ def kids_get(app, tenant_id: str, path: str, query: dict) -> tuple[bool, Any]:
         return True, db.kids_analytics_summary(tenant_id)
     if path == "/api/v1/kids/agent-runs":
         return True, {"items": db.kids_list_agent_runs(tenant_id, episode_id=_strq(query, "episode_id"))}
+    if path == "/api/v1/kids/schedules":
+        return True, {"items": db.kids_list_schedules(tenant_id, channel_id=_strq(query, "channel_id"), status=_strq(query, "status"))}
+    if path == "/api/v1/kids/providers/routes":
+        routes = db.kids_list_provider_routes(tenant_id)
+        return True, {"items": [dict(r, resolved=resolve_provider_route(capability=r.get("capability", ""), providers=r.get("providers", []) or [])) for r in routes]}
+    m = re.fullmatch(r"/api/v1/kids/providers/routes/([a-z]+)", path)
+    if m:
+        capability = m.group(1)
+        if capability not in PROVIDER_CAPABILITIES:
+            return True, {"_status": 404, "_error": ("capability_not_found", "unknown provider capability")}
+        routes = [r for r in db.kids_list_provider_routes(tenant_id) if r.get("capability") == capability]
+        providers = routes[0].get("providers", []) if routes else ["mock"]
+        return True, resolve_provider_route(capability=capability, providers=providers)
+    m = re.fullmatch(r"/api/v1/kids/episodes/([a-z0-9][a-z0-9-]{0,62})/export", path)
+    if m:
+        bundle = db.kids_export_episode(tenant_id, m.group(1))
+        if not bundle:
+            return True, {"_status": 404, "_error": ("episode_not_found", "episode not found")}
+        return True, bundle
     if path == "/api/v1/kids/voices":
         return True, {"items": db.kids_list_voices(tenant_id, language=_strq(query, "language"))}
     if path == "/api/v1/kids/music":
@@ -395,6 +418,30 @@ def kids_post(app, principal, tenant_id: str, path: str, body: dict, *, idempote
         validated = validate_music_track(body)
         return True, db.kids_register_music(tenant_id, validated, actor,
                                             episode_id=str(body.get("episode_id", ""))), 201
+    if path == "/api/v1/kids/schedules":
+        channel_id = _slug_or_raise(body.get("channel_id", ""), "schedule.channel_id")
+        episode_id = _slug_or_raise(body.get("episode_id", ""), "schedule.episode_id")
+        channels = [c["id"] for c in db.kids_list_channels(tenant_id)]
+        if channel_id not in channels:
+            raise KidsValidationError("schedule.channel_id does not exist in this tenant")
+        if not db.kids_get_episode(tenant_id, episode_id):
+            raise KidsValidationError("schedule.episode_id does not exist in this tenant")
+        slot = validate_schedule_slot(slot_at=body.get("slot_at", ""), timezone_name=str(body.get("timezone", "UTC")))
+        sched, created, conflict = db.kids_create_schedule(tenant_id, channel_id, episode_id, slot, actor,
+                                                           idempotency_key=idempotency_key or str(body.get("idempotency_key", "")))
+        if conflict == "slot_conflict":
+            return True, {"error": {"code": "slot_conflict", "message": "channel already has a scheduled item at this slot"}}, 409
+        return True, sched, 201 if created else 200
+    m = re.fullmatch(r"/api/v1/kids/schedules/([0-9a-f]{12})/cancel", path)
+    if m:
+        sched = db.kids_cancel_schedule(tenant_id, m.group(1), actor)
+        if not sched:
+            return True, {"error": {"code": "schedule_not_found", "message": "schedule not found"}}, 404
+        return True, sched, 200
+    if path == "/api/v1/kids/providers/routes":
+        validated = validate_provider_route(capability=str(body.get("capability", "")), providers=body.get("providers", []))
+        saved = db.kids_set_provider_route(tenant_id, validated["capability"], validated["providers"], actor)
+        return True, dict(saved, resolved=resolve_provider_route(capability=validated["capability"], providers=validated["providers"])), 201
     m = re.fullmatch(r"/api/v1/kids/episodes/([a-z0-9][a-z0-9-]{0,62})/shorts", path)
     if m:
         parent_id = m.group(1)

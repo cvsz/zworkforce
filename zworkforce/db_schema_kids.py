@@ -340,4 +340,29 @@ CREATE TABLE IF NOT EXISTS kids_music_tracks(
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_kids_music_ep ON kids_music_tracks(tenant_id,episode_id);
+
+CREATE TABLE IF NOT EXISTS kids_schedules(
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    channel_id TEXT NOT NULL,
+    episode_id TEXT NOT NULL,
+    slot_at TEXT NOT NULL,
+    timezone TEXT NOT NULL DEFAULT 'UTC',
+    status TEXT NOT NULL DEFAULT 'scheduled',
+    idempotency_key TEXT NOT NULL DEFAULT '',
+    created_by TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    UNIQUE(tenant_id,channel_id,slot_at)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_kids_sched_idem ON kids_schedules(tenant_id,idempotency_key) WHERE idempotency_key <> '';
+CREATE INDEX IF NOT EXISTS idx_kids_sched_due ON kids_schedules(tenant_id,status,slot_at);
+
+CREATE TABLE IF NOT EXISTS kids_provider_routes(
+    tenant_id TEXT NOT NULL,
+    capability TEXT NOT NULL,
+    providers_json TEXT NOT NULL DEFAULT '[]',
+    updated_by TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(tenant_id,capability)
+);
 """

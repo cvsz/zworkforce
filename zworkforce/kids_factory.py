@@ -542,3 +542,65 @@ def suggest_marketing(*, episode: dict[str, Any], brand_name: str = "") -> dict[
         "estimated": True,
         "note": "Estimates only; performance forecasts are not guarantees. No engagement automation.",
     }
+
+
+PROVIDER_CAPABILITIES = ("llm", "image", "video", "tts", "music", "embeddings", "storage", "publishing")
+KNOWN_PROVIDERS = ("mock", "ffmpeg", "youtube_mock", "openai", "gemini", "elevenlabs", "replicate", "runway", "local")
+# Real providers stay disabled until operator config + external evidence exist.
+CONFIGURED_PROVIDERS = ("mock", "ffmpeg", "youtube_mock", "local")
+PROVIDER_BASE_COST = {"llm": 0.2, "image": 0.4, "video": 1.0, "tts": 0.1, "music": 0.3,
+                      "embeddings": 0.05, "storage": 0.01, "publishing": 0.1}
+
+
+def validate_schedule_slot(*, slot_at: str, timezone_name: str = "UTC") -> dict[str, str]:
+    """Timezone-aware future slot validation (ISO-8601, tz required, no past slots)."""
+    from datetime import datetime, timezone as _tz
+    raw = str(slot_at or "").strip()
+    if not raw:
+        raise KidsValidationError("schedule.slot_at is required (ISO-8601 with timezone)")
+    normalized = raw.replace("Z", "+00:00") if raw.endswith(("Z", "z")) else raw
+    try:
+        moment = datetime.fromisoformat(normalized)
+    except ValueError:
+        raise KidsValidationError("schedule.slot_at must be ISO-8601 (e.g. 2026-10-20T09:00:00+07:00)")
+    if moment.tzinfo is None:
+        raise KidsValidationError("schedule.slot_at must include a timezone offset")
+    now = datetime.now(_tz.utc)
+    if moment.astimezone(_tz.utc) <= now:
+        raise KidsValidationError("schedule.slot_at must be in the future")
+    tz_name = str(timezone_name or "UTC").strip()[:64] or "UTC"
+    return {"slot_at": moment.isoformat(), "timezone": tz_name}
+
+
+def validate_provider_route(*, capability: str, providers: list) -> dict[str, Any]:
+    """Ordered provider route per capability. Unknown or duplicate entries fail closed."""
+    if capability not in PROVIDER_CAPABILITIES:
+        raise KidsValidationError(f"provider capability must be one of {list(PROVIDER_CAPABILITIES)}")
+    if not isinstance(providers, list) or not 1 <= len(providers) <= 4:
+        raise KidsValidationError("route providers must be a list of 1..4 provider names")
+    seen: list[str] = []
+    for name in providers:
+        pname = str(name or "").strip().lower()
+        if pname not in KNOWN_PROVIDERS:
+            raise KidsValidationError(f"unknown provider '{name}'")
+        if pname in seen:
+            raise KidsValidationError(f"duplicate provider '{pname}' in route")
+        seen.append(pname)
+    return {"capability": capability, "providers": seen}
+
+
+def resolve_provider_route(*, capability: str, providers: list[str]) -> dict[str, Any]:
+    """Resolve an ordered route with enabled flags and cost preview.
+
+    Real providers resolve as disabled until operator configuration and
+    external evidence exist; the router never silently swaps fidelity tiers.
+    """
+    base = PROVIDER_BASE_COST.get(capability, 0.1)
+    route = []
+    for index, name in enumerate(providers):
+        enabled = name in CONFIGURED_PROVIDERS
+        route.append({"provider": name, "position": index, "enabled": enabled,
+                      "mode": "mock" if name in ("mock", "youtube_mock") else ("local" if name in ("ffmpeg", "local") else "external"),
+                      "estimated_cost_credits": round(base * (1.0 + index * 0.5), 4),
+                      "note": "" if enabled else "requires operator configuration + external evidence"})
+    return {"capability": capability, "route": route, "primary": route[0] if route else None}

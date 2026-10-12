@@ -56,6 +56,39 @@ KIDS_MCP_TOOLS: dict[str, dict[str, Any]] = {
             "episode_id": {"type": "string"}, "scenes": {"type": "array"}}, "required": ["episode_id", "scenes"]},
         "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
     },
+    "kids.create_schedule": {
+        "name": "kids.create_schedule",
+        "description": "Schedule an episode for a channel slot (future ISO-8601 with timezone; conflicts fail).",
+        "inputSchema": {"type": "object", "properties": {
+            "channel_id": {"type": "string"}, "episode_id": {"type": "string"}, "slot_at": {"type": "string"}},
+            "required": ["channel_id", "episode_id", "slot_at"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.list_schedules": {
+        "name": "kids.list_schedules",
+        "description": "List scheduled publishing slots.",
+        "inputSchema": {"type": "object", "properties": {"channel_id": {"type": "string"}}},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.set_provider_route": {
+        "name": "kids.set_provider_route",
+        "description": "Set the ordered provider route for a capability (requires automation:write).",
+        "inputSchema": {"type": "object", "properties": {
+            "capability": {"type": "string"}, "providers": {"type": "array"}}, "required": ["capability", "providers"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.resolve_provider": {
+        "name": "kids.resolve_provider",
+        "description": "Resolve the provider route for a capability with enabled flags and cost preview.",
+        "inputSchema": {"type": "object", "properties": {"capability": {"type": "string"}}, "required": ["capability"]},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.export_episode": {
+        "name": "kids.export_episode",
+        "description": "Export the full episode bundle for backup/restore drills.",
+        "inputSchema": {"type": "object", "properties": {"episode_id": {"type": "string"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
     "kids.get_analytics_summary": {
         "name": "kids.get_analytics_summary",
         "description": "Aggregate persisted Kids Factory rows (never fabricated views).",
@@ -273,6 +306,45 @@ def call_kids_tool(app, principal, tenant_id: str, name: str, args: dict[str, An
                 merged["dialogue"] = {**(base.get("dialogue") or {}), "line": str(entry["dialogue_line"])[:280], "translated_by": actor}
             updated.append(db.kids_upsert_scene(tenant_id, episode["id"], base["id"], validate_scene(merged), actor))
         return {"scenes": updated}
+    if name == "kids.create_schedule":
+        require("operator", "automation:write")
+        from .kids_api import _slug_or_raise as _slug3
+        from .kids_factory import validate_schedule_slot
+        channel_id = _slug3(args.get("channel_id", ""), "schedule.channel_id")
+        episode_id = _slug3(args.get("episode_id", ""), "schedule.episode_id")
+        if channel_id not in [c["id"] for c in db.kids_list_channels(tenant_id)]:
+            raise ValueError("schedule.channel_id does not exist in this tenant")
+        if not db.kids_get_episode(tenant_id, episode_id):
+            raise ValueError("schedule.episode_id does not exist in this tenant")
+        slot = validate_schedule_slot(slot_at=args.get("slot_at", ""), timezone_name=str(args.get("timezone", "UTC")))
+        sched, created, conflict = db.kids_create_schedule(tenant_id, channel_id, episode_id, slot, actor)
+        if conflict:
+            raise ValueError("channel already has a scheduled item at this slot")
+        return {"created": created, "schedule": sched}
+    if name == "kids.list_schedules":
+        require("viewer", "workforce:read")
+        return {"items": db.kids_list_schedules(tenant_id, channel_id=str(args.get("channel_id", "")))}
+    if name == "kids.set_provider_route":
+        require("operator", "automation:write")
+        from .kids_factory import resolve_provider_route as _resolve, validate_provider_route as _validate_route
+        validated = _validate_route(capability=str(args.get("capability", "")), providers=args.get("providers", []))
+        saved = db.kids_set_provider_route(tenant_id, validated["capability"], validated["providers"], actor)
+        return dict(saved, resolved=_resolve(capability=validated["capability"], providers=validated["providers"]))
+    if name == "kids.resolve_provider":
+        require("viewer", "workforce:read")
+        from .kids_factory import PROVIDER_CAPABILITIES as _caps, resolve_provider_route as _resolve2
+        capability = str(args.get("capability", ""))
+        if capability not in _caps:
+            raise ValueError("unknown provider capability")
+        routes = [r for r in db.kids_list_provider_routes(tenant_id) if r.get("capability") == capability]
+        providers = routes[0].get("providers", []) if routes else ["mock"]
+        return _resolve2(capability=capability, providers=providers)
+    if name == "kids.export_episode":
+        require("viewer", "workforce:read")
+        bundle = db.kids_export_episode(tenant_id, str(args.get("episode_id", "")))
+        if not bundle:
+            raise ValueError("episode not found")
+        return bundle
     if name == "kids.create_episode_draft":
         require("operator", "automation:write")
         validated = validate_episode(args)

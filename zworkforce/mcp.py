@@ -85,6 +85,39 @@ MCP_TOOLS: dict[str, dict[str, Any]] = {
             "episode_id": {"type": "string"}, "scenes": {"type": "array"}}, "required": ["episode_id", "scenes"]},
         "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
     },
+    "kids.create_schedule": {
+        "name": "kids.create_schedule",
+        "description": "Schedule an episode for a channel slot (future ISO-8601 with timezone; conflicts fail).",
+        "inputSchema": {"type": "object", "properties": {
+            "channel_id": {"type": "string"}, "episode_id": {"type": "string"}, "slot_at": {"type": "string"}},
+            "required": ["channel_id", "episode_id", "slot_at"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.list_schedules": {
+        "name": "kids.list_schedules",
+        "description": "List scheduled publishing slots.",
+        "inputSchema": {"type": "object", "properties": {"channel_id": {"type": "string"}}},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.set_provider_route": {
+        "name": "kids.set_provider_route",
+        "description": "Set the ordered provider route for a capability (requires automation:write).",
+        "inputSchema": {"type": "object", "properties": {
+            "capability": {"type": "string"}, "providers": {"type": "array"}}, "required": ["capability", "providers"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.resolve_provider": {
+        "name": "kids.resolve_provider",
+        "description": "Resolve the provider route for a capability with enabled flags and cost preview.",
+        "inputSchema": {"type": "object", "properties": {"capability": {"type": "string"}}, "required": ["capability"]},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.export_episode": {
+        "name": "kids.export_episode",
+        "description": "Export the full episode bundle for backup/restore drills.",
+        "inputSchema": {"type": "object", "properties": {"episode_id": {"type": "string"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
     "kids.get_analytics_summary": {
         "name": "kids.get_analytics_summary",
         "description": "Aggregate persisted Kids Factory rows (never fabricated views).",

@@ -683,6 +683,93 @@ class KidsMixin:
             return self._rows(c.execute("SELECT * FROM kids_music_tracks WHERE tenant_id=? ORDER BY created_at DESC LIMIT 200",
                                         (tenant_id,)).fetchall())
 
+    # ----- schedules (future slots, per-channel conflict protection) -----
+    def kids_create_schedule(self, tenant_id: str, channel_id: str, episode_id: str, slot: dict,
+                             actor: str, *, idempotency_key: str = "") -> tuple[dict, bool, str]:
+        import uuid as _uuid
+        if idempotency_key:
+            with self.connection() as c:
+                row = c.execute("SELECT * FROM kids_schedules WHERE tenant_id=? AND idempotency_key=?",
+                                (tenant_id, idempotency_key)).fetchone()
+                if row:
+                    return self._decode(dict(row)), False, ""
+        with self.connection() as c:
+            dupe = c.execute("SELECT id FROM kids_schedules WHERE tenant_id=? AND channel_id=? AND slot_at=? AND status='scheduled'",
+                             (tenant_id, channel_id, slot["slot_at"])).fetchone()
+            if dupe:
+                return {}, False, "slot_conflict"
+            sched_id = _uuid.uuid4().hex[:12]
+            now = utcnow()
+            c.execute("INSERT INTO kids_schedules(id,tenant_id,channel_id,episode_id,slot_at,timezone,status,idempotency_key,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                      (sched_id, tenant_id, channel_id, episode_id, slot["slot_at"], slot["timezone"],
+                       "scheduled", idempotency_key or "", actor, now))
+            row = c.execute("SELECT * FROM kids_schedules WHERE id=?", (sched_id,)).fetchone()
+            result = self._decode(dict(row)) if row else {}
+        self.audit(tenant_id, actor, "kids.schedule.create", "kids_schedule", sched_id, {"slot_at": slot["slot_at"]})
+        return result, True, ""
+
+    def kids_list_schedules(self, tenant_id: str, *, channel_id: str = "", status: str = "") -> list[dict]:
+        sql = "SELECT * FROM kids_schedules WHERE tenant_id=?"
+        args: list = [tenant_id]
+        if channel_id:
+            sql += " AND channel_id=?"
+            args.append(channel_id)
+        if status:
+            sql += " AND status=?"
+            args.append(status)
+        sql += " ORDER BY slot_at LIMIT 200"
+        with self.connection() as c:
+            return self._rows(c.execute(sql, tuple(args)).fetchall())
+
+    def kids_cancel_schedule(self, tenant_id: str, schedule_id: str, actor: str) -> dict | None:
+        with self.connection() as c:
+            row = c.execute("SELECT * FROM kids_schedules WHERE tenant_id=? AND id=?", (tenant_id, schedule_id)).fetchone()
+            if not row:
+                return None
+            c.execute("UPDATE kids_schedules SET status='canceled' WHERE tenant_id=? AND id=?", (tenant_id, schedule_id))
+            row = c.execute("SELECT * FROM kids_schedules WHERE tenant_id=? AND id=?", (tenant_id, schedule_id)).fetchone()
+            result = self._decode(dict(row)) if row else None
+        self.audit(tenant_id, actor, "kids.schedule.cancel", "kids_schedule", schedule_id, {})
+        return result
+
+    # ----- provider routes -----
+    def kids_set_provider_route(self, tenant_id: str, capability: str, providers: list[str], actor: str) -> dict:
+        now = utcnow()
+        with self.connection() as c:
+            c.execute("INSERT INTO kids_provider_routes(tenant_id,capability,providers_json,updated_by,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(tenant_id,capability) DO UPDATE SET providers_json=excluded.providers_json,updated_by=excluded.updated_by,updated_at=excluded.updated_at",
+                      (tenant_id, capability, json_dumps(providers), actor, now))
+            row = c.execute("SELECT * FROM kids_provider_routes WHERE tenant_id=? AND capability=?", (tenant_id, capability)).fetchone()
+            result = self._decode(dict(row)) if row else {}
+        self.audit(tenant_id, actor, "kids.provider_route.set", "kids_provider_route", capability, {"providers": providers})
+        return result
+
+    def kids_list_provider_routes(self, tenant_id: str) -> list[dict]:
+        with self.connection() as c:
+            return self._rows(c.execute("SELECT * FROM kids_provider_routes WHERE tenant_id=? ORDER BY capability", (tenant_id,)).fetchall())
+
+    # ----- export bundle (backup/restore drill input) -----
+    def kids_export_episode(self, tenant_id: str, episode_id: str) -> dict | None:
+        episode = self.kids_get_episode(tenant_id, episode_id)
+        if not episode:
+            return None
+        brand = self.kids_get_brand(tenant_id, episode.get("brand_id", "")) or {}
+        with self.connection() as c:
+            scripts = self._rows(c.execute("SELECT * FROM kids_scripts WHERE tenant_id=? AND episode_id=? ORDER BY version",
+                                           (tenant_id, episode_id)).fetchall())
+            timelines = self._rows(c.execute("SELECT * FROM kids_timelines WHERE tenant_id=? AND episode_id=? ORDER BY version",
+                                             (tenant_id, episode_id)).fetchall())
+            mods = self._rows(c.execute("SELECT * FROM kids_moderation WHERE tenant_id=? AND episode_id=? ORDER BY created_at",
+                                        (tenant_id, episode_id)).fetchall())
+        characters = self.kids_list_characters(tenant_id, brand_id=episode.get("brand_id", ""))
+        return {"format": "kids-export-1", "tenant_id": tenant_id, "brand": brand, "episode": episode,
+                "characters": characters, "scripts": scripts, "scenes": self.kids_list_scenes(tenant_id, episode_id),
+                "timelines": timelines, "assets": self.kids_list_assets(tenant_id, episode_id=episode_id),
+                "renders": self.kids_list_renders(tenant_id, episode_id=episode_id),
+                "approvals": [a for a in self.kids_list_approvals(tenant_id) if a.get("episode_id") == episode_id],
+                "moderation": mods, "publishing": self.kids_list_publishing(tenant_id, episode_id=episode_id),
+                "derivations": self.kids_list_derivations(tenant_id, parent_id=episode_id),
+                "music": self.kids_list_music(tenant_id, episode_id=episode_id)}
+
     def kids_analytics_summary(self, tenant_id: str) -> dict:
         """Aggregate only persisted rows. Synthetic snapshots are counted separately, never as real views."""
         with self.connection() as c:
