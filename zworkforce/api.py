@@ -243,7 +243,9 @@ class App:
                 self._prepare()
                 path = urllib.parse.urlsplit(self.path).path
                 try:
-                    if path == "/":
+                    if path == "/" or path in {"/apps", "/apps/", "/service", "/service/", "/package", "/package/"}:
+                        # Dashboard entrypoints preserve the path while rendering the same app shell.
+                        # The Cloudflare path matcher does not rewrite the origin request path.
                         return self._static("index.html")
                     if path in {"/app.js", "/styles.css", "/zarvis-voice-worklet.js", "/zarvis-hud.js", "/zarvis-hud.css"}:
                         return self._static(path[1:])
