@@ -1,0 +1,276 @@
+from __future__ import annotations
+
+import json
+import threading
+import unittest
+import urllib.request
+from http.server import ThreadingHTTPServer
+
+from common import stack
+from zworkforce.api import App
+from zworkforce.kids_factory import (
+    KidsValidationError,
+    build_storyboard,
+    kids_safety_check,
+    prepare_youtube_metadata,
+    mock_youtube_upload,
+    storyboard_to_timeline,
+    validate_brand,
+    validate_character,
+    validate_episode,
+    validate_media_upload,
+    validate_scene,
+)
+
+
+class KidsDomainTests(unittest.TestCase):
+    def test_brand_validation_and_copyright_block(self):
+        ok = validate_brand({"name": "LumiKids", "language": "en", "age_range": "3-6"})
+        self.assertEqual(ok["name"], "LumiKids")
+        with self.assertRaises(KidsValidationError):
+            validate_brand({"name": "Cocomelon Clone"})
+        with self.assertRaises(KidsValidationError):
+            validate_brand({"name": "x", "language": "xx"})
+        with self.assertRaises(KidsValidationError):
+            validate_brand({"name": "Brand api_key=sk_1234567890123456"})
+
+    def test_character_episode_scene_validation(self):
+        validate_character({"name": "Lumi the Bus", "species": "bus"})
+        with self.assertRaises(KidsValidationError):
+            validate_character({"name": "Baby Shark Friend"})
+        validate_episode({"title": "The Colorful Learning Bus", "age_band": "preschool", "language": "en"})
+        with self.assertRaises(KidsValidationError):
+            validate_episode({"title": "Bad", "age_band": "adult"})
+        with self.assertRaises(KidsValidationError):
+            validate_scene({"visual_prompt": "", "duration_seconds": 5})
+        with self.assertRaises(KidsValidationError):
+            validate_media_upload(filename="../evil.png", content_type="image/png", size_bytes=10)
+        with self.assertRaises(KidsValidationError):
+            validate_media_upload(filename="https://evil/x.png", content_type="image/png", size_bytes=10)
+        with self.assertRaises(KidsValidationError):
+            validate_media_upload(filename="clip.mp4", content_type="image/png", size_bytes=10)
+
+    def test_safety_blocks_dangerous_and_ip(self):
+        blocked = kids_safety_check(age_band="preschool", text="let us play with fire together")
+        self.assertFalse(blocked["passed"])
+        blocked_ip = kids_safety_check(age_band="2-4", text="meet Peppa Pig today")
+        self.assertFalse(blocked_ip["passed"])
+        clean = kids_safety_check(age_band="2-4", text="learn five colors with friends")
+        self.assertTrue(clean["passed"])
+        self.assertIn("simple_vocabulary", [c["item"] for c in clean["checklist"]])
+
+    def test_storyboard_and_timeline_deterministic(self):
+        plan = build_storyboard(script_body={"verses": "red blue", "chorus": "colors"}, num_scenes=3)
+        self.assertEqual(len(plan), 3)
+        self.assertEqual(plan[0]["ordering"], 0)
+        tracks = storyboard_to_timeline([{"id": "s01", "ordering": 0, "duration_seconds": 5,
+                                          "captions": [{"text": "hi"}], "music_cues": [{"cue": "x"}],
+                                          "dialogue": {"line": "hello"}}], brand_name="LumiKids")
+        self.assertIn("video", tracks)
+        self.assertEqual(len(tracks["branding"]), 1)
+
+    def test_youtube_metadata_never_defaults_false(self):
+        meta = prepare_youtube_metadata(title="Colors", description="learn", audience="madeForKids")
+        self.assertEqual(meta["audience"], "madeForKids")
+        with self.assertRaises(KidsValidationError):
+            prepare_youtube_metadata(title="", description="x")
+        first = mock_youtube_upload(metadata=meta, idempotency_key="k1", sha256="abc")
+        second = mock_youtube_upload(metadata=meta, idempotency_key="k1", sha256="abc")
+        self.assertEqual(first["external_id"], second["external_id"])
+
+
+class KidsPersistenceTests(unittest.TestCase):
+    def setUp(self):
+        self.temp, self.settings, self.db, self.provider, self.engine, self.auth = stack()
+
+    def tearDown(self):
+        self.engine.shutdown()
+        self.temp.cleanup()
+
+    def test_brand_character_episode_versioning_and_tenant_isolation(self):
+        db = self.db
+        db.kids_upsert_brand("default", "lumikids", validate_brand({"name": "LumiKids", "language": "en"}), "tester")
+        v1 = db.kids_get_brand("default", "lumikids")
+        self.assertEqual(v1["version"], 1)
+        db.kids_upsert_brand("default", "lumikids", validate_brand({"name": "LumiKids v2", "language": "en"}), "tester")
+        self.assertEqual(db.kids_get_brand("default", "lumikids")["version"], 2)
+        # แบรนด์เดิมต้องไม่รั่วข้าม tenant
+        self.assertIsNone(db.kids_get_brand("other", "lumikids"))
+        db.ensure_tenant("other", "Other")
+        db.kids_upsert_brand("other", "lumikids", validate_brand({"name": "Other Brand", "language": "th"}), "tester")
+        self.assertEqual(db.kids_get_brand("other", "lumikids")["name"], "Other Brand")
+        self.assertEqual(db.kids_get_brand("default", "lumikids")["name"], "LumiKids v2")
+
+        char = db.kids_upsert_character("default", "lumi", "lumikids", validate_character({"name": "Lumi"}), "tester")
+        self.assertEqual(char["version"], 1)
+        char2 = db.kids_upsert_character("default", "lumi", "lumikids", validate_character({"name": "Lumi Updated"}), "tester")
+        self.assertEqual(char2["version"], 2)
+        self.assertTrue(db.kids_lock_character("default", "lumi", "tester", locked=True))
+        self.assertEqual(db.kids_get_character("default", "lumi")["locked"], 1)
+
+    def test_episode_idempotency_and_approval_gated_publishing(self):
+        db = self.db
+        db.kids_upsert_brand("default", "lumikids", validate_brand({"name": "LumiKids", "language": "en"}), "t")
+        ep, created = db.kids_create_episode("default", "bus-01", "lumikids",
+                                             validate_episode({"title": "The Colorful Learning Bus"}), "t",
+                                             idempotency_key="demo-1")
+        self.assertTrue(created)
+        ep2, created2 = db.kids_create_episode("default", "bus-01-dup", "lumikids",
+                                               validate_episode({"title": "Dup"}), "t", idempotency_key="demo-1")
+        self.assertFalse(created2)
+        self.assertEqual(ep["id"], ep2["id"])
+
+        script = db.kids_save_script("default", "bus-01", {"content_type": "nursery_rhyme", "body": {"verses": "red"}}, "t")
+        self.assertEqual(script["version"], 1)
+        db.kids_upsert_scene("default", "bus-01", "s01", validate_scene({"visual_prompt": "bus scene", "duration_seconds": 5}), "t")
+        # เดียว scene regenerate ต้องไม่กระทบ scene อื่น
+        db.kids_upsert_scene("default", "bus-01", "s02", validate_scene({"visual_prompt": "sky scene", "duration_seconds": 5}), "t")
+        self.assertEqual(len(db.kids_list_scenes("default", "bus-01")), 2)
+        db.kids_upsert_scene("default", "bus-01", "s01", validate_scene({"visual_prompt": "bus scene v2", "duration_seconds": 5}), "t")
+        scenes = {s["id"]: s for s in db.kids_list_scenes("default", "bus-01")}
+        self.assertIn("v2", scenes["s01"]["visual_prompt"])
+        self.assertIn("sky", scenes["s02"]["visual_prompt"])
+
+        timeline = db.kids_save_timeline("default", "bus-01", {"video": [], "captions": []}, "t")
+        self.assertEqual(timeline["version"], 1)
+        job, _ = db.kids_submit_render("default", "bus-01", 1, "landscape_1080p", "t", idempotency_key="r-1")
+        job2, created_r = db.kids_submit_render("default", "bus-01", 1, "landscape_1080p", "t", idempotency_key="r-1")
+        self.assertFalse(created_r)
+        self.assertEqual(job["id"], job2["id"])
+
+        approval = db.kids_request_approval("default", "bus-01", "episode", "bus-01", 1, "t")
+        pub, _ = db.kids_prepare_publishing("default", "bus-01", {"title": "Colors", "approval_id": approval["id"]}, "t",
+                                            idempotency_key="p-1")
+        # ต้อง block เมื่อยังไม่มี approval
+        with self.assertRaises(ValueError):
+            db.kids_publish_approved("default", pub["id"], {"external_id": "x"}, "t")
+        decided = db.kids_decide_approval("default", approval["id"], "approved", "reviewer", "good")
+        self.assertEqual(decided["state"], "approved")
+        done = db.kids_publish_approved("default", pub["id"], {"external_id": "mock-yt-abc"}, "t")
+        self.assertEqual(done["status"], "published")
+        # publish ซ้ำต้อง idempotent (คืนสถานะเดิม ไม่ duplicate)
+        done2 = db.kids_publish_approved("default", pub["id"], {"external_id": "mock-yt-abc"}, "t")
+        self.assertEqual(done2["status"], "published")
+
+
+class KidsApiEndToEndTests(unittest.TestCase):
+    def setUp(self):
+        self.temp, self.settings, self.db, self.provider, self.engine, self.auth = stack()
+        self.app = App(self.settings, self.db, self.engine, self.auth, self.provider)
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), self.app.handler())
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.base = f"http://127.0.0.1:{self.server.server_address[1]}"
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.engine.shutdown()
+        self.temp.cleanup()
+
+    def req(self, path, method="GET", body=None, headers=None):
+        h = {"Authorization": "Bearer test-admin-secret", **(headers or {})}
+        data = None
+        if body is not None:
+            data = json.dumps(body).encode()
+            h["Content-Type"] = "application/json"
+        r = urllib.request.Request(self.base + path, data=data, headers=h, method=method)
+        try:
+            with urllib.request.urlopen(r, timeout=30) as resp:
+                return resp.status, json.loads(resp.read() or b"{}")
+        except urllib.error.HTTPError as exc:
+            return exc.code, json.loads(exc.read() or b"{}")
+
+    def test_full_demo_slice(self):
+        # 1 brand
+        s, brand = self.req("/api/v1/kids/brands", "POST", {"id": "lumikids", "name": "LumiKids", "language": "en",
+                                                             "age_range": "3-6", "art_style": "soft pastel"})
+        self.assertEqual(s, 201)
+        # 2 character versioned
+        s, char = self.req("/api/v1/kids/characters", "POST", {"id": "lumi", "brand_id": "lumikids", "name": "Lumi the Bus",
+                                                                "species": "bus", "description": "friendly learning bus"})
+        self.assertEqual(s, 201)
+        # 3 episode
+        s, ep = self.req("/api/v1/kids/episodes", "POST", {"id": "color-bus", "brand_id": "lumikids",
+                                                           "title": "The Colorful Learning Bus", "summary": "Learn five colors",
+                                                           "age_band": "preschool", "language": "en",
+                                                           "objectives": ["five colors"], "vocabulary": ["red", "blue"]},
+                         headers={"Idempotency-Key": "demo-e2e-1"})
+        self.assertIn(s, (200, 201))
+        # 4 structured script
+        s, script = self.req(f"/api/v1/kids/episodes/{ep['id']}/script", "POST",
+                             {"content_type": "nursery_rhyme",
+                              "body": {"hook": "hi", "verses": "red bus", "chorus": "colors", "ending": "bye"}})
+        self.assertEqual(s, 201)
+        self.assertEqual(script["version"], 1)
+        # 5 storyboard
+        s, board = self.req(f"/api/v1/kids/episodes/{ep['id']}/storyboard", "POST", {"num_scenes": 3})
+        self.assertEqual(s, 201)
+        self.assertEqual(len(board["items"]), 3)
+        # 6 asset attach
+        s, asset = self.req("/api/v1/kids/assets", "POST", {"name": "s01.png", "content_type": "image/png",
+                                                            "size_bytes": 12, "episode_id": ep["id"], "scene_id": "s01",
+                                                            "storage_uri": "synthetic://mock", "sha256": "a" * 64})
+        self.assertEqual(s, 201)
+        # timeline
+        s, timeline = self.req(f"/api/v1/kids/episodes/{ep['id']}/timeline", "POST", {})
+        self.assertEqual(s, 201)
+        self.assertTrue(timeline["checksum"])
+        # 7 deterministic render
+        s, render = self.req("/api/v1/kids/render-jobs", "POST", {"episode_id": ep["id"], "preset": "landscape_1080p"},
+                             headers={"Idempotency-Key": "render-e2e-1"})
+        self.assertEqual(s, 201)
+        self.assertEqual(render["status"], "succeeded")
+        self.assertTrue(render["output_sha256"])
+        # 8 checksum present
+        self.assertEqual(len(render["output_sha256"]), 64)
+        # 9 approval request + 10 publishing blocked without approval
+        s, approval = self.req("/api/v1/kids/approvals", "POST", {"episode_id": ep["id"], "subject_type": "episode"})
+        self.assertEqual(s, 201)
+        s, pub = self.req("/api/v1/kids/publishing/prepare", "POST",
+                          {"episode_id": ep["id"], "title": "The Colorful Learning Bus",
+                           "description": "Learn five colors", "audience": "madeForKids",
+                           "approval_id": "pending-without-approval"},
+                          headers={"Idempotency-Key": "pub-e2e-1"})
+        self.assertEqual(s, 201)
+        s, blocked = self.req(f"/api/v1/kids/publishing/{pub['id']}/publish", "POST", {})
+        self.assertEqual(s, 400)
+        # approve then 11 mock publish
+        s, decided = self.req(f"/api/v1/kids/approvals/{approval['id']}/approve", "POST", {"comment": "reviewer ok"})
+        self.assertEqual(s, 200)
+        # เตรียม job ใหม่ที่ผูก approval ที่อนุมัติแล้ว
+        s, pub2 = self.req("/api/v1/kids/publishing/prepare", "POST",
+                           {"episode_id": ep["id"], "title": "The Colorful Learning Bus",
+                            "description": "Learn five colors", "audience": "madeForKids",
+                            "approval_id": approval["id"]},
+                           headers={"Idempotency-Key": "pub-e2e-2"})
+        self.assertEqual(s, 201)
+        s, published = self.req(f"/api/v1/kids/publishing/{pub2['id']}/publish", "POST", {})
+        self.assertEqual(s, 200)
+        self.assertEqual(published["status"], "published")
+        # 12 audit captured
+        s, audit = self.req("/api/v1/audit?limit=200")
+        self.assertEqual(s, 200)
+        kinds = {e["action"] for e in audit["items"]}
+        self.assertTrue({"kids.brand.upsert", "kids.episode.create", "kids.render.submit",
+                         "kids.approval.request", "kids.publishing.publish"} <= kinds)
+        # overview reflects real backend state (never fabricated)
+        s, overview = self.req("/api/v1/kids/overview")
+        self.assertEqual(s, 200)
+        self.assertGreaterEqual(overview["episodes"], 1)
+        self.assertGreaterEqual(overview["published_videos"], 1)
+
+    def test_cross_tenant_denied_and_secret_guard(self):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": "lumikids", "name": "LumiKids", "language": "en"})
+        self.assertEqual(s, 201)
+        # ข้าม tenant ต้องไม่เห็น
+        h = {"Authorization": "Bearer test-admin-secret", "X-Tenant-ID": "other"}
+        s, data = self.req("/api/v1/kids/brands/lumikids", headers=h)
+        self.assertEqual(s, 404)
+        # secret ใน payload ต้องถูกปฏิเสธ
+        s, data = self.req("/api/v1/kids/brands", "POST", {"id": "bad", "name": "x api_key=sk_1234567890123456"})
+        self.assertEqual(s, 400)
+
+
+if __name__ == "__main__":
+    unittest.main()

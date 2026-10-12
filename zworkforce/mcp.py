@@ -34,6 +34,73 @@ class MCPError(RuntimeError):
 
 
 MCP_TOOLS: dict[str, dict[str, Any]] = {
+    "kids.create_episode_draft": {
+        "name": "kids.create_episode_draft",
+        "description": "Create a Kids Factory episode draft (requires automation:write).",
+        "inputSchema": {"type": "object", "properties": {
+            "id": {"type": "string"}, "brand_id": {"type": "string"}, "title": {"type": "string"},
+            "summary": {"type": "string"}, "age_band": {"type": "string"}, "language": {"type": "string"}},
+            "required": ["id", "brand_id", "title"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.create_storyboard": {
+        "name": "kids.create_storyboard",
+        "description": "Build a deterministic storyboard from the latest script.",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "num_scenes": {"type": "integer"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    },
+    "kids.generate_scene_assets": {
+        "name": "kids.generate_scene_assets",
+        "description": "Register clearly-labeled synthetic scene assets (mock provider, no real generation).",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "scene_id": {"type": "string"}}, "required": ["episode_id", "scene_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    },
+    "kids.generate_script": {
+        "name": "kids.generate_script",
+        "description": "Generate a structured mock script draft for an episode (synthetic fixture).",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "content_type": {"type": "string"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    },
+    "kids.get_render_status": {
+        "name": "kids.get_render_status",
+        "description": "Read a Kids Factory render job by id.",
+        "inputSchema": {"type": "object", "properties": {"render_job_id": {"type": "string"}}, "required": ["render_job_id"]},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.get_video_analytics": {
+        "name": "kids.get_video_analytics",
+        "description": "Read synthetic analytics snapshots (explicitly labeled, never fabricated as real).",
+        "inputSchema": {"type": "object", "properties": {"channel_id": {"type": "string"}}},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.list_brands": {
+        "name": "kids.list_brands",
+        "description": "List Kids Factory brand profiles for the tenant.",
+        "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer"}}},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.request_character_review": {
+        "name": "kids.request_character_review",
+        "description": "Request human review for a character (locks reference and opens approval).",
+        "inputSchema": {"type": "object", "properties": {"character_id": {"type": "string"}}, "required": ["character_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    },
+    "kids.request_publish_approval": {
+        "name": "kids.request_publish_approval",
+        "description": "Request human approval before any YouTube publishing (mandatory gate).",
+        "inputSchema": {"type": "object", "properties": {"episode_id": {"type": "string"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    },
+    "kids.submit_render": {
+        "name": "kids.submit_render",
+        "description": "Submit a deterministic sample render (FFmpeg local, synthetic).",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "preset": {"type": "string"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
     "workforce.submit_task": {
         "name": "workforce.submit_task",
         "description": "Submit a bounded zWorkforce task to a tenant agent.",
@@ -330,6 +397,9 @@ def _call_tool(app, principal, tenant_id: str, name: str, args: dict[str, Any]) 
                                          signing_key=app.settings.skill_signing_key, sign_skills=sign_skills)
         app.db.audit(tenant_id, principal.name, "prometa.mcp_install", "prometa", "default", result)
         return result
+    if name.startswith("kids."):
+        from .kids_mcp import call_kids_tool
+        return call_kids_tool(app, principal, tenant_id, name, args)
     raise ValueError(f"unknown MCP tool: {name}")
 
 

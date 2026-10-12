@@ -253,6 +253,28 @@
       </div>
     </section>
 
+    <!-- AI Kids Content Factory Studio -->
+    <section class="panel expandable-card" id="kidsFactoryCard" aria-label="AI Kids Content Factory">
+      <div class="panel-title">
+        <div><span class="eyebrow">AI KIDS CONTENT FACTORY</span><h2>Kids Studio — brands, episodes, renders, approvals</h2></div>
+        <div class="card-tools">
+          <span id="kidsStatusPill" class="pill">Not loaded</span>
+          <button id="kidsRefreshBtn" class="ghost small" type="button">Refresh Kids</button>
+          <button class="icon-button card-maximize-btn" title="Toggle Fullscreen" onclick="toggleCardFullscreen('kidsFactoryCard')">🗖</button>
+        </div>
+      </div>
+      <p id="kidsStatus" role="status" aria-live="polite">Connect to load tenant-scoped Kids Factory state. No synthetic progress is shown.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Metric</th><th>Brands</th><th>Episodes</th><th>Pending approvals</th><th>Renders</th><th>Published</th></tr>
+          </thead>
+          <tbody id="kidsOverviewRows"><tr><td colspan="6">No data yet.</td></tr></tbody>
+        </table>
+      </div>
+      <div id="kidsEpisodeList" class="memory-list" aria-label="Recent Kids episodes"></div>
+    </section>
+
     <!-- Timeline Activity Feed Section -->
     <section class="panel">
       <div class="panel-title">
