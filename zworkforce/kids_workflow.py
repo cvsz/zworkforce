@@ -54,7 +54,9 @@ def check_budget(db, tenant_id: str, episode: dict, estimated: float) -> None:
     budget = float(episode.get("budget_credits", 0) or 0)
     if budget > 0:
         spent = db.kids_episode_spend(tenant_id, episode.get("id", ""))
-        if spent + estimated > budget:
+        # Quantize before comparing: raw float sums (e.g. 0.1+0.2) must agree
+        # with the rounded totals reported to operators.
+        if round(spent + estimated, 4) > round(budget, 4):
             raise KidsBudgetBlocked(
                 f"estimated cost {estimated} credits exceeds episode budget {budget} credits "
                 f"(already spent {spent}); raise budget or reduce scope"
@@ -289,10 +291,10 @@ def _order_scenes_for_timeline(scenes: list[dict[str, Any]], timeline: dict[str,
     return ordered
 
 
-def tick_render_queue(app, tenant_id: str, actor: str) -> dict[str, Any]:
+def tick_render_queue(app, tenant_id: str, actor: str, *, exclude: tuple[str, ...] = ()) -> dict[str, Any]:
     """Process the oldest queued render job once. Returns idle when the queue is empty."""
     db = app.db
-    job = db.kids_oldest_queued_render(tenant_id)
+    job = db.kids_next_queued_render(tenant_id, exclude=exclude)
     if not job:
         return {"processed": False, "reason": "queue empty"}
     try:
@@ -308,14 +310,25 @@ def tick_render_queue(app, tenant_id: str, actor: str) -> dict[str, Any]:
 
 
 def tick_all_renders(app, tenant_id: str, actor: str, *, limit: int = 5) -> dict[str, Any]:
-    """Process up to `limit` queued render jobs (bounded worker fan-out, default 5, max 20)."""
+    """Process up to `limit` queued render jobs (bounded worker fan-out, default 5, max 20).
+
+    Each job is attempted at most once per invocation: transient failures stay
+    queued for a later tick instead of burning all attempts and starving the
+    rest of the batch.
+    """
     limit = max(1, min(int(limit or 5), 20))
     processed: list[dict[str, Any]] = []
+    attempted: list[str] = []
     idle = False
     for _ in range(limit):
-        result = tick_render_queue(app, tenant_id, actor)
+        result = tick_render_queue(app, tenant_id, actor, exclude=tuple(attempted))
         if not result.get("processed"):
             idle = True
             break
-        processed.append(result.get("render_job") or {})
-    return {"processed": len(processed), "idle": idle, "jobs": processed}
+        job = result.get("render_job") or {}
+        if job.get("id"):
+            attempted.append(job["id"])
+        processed.append(result)
+    return {"processed": len(processed), "idle": idle,
+            "jobs": [r.get("render_job") or {} for r in processed],
+            "errors": [r.get("error", "") for r in processed if r.get("error")]}

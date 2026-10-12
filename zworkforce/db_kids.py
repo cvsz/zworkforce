@@ -763,6 +763,18 @@ class KidsMixin:
                             (tenant_id,)).fetchone()
             return self._decode(dict(row)) if row else None
 
+    def kids_next_queued_render(self, tenant_id: str, *, exclude: tuple[str, ...] = ()) -> dict | None:
+        """Oldest queued job skipping already-attempted IDs (tick-all fairness)."""
+        with self.connection() as c:
+            if exclude:
+                placeholders = ",".join("?" for _ in exclude)
+                row = c.execute(f"SELECT * FROM kids_render_jobs WHERE tenant_id=? AND status='queued' AND id NOT IN ({placeholders}) ORDER BY created_at LIMIT 1",
+                                (tenant_id, *exclude)).fetchone()
+            else:
+                row = c.execute("SELECT * FROM kids_render_jobs WHERE tenant_id=? AND status='queued' ORDER BY created_at LIMIT 1",
+                                (tenant_id,)).fetchone()
+            return self._decode(dict(row)) if row else None
+
     def kids_bump_render_attempt(self, tenant_id: str, job_id: str, actor: str, *, error: str = "") -> dict | None:
         with self.connection() as c:
             row = c.execute("SELECT attempts FROM kids_render_jobs WHERE tenant_id=? AND id=?", (tenant_id, job_id)).fetchone()
@@ -1041,8 +1053,9 @@ class KidsMixin:
             by_capability = [{"capability": r[0], "provider": r[1], "events": int(r[2]), "quantity": float(r[3]), "cost_credits": float(r[4])} for r in rows]
             total = sum(item["cost_credits"] for item in by_capability)
         episode = self.kids_get_episode(tenant_id, episode_id) or {}
-        budget = float(episode.get("budget_credits", 0) or 0)
-        return {"episode_id": episode_id, "by_capability": by_capability, "total_cost_credits": round(total, 4),
+        budget = round(float(episode.get("budget_credits", 0) or 0), 4)
+        total = round(total, 4)
+        return {"episode_id": episode_id, "by_capability": by_capability, "total_cost_credits": total,
                 "budget_credits": budget, "within_budget": (total <= budget) if budget > 0 else True}
 
     def kids_playlists(self, tenant_id: str, *, brand_id: str = "") -> list[dict]:
