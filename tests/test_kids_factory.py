@@ -487,6 +487,54 @@ class KidsSlice3Tests(unittest.TestCase):
         self.assertEqual(s, 400)
         self.assertIn("quota", blocked["error"]["message"])
 
+    def test_language_variant_is_draft_and_needs_review(self):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": "lbrand", "name": "Lang Brand", "language": "en"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes", "POST", {"id": "l-ep", "brand_id": "lbrand",
+                                                          "title": "Colors", "summary": "learn red and blue",
+                                                          "age_band": "preschool", "language": "en",
+                                                          "objectives": ["colors"], "vocabulary": ["red", "blue"]})
+        self.assertEqual(s, 201)
+        # ภาษาเดิมต้องถูกปฏิเสธ
+        s, denied = self.req("/api/v1/kids/episodes/l-ep/variants", "POST", {"id": "l-ep-en", "language": "en"})
+        self.assertEqual(s, 400)
+        s, variant = self.req("/api/v1/kids/episodes/l-ep/variants", "POST", {"id": "l-ep-th", "language": "th"})
+        self.assertEqual(s, 201)
+        self.assertEqual(variant["episode"]["language"], "th")
+        self.assertEqual(variant["translation_status"], "needs_review")
+        self.assertIn("needs human review", variant["episode"]["summary"])
+        self.assertEqual(variant["derivation"]["parent_episode_id"], "l-ep")
+        # parent ยังเป็น en เหมือนเดิม
+        s, parent = self.req("/api/v1/kids/episodes/l-ep")
+        self.assertEqual(parent["language"], "en")
+
+    def test_marketing_suggestions_are_labeled_estimates(self):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": "mkbrand", "name": "Market Brand", "language": "en"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes", "POST", {"id": "mk-ep", "brand_id": "mkbrand",
+                                                          "title": "Colors", "summary": "learn",
+                                                          "objectives": ["colors"], "vocabulary": ["red"]})
+        self.assertEqual(s, 201)
+        s, suggestions = self.req("/api/v1/kids/episodes/mk-ep/marketing", "POST", {})
+        self.assertEqual(s, 200)
+        self.assertTrue(suggestions["estimated"])
+        self.assertEqual(len(suggestions["titles"]), 3)
+        self.assertIn("red", suggestions["keywords"])
+        s, missing = self.req("/api/v1/kids/episodes/nope/marketing", "POST", {})
+        self.assertEqual(s, 404)
+
+    def test_analytics_summary_reflects_real_rows(self):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": "abrand", "name": "Analytics Brand", "language": "en"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes", "POST", {"id": "a-ep", "brand_id": "abrand",
+                                                          "title": "Ep", "summary": "ok"})
+        self.assertEqual(s, 201)
+        s, summary = self.req("/api/v1/kids/analytics/summary")
+        self.assertEqual(s, 200)
+        self.assertGreaterEqual(summary["episodes_by_status"].get("draft", 0), 1)
+        self.assertIn("usage", summary)
+        self.assertIn("note", summary)
+
 
 if __name__ == "__main__":
     unittest.main()

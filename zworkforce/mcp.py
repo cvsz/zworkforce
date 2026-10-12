@@ -51,6 +51,26 @@ MCP_TOOLS: dict[str, dict[str, Any]] = {
             "required": ["id", "brand_id", "title"]},
         "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
     },
+    "kids.create_language_variant": {
+        "name": "kids.create_language_variant",
+        "description": "Draft a language variant shell for an episode (machine draft, needs human review).",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "id": {"type": "string"}, "language": {"type": "string"}},
+            "required": ["episode_id", "language"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.suggest_marketing": {
+        "name": "kids.suggest_marketing",
+        "description": "Draft marketing suggestions for an episode (estimates only, human-editable).",
+        "inputSchema": {"type": "object", "properties": {"episode_id": {"type": "string"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.get_analytics_summary": {
+        "name": "kids.get_analytics_summary",
+        "description": "Aggregate persisted Kids Factory rows (never fabricated views).",
+        "inputSchema": {"type": "object", "properties": {}},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
     "kids.derive_shorts": {
         "name": "kids.derive_shorts",
         "description": "Derive a 9:16 short-form episode from a landscape episode (requires automation:write).",

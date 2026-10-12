@@ -7,6 +7,7 @@ from typing import Any
 
 from .kids_factory import (
     KidsValidationError,
+    build_language_variant,
     build_storyboard,
     check_brand_quota,
     estimate_cost,
@@ -15,6 +16,7 @@ from .kids_factory import (
     prepare_youtube_metadata,
     render_deterministic_video,
     storyboard_to_timeline,
+    suggest_marketing,
     synth_preview_wav,
     validate_brand,
     validate_character,
@@ -113,6 +115,8 @@ def kids_get(app, tenant_id: str, path: str, query: dict) -> tuple[bool, Any]:
         return True, job
     if path == "/api/v1/kids/analytics":
         return True, {"items": db.kids_list_analytics(tenant_id, channel_id=_strq(query, "channel_id"))}
+    if path == "/api/v1/kids/analytics/summary":
+        return True, db.kids_analytics_summary(tenant_id)
     if path == "/api/v1/kids/agent-runs":
         return True, {"items": db.kids_list_agent_runs(tenant_id, episode_id=_strq(query, "episode_id"))}
     if path == "/api/v1/kids/voices":
@@ -441,4 +445,33 @@ def kids_post(app, principal, tenant_id: str, path: str, body: dict, *, idempote
         except ValueError as exc:
             raise KidsValidationError(str(exc))
         return True, result, 200
+    m = re.fullmatch(r"/api/v1/kids/episodes/([a-z0-9][a-z0-9-]{0,62})/variants", path)
+    if m:
+        parent_id = m.group(1)
+        parent = db.kids_get_episode(tenant_id, parent_id)
+        if not parent:
+            return True, {"error": {"code": "episode_not_found", "message": "episode not found"}}, 404
+        language = str(body.get("language", "")).strip().lower()
+        child_id = _slug_or_raise(body.get("id", f"{parent_id}-{language or 'variant'}"), "episode.id")
+        check_brand_quota(db, tenant_id, parent["brand_id"], extra_episodes=1)
+        draft = build_language_variant(parent=parent, language=language)
+        child, created = db.kids_create_episode(tenant_id, child_id, parent["brand_id"],
+                                                {k: draft[k] for k in ("title", "summary", "age_band", "language", "objectives", "vocabulary", "budget_credits")},
+                                                actor, channel_id=parent.get("channel_id", ""),
+                                                idempotency_key=idempotency_key or f"variant:{parent_id}:{child_id}")
+        if created:
+            db.kids_record_derivation(tenant_id, parent_id, child_id, "language-variant", actor)
+        return True, {"episode": child, "derivation": db.kids_get_derivation(tenant_id, child_id),
+                      "translation_status": "needs_review"}, 201 if created else 200
+    m = re.fullmatch(r"/api/v1/kids/episodes/([a-z0-9][a-z0-9-]{0,62})/marketing", path)
+    if m:
+        episode = db.kids_get_episode(tenant_id, m.group(1))
+        if not episode:
+            return True, {"error": {"code": "episode_not_found", "message": "episode not found"}}, 404
+        brand = db.kids_get_brand(tenant_id, episode.get("brand_id", "")) or {}
+        suggestions = suggest_marketing(episode=episode, brand_name=brand.get("name", ""))
+        db.kids_record_agent_run(tenant_id, episode["id"], "marketing", "suggest", "succeeded", actor,
+                                 input_data={"episode_id": episode["id"]}, output_data={"estimated": True},
+                                 idempotency_key=f"{tenant_id}:{episode['id']}:marketing:{m.group(1)}")
+        return True, suggestions, 200
     return False, None, 0

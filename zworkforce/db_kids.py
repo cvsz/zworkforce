@@ -657,3 +657,22 @@ class KidsMixin:
                                             (tenant_id, episode_id)).fetchall())
             return self._rows(c.execute("SELECT * FROM kids_music_tracks WHERE tenant_id=? ORDER BY created_at DESC LIMIT 200",
                                         (tenant_id,)).fetchall())
+
+    def kids_analytics_summary(self, tenant_id: str) -> dict:
+        """Aggregate only persisted rows. Synthetic snapshots are counted separately, never as real views."""
+        with self.connection() as c:
+            def count(sql: str, args: tuple) -> int:
+                return int(c.execute(sql, args).fetchone()[0])
+            by_status = {r[0]: int(r[1]) for r in c.execute(
+                "SELECT status,COUNT(*) FROM kids_episodes WHERE tenant_id=? GROUP BY status", (tenant_id,)).fetchall()}
+            renders = {r[0]: int(r[1]) for r in c.execute(
+                "SELECT status,COUNT(*) FROM kids_render_jobs WHERE tenant_id=? GROUP BY status", (tenant_id,)).fetchall()}
+            approvals = {r[0]: int(r[1]) for r in c.execute(
+                "SELECT state,COUNT(*) FROM kids_approvals WHERE tenant_id=? GROUP BY state", (tenant_id,)).fetchall()}
+            usage = self.kids_usage_summary(tenant_id)
+            synth = count("SELECT COUNT(*) FROM kids_analytics WHERE tenant_id=? AND synthetic=1", (tenant_id,))
+            real = count("SELECT COUNT(*) FROM kids_analytics WHERE tenant_id=? AND synthetic=0", (tenant_id,))
+            return {"episodes_by_status": by_status, "renders_by_status": renders,
+                    "approvals_by_state": approvals, "usage": usage,
+                    "analytics_snapshots": {"synthetic": synth, "real": real},
+                    "note": "Computed from persisted rows only; forecasts are estimates, never real YouTube data"}

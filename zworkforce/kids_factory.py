@@ -495,3 +495,50 @@ def check_brand_quota(db, tenant_id: str, brand_id: str, *, extra_episodes: int 
         spent = db.kids_usage_summary(tenant_id).get("cost_credits", 0.0)
         if spent + extra_cost > max_cost:
             raise KidsValidationError(f"brand quota exceeded: max_cost_credits={max_cost} (spent {spent})")
+
+
+def build_language_variant(*, parent: dict[str, Any], language: str) -> dict[str, Any]:
+    """Draft a language variant shell. Machine text is NEVER presented as final.
+
+    Returns child episode fields with translation_status needs_review; human
+    translators must fill dialogue/captions before render/publish.
+    """
+    language = str(language or "").strip().lower()
+    if language not in LANGUAGES:
+        raise KidsValidationError("variant language must be 'en' or 'th'")
+    if language == str(parent.get("language", "en")).strip().lower():
+        raise KidsValidationError("variant language must differ from the parent episode language")
+    return {
+        "title": f"{parent.get('title', '')} [{language} draft]",
+        "summary": f"{parent.get('summary', '')} [Machine draft in {language} — needs human review]",
+        "age_band": parent.get("age_band", "preschool"),
+        "language": language,
+        "objectives": list(parent.get("objectives", []) or []),
+        "vocabulary": list(parent.get("vocabulary", []) or []),
+        "budget_credits": 0.0,
+        "translation_status": "needs_review",
+    }
+
+
+def suggest_marketing(*, episode: dict[str, Any], brand_name: str = "") -> dict[str, Any]:
+    """Deterministic mock marketing suggestions. All forecasts labeled estimates.
+
+    Never automates spam, fake engagement, or deceptive targeting; output is a
+    human-editable draft only.
+    """
+    title = str(episode.get("title", "Kids video"))
+    objectives = list(episode.get("objectives", []) or ["learning"])
+    vocabulary = list(episode.get("vocabulary", []) or [])
+    keywords = sorted({w.lower() for w in (objectives + vocabulary) if w})[:10]
+    return {
+        "titles": [f"{title} — Learn Together!", f"{title} | Fun Lesson for Preschool", f"Sing and Learn: {title}"],
+        "description_draft": f"{title}. {str(episode.get('summary', ''))[:200]} Made for preschool learning.",
+        "keywords": keywords,
+        "thumbnail_concepts": [
+            f"Bright bus with big color blocks and the word '{(vocabulary[0] if vocabulary else 'Colors')}'",
+            f"{brand_name + ' friends' if brand_name else 'Friends'} waving beside a rainbow",
+        ],
+        "playlist_suggestion": f"{brand_name} Learning" if brand_name else "Learning",
+        "estimated": True,
+        "note": "Estimates only; performance forecasts are not guarantees. No engagement automation.",
+    }

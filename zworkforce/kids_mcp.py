@@ -22,6 +22,26 @@ KIDS_MCP_TOOLS: dict[str, dict[str, Any]] = {
             "topic": {"type": "string"}}, "required": ["id", "brand_id", "name"]},
         "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
     },
+    "kids.create_language_variant": {
+        "name": "kids.create_language_variant",
+        "description": "Draft a language variant shell for an episode (machine draft, needs human review).",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "id": {"type": "string"}, "language": {"type": "string"}},
+            "required": ["episode_id", "language"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.suggest_marketing": {
+        "name": "kids.suggest_marketing",
+        "description": "Draft marketing suggestions for an episode (estimates only, human-editable).",
+        "inputSchema": {"type": "object", "properties": {"episode_id": {"type": "string"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.get_analytics_summary": {
+        "name": "kids.get_analytics_summary",
+        "description": "Aggregate persisted Kids Factory rows (never fabricated views).",
+        "inputSchema": {"type": "object", "properties": {}},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
     "kids.derive_shorts": {
         "name": "kids.derive_shorts",
         "description": "Derive a 9:16 short-form episode from a landscape episode (requires automation:write).",
@@ -169,6 +189,36 @@ def call_kids_tool(app, principal, tenant_id: str, name: str, args: dict[str, An
             db.kids_save_timeline(tenant_id, child_id, storyboard_to_timeline(db.kids_list_scenes(tenant_id, child_id)), actor)
             db.kids_record_derivation(tenant_id, parent_id, child_id, "shorts", actor)
         return {"created": created, "episode": child, "preset": "portrait_1080x1920"}
+    if name == "kids.create_language_variant":
+        require("operator", "automation:write")
+        from .kids_api import _slug_or_raise as _slug2
+        from .kids_factory import build_language_variant, check_brand_quota as _quota
+        parent = db.kids_get_episode(tenant_id, str(args.get("episode_id", "")))
+        if not parent:
+            raise ValueError("episode not found")
+        language = str(args.get("language", "")).strip().lower()
+        child_id = _slug2(args.get("id", f"{parent['id']}-{language or 'variant'}"), "episode.id")
+        _quota(db, tenant_id, parent["brand_id"], extra_episodes=1)
+        draft = build_language_variant(parent=parent, language=language)
+        child, created = db.kids_create_episode(tenant_id, child_id, parent["brand_id"],
+                                                {k: draft[k] for k in ("title", "summary", "age_band", "language", "objectives", "vocabulary", "budget_credits")},
+                                                actor, channel_id=parent.get("channel_id", ""))
+        if created:
+            db.kids_record_derivation(tenant_id, parent["id"], child_id, "language-variant", actor)
+        return {"created": created, "episode": child, "translation_status": "needs_review"}
+    if name == "kids.suggest_marketing":
+        require("operator", "automation:write")
+        from .kids_factory import suggest_marketing
+        episode = db.kids_get_episode(tenant_id, str(args.get("episode_id", "")))
+        if not episode:
+            raise ValueError("episode not found")
+        brand = db.kids_get_brand(tenant_id, episode.get("brand_id", "")) or {}
+        return suggest_marketing(episode=episode, brand_name=brand.get("name", ""))
+    if name == "kids.get_analytics_summary":
+        from .security import AuthManager as _AM
+        if not _AM.require(principal, "viewer", "workforce:read"):
+            raise PermissionError("viewer role and workforce:read scope required")
+        return db.kids_analytics_summary(tenant_id)
     if name == "kids.create_episode_draft":
         require("operator", "automation:write")
         validated = validate_episode(args)
