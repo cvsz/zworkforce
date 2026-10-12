@@ -65,6 +65,26 @@ MCP_TOOLS: dict[str, dict[str, Any]] = {
         "inputSchema": {"type": "object", "properties": {"episode_id": {"type": "string"}}, "required": ["episode_id"]},
         "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
     },
+    "kids.queue_render": {
+        "name": "kids.queue_render",
+        "description": "Queue a render job for later tick processing (idempotent).",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "preset": {"type": "string"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.tick_render_queue": {
+        "name": "kids.tick_render_queue",
+        "description": "Process the oldest queued render job once (bounded attempts, dead-letter after 3).",
+        "inputSchema": {"type": "object", "properties": {}},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    },
+    "kids.submit_translation": {
+        "name": "kids.submit_translation",
+        "description": "Submit human translation lines for episode scenes (requires automation:write).",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "scenes": {"type": "array"}}, "required": ["episode_id", "scenes"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    },
     "kids.get_analytics_summary": {
         "name": "kids.get_analytics_summary",
         "description": "Aggregate persisted Kids Factory rows (never fabricated views).",

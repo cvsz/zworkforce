@@ -6,3 +6,5 @@
 - CPU-only deployments support scripting, planning, assembly, control plane.
 - Concurrency: synchronous per-request in slice; queue/worker fan-out is roadmap.
 - Mock image sequences are labeled synthetic, never presented as cinematic AI animation.
+
+- Async queue: `POST /api/v1/kids/render-jobs/queue` stages a job as `queued`; `POST /api/v1/kids/render-jobs/tick` executes the oldest queued job once via the same `execute_render_job` path as synchronous renders. Attempts are bounded at 3, then the job is marked `failed` (dead-letter) with the error preserved.

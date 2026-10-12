@@ -220,3 +220,66 @@ def run_episode_pipeline(app, tenant_id: str, episode_id: str, actor: str, *, pr
     return {"episode_id": episode_id, "completed": sorted(set(completed)), "skipped": sorted(set(skipped)),
             "failed": failed, "estimated_cost_credits": estimated,
             "note": "publishing stays manual: approve then POST /api/v1/kids/publishing/prepare + .../publish"}
+
+
+def execute_render_job(app, tenant_id: str, job_id: str, actor: str) -> dict[str, Any]:
+    """Execute one queued render job (bounded FFmpeg run, SHA-256 verified).
+
+    Shared by the synchronous render endpoint and the queue tick worker so
+    both paths produce identical artifacts. Raises on failure; the caller
+    decides retry vs dead-letter.
+    """
+    from .kids_factory import RENDER_PRESETS
+
+    db = app.db
+    job = db.kids_get_render(tenant_id, job_id)
+    if not job:
+        raise KidsValidationError("render job not found")
+    if job.get("status") == "succeeded":
+        return job
+    episode = db.kids_get_episode(tenant_id, job["episode_id"])
+    if not episode:
+        raise KidsValidationError("episode for render job not found")
+    preset = job.get("preset", "landscape_1080p")
+    if preset not in RENDER_PRESETS:
+        raise KidsValidationError(f"unknown render preset '{preset}'")
+    scenes = db.kids_list_scenes(tenant_id, job["episode_id"])
+    if not scenes:
+        raise KidsValidationError("episode has no scenes to render")
+    render_dir = app.settings.data_dir / "kids-renders" / tenant_id
+    render_dir.mkdir(parents=True, exist_ok=True)
+    out_path = render_dir / f"{job['id']}.mp4"
+    result = render_deterministic_video(scenes=scenes, preset=preset, title=episode.get("title", ""), out_path=out_path)
+    try:
+        data = out_path.read_bytes()
+        artifact = app.artifacts.put_bytes(tenant_id, f"{job['episode_id']}-{job['id']}.mp4", data, actor=actor,
+                                           content_type="video/mp4",
+                                           metadata={"kids_episode": job["episode_id"], "kids_render": job["id"], "synthetic": True})
+        patch = {"status": "succeeded", "output_uri": artifact.get("storage_uri") or result["output_uri"],
+                 "output_sha256": artifact.get("sha256", result["sha256"]),
+                 "thumbnail_uri": result.get("thumbnail_uri", "")}
+    except Exception:
+        patch = {"status": "succeeded", "output_uri": result["output_uri"],
+                 "output_sha256": result["sha256"], "thumbnail_uri": result.get("thumbnail_uri", "")}
+    done = db.kids_update_render(tenant_id, job["id"], patch, actor) or job
+    db.kids_set_episode_status(tenant_id, job["episode_id"], "rendered", actor)
+    db.kids_record_usage(tenant_id, job["episode_id"], "ffmpeg", "video_render", 1.0, 0.5)
+    return done
+
+
+def tick_render_queue(app, tenant_id: str, actor: str) -> dict[str, Any]:
+    """Process the oldest queued render job once. Returns idle when the queue is empty."""
+    db = app.db
+    job = db.kids_oldest_queued_render(tenant_id)
+    if not job:
+        return {"processed": False, "reason": "queue empty"}
+    try:
+        done = execute_render_job(app, tenant_id, job["id"], actor)
+        db.kids_record_agent_run(tenant_id, job["episode_id"], "video_editor", "render_tick", "succeeded", actor,
+                                 input_data={"render_job": job["id"]}, output_data={"sha256": done.get("output_sha256", "")[:12]},
+                                 idempotency_key=f"{tenant_id}:{job['id']}:tick:{int(job.get('attempts', 0)) + 1}")
+        return {"processed": True, "render_job": done}
+    except Exception as exc:
+        updated = db.kids_bump_render_attempt(tenant_id, job["id"], actor, error=str(exc))
+        return {"processed": True, "render_job": updated, "error": str(exc)[:300],
+                "dead_letter": bool(updated and updated.get("status") == "failed")}

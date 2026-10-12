@@ -584,6 +584,31 @@ class KidsMixin:
             return self._rows(c.execute("SELECT * FROM kids_agent_runs WHERE tenant_id=? ORDER BY created_at DESC LIMIT ?",
                                         (tenant_id, limit)).fetchall())
 
+    def kids_oldest_queued_render(self, tenant_id: str) -> dict | None:
+        with self.connection() as c:
+            row = c.execute("SELECT * FROM kids_render_jobs WHERE tenant_id=? AND status='queued' ORDER BY created_at LIMIT 1",
+                            (tenant_id,)).fetchone()
+            return self._decode(dict(row)) if row else None
+
+    def kids_bump_render_attempt(self, tenant_id: str, job_id: str, actor: str, *, error: str = "") -> dict | None:
+        with self.connection() as c:
+            row = c.execute("SELECT attempts FROM kids_render_jobs WHERE tenant_id=? AND id=?", (tenant_id, job_id)).fetchone()
+            if not row:
+                return None
+            attempts = int(row[0] if not hasattr(row, "keys") else row["attempts"]) + 1
+            status = "failed" if attempts >= 3 else "queued"
+            finished = utcnow() if status == "failed" else None
+            if finished:
+                c.execute("UPDATE kids_render_jobs SET attempts=?,status=?,error=?,updated_at=?,finished_at=? WHERE tenant_id=? AND id=?",
+                          (attempts, status, (error[:1000] or "dead-letter: max attempts exhausted"), utcnow(), finished, tenant_id, job_id))
+            else:
+                c.execute("UPDATE kids_render_jobs SET attempts=?,error=?,updated_at=? WHERE tenant_id=? AND id=?",
+                          (attempts, error[:1000], utcnow(), tenant_id, job_id))
+            row = c.execute("SELECT * FROM kids_render_jobs WHERE tenant_id=? AND id=?", (tenant_id, job_id)).fetchone()
+            result = self._decode(dict(row)) if row else None
+        self.audit(tenant_id, actor, "kids.render.attempt", "kids_render", job_id, {"attempts": attempts, "status": status})
+        return result
+
     # ----- derivations (e.g. Shorts from landscape episodes) -----
     def kids_record_derivation(self, tenant_id: str, parent_id: str, child_id: str, kind: str, actor: str) -> dict:
         from .db_base import utcnow as _now

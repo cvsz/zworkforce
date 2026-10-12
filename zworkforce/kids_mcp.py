@@ -36,6 +36,26 @@ KIDS_MCP_TOOLS: dict[str, dict[str, Any]] = {
         "inputSchema": {"type": "object", "properties": {"episode_id": {"type": "string"}}, "required": ["episode_id"]},
         "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
     },
+    "kids.queue_render": {
+        "name": "kids.queue_render",
+        "description": "Queue a render job for later tick processing (idempotent).",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "preset": {"type": "string"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.tick_render_queue": {
+        "name": "kids.tick_render_queue",
+        "description": "Process the oldest queued render job once (bounded attempts, dead-letter after 3).",
+        "inputSchema": {"type": "object", "properties": {}},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    },
+    "kids.submit_translation": {
+        "name": "kids.submit_translation",
+        "description": "Submit human translation lines for episode scenes (requires automation:write).",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "scenes": {"type": "array"}}, "required": ["episode_id", "scenes"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    },
     "kids.get_analytics_summary": {
         "name": "kids.get_analytics_summary",
         "description": "Aggregate persisted Kids Factory rows (never fabricated views).",
@@ -219,6 +239,40 @@ def call_kids_tool(app, principal, tenant_id: str, name: str, args: dict[str, An
         if not _AM.require(principal, "viewer", "workforce:read"):
             raise PermissionError("viewer role and workforce:read scope required")
         return db.kids_analytics_summary(tenant_id)
+    if name == "kids.queue_render":
+        require("operator", "automation:write")
+        episode = db.kids_get_episode(tenant_id, str(args.get("episode_id", "")))
+        if not episode:
+            raise ValueError("episode not found")
+        timeline = db.kids_latest_timeline(tenant_id, episode["id"])
+        if not timeline:
+            raise ValueError("episode has no timeline")
+        job, created = db.kids_submit_render(tenant_id, episode["id"], int(timeline.get("version", 1)),
+                                              str(args.get("preset", "landscape_1080p")), actor)
+        return {"created": created, "render_job": job}
+    if name == "kids.tick_render_queue":
+        require("operator", "automation:write")
+        from .kids_workflow import tick_render_queue
+        return tick_render_queue(app, tenant_id, actor)
+    if name == "kids.submit_translation":
+        require("operator", "automation:write")
+        from .kids_factory import validate_scene
+        episode = db.kids_get_episode(tenant_id, str(args.get("episode_id", "")))
+        if not episode:
+            raise ValueError("episode not found")
+        items = args.get("scenes")
+        if not isinstance(items, list) or not items:
+            raise ValueError("scenes must be a non-empty list")
+        updated = []
+        for entry in items[:60]:
+            base = next((s for s in db.kids_list_scenes(tenant_id, episode["id"]) if s["id"] == entry.get("id")), None)
+            if not base:
+                raise ValueError(f"scene '{entry.get('id')}' does not exist in this episode")
+            merged = dict(base)
+            if str(entry.get("dialogue_line", "")).strip():
+                merged["dialogue"] = {**(base.get("dialogue") or {}), "line": str(entry["dialogue_line"])[:280], "translated_by": actor}
+            updated.append(db.kids_upsert_scene(tenant_id, episode["id"], base["id"], validate_scene(merged), actor))
+        return {"scenes": updated}
     if name == "kids.create_episode_draft":
         require("operator", "automation:write")
         validated = validate_episode(args)

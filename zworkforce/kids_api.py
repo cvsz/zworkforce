@@ -14,7 +14,6 @@ from .kids_factory import (
     kids_safety_check,
     mock_youtube_upload,
     prepare_youtube_metadata,
-    render_deterministic_video,
     storyboard_to_timeline,
     suggest_marketing,
     synth_preview_wav,
@@ -272,32 +271,27 @@ def kids_post(app, principal, tenant_id: str, path: str, body: dict, *, idempote
         if not created:
             return True, job, 200
         # ดำเนินการ render แบบ synchronous สำหรับ vertical slice (bounded, deterministic)
+        from .kids_workflow import execute_render_job
         try:
-            scenes = db.kids_list_scenes(tenant_id, episode_id)
-            render_dir = app.settings.data_dir / "kids-renders" / tenant_id
-            render_dir.mkdir(parents=True, exist_ok=True)
-            out_path = render_dir / f"{job['id']}.mp4"
-            result = render_deterministic_video(scenes=scenes, preset=preset, title=episode.get("title", ""), out_path=out_path)
-            # ลงทะเบียน artifact ผ่าน store เดิม (content-addressed, SHA-256)
-            artifact = None
-            try:
-                data = out_path.read_bytes()
-                artifact = app.artifacts.put_bytes(tenant_id, f"{episode_id}-{job['id']}.mp4", data, actor=actor,
-                                                   content_type="video/mp4",
-                                                   metadata={"kids_episode": episode_id, "kids_render": job["id"], "synthetic": True})
-            except Exception:
-                artifact = None
-            patch = {"status": "succeeded", "output_uri": result["output_uri"], "output_sha256": result["sha256"],
-                     "thumbnail_uri": result.get("thumbnail_uri", "")}
-            if artifact and artifact.get("storage_uri"):
-                patch["output_uri"] = artifact["storage_uri"]
-                patch["output_sha256"] = artifact.get("sha256", patch["output_sha256"])
-            job = db.kids_update_render(tenant_id, job["id"], patch, actor) or job
-            db.kids_set_episode_status(tenant_id, episode_id, "rendered", actor)
-            db.kids_record_usage(tenant_id, episode_id, "ffmpeg", "video_render", 1.0, 0.5)
+            job = execute_render_job(app, tenant_id, job["id"], actor)
         except Exception as exc:
             job = db.kids_update_render(tenant_id, job["id"], {"status": "failed", "error": str(exc)[:1000]}, actor) or job
         return True, job, 201
+    if path == "/api/v1/kids/render-jobs/queue":
+        episode_id = _slug_or_raise(body.get("episode_id", ""), "render.episode_id")
+        episode = db.kids_get_episode(tenant_id, episode_id)
+        if not episode:
+            return True, {"error": {"code": "episode_not_found", "message": "episode not found"}}, 404
+        timeline = db.kids_latest_timeline(tenant_id, episode_id)
+        if not timeline:
+            raise KidsValidationError("episode has no timeline; build timeline before queueing")
+        preset = str(body.get("preset", "landscape_1080p"))
+        job, created = db.kids_submit_render(tenant_id, episode_id, int(timeline.get("version", 1)), preset, actor,
+                                             idempotency_key=idempotency_key or str(body.get("idempotency_key", "")))
+        return True, job, 201 if created else 200
+    if path == "/api/v1/kids/render-jobs/tick":
+        from .kids_workflow import tick_render_queue
+        return True, tick_render_queue(app, tenant_id, actor), 200
     m = re.fullmatch(r"/api/v1/kids/render-jobs/([0-9a-f]{12})/retry", path)
     if m:
         job = db.kids_get_render(tenant_id, m.group(1))
@@ -474,4 +468,43 @@ def kids_post(app, principal, tenant_id: str, path: str, body: dict, *, idempote
                                  input_data={"episode_id": episode["id"]}, output_data={"estimated": True},
                                  idempotency_key=f"{tenant_id}:{episode['id']}:marketing:{m.group(1)}")
         return True, suggestions, 200
+    m = re.fullmatch(r"/api/v1/kids/episodes/([a-z0-9][a-z0-9-]{0,62})/translation", path)
+    if m:
+        episode_id = m.group(1)
+        episode = db.kids_get_episode(tenant_id, episode_id)
+        if not episode:
+            return True, {"error": {"code": "episode_not_found", "message": "episode not found"}}, 404
+        items = body.get("scenes")
+        if not isinstance(items, list) or not items:
+            raise KidsValidationError("translation.scenes must be a non-empty list")
+        if len(items) > 60:
+            raise KidsValidationError("translation.scenes exceeds 60 entries")
+        updated = []
+        for entry in items:
+            if not isinstance(entry, dict):
+                raise KidsValidationError("each translation scene must be an object")
+            scene_id = _slug_or_raise(entry.get("id", ""), "translation.scene.id")
+            rows = [s for s in db.kids_list_scenes(tenant_id, episode_id) if s["id"] == scene_id]
+            if not rows:
+                raise KidsValidationError(f"scene '{scene_id}' does not exist in this episode")
+            base = dict(rows[0])
+            line = str(entry.get("dialogue_line", "")).strip()
+            if len(line) > 280:
+                raise KidsValidationError(f"translation dialogue for '{scene_id}' exceeds 280 chars")
+            captions = entry.get("captions", [])
+            if not isinstance(captions, list):
+                raise KidsValidationError("translation captions must be a list")
+            dialogue = dict(base.get("dialogue") or {})
+            if line:
+                dialogue["line"] = line
+                dialogue["translated_by"] = actor
+            base["dialogue"] = dialogue
+            if captions:
+                base["captions"] = [{"text": str(c)[:120]} if isinstance(c, str) else c for c in captions[:8]]
+            updated.append(db.kids_upsert_scene(tenant_id, episode_id, scene_id, validate_scene(base), actor))
+        run, _ = db.kids_record_agent_run(tenant_id, episode_id, "translator", "translate", "succeeded", actor,
+                                          input_data={"scenes": len(updated), "language": episode.get("language", "")},
+                                          output_data={"reviewer": actor},
+                                          idempotency_key=f"{tenant_id}:{episode_id}:translation:{len(updated)}")
+        return True, {"scenes": updated, "translation": run}, 200
     return False, None, 0

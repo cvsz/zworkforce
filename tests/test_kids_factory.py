@@ -535,6 +535,76 @@ class KidsSlice3Tests(unittest.TestCase):
         self.assertIn("usage", summary)
         self.assertIn("note", summary)
 
+    def test_async_queue_and_tick_flow(self):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": "qbrand2", "name": "Queue Brand", "language": "en"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes", "POST", {"id": "q-ep", "brand_id": "qbrand2",
+                                                          "title": "Queued", "summary": "ok"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes/q-ep/storyboard", "POST", {"num_scenes": 2})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes/q-ep/timeline", "POST", {})
+        self.assertEqual(s, 201)
+        # queue แบบ async ต้องค้างสถานะ queued (ยังไม่ render)
+        s, queued = self.req("/api/v1/kids/render-jobs/queue", "POST", {"episode_id": "q-ep"},
+                             headers={"Idempotency-Key": "queue-1"})
+        self.assertEqual(s, 201)
+        self.assertEqual(queued["status"], "queued")
+        # tick ประมวลผลจนสำเร็จ
+        s, ticked = self.req("/api/v1/kids/render-jobs/tick", "POST", {})
+        self.assertEqual(s, 200)
+        self.assertTrue(ticked["processed"])
+        self.assertEqual(ticked["render_job"]["status"], "succeeded")
+        self.assertTrue(ticked["render_job"]["output_sha256"])
+        # tick ตอนคิวว่าง
+        s, idle = self.req("/api/v1/kids/render-jobs/tick", "POST", {})
+        self.assertEqual(s, 200)
+        self.assertFalse(idle["processed"])
+
+    def test_failed_job_dead_letters_after_three_attempts(self):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": "dbrand", "name": "Dead Brand", "language": "en"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes", "POST", {"id": "d-ep", "brand_id": "dbrand",
+                                                          "title": "Dead", "summary": "ok"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes/d-ep/storyboard", "POST", {"num_scenes": 1})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes/d-ep/timeline", "POST", {})
+        self.assertEqual(s, 201)
+        s, queued = self.req("/api/v1/kids/render-jobs/queue", "POST", {"episode_id": "d-ep"},
+                             headers={"Idempotency-Key": "dead-1"})
+        self.assertEqual(s, 201)
+        # ลบ scenes ให้ render ล้มเหลวแบบ deterministic
+        with self.db.connection() as c:
+            c.execute("DELETE FROM kids_scenes WHERE tenant_id='default' AND episode_id='d-ep'")
+        for _ in range(3):
+            s, ticked = self.req("/api/v1/kids/render-jobs/tick", "POST", {})
+            self.assertEqual(s, 200)
+            self.assertTrue(ticked["processed"])
+        self.assertTrue(ticked.get("dead_letter"))
+        self.assertEqual(ticked["render_job"]["status"], "failed")
+        self.assertEqual(ticked["render_job"]["attempts"], 3)
+
+    def test_human_translation_fills_variant_scenes(self):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": "tbrand", "name": "Trans Brand", "language": "en"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes", "POST", {"id": "t-ep", "brand_id": "tbrand",
+                                                          "title": "Trans", "summary": "ok", "language": "th"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes/t-ep/storyboard", "POST", {"num_scenes": 2})
+        self.assertEqual(s, 201)
+        s, result = self.req("/api/v1/kids/episodes/t-ep/translation", "POST",
+                             {"scenes": [{"id": "s01", "dialogue_line": "สวัสดีเพื่อนๆ"},
+                                          {"id": "s02", "dialogue_line": "มาเรียนสีกัน"}]})
+        self.assertEqual(s, 200)
+        self.assertEqual(len(result["scenes"]), 2)
+        lines = {sc["id"]: (sc.get("dialogue") or {}).get("line", "") for sc in result["scenes"]}
+        self.assertEqual(lines["s01"], "สวัสดีเพื่อนๆ")
+        # scene ที่ไม่มีอยู่ต้องถูกปฏิเสธ
+        s, denied = self.req("/api/v1/kids/episodes/t-ep/translation", "POST",
+                             {"scenes": [{"id": "s99", "dialogue_line": "x"}]})
+        self.assertEqual(s, 400)
+
 
 if __name__ == "__main__":
     unittest.main()
