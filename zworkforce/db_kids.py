@@ -509,10 +509,77 @@ class KidsMixin:
             return {
                 "brands": count("SELECT COUNT(*) FROM kids_brands WHERE tenant_id=? AND archived=0", (tenant_id,)),
                 "channels": count("SELECT COUNT(*) FROM kids_channels WHERE tenant_id=?", (tenant_id,)),
+                "campaigns": count("SELECT COUNT(*) FROM kids_campaigns WHERE tenant_id=?", (tenant_id,)),
                 "characters": count("SELECT COUNT(*) FROM kids_characters WHERE tenant_id=?", (tenant_id,)),
                 "episodes": count("SELECT COUNT(*) FROM kids_episodes WHERE tenant_id=?", (tenant_id,)),
                 "pending_approvals": count("SELECT COUNT(*) FROM kids_approvals WHERE tenant_id=? AND state='pending'", (tenant_id,)),
                 "render_jobs": count("SELECT COUNT(*) FROM kids_render_jobs WHERE tenant_id=?", (tenant_id,)),
                 "published_videos": count("SELECT COUNT(*) FROM kids_publishing_jobs WHERE tenant_id=? AND status='published'", (tenant_id,)),
                 "failed_renders": count("SELECT COUNT(*) FROM kids_render_jobs WHERE tenant_id=? AND status='failed'", (tenant_id,)),
+                "agent_runs": count("SELECT COUNT(*) FROM kids_agent_runs WHERE tenant_id=?", (tenant_id,)),
             }
+
+    # ----- campaigns -----
+    def kids_upsert_campaign(self, tenant_id: str, campaign_id: str, brand_id: str, payload: dict, actor: str) -> dict:
+        now = utcnow()
+        name = str(payload.get("name", campaign_id))[:160] or campaign_id
+        with self.connection() as c:
+            c.execute(
+                """INSERT INTO kids_campaigns(tenant_id,id,brand_id,name,topic,curriculum_json,playlist_json,calendar_json,status,created_by,created_at,updated_at)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(tenant_id,id) DO UPDATE SET brand_id=excluded.brand_id,name=excluded.name,
+                topic=excluded.topic,curriculum_json=excluded.curriculum_json,playlist_json=excluded.playlist_json,
+                calendar_json=excluded.calendar_json,status=excluded.status,updated_at=excluded.updated_at""",
+                (tenant_id, campaign_id, brand_id, name, str(payload.get("topic", ""))[:500],
+                 json_dumps(payload.get("curriculum") or {}), json_dumps(payload.get("playlist") or []),
+                 json_dumps(payload.get("calendar") or {}), str(payload.get("status", "planned"))[:24], actor, now, now),
+            )
+            row = c.execute("SELECT * FROM kids_campaigns WHERE tenant_id=? AND id=?", (tenant_id, campaign_id)).fetchone()
+            result = self._decode(dict(row)) if row else {}
+        self.audit(tenant_id, actor, "kids.campaign.upsert", "kids_campaign", campaign_id, {"brand_id": brand_id})
+        return result
+
+    def kids_list_campaigns(self, tenant_id: str, *, brand_id: str = "") -> list[dict]:
+        with self.connection() as c:
+            if brand_id:
+                return self._rows(c.execute("SELECT * FROM kids_campaigns WHERE tenant_id=? AND brand_id=? ORDER BY updated_at DESC",
+                                            (tenant_id, brand_id)).fetchall())
+            return self._rows(c.execute("SELECT * FROM kids_campaigns WHERE tenant_id=? ORDER BY updated_at DESC LIMIT 200",
+                                        (tenant_id,)).fetchall())
+
+    def kids_get_campaign(self, tenant_id: str, campaign_id: str) -> dict | None:
+        with self.connection() as c:
+            row = c.execute("SELECT * FROM kids_campaigns WHERE tenant_id=? AND id=?", (tenant_id, campaign_id)).fetchone()
+            return self._decode(dict(row)) if row else None
+
+    # ----- agent runs (durable checkpoints, idempotent steps) -----
+    def kids_record_agent_run(self, tenant_id: str, episode_id: str, agent: str, step: str, status: str,
+                              actor: str, *, input_data: dict | None = None, output_data: dict | None = None,
+                              error: str = "", idempotency_key: str = "") -> tuple[dict, bool]:
+        if idempotency_key:
+            with self.connection() as c:
+                row = c.execute("SELECT * FROM kids_agent_runs WHERE tenant_id=? AND idempotency_key=?",
+                                (tenant_id, idempotency_key)).fetchone()
+                if row:
+                    return self._decode(dict(row)), False
+        run_id = uuid.uuid4().hex[:12]
+        now = utcnow()
+        with self.connection() as c:
+            c.execute(
+                """INSERT INTO kids_agent_runs(id,tenant_id,episode_id,agent,step,status,input_json,output_json,attempts,error,idempotency_key,created_by,created_at,updated_at)
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (run_id, tenant_id, episode_id, agent[:64], step[:64], status[:24], json_dumps(input_data or {}),
+                 json_dumps(output_data or {}), 1, error[:2000], idempotency_key or "", actor, now, now),
+            )
+            row = c.execute("SELECT * FROM kids_agent_runs WHERE id=?", (run_id,)).fetchone()
+            result = self._decode(dict(row)) if row else {}
+        self.audit(tenant_id, actor, "kids.agent_run", "kids_episode", episode_id, {"agent": agent, "step": step, "status": status})
+        return result, True
+
+    def kids_list_agent_runs(self, tenant_id: str, *, episode_id: str = "", limit: int = 100) -> list[dict]:
+        limit = max(1, min(int(limit or 100), 200))
+        with self.connection() as c:
+            if episode_id:
+                return self._rows(c.execute("SELECT * FROM kids_agent_runs WHERE tenant_id=? AND episode_id=? ORDER BY created_at LIMIT ?",
+                                            (tenant_id, episode_id, limit)).fetchall())
+            return self._rows(c.execute("SELECT * FROM kids_agent_runs WHERE tenant_id=? ORDER BY created_at DESC LIMIT ?",
+                                        (tenant_id, limit)).fetchall())

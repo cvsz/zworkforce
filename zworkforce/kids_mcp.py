@@ -14,11 +14,33 @@ from .kids_factory import (
 )
 
 KIDS_MCP_TOOLS: dict[str, dict[str, Any]] = {
+    "kids.create_campaign": {
+        "name": "kids.create_campaign",
+        "description": "Create a content campaign plan for a brand (requires automation:write).",
+        "inputSchema": {"type": "object", "properties": {
+            "id": {"type": "string"}, "brand_id": {"type": "string"}, "name": {"type": "string"},
+            "topic": {"type": "string"}}, "required": ["id", "brand_id", "name"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
     "kids.list_brands": {
         "name": "kids.list_brands",
         "description": "List Kids Factory brand profiles for the tenant.",
         "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer"}}},
         "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.list_campaigns": {
+        "name": "kids.list_campaigns",
+        "description": "List Kids Factory campaigns for the tenant.",
+        "inputSchema": {"type": "object", "properties": {"brand_id": {"type": "string"}}},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.run_episode_pipeline": {
+        "name": "kids.run_episode_pipeline",
+        "description": "Run the pre-publish agent pipeline for an episode (bounded, idempotent steps; publishing stays manual).",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "preset": {"type": "string"}, "num_scenes": {"type": "integer"}},
+            "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
     },
     "kids.create_episode_draft": {
         "name": "kids.create_episode_draft",
@@ -97,6 +119,25 @@ def call_kids_tool(app, principal, tenant_id: str, name: str, args: dict[str, An
     if name == "kids.list_brands":
         require("viewer", "workforce:read")
         return {"items": db.kids_list_brands(tenant_id, limit=int(args.get("limit", 50) or 50))}
+    if name == "kids.list_campaigns":
+        require("viewer", "workforce:read")
+        return {"items": db.kids_list_campaigns(tenant_id, brand_id=str(args.get("brand_id", "")))}
+    if name == "kids.create_campaign":
+        require("operator", "automation:write")
+        from .kids_api import _slug_or_raise
+        campaign_id = _slug_or_raise(args.get("id", ""), "campaign.id")
+        brand_id = _slug_or_raise(args.get("brand_id", ""), "campaign.brand_id")
+        if not db.kids_get_brand(tenant_id, brand_id):
+            raise ValueError("campaign.brand_id does not exist in this tenant")
+        if not str(args.get("name", "")).strip():
+            raise ValueError("campaign.name is required")
+        return db.kids_upsert_campaign(tenant_id, campaign_id, brand_id, args, actor)
+    if name == "kids.run_episode_pipeline":
+        require("operator", "automation:write")
+        from .kids_workflow import run_episode_pipeline
+        return run_episode_pipeline(app, tenant_id, str(args.get("episode_id", "")), actor,
+                                    preset=str(args.get("preset", "landscape_1080p")),
+                                    num_scenes=int(args.get("num_scenes", 4) or 4))
     if name == "kids.create_episode_draft":
         require("operator", "automation:write")
         validated = validate_episode(args)

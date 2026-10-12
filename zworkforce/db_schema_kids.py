@@ -261,4 +261,40 @@ CREATE TABLE IF NOT EXISTS kids_usage(
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_kids_usage_tenant ON kids_usage(tenant_id,created_at DESC);
+
+CREATE TABLE IF NOT EXISTS kids_campaigns(
+    tenant_id TEXT NOT NULL,
+    id TEXT NOT NULL,
+    brand_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    topic TEXT NOT NULL DEFAULT '',
+    curriculum_json TEXT NOT NULL DEFAULT '{}',
+    playlist_json TEXT NOT NULL DEFAULT '[]',
+    calendar_json TEXT NOT NULL DEFAULT '{}',
+    status TEXT NOT NULL DEFAULT 'planned',
+    created_by TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(tenant_id,id)
+);
+CREATE INDEX IF NOT EXISTS idx_kids_campaigns_brand ON kids_campaigns(tenant_id,brand_id,status);
+
+CREATE TABLE IF NOT EXISTS kids_agent_runs(
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    episode_id TEXT NOT NULL,
+    agent TEXT NOT NULL,
+    step TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'succeeded',
+    input_json TEXT NOT NULL DEFAULT '{}',
+    output_json TEXT NOT NULL DEFAULT '{}',
+    attempts INTEGER NOT NULL DEFAULT 1,
+    error TEXT NOT NULL DEFAULT '',
+    idempotency_key TEXT NOT NULL DEFAULT '',
+    created_by TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_kids_agent_runs_idem ON kids_agent_runs(tenant_id,idempotency_key) WHERE idempotency_key <> '';
+CREATE INDEX IF NOT EXISTS idx_kids_agent_runs_ep ON kids_agent_runs(tenant_id,episode_id,agent);
 """

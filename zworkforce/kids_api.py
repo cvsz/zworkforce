@@ -50,6 +50,8 @@ def kids_get(app, tenant_id: str, path: str, query: dict) -> tuple[bool, Any]:
         return True, brand
     if path == "/api/v1/kids/channels":
         return True, {"items": db.kids_list_channels(tenant_id, brand_id=_strq(query, "brand_id"))}
+    if path == "/api/v1/kids/campaigns":
+        return True, {"items": db.kids_list_campaigns(tenant_id, brand_id=_strq(query, "brand_id"))}
     if path == "/api/v1/kids/characters":
         return True, {"items": db.kids_list_characters(tenant_id, brand_id=_strq(query, "brand_id"))}
     m = re.fullmatch(r"/api/v1/kids/characters/([a-z0-9][a-z0-9-]{0,62})", path)
@@ -58,6 +60,12 @@ def kids_get(app, tenant_id: str, path: str, query: dict) -> tuple[bool, Any]:
         if not char:
             return True, {"_status": 404, "_error": ("character_not_found", "character not found")}
         return True, char
+    m = re.fullmatch(r"/api/v1/kids/campaigns/([a-z0-9][a-z0-9-]{0,62})", path)
+    if m:
+        campaign = db.kids_get_campaign(tenant_id, m.group(1))
+        if not campaign:
+            return True, {"_status": 404, "_error": ("campaign_not_found", "campaign not found")}
+        return True, campaign
     if path == "/api/v1/kids/episodes":
         return True, {"items": db.kids_list_episodes(tenant_id, brand_id=_strq(query, "brand_id"),
                                                       status=_strq(query, "status"),
@@ -101,6 +109,8 @@ def kids_get(app, tenant_id: str, path: str, query: dict) -> tuple[bool, Any]:
         return True, job
     if path == "/api/v1/kids/analytics":
         return True, {"items": db.kids_list_analytics(tenant_id, channel_id=_strq(query, "channel_id"))}
+    if path == "/api/v1/kids/agent-runs":
+        return True, {"items": db.kids_list_agent_runs(tenant_id, episode_id=_strq(query, "episode_id"))}
     if path == "/api/v1/kids/providers":
         return True, {"items": [
             {"capability": "llm", "provider": "mock", "mode": "mock", "enabled": True},
@@ -137,6 +147,17 @@ def kids_post(app, principal, tenant_id: str, path: str, body: dict, *, idempote
         if not db.kids_get_brand(tenant_id, brand_id):
             raise KidsValidationError("channel.brand_id does not exist in this tenant")
         return True, db.kids_upsert_channel(tenant_id, channel_id, brand_id, body, actor), 201
+    if path == "/api/v1/kids/campaigns":
+        campaign_id = _slug_or_raise(body.get("id", ""), "campaign.id")
+        brand_id = _slug_or_raise(body.get("brand_id", ""), "campaign.brand_id")
+        if not db.kids_get_brand(tenant_id, brand_id):
+            raise KidsValidationError("campaign.brand_id does not exist in this tenant")
+        name = str(body.get("name", "")).strip()
+        if not name:
+            raise KidsValidationError("campaign.name is required")
+        if len(name) > 160:
+            raise KidsValidationError("campaign.name exceeds 160 chars")
+        return True, db.kids_upsert_campaign(tenant_id, campaign_id, brand_id, body, actor), 201
     if path == "/api/v1/kids/characters":
         char_id = _slug_or_raise(body.get("id", ""), "character.id")
         brand_id = _slug_or_raise(body.get("brand_id", ""), "character.brand_id")
@@ -339,4 +360,19 @@ def kids_post(app, principal, tenant_id: str, path: str, body: dict, *, idempote
                                                   "metrics": body.get("metrics") or {"note": "synthetic fixture, not real YouTube data"},
                                                   "synthetic": True})
         return True, snap, 201
+    m = re.fullmatch(r"/api/v1/kids/episodes/([a-z0-9][a-z0-9-]{0,62})/pipeline", path)
+    if m:
+        from .kids_workflow import run_episode_pipeline
+        try:
+            num_scenes = int(body.get("num_scenes", 4) or 4)
+        except (TypeError, ValueError):
+            raise KidsValidationError("num_scenes must be an integer")
+        try:
+            result = run_episode_pipeline(app, tenant_id, m.group(1), actor,
+                                          preset=str(body.get("preset", "landscape_1080p")), num_scenes=num_scenes)
+        except KidsValidationError:
+            raise
+        except ValueError as exc:
+            raise KidsValidationError(str(exc))
+        return True, result, 200
     return False, None, 0

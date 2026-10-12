@@ -34,6 +34,14 @@ class MCPError(RuntimeError):
 
 
 MCP_TOOLS: dict[str, dict[str, Any]] = {
+    "kids.create_campaign": {
+        "name": "kids.create_campaign",
+        "description": "Create a content campaign plan for a brand (requires automation:write).",
+        "inputSchema": {"type": "object", "properties": {
+            "id": {"type": "string"}, "brand_id": {"type": "string"}, "name": {"type": "string"},
+            "topic": {"type": "string"}}, "required": ["id", "brand_id", "name"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
     "kids.create_episode_draft": {
         "name": "kids.create_episode_draft",
         "description": "Create a Kids Factory episode draft (requires automation:write).",
@@ -82,6 +90,12 @@ MCP_TOOLS: dict[str, dict[str, Any]] = {
         "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer"}}},
         "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
     },
+    "kids.list_campaigns": {
+        "name": "kids.list_campaigns",
+        "description": "List Kids Factory campaigns for the tenant.",
+        "inputSchema": {"type": "object", "properties": {"brand_id": {"type": "string"}}},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
     "kids.request_character_review": {
         "name": "kids.request_character_review",
         "description": "Request human review for a character (locks reference and opens approval).",
@@ -99,6 +113,14 @@ MCP_TOOLS: dict[str, dict[str, Any]] = {
         "description": "Submit a deterministic sample render (FFmpeg local, synthetic).",
         "inputSchema": {"type": "object", "properties": {
             "episode_id": {"type": "string"}, "preset": {"type": "string"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.run_episode_pipeline": {
+        "name": "kids.run_episode_pipeline",
+        "description": "Run the pre-publish agent pipeline for an episode (bounded, idempotent steps; publishing stays manual).",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "preset": {"type": "string"}, "num_scenes": {"type": "integer"}},
+            "required": ["episode_id"]},
         "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
     },
     "workforce.submit_task": {

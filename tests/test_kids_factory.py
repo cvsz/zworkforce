@@ -272,5 +272,114 @@ class KidsApiEndToEndTests(unittest.TestCase):
         self.assertEqual(s, 400)
 
 
+class KidsCampaignPipelineTests(unittest.TestCase):
+    def setUp(self):
+        self.temp, self.settings, self.db, self.provider, self.engine, self.auth = stack()
+        self.app = App(self.settings, self.db, self.engine, self.auth, self.provider)
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), self.app.handler())
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.base = f"http://127.0.0.1:{self.server.server_address[1]}"
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.engine.shutdown()
+        self.temp.cleanup()
+
+    def req(self, path, method="GET", body=None, headers=None):
+        h = {"Authorization": "Bearer test-admin-secret", **(headers or {})}
+        data = None
+        if body is not None:
+            data = json.dumps(body).encode()
+            h["Content-Type"] = "application/json"
+        r = urllib.request.Request(self.base + path, data=data, headers=h, method=method)
+        try:
+            with urllib.request.urlopen(r, timeout=60) as resp:
+                return resp.status, json.loads(resp.read() or b"{}")
+        except urllib.error.HTTPError as exc:
+            return exc.code, json.loads(exc.read() or b"{}")
+
+    def _seed_brand_episode(self, prefix="pp"):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": f"{prefix}-brand", "name": "Pipe Brand", "language": "en"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes", "POST", {"id": f"{prefix}-ep", "brand_id": f"{prefix}-brand",
+                                                          "title": "Pipeline Episode", "summary": "learn colors",
+                                                          "age_band": "preschool", "language": "en"})
+        self.assertIn(s, (200, 201))
+
+    def test_campaign_crud_and_tenant_isolation(self):
+        self._seed_brand_episode("cp")
+        s, campaign = self.req("/api/v1/kids/campaigns", "POST", {"id": "colors-q1", "brand_id": "cp-brand",
+                                                                   "name": "Colors Q1", "topic": "five colors"})
+        self.assertEqual(s, 201)
+        s, listed = self.req("/api/v1/kids/campaigns?brand_id=cp-brand")
+        self.assertEqual(s, 200)
+        self.assertEqual(len(listed["items"]), 1)
+        s, one = self.req("/api/v1/kids/campaigns/colors-q1")
+        self.assertEqual(s, 200)
+        h = {"Authorization": "Bearer test-admin-secret", "X-Tenant-ID": "other"}
+        s, _ = self.req("/api/v1/kids/campaigns/colors-q1", headers=h)
+        self.assertEqual(s, 404)
+
+    def test_pipeline_runs_end_to_end_and_is_idempotent(self):
+        self._seed_brand_episode("pl")
+        s, first = self.req("/api/v1/kids/episodes/pl-ep/pipeline", "POST", {"num_scenes": 2})
+        self.assertEqual(s, 200)
+        self.assertEqual(first["failed"], "")
+        self.assertIn("render", first["completed"])
+        self.assertIn("approval_request", first["completed"])
+        # rerun ต้อง skip งานที่เสร็จแล้ว ไม่ duplicate render/publishing
+        s, second = self.req("/api/v1/kids/episodes/pl-ep/pipeline", "POST", {"num_scenes": 2})
+        self.assertEqual(s, 200)
+        self.assertEqual(second["failed"], "")
+        s, runs = self.req("/api/v1/kids/agent-runs?episode_id=pl-ep")
+        self.assertEqual(s, 200)
+        steps = [r["step"] for r in runs["items"] if r["status"] == "succeeded"]
+        for expected in ("research", "script", "storyboard", "assets", "timeline", "render", "qa", "approval_request"):
+            self.assertIn(expected, steps)
+        # render job ต้องมีแค่ job เดียวจาก pipeline idempotency (rerun ใช้ job เดิม)
+        s, renders = self.req("/api/v1/kids/render-jobs?episode_id=pl-ep")
+        self.assertEqual(s, 200)
+        self.assertEqual(len(renders["items"]), 1)
+
+    def test_pipeline_budget_gate_blocks_render(self):
+        self._seed_brand_episode("bg")
+        # ตั้ง budget ต่ำมากจน estimate เกิน → render ต้องถูก block พร้อม error ชัดเจน
+        db = self.db
+        with db.connection() as c:
+            c.execute("UPDATE kids_episodes SET budget_credits=0.01 WHERE tenant_id='default' AND id='bg-ep'")
+        s, result = self.req("/api/v1/kids/episodes/bg-ep/pipeline", "POST", {"num_scenes": 4})
+        self.assertEqual(s, 200)
+        self.assertEqual(result["failed"], "render")
+        self.assertIn("budget", result["error"])
+        s, renders = self.req("/api/v1/kids/render-jobs?episode_id=bg-ep")
+        self.assertEqual(succeeds_or_empty(s, renders), True)
+
+    def test_mcp_campaign_and_pipeline_tools(self):
+        from zworkforce.mcp import _call_tool
+        db = self.db
+        db.ensure_tenant("default", "Default")
+        db.kids_upsert_brand("default", "mcp-brand", validate_brand({"name": "MCP Brand", "language": "en"}), "t")
+        # ใช้ fake principal ที่ผ่าน require จริง (superadmin + ทุก scope) ห้าม monkeypatch AuthManager
+        principal = type("P", (), {"name": "tester", "role": "superadmin", "key_id": "k",
+                                   "has_scope": lambda self, s: True})()
+        created = _call_tool(self.app, principal, "default", "kids.create_campaign",
+                             {"id": "mcp-camp", "brand_id": "mcp-brand", "name": "MCP Campaign"})
+        self.assertEqual(created["id"], "mcp-camp")
+        listed = _call_tool(self.app, principal, "default", "kids.list_campaigns", {})
+        self.assertTrue(any(c["id"] == "mcp-camp" for c in listed["items"]))
+        # mutating tool ต้องปฏิเสธ viewer ที่ไม่มี scope
+        viewer = type("P", (), {"name": "v", "role": "viewer", "key_id": "k2",
+                                "has_scope": lambda self, s: False})()
+        with self.assertRaises(PermissionError):
+            _call_tool(self.app, viewer, "default", "kids.create_campaign",
+                       {"id": "nope", "brand_id": "mcp-brand", "name": "Nope"})
+
+
+def succeeds_or_empty(status, renders):
+    return status == 200 and len(renders["items"]) == 0
+
+
 if __name__ == "__main__":
     unittest.main()
