@@ -770,6 +770,83 @@ class KidsMixin:
                 "derivations": self.kids_list_derivations(tenant_id, parent_id=episode_id),
                 "music": self.kids_list_music(tenant_id, episode_id=episode_id)}
 
+    def kids_import_bundle(self, tenant_id: str, bundle: dict, actor: str, *,
+                           episode_id: str = "") -> dict:
+        """Restore the creative graph from an export bundle (same tenant only).
+
+        Restores brand, characters (+versions), episode, scripts, scenes,
+        timelines, assets metadata, music, and derivations. Execution history
+        (renders, approvals, publishing, moderation) is deliberately NOT
+        restored: approvals must be re-done on the restore target.
+        """
+        from .kids_factory import (
+            KidsValidationError as _KVE,
+            validate_brand as _vb,
+            validate_character as _vc,
+            validate_episode as _ve,
+            validate_music_track as _vm,
+            validate_scene as _vs,
+            validate_script as _vscript,
+            validate_timeline as _vt,
+        )
+        if not isinstance(bundle, dict) or bundle.get("format") != "kids-export-1":
+            raise _KVE("bundle.format must be 'kids-export-1'")
+        if bundle.get("tenant_id") != tenant_id:
+            raise _KVE("bundle tenant mismatch: restore drills stay same-tenant")
+        src_episode = bundle.get("episode") or {}
+        if not isinstance(src_episode, dict) or not src_episode.get("id"):
+            raise _KVE("bundle.episode is missing")
+        brand_src = bundle.get("brand") or {}
+        if not isinstance(brand_src, dict) or not brand_src.get("id"):
+            raise _KVE("bundle.brand is missing")
+        brand_id = str(brand_src["id"])
+        new_episode_id = episode_id or str(src_episode["id"])
+        if self.kids_get_episode(tenant_id, new_episode_id):
+            raise _KVE(f"episode '{new_episode_id}' already exists on this target")
+        counts = {"characters": 0, "scripts": 0, "scenes": 0, "timelines": 0, "assets": 0, "music": 0}
+
+        self.kids_upsert_brand(tenant_id, brand_id, _vb({**brand_src, "name": brand_src.get("name", brand_id)}), actor)
+        for char in bundle.get("characters") or []:
+            if not isinstance(char, dict) or not char.get("id"):
+                raise _KVE("bundle character entry is malformed")
+            self.kids_upsert_character(tenant_id, str(char["id"]), brand_id, _vc(char), actor)
+            counts["characters"] += 1
+        ep_validated = _ve({"title": src_episode.get("title", "Restored"),
+                            "summary": src_episode.get("summary", ""),
+                            "age_band": src_episode.get("age_band", "preschool"),
+                            "language": src_episode.get("language", "en"),
+                            "objectives": src_episode.get("objectives", []),
+                            "vocabulary": src_episode.get("vocabulary", [])})
+        self.kids_create_episode(tenant_id, new_episode_id, brand_id, ep_validated, actor,
+                                 channel_id=str(src_episode.get("channel_id", "")))
+        for script in sorted(bundle.get("scripts") or [], key=lambda s: int(s.get("version", 0) or 0)):
+            self.kids_save_script(tenant_id, new_episode_id,
+                                  _vscript({"content_type": script.get("content_type", "nursery_rhyme"),
+                                            "body": script.get("body", {})}), actor)
+            counts["scripts"] += 1
+        for scene in bundle.get("scenes") or []:
+            if not isinstance(scene, dict) or not scene.get("id"):
+                raise _KVE("bundle scene entry is malformed")
+            self.kids_upsert_scene(tenant_id, new_episode_id, str(scene["id"]), _vs(scene), actor)
+            counts["scenes"] += 1
+        for timeline in sorted(bundle.get("timelines") or [], key=lambda t: int(t.get("version", 0) or 0)):
+            self.kids_save_timeline(tenant_id, new_episode_id, _vt({"tracks": timeline.get("tracks", {})})["tracks"], actor)
+            counts["timelines"] += 1
+        for asset in bundle.get("assets") or []:
+            if not isinstance(asset, dict):
+                raise _KVE("bundle asset entry is malformed")
+            self.kids_register_asset(tenant_id, {**asset, "episode_id": new_episode_id}, actor)
+            counts["assets"] += 1
+        for track in bundle.get("music") or []:
+            if not isinstance(track, dict):
+                raise _KVE("bundle music entry is malformed")
+            self.kids_register_music(tenant_id, _vm(track), actor, episode_id=new_episode_id)
+            counts["music"] += 1
+        self.kids_record_derivation(tenant_id, str(src_episode["id"]), new_episode_id, "restore", actor)
+        self.kids_set_episode_status(tenant_id, new_episode_id, "draft", actor)
+        return {"episode_id": new_episode_id, "counts": counts,
+                "note": "creative graph restored; renders/approvals/publishing must be re-run and re-approved"}
+
     def kids_analytics_summary(self, tenant_id: str) -> dict:
         """Aggregate only persisted rows. Synthetic snapshots are counted separately, never as real views."""
         with self.connection() as c:

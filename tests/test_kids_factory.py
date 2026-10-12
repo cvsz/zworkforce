@@ -668,6 +668,48 @@ class KidsSlice3Tests(unittest.TestCase):
         s, missing = self.req("/api/v1/kids/episodes/nope/export")
         self.assertEqual(s, 404)
 
+    def test_export_import_round_trip_restores_creative_graph(self):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": "rbrand", "name": "Restore Brand", "language": "en"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/characters", "POST", {"id": "rchar", "brand_id": "rbrand", "name": "Rimi"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes", "POST", {"id": "r-ep", "brand_id": "rbrand",
+                                                          "title": "Restore Me", "summary": "learn shapes",
+                                                          "objectives": ["shapes"], "vocabulary": ["circle"]})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes/r-ep/script", "POST", {"content_type": "nursery_rhyme",
+                                                                       "body": {"verses": "round and round"}})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes/r-ep/storyboard", "POST", {"num_scenes": 2})
+        self.assertEqual(s, 201)
+        s, bundle = self.req("/api/v1/kids/episodes/r-ep/export")
+        self.assertEqual(s, 200)
+        # import เป็น id ใหม่
+        s, restored = self.req("/api/v1/kids/episodes/import", "POST", {"bundle": bundle, "id": "r-ep-copy"})
+        self.assertEqual(s, 201)
+        self.assertEqual(restored["episode_id"], "r-ep-copy")
+        self.assertEqual(restored["counts"]["scripts"], 1)
+        self.assertEqual(restored["counts"]["scenes"], 2)
+        s, scenes = self.req("/api/v1/kids/episodes/r-ep-copy/scenes")
+        self.assertEqual(len(scenes["items"]), 2)
+        # pipeline รันต่อบนสำเนาได้ (timeline ถูก restore มาด้วย)
+        s, pipe = self.req("/api/v1/kids/episodes/r-ep-copy/pipeline", "POST", {"num_scenes": 2})
+        self.assertEqual(s, 200)
+        self.assertEqual(pipe["failed"], "")
+        # approvals ไม่ติดมาด้วย — ต้องขอใหม่ (safety)
+        s, approvals = self.req("/api/v1/kids/approvals?state=pending")
+        restored_approvals = [a for a in approvals["items"] if a["episode_id"] == "r-ep-copy"]
+        self.assertEqual(len(restored_approvals), 1)
+        # import ซ้ำ id เดิมต้องถูกปฏิเสธ
+        s, dupe = self.req("/api/v1/kids/episodes/import", "POST", {"bundle": bundle, "id": "r-ep-copy"})
+        self.assertEqual(s, 400)
+        # bundle ผิด format / ข้าม tenant ต้องถูกปฏิเสธ
+        s, bad = self.req("/api/v1/kids/episodes/import", "POST", {"bundle": {"format": "nope"}})
+        self.assertEqual(s, 400)
+        evil = dict(bundle, tenant_id="other")
+        s, cross = self.req("/api/v1/kids/episodes/import", "POST", {"bundle": evil, "id": "evil-copy"})
+        self.assertEqual(s, 400)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -392,6 +392,14 @@ def kids_post(app, principal, tenant_id: str, path: str, body: dict, *, idempote
                                                   "metrics": body.get("metrics") or {"note": "synthetic fixture, not real YouTube data"},
                                                   "synthetic": True})
         return True, snap, 201
+    if path == "/api/v1/kids/episodes/import":
+        bundle = body.get("bundle")
+        if not isinstance(bundle, dict):
+            raise KidsValidationError("import.bundle must be an object")
+        override = ""
+        if body.get("id"):
+            override = _slug_or_raise(body.get("id", ""), "episode.id")
+        return True, db.kids_import_bundle(tenant_id, bundle, actor, episode_id=override), 201
     if path == "/api/v1/kids/voices":
         voice_id = _slug_or_raise(body.get("id", ""), "voice.id")
         validated = validate_voice_profile(body)

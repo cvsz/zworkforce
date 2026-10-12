@@ -89,6 +89,13 @@ KIDS_MCP_TOOLS: dict[str, dict[str, Any]] = {
         "inputSchema": {"type": "object", "properties": {"episode_id": {"type": "string"}}, "required": ["episode_id"]},
         "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
     },
+    "kids.import_episode": {
+        "name": "kids.import_episode",
+        "description": "Restore an episode creative graph from an export bundle (same tenant; approvals must be re-done).",
+        "inputSchema": {"type": "object", "properties": {
+            "bundle": {"type": "object"}, "id": {"type": "string"}}, "required": ["bundle"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    },
     "kids.get_analytics_summary": {
         "name": "kids.get_analytics_summary",
         "description": "Aggregate persisted Kids Factory rows (never fabricated views).",
@@ -345,6 +352,14 @@ def call_kids_tool(app, principal, tenant_id: str, name: str, args: dict[str, An
         if not bundle:
             raise ValueError("episode not found")
         return bundle
+    if name == "kids.import_episode":
+        require("operator", "automation:write")
+        from .kids_api import _slug_or_raise as _slug4
+        bundle = args.get("bundle")
+        if not isinstance(bundle, dict):
+            raise ValueError("bundle must be an object")
+        override = _slug4(args.get("id", ""), "episode.id") if args.get("id") else ""
+        return db.kids_import_bundle(tenant_id, bundle, actor, episode_id=override)
     if name == "kids.create_episode_draft":
         require("operator", "automation:write")
         validated = validate_episode(args)

@@ -118,6 +118,13 @@ MCP_TOOLS: dict[str, dict[str, Any]] = {
         "inputSchema": {"type": "object", "properties": {"episode_id": {"type": "string"}}, "required": ["episode_id"]},
         "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
     },
+    "kids.import_episode": {
+        "name": "kids.import_episode",
+        "description": "Restore an episode creative graph from an export bundle (same tenant; approvals must be re-done).",
+        "inputSchema": {"type": "object", "properties": {
+            "bundle": {"type": "object"}, "id": {"type": "string"}}, "required": ["bundle"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    },
     "kids.get_analytics_summary": {
         "name": "kids.get_analytics_summary",
         "description": "Aggregate persisted Kids Factory rows (never fabricated views).",
