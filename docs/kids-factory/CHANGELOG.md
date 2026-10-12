@@ -69,6 +69,13 @@ Addresses the ~35 Codex review findings on PR #285 (all valid ones fixed, with r
 - Bilingual proof: Thai end-to-end pipeline test.
 - 45 tests green.
 
+## Slice 10 — captions, playlists, bench (this branch)
+
+- Caption tracks: `GET /api/v1/kids/episodes/{id}/captions?format=srt|vtt|json` + `kids.export_captions` (scene timings, translator-owned wording).
+- Playlist planning view: `GET /api/v1/kids/playlists` + `kids.list_playlists` (campaigns with resolved episode titles, ghosts skipped).
+- `scripts/kids-bench.py`: isolated per-stage timing probe (local baseline sample, not a CI gate or SLO).
+- 48 tests green.
+
 ## NEXT (after review + merge)
 
 1. Land hardening commit, keep CI green, resolve all review threads with per-thread rationale, merge via `cvsz` only with `policedbc` approval present.

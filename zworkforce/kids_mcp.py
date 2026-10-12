@@ -61,6 +61,19 @@ KIDS_MCP_TOOLS: dict[str, dict[str, Any]] = {
         "inputSchema": {"type": "object", "properties": {"episode_id": {"type": "string"}}, "required": ["episode_id"]},
         "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
     },
+    "kids.export_captions": {
+        "name": "kids.export_captions",
+        "description": "Build SRT/VTT/JSON caption tracks from episode scenes with timings.",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "format": {"type": "string"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.list_playlists": {
+        "name": "kids.list_playlists",
+        "description": "Playlist planning view: campaigns with ordered episode titles.",
+        "inputSchema": {"type": "object", "properties": {"brand_id": {"type": "string"}}},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
     "kids.submit_translation": {
         "name": "kids.submit_translation",
         "description": "Submit human translation lines for episode scenes (requires automation:write).",
@@ -319,6 +332,17 @@ def call_kids_tool(app, principal, tenant_id: str, name: str, args: dict[str, An
         if not db.kids_get_episode(tenant_id, str(args.get("episode_id", ""))):
             raise ValueError("episode not found")
         return db.kids_episode_cost(tenant_id, str(args.get("episode_id", "")))
+    if name == "kids.export_captions":
+        require("viewer", "workforce:read")
+        from .kids_factory import build_captions_export
+        episode_id = str(args.get("episode_id", ""))
+        if not db.kids_get_episode(tenant_id, episode_id):
+            raise ValueError("episode not found")
+        return build_captions_export(scenes=db.kids_list_scenes(tenant_id, episode_id),
+                                     format=str(args.get("format", "srt")))
+    if name == "kids.list_playlists":
+        require("viewer", "workforce:read")
+        return {"items": db.kids_playlists(tenant_id, brand_id=str(args.get("brand_id", "")))}
     if name == "kids.submit_translation":
         require("operator", "automation:write")
         episode = db.kids_get_episode(tenant_id, str(args.get("episode_id", "")))

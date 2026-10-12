@@ -708,3 +708,59 @@ def resolve_provider_route(*, capability: str, providers: list[str]) -> dict[str
                       "estimated_cost_credits": round(base * (1.0 + index * 0.5), 4),
                       "note": "" if enabled else "requires operator configuration + external evidence"})
     return {"capability": capability, "route": route, "primary": route[0] if route else None}
+
+
+def _srt_timestamp(seconds: float) -> str:
+    total_ms = max(0, int(round(float(seconds) * 1000)))
+    hours, rem = divmod(total_ms, 3_600_000)
+    minutes, rem = divmod(rem, 60_000)
+    secs, ms = divmod(rem, 1000)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d},{ms:03d}"
+
+
+def _vtt_timestamp(seconds: float) -> str:
+    return _srt_timestamp(seconds).replace(",", ".")
+
+
+def build_captions_export(*, scenes: list[dict[str, Any]], format: str = "srt") -> dict[str, Any]:
+    """Build downloadable caption tracks from scene captions with timings.
+
+    Scene captions carry start/end seconds (from storyboard builder); entries
+    without timings fall back to the scene's ordered slot. Human translators
+    remain responsible for final wording.
+    """
+    fmt = str(format or "srt").strip().lower()
+    if fmt not in ("srt", "vtt", "json"):
+        raise KidsValidationError("captions format must be srt, vtt, or json")
+    cursor = 0.0
+    entries: list[dict[str, Any]] = []
+    for scene in sorted(scenes or [], key=lambda s: int(s.get("ordering", 0))):
+        duration = float(scene.get("duration_seconds", 5) or 5)
+        for caption in scene.get("captions") or []:
+            text = str(caption.get("text", "") if isinstance(caption, dict) else caption).strip()
+            if not text:
+                continue
+            if isinstance(caption, dict) and "start" in caption and "end" in caption:
+                start, end = float(caption["start"]), float(caption["end"])
+            else:
+                start, end = cursor, cursor + duration
+            entries.append({"start": round(start, 3), "end": round(max(end, start + 0.5), 3),
+                            "text": text[:160], "scene_id": scene.get("id", "")})
+        cursor += duration
+    if fmt == "json":
+        content = json.dumps({"captions": entries}, ensure_ascii=False, indent=2)
+        mime = "application/json"
+    elif fmt == "vtt":
+        lines = ["WEBVTT", ""]
+        for entry in entries:
+            lines += [f"{_vtt_timestamp(entry['start'])} --> {_vtt_timestamp(entry['end'])}", entry["text"], ""]
+        content = "\n".join(lines)
+        mime = "text/vtt"
+    else:
+        lines = []
+        for index, entry in enumerate(entries, 1):
+            lines += [str(index), f"{_srt_timestamp(entry['start'])} --> {_srt_timestamp(entry['end'])}", entry["text"], ""]
+        content = "\n".join(lines)
+        mime = "application/x-subrip"
+    return {"format": fmt, "mime": mime, "entries": len(entries),
+            "filename": f"captions.{fmt}", "content": content}

@@ -1045,6 +1045,24 @@ class KidsMixin:
         return {"episode_id": episode_id, "by_capability": by_capability, "total_cost_credits": round(total, 4),
                 "budget_credits": budget, "within_budget": (total <= budget) if budget > 0 else True}
 
+    def kids_playlists(self, tenant_id: str, *, brand_id: str = "") -> list[dict]:
+        """Playlist planning view: campaigns with their ordered episode titles resolved."""
+        playlists: list[dict] = []
+        for campaign in self.kids_list_campaigns(tenant_id, brand_id=brand_id):
+            entries: list[dict] = []
+            for item in campaign.get("playlist") or []:
+                ep_id = item if isinstance(item, str) else (item.get("episode_id", "") if isinstance(item, dict) else "")
+                if not ep_id:
+                    continue
+                episode = self.kids_get_episode(tenant_id, str(ep_id))
+                if episode:
+                    entries.append({"episode_id": episode["id"], "title": episode["title"],
+                                    "status": episode["status"], "language": episode["language"]})
+            playlists.append({"campaign_id": campaign["id"], "campaign_name": campaign.get("name", ""),
+                              "brand_id": campaign.get("brand_id", ""), "topic": campaign.get("topic", ""),
+                              "episodes": entries, "count": len(entries)})
+        return playlists
+
     def kids_analytics_summary(self, tenant_id: str) -> dict:
         """Aggregate only persisted rows. Synthetic snapshots are counted separately, never as real views."""
         with self.connection() as c:

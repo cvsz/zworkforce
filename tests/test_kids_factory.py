@@ -1058,5 +1058,81 @@ class KidsFullWorkflowsTests(unittest.TestCase):
         self.assertEqual(epcost["episode_id"], "th-e")
 
 
+class KidsSlice10Tests(unittest.TestCase):
+    """Slice 10: captions export, playlists, bench tool contract."""
+
+    def setUp(self):
+        self.temp, self.settings, self.db, self.provider, self.engine, self.auth = stack()
+        self.app = App(self.settings, self.db, self.engine, self.auth, self.provider)
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), self.app.handler())
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.base = f"http://127.0.0.1:{self.server.server_address[1]}"
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.engine.shutdown()
+        self.temp.cleanup()
+
+    def req(self, path, method="GET", body=None, headers=None, secret="test-admin-secret"):
+        h = {"Authorization": f"Bearer {secret}", **(headers or {})}
+        data = None
+        if body is not None:
+            data = json.dumps(body).encode()
+            h["Content-Type"] = "application/json"
+        r = urllib.request.Request(self.base + path, data=data, headers=h, method=method)
+        try:
+            with urllib.request.urlopen(r, timeout=120) as resp:
+                return resp.status, json.loads(resp.read() or b"{}")
+        except urllib.error.HTTPError as exc:
+            return exc.code, json.loads(exc.read() or b"{}")
+
+    def test_captions_srt_vtt_json(self):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": "cap-b", "name": "Cap Brand"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes", "POST", {"id": "cap-e", "brand_id": "cap-b", "title": "Cap"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes/cap-e/storyboard", "POST", {"num_scenes": 2})
+        self.assertEqual(s, 201)
+        s, srt = self.req("/api/v1/kids/episodes/cap-e/captions?format=srt")
+        self.assertEqual(s, 200)
+        self.assertEqual(srt["format"], "srt")
+        self.assertIn("-->", srt["content"])
+        self.assertIn("00:00:00,000 -->", srt["content"])
+        s, vtt = self.req("/api/v1/kids/episodes/cap-e/captions?format=vtt")
+        self.assertTrue(vtt["content"].startswith("WEBVTT"))
+        self.assertIn(".000 -->", vtt["content"])
+        s, js = self.req("/api/v1/kids/episodes/cap-e/captions?format=json")
+        self.assertGreaterEqual(js["entries"], 1)
+        s, denied = self.req("/api/v1/kids/episodes/cap-e/captions?format=ass")
+        self.assertEqual(s, 400)
+        s, missing = self.req("/api/v1/kids/episodes/nope/captions")
+        self.assertEqual(s, 404)
+
+    def test_playlists_resolve_episode_titles(self):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": "pl-b", "name": "Pl Brand"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes", "POST", {"id": "pl-e1", "brand_id": "pl-b", "title": "First"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/campaigns", "POST", {"id": "pl-c", "brand_id": "pl-b",
+                                                            "name": "Camp", "playlist": ["pl-e1", "ghost-e"]})
+        self.assertEqual(s, 201)
+        s, lists = self.req("/api/v1/kids/playlists?brand_id=pl-b")
+        self.assertEqual(s, 200)
+        self.assertEqual(len(lists["items"]), 1)
+        self.assertEqual(lists["items"][0]["episodes"][0]["title"], "First")
+        self.assertEqual(lists["items"][0]["count"], 1)
+
+    def test_mcp_captions_and_playlists(self):
+        from zworkforce.mcp import _call_tool
+        superadmin = type("P", (), {"name": "mcp-c", "role": "superadmin", "key_id": "k",
+                                    "has_scope": lambda self, s: True})()
+        with self.assertRaises(ValueError):
+            _call_tool(self.app, superadmin, "default", "kids.export_captions", {"episode_id": "ghost"})
+        with self.assertRaises(ValueError):
+            _call_tool(self.app, superadmin, "default", "kids.resolve_provider", {"capability": "nope"})
+
+
 if __name__ == "__main__":
     unittest.main()

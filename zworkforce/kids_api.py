@@ -158,6 +158,15 @@ def kids_get(app, tenant_id: str, path: str, query: dict) -> tuple[bool, Any]:
         if not db.kids_get_episode(tenant_id, m.group(1)):
             return True, {"_status": 404, "_error": ("episode_not_found", "episode not found")}
         return True, db.kids_episode_cost(tenant_id, m.group(1))
+    m = re.fullmatch(r"/api/v1/kids/episodes/([a-z0-9][a-z0-9-]{0,62})/captions", path)
+    if m:
+        from .kids_factory import build_captions_export
+        if not db.kids_get_episode(tenant_id, m.group(1)):
+            return True, {"_status": 404, "_error": ("episode_not_found", "episode not found")}
+        scenes = db.kids_list_scenes(tenant_id, m.group(1))
+        return True, build_captions_export(scenes=scenes, format=(_strq(query, "format") or "srt"))
+    if path == "/api/v1/kids/playlists":
+        return True, {"items": db.kids_playlists(tenant_id, brand_id=_strq(query, "brand_id"))}
     if path == "/api/v1/kids/voices":
         return True, {"items": db.kids_list_voices(tenant_id, language=_strq(query, "language"))}
     if path == "/api/v1/kids/music":

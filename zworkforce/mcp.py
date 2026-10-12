@@ -90,6 +90,19 @@ MCP_TOOLS: dict[str, dict[str, Any]] = {
         "inputSchema": {"type": "object", "properties": {"episode_id": {"type": "string"}}, "required": ["episode_id"]},
         "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
     },
+    "kids.export_captions": {
+        "name": "kids.export_captions",
+        "description": "Build SRT/VTT/JSON caption tracks from episode scenes with timings.",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "format": {"type": "string"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.list_playlists": {
+        "name": "kids.list_playlists",
+        "description": "Playlist planning view: campaigns with ordered episode titles.",
+        "inputSchema": {"type": "object", "properties": {"brand_id": {"type": "string"}}},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
     "kids.submit_translation": {
         "name": "kids.submit_translation",
         "description": "Submit human translation lines for episode scenes (requires automation:write).",
