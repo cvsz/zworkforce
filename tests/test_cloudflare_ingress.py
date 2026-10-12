@@ -18,6 +18,41 @@ CLOUDFLARE_APPLY = ROOT / "scripts" / "cloudflare-apply.sh"
 CLOUDFLARE_LEGACY_APPLY = ROOT / "scripts" / "cloudflare" / "cloudflare-apply.sh"
 
 
+class CloudflareDashboardEntryPointTests(unittest.TestCase):
+    """Exercise the actual Python HTTP origin, not only the ingress text."""
+
+    def test_advertised_paths_serve_dashboard(self):
+        import threading
+        from http.server import ThreadingHTTPServer
+        from urllib.request import urlopen
+        from common import stack
+        from zworkforce.api import App
+
+        temp, settings, db, provider, engine, auth = stack()
+        server = None
+        thread = None
+        try:
+            server = ThreadingHTTPServer(("127.0.0.1", 0), App(settings, db, engine, auth, provider).handler())
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            origin = f"http://127.0.0.1:{server.server_address[1]}"
+            for path in ("/", "/apps/", "/service/", "/package/",
+                         "/apps", "/service", "/package"):
+                with self.subTest(path=path):
+                    with urlopen(origin + path, timeout=5) as response:
+                        self.assertEqual(response.status, 200)
+                        self.assertIn("text/html", response.headers.get("Content-Type", ""))
+                        self.assertTrue(response.read())
+        finally:
+            if server is not None:
+                server.shutdown()
+                server.server_close()
+            if thread is not None:
+                thread.join(timeout=5)
+            engine.shutdown()
+            temp.cleanup()
+
+
 class CloudflareIngressTests(unittest.TestCase):
 
     def test_zwf_path_routes_precede_fallback(self):
