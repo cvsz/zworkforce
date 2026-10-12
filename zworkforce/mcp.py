@@ -34,6 +34,190 @@ class MCPError(RuntimeError):
 
 
 MCP_TOOLS: dict[str, dict[str, Any]] = {
+    "kids.create_campaign": {
+        "name": "kids.create_campaign",
+        "description": "Create a content campaign plan for a brand (requires automation:write).",
+        "inputSchema": {"type": "object", "properties": {
+            "id": {"type": "string"}, "brand_id": {"type": "string"}, "name": {"type": "string"},
+            "topic": {"type": "string"}}, "required": ["id", "brand_id", "name"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.create_episode_draft": {
+        "name": "kids.create_episode_draft",
+        "description": "Create a Kids Factory episode draft (requires automation:write).",
+        "inputSchema": {"type": "object", "properties": {
+            "id": {"type": "string"}, "brand_id": {"type": "string"}, "title": {"type": "string"},
+            "summary": {"type": "string"}, "age_band": {"type": "string"}, "language": {"type": "string"}},
+            "required": ["id", "brand_id", "title"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.create_language_variant": {
+        "name": "kids.create_language_variant",
+        "description": "Draft a language variant shell for an episode (machine draft, needs human review).",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "id": {"type": "string"}, "language": {"type": "string"}},
+            "required": ["episode_id", "language"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.suggest_marketing": {
+        "name": "kids.suggest_marketing",
+        "description": "Draft marketing suggestions for an episode (estimates only, human-editable).",
+        "inputSchema": {"type": "object", "properties": {"episode_id": {"type": "string"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.queue_render": {
+        "name": "kids.queue_render",
+        "description": "Queue a render job for later tick processing (idempotent).",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "preset": {"type": "string"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.tick_render_queue": {
+        "name": "kids.tick_render_queue",
+        "description": "Process the oldest queued render job once (bounded attempts, dead-letter after 3).",
+        "inputSchema": {"type": "object", "properties": {}},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    },
+    "kids.submit_translation": {
+        "name": "kids.submit_translation",
+        "description": "Submit human translation lines for episode scenes (requires automation:write).",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "scenes": {"type": "array"}}, "required": ["episode_id", "scenes"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    },
+    "kids.create_schedule": {
+        "name": "kids.create_schedule",
+        "description": "Schedule an episode for a channel slot (future ISO-8601 with timezone; conflicts fail).",
+        "inputSchema": {"type": "object", "properties": {
+            "channel_id": {"type": "string"}, "episode_id": {"type": "string"}, "slot_at": {"type": "string"}},
+            "required": ["channel_id", "episode_id", "slot_at"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.list_schedules": {
+        "name": "kids.list_schedules",
+        "description": "List scheduled publishing slots.",
+        "inputSchema": {"type": "object", "properties": {"channel_id": {"type": "string"}}},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.set_provider_route": {
+        "name": "kids.set_provider_route",
+        "description": "Set the ordered provider route for a capability (requires automation:write).",
+        "inputSchema": {"type": "object", "properties": {
+            "capability": {"type": "string"}, "providers": {"type": "array"}}, "required": ["capability", "providers"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.resolve_provider": {
+        "name": "kids.resolve_provider",
+        "description": "Resolve the provider route for a capability with enabled flags and cost preview.",
+        "inputSchema": {"type": "object", "properties": {"capability": {"type": "string"}}, "required": ["capability"]},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.export_episode": {
+        "name": "kids.export_episode",
+        "description": "Export the full episode bundle for backup/restore drills.",
+        "inputSchema": {"type": "object", "properties": {"episode_id": {"type": "string"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.import_episode": {
+        "name": "kids.import_episode",
+        "description": "Restore an episode creative graph from an export bundle (same tenant; approvals must be re-done).",
+        "inputSchema": {"type": "object", "properties": {
+            "bundle": {"type": "object"}, "id": {"type": "string"}}, "required": ["bundle"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    },
+    "kids.get_analytics_summary": {
+        "name": "kids.get_analytics_summary",
+        "description": "Aggregate persisted Kids Factory rows (never fabricated views).",
+        "inputSchema": {"type": "object", "properties": {}},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.derive_shorts": {
+        "name": "kids.derive_shorts",
+        "description": "Derive a 9:16 short-form episode from a landscape episode (requires automation:write).",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "id": {"type": "string"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.create_storyboard": {
+        "name": "kids.create_storyboard",
+        "description": "Build a deterministic storyboard from the latest script.",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "num_scenes": {"type": "integer"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    },
+    "kids.generate_scene_assets": {
+        "name": "kids.generate_scene_assets",
+        "description": "Register clearly-labeled synthetic scene assets (mock provider, no real generation).",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "scene_id": {"type": "string"}}, "required": ["episode_id", "scene_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    },
+    "kids.generate_script": {
+        "name": "kids.generate_script",
+        "description": "Generate a structured mock script draft for an episode (synthetic fixture).",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "content_type": {"type": "string"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    },
+    "kids.get_render_status": {
+        "name": "kids.get_render_status",
+        "description": "Read a Kids Factory render job by id.",
+        "inputSchema": {"type": "object", "properties": {"render_job_id": {"type": "string"}}, "required": ["render_job_id"]},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.get_video_analytics": {
+        "name": "kids.get_video_analytics",
+        "description": "Read synthetic analytics snapshots (explicitly labeled, never fabricated as real).",
+        "inputSchema": {"type": "object", "properties": {"channel_id": {"type": "string"}}},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.list_brands": {
+        "name": "kids.list_brands",
+        "description": "List Kids Factory brand profiles for the tenant.",
+        "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer"}}},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.list_campaigns": {
+        "name": "kids.list_campaigns",
+        "description": "List Kids Factory campaigns for the tenant.",
+        "inputSchema": {"type": "object", "properties": {"brand_id": {"type": "string"}}},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.request_character_review": {
+        "name": "kids.request_character_review",
+        "description": "Request human review for a character (locks reference and opens approval).",
+        "inputSchema": {"type": "object", "properties": {"character_id": {"type": "string"}}, "required": ["character_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    },
+    "kids.request_publish_approval": {
+        "name": "kids.request_publish_approval",
+        "description": "Request human approval before any YouTube publishing (mandatory gate).",
+        "inputSchema": {"type": "object", "properties": {"episode_id": {"type": "string"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    },
+    "kids.submit_render": {
+        "name": "kids.submit_render",
+        "description": "Submit a deterministic sample render (FFmpeg local, synthetic).",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "preset": {"type": "string"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.run_episode_pipeline": {
+        "name": "kids.run_episode_pipeline",
+        "description": "Run the pre-publish agent pipeline for an episode (bounded, idempotent steps; publishing stays manual).",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "preset": {"type": "string"}, "num_scenes": {"type": "integer"}},
+            "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.run_episode_pipeline": {
+        "name": "kids.run_episode_pipeline",
+        "description": "Run the pre-publish agent pipeline for an episode (bounded, idempotent steps; publishing stays manual).",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "preset": {"type": "string"}, "num_scenes": {"type": "integer"}},
+            "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
     "workforce.submit_task": {
         "name": "workforce.submit_task",
         "description": "Submit a bounded zWorkforce task to a tenant agent.",
@@ -330,6 +514,9 @@ def _call_tool(app, principal, tenant_id: str, name: str, args: dict[str, Any]) 
                                          signing_key=app.settings.skill_signing_key, sign_skills=sign_skills)
         app.db.audit(tenant_id, principal.name, "prometa.mcp_install", "prometa", "default", result)
         return result
+    if name.startswith("kids."):
+        from .kids_mcp import call_kids_tool
+        return call_kids_tool(app, principal, tenant_id, name, args)
     raise ValueError(f"unknown MCP tool: {name}")
 
 
