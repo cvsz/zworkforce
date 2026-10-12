@@ -8,3 +8,5 @@
 - Costs: `kids_usage` ledger per episode/provider/capability; overview exposes totals; episode `budget_credits` gates pipeline render.
 - Recovery: failed renders can be retried (`.../retry` resets to queued); pipeline reruns resume from `kids_agent_runs` checkpoints; publishing resume reuses idempotency key.
 - Rollback: additive tables only; drop `kids_*` tables to disable slice. No migration rewrites existing data.
+
+- Incident/backup/restore/rollback procedures: `RUNBOOK.md`.
