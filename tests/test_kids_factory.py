@@ -965,5 +965,98 @@ class KidsHardeningTests(unittest.TestCase):
         self.assertGreater(self.db.kids_usage_summary("default")["cost_credits"], 0)
 
 
+class KidsFullWorkflowsTests(unittest.TestCase):
+    """Slice 9: worker fan-out, per-episode cost, bilingual end-to-end."""
+
+    def setUp(self):
+        self.temp, self.settings, self.db, self.provider, self.engine, self.auth = stack()
+        self.app = App(self.settings, self.db, self.engine, self.auth, self.provider)
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), self.app.handler())
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.base = f"http://127.0.0.1:{self.server.server_address[1]}"
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.engine.shutdown()
+        self.temp.cleanup()
+
+    def req(self, path, method="GET", body=None, headers=None, secret="test-admin-secret"):
+        h = {"Authorization": f"Bearer {secret}", **(headers or {})}
+        data = None
+        if body is not None:
+            data = json.dumps(body).encode()
+            h["Content-Type"] = "application/json"
+        r = urllib.request.Request(self.base + path, data=data, headers=h, method=method)
+        try:
+            with urllib.request.urlopen(r, timeout=120) as resp:
+                return resp.status, json.loads(resp.read() or b"{}")
+        except urllib.error.HTTPError as exc:
+            return exc.code, json.loads(exc.read() or b"{}")
+
+    def _ready_episode(self, prefix, title="Work"):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": f"{prefix}-b", "name": "W Brand", "language": "en"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes", "POST", {"id": f"{prefix}-e", "brand_id": f"{prefix}-b",
+                                                          "title": title, "summary": "learn"})
+        self.assertIn(s, (200, 201))
+        s, _ = self.req(f"/api/v1/kids/episodes/{prefix}-e/storyboard", "POST", {"num_scenes": 1})
+        self.assertEqual(s, 201)
+        s, _ = self.req(f"/api/v1/kids/episodes/{prefix}-e/timeline", "POST", {})
+        self.assertEqual(s, 201)
+
+    def test_tick_all_processes_bounded_batch(self):
+        self._ready_episode("w1")
+        self._ready_episode("w2")
+        for ep, key in (("w1-e", "tick-all-1"), ("w2-e", "tick-all-2")):
+            s, _ = self.req("/api/v1/kids/render-jobs/queue", "POST", {"episode_id": ep},
+                             headers={"Idempotency-Key": key})
+            self.assertEqual(s, 201)
+        s, result = self.req("/api/v1/kids/render-jobs/tick-all", "POST", {"limit": 5})
+        self.assertEqual(s, 200)
+        self.assertEqual(result["processed"], 2)
+        self.assertTrue(result["idle"])
+        self.assertTrue(all(j["status"] == "succeeded" for j in result["jobs"]))
+        s, empty = self.req("/api/v1/kids/render-jobs/tick-all", "POST", {"limit": 5})
+        self.assertEqual(empty["processed"], 0)
+
+    def test_episode_cost_breakdown(self):
+        self._ready_episode("c1", title="Costly")
+        s, render = self.req("/api/v1/kids/render-jobs", "POST", {"episode_id": "c1-e"})
+        self.assertEqual(render["status"], "succeeded")
+        s, cost = self.req("/api/v1/kids/episodes/c1-e/cost")
+        self.assertEqual(s, 200)
+        self.assertGreater(cost["total_cost_credits"], 0)
+        self.assertTrue(cost["within_budget"])
+        caps = {row["capability"] for row in cost["by_capability"]}
+        self.assertIn("video_render", caps)
+        s, missing = self.req("/api/v1/kids/episodes/nope/cost")
+        self.assertEqual(s, 404)
+
+    def test_thai_bilingual_end_to_end(self):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": "th-b", "name": "Thai Brand", "language": "th"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes", "POST", {"id": "th-e", "brand_id": "th-b",
+                                                          "title": "สีสัน", "summary": "เรียนสีห้าสี",
+                                                          "age_band": "preschool", "language": "th",
+                                                          "objectives": ["สี"], "vocabulary": ["แดง", "ฟ้า"]})
+        self.assertEqual(s, 201)
+        s, pipe = self.req("/api/v1/kids/episodes/th-e/pipeline", "POST", {"num_scenes": 2})
+        self.assertEqual(s, 200)
+        self.assertEqual(pipe["failed"], "")
+        s, cost = self.req("/api/v1/kids/episodes/th-e/cost")
+        self.assertGreaterEqual(cost["total_cost_credits"], 0)
+        from zworkforce.mcp import _call_tool
+        superadmin = type("P", (), {"name": "mcp-th", "role": "superadmin", "key_id": "k",
+                                    "has_scope": lambda self, s: True})()
+        summary = _call_tool(self.app, superadmin, "default", "kids.get_analytics_summary", {})
+        self.assertGreaterEqual(summary["episodes_by_status"].get("in_review", 0), 1)
+        ticked = _call_tool(self.app, superadmin, "default", "kids.tick_all_renders", {"limit": 5})
+        self.assertIn("processed", ticked)
+        epcost = _call_tool(self.app, superadmin, "default", "kids.get_episode_cost", {"episode_id": "th-e"})
+        self.assertEqual(epcost["episode_id"], "th-e")
+
+
 if __name__ == "__main__":
     unittest.main()

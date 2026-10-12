@@ -305,3 +305,17 @@ def tick_render_queue(app, tenant_id: str, actor: str) -> dict[str, Any]:
         updated = db.kids_bump_render_attempt(tenant_id, job["id"], actor, error=str(exc))
         return {"processed": True, "render_job": updated, "error": str(exc)[:300],
                 "dead_letter": bool(updated and updated.get("status") == "failed")}
+
+
+def tick_all_renders(app, tenant_id: str, actor: str, *, limit: int = 5) -> dict[str, Any]:
+    """Process up to `limit` queued render jobs (bounded worker fan-out, default 5, max 20)."""
+    limit = max(1, min(int(limit or 5), 20))
+    processed: list[dict[str, Any]] = []
+    idle = False
+    for _ in range(limit):
+        result = tick_render_queue(app, tenant_id, actor)
+        if not result.get("processed"):
+            idle = True
+            break
+        processed.append(result.get("render_job") or {})
+    return {"processed": len(processed), "idle": idle, "jobs": processed}

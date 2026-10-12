@@ -61,6 +61,14 @@ Addresses the ~35 Codex review findings on PR #285 (all valid ones fixed, with r
 - 42 tests green (15 new hardening regressions).
 - CI installs FFmpeg for the test job: the honesty fix exposed that CI runners have no FFmpeg, so every prior green render was a placeholder marked `succeeded`. Renders are now real 1080p MP4s in CI too.
 
+## Slice 9 — full workflows (this branch)
+
+- Kids Studio workspace: 15 tabbed screens (dashboard, brands, characters, campaigns, episodes, scripts, storyboard, assets, voices, music, renders, approvals, schedules, analytics, providers) over live `/api/v1/kids/*` state; no synthetic progress, no auto-polling.
+- Bounded render fan-out: `POST /api/v1/kids/render-jobs/tick-all` (limit 1..20, default 5) + `kids.tick_all_renders`.
+- Per-episode cost: `GET /api/v1/kids/episodes/{id}/cost` + `kids.get_episode_cost` (ledger breakdown, budget flag).
+- Bilingual proof: Thai end-to-end pipeline test.
+- 45 tests green.
+
 ## NEXT (after review + merge)
 
 1. Land hardening commit, keep CI green, resolve all review threads with per-thread rationale, merge via `cvsz` only with `policedbc` approval present.

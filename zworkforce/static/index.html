@@ -275,6 +275,36 @@
       <div id="kidsEpisodeList" class="memory-list" aria-label="Recent Kids episodes"></div>
     </section>
 
+    <!-- Kids Studio workspace: full CRUD + workflow screens backed by /api/v1/kids/* -->
+    <section class="panel expandable-card" id="kidsStudioCard" aria-label="Kids Studio workspace">
+      <div class="panel-title">
+        <div><span class="eyebrow">KIDS STUDIO WORKSPACE</span><h2>Brands, characters, episodes, renders, approvals</h2></div>
+        <div class="card-tools">
+          <span id="kidsStudioPill" class="pill">Not loaded</span>
+          <button class="icon-button card-maximize-btn" title="Toggle Fullscreen" onclick="toggleCardFullscreen('kidsStudioCard')">🗖</button>
+        </div>
+      </div>
+      <p id="kidsStudioStatus" role="status" aria-live="polite">Connect, then pick a tab. Every view reads live tenant-scoped backend state.</p>
+      <div class="studio-tabs" role="tablist" aria-label="Kids Studio screens">
+        <button role="tab" data-studio-tab="dashboard">Dashboard</button>
+        <button role="tab" data-studio-tab="brands">Brands</button>
+        <button role="tab" data-studio-tab="characters">Characters</button>
+        <button role="tab" data-studio-tab="campaigns">Campaigns</button>
+        <button role="tab" data-studio-tab="episodes">Episodes</button>
+        <button role="tab" data-studio-tab="scripts">Scripts</button>
+        <button role="tab" data-studio-tab="storyboard">Storyboard</button>
+        <button role="tab" data-studio-tab="assets">Assets</button>
+        <button role="tab" data-studio-tab="voices">Voices</button>
+        <button role="tab" data-studio-tab="music">Music</button>
+        <button role="tab" data-studio-tab="renders">Renders</button>
+        <button role="tab" data-studio-tab="approvals">Approvals</button>
+        <button role="tab" data-studio-tab="schedules">Schedules</button>
+        <button role="tab" data-studio-tab="analytics">Analytics</button>
+        <button role="tab" data-studio-tab="providers">Providers</button>
+      </div>
+      <div id="kidsStudioBody"><p>Select a tab to load its screen.</p></div>
+    </section>
+
     <!-- Timeline Activity Feed Section -->
     <section class="panel">
       <div class="panel-title">

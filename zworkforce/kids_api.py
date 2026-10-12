@@ -153,6 +153,11 @@ def kids_get(app, tenant_id: str, path: str, query: dict) -> tuple[bool, Any]:
         if not bundle:
             return True, {"_status": 404, "_error": ("episode_not_found", "episode not found")}
         return True, bundle
+    m = re.fullmatch(r"/api/v1/kids/episodes/([a-z0-9][a-z0-9-]{0,62})/cost", path)
+    if m:
+        if not db.kids_get_episode(tenant_id, m.group(1)):
+            return True, {"_status": 404, "_error": ("episode_not_found", "episode not found")}
+        return True, db.kids_episode_cost(tenant_id, m.group(1))
     if path == "/api/v1/kids/voices":
         return True, {"items": db.kids_list_voices(tenant_id, language=_strq(query, "language"))}
     if path == "/api/v1/kids/music":
@@ -369,6 +374,13 @@ def kids_post(app, principal, tenant_id: str, path: str, body: dict, *, idempote
     if path == "/api/v1/kids/render-jobs/tick":
         from .kids_workflow import tick_render_queue
         return True, tick_render_queue(app, tenant_id, actor), 200
+    if path == "/api/v1/kids/render-jobs/tick-all":
+        from .kids_workflow import tick_all_renders
+        try:
+            limit = int(body.get("limit", 5) or 5)
+        except (TypeError, ValueError):
+            raise KidsValidationError("limit must be an integer")
+        return True, tick_all_renders(app, tenant_id, actor, limit=limit), 200
     m = re.fullmatch(r"/api/v1/kids/render-jobs/([0-9a-f]{12})/retry", path)
     if m:
         job = db.kids_get_render(tenant_id, m.group(1))

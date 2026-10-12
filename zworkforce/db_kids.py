@@ -1033,6 +1033,18 @@ class KidsMixin:
         return {"episode_id": new_episode_id, "counts": counts,
                 "note": "creative graph restored; renders/approvals/publishing must be re-run and re-approved"}
 
+    def kids_episode_cost(self, tenant_id: str, episode_id: str) -> dict:
+        """Cost breakdown for one episode from the recorded usage ledger."""
+        with self.connection() as c:
+            rows = c.execute("SELECT capability,provider,COUNT(*) n,COALESCE(SUM(quantity),0) q,COALESCE(SUM(cost_credits),0) cost FROM kids_usage WHERE tenant_id=? AND episode_id=? GROUP BY capability,provider ORDER BY capability",
+                             (tenant_id, episode_id)).fetchall()
+            by_capability = [{"capability": r[0], "provider": r[1], "events": int(r[2]), "quantity": float(r[3]), "cost_credits": float(r[4])} for r in rows]
+            total = sum(item["cost_credits"] for item in by_capability)
+        episode = self.kids_get_episode(tenant_id, episode_id) or {}
+        budget = float(episode.get("budget_credits", 0) or 0)
+        return {"episode_id": episode_id, "by_capability": by_capability, "total_cost_credits": round(total, 4),
+                "budget_credits": budget, "within_budget": (total <= budget) if budget > 0 else True}
+
     def kids_analytics_summary(self, tenant_id: str) -> dict:
         """Aggregate only persisted rows. Synthetic snapshots are counted separately, never as real views."""
         with self.connection() as c:
