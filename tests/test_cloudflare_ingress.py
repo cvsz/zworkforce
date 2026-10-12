@@ -19,6 +19,57 @@ CLOUDFLARE_LEGACY_APPLY = ROOT / "scripts" / "cloudflare" / "cloudflare-apply.sh
 
 
 class CloudflareIngressTests(unittest.TestCase):
+
+    def test_zwf_path_routes_precede_fallback(self):
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[1]
+        tf = (root / "infrastructure/terraform/cloudflare/zworkforce.tf").read_text()
+        manifests = [
+            root / "deploy/cloudflare/tunnel-ingress.yml",
+            root / "deploy/cloudflare/zwf-ingress.yml.example",
+        ]
+
+        fallback = '{ hostname = var.zwf_hostname, service = var.zwf_origin },'
+        self.assertIn(fallback, tf)
+
+        for prefix in ("apps", "service", "package"):
+            pattern = f"^/{prefix}(/.*)?$"
+            rule = (
+                f'{{ hostname = var.zwf_hostname, path = "{pattern}", '
+                'service = var.zwf_origin },'
+            )
+            with self.subTest(prefix=prefix):
+                self.assertIn(rule, tf)
+                self.assertLess(tf.index(rule), tf.index(fallback))
+
+                for manifest in manifests:
+                    content = manifest.read_text()
+                    manifest_rule = (
+                        "hostname: zwf.zeaz.dev\n"
+                        f"    path: '{pattern}'\n"
+                        "    service: http://127.0.0.1:9570"
+                    )
+                    self.assertIn(manifest_rule, content)
+                    self.assertLess(
+                        content.index(manifest_rule),
+                        content.index(
+                            "hostname: zwf.zeaz.dev\n"
+                            "    service: http://127.0.0.1:9570"
+                        )
+                    )
+
+        for name, path in (
+            ("zwf_apps_url", "/apps/"),
+            ("zwf_services_url", "/service/"),
+            ("zwf_packages_url", "/package/"),
+        ):
+            self.assertIn(f'output "{name}"', tf)
+            self.assertIn(
+                f'value       = "https://${{var.zwf_hostname}}{path}"',
+                tf,
+            )
+
     def test_zwf_api_is_a_single_canonical_tunnel_route(self):
         terraform = TERRAFORM.read_text(encoding="utf-8")
         outputs = OUTPUTS.read_text(encoding="utf-8")
