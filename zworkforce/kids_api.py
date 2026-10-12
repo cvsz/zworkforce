@@ -20,6 +20,7 @@ from .kids_factory import (
     suggest_marketing,
     synth_preview_wav,
     validate_brand,
+    validate_channel,
     validate_character,
     validate_episode,
     validate_media_upload,
@@ -40,6 +41,17 @@ def _slug_or_raise(value: str, field: str) -> str:
     if not SLUG.fullmatch(text):
         raise KidsValidationError(f"{field} must match [a-z0-9-], 2..63 chars")
     return text
+
+
+def _enforce_render_budget(db, tenant_id: str, episode: dict) -> float:
+    """Shared budget gate for every render entrypoint (sync, queue, pipeline)."""
+    from .kids_workflow import check_budget, KidsBudgetBlocked
+    scenes = db.kids_list_scenes(tenant_id, episode["id"])
+    total = sum(float(s.get("duration_seconds", 5)) for s in scenes)
+    estimated = estimate_cost(num_scenes=len(scenes), duration_total=total)
+    check_budget(db, tenant_id, episode, estimated)
+    check_brand_quota(db, tenant_id, episode.get("brand_id", ""), extra_cost=estimated)
+    return estimated
 
 
 def kids_get(app, tenant_id: str, path: str, query: dict) -> tuple[bool, Any]:
@@ -182,7 +194,8 @@ def kids_post(app, principal, tenant_id: str, path: str, body: dict, *, idempote
         brand_id = _slug_or_raise(body.get("brand_id", ""), "channel.brand_id")
         if not db.kids_get_brand(tenant_id, brand_id):
             raise KidsValidationError("channel.brand_id does not exist in this tenant")
-        return True, db.kids_upsert_channel(tenant_id, channel_id, brand_id, body, actor), 201
+        validated = validate_channel(body)
+        return True, db.kids_upsert_channel(tenant_id, channel_id, brand_id, validated, actor), 201
     if path == "/api/v1/kids/campaigns":
         campaign_id = _slug_or_raise(body.get("id", ""), "campaign.id")
         brand_id = _slug_or_raise(body.get("brand_id", ""), "campaign.brand_id")
@@ -213,10 +226,14 @@ def kids_post(app, principal, tenant_id: str, path: str, body: dict, *, idempote
         if not db.kids_get_brand(tenant_id, brand_id):
             raise KidsValidationError("episode.brand_id does not exist in this tenant")
         validated = validate_episode(body)
+        key = idempotency_key or str(body.get("idempotency_key", ""))
+        replay = db.kids_find_episode_by_idem(tenant_id, key)
+        if replay:
+            return True, replay, 200
         check_brand_quota(db, tenant_id, brand_id, extra_episodes=1)
         episode, created = db.kids_create_episode(tenant_id, ep_id, brand_id, validated, actor,
                                                   channel_id=str(body.get("channel_id", ""))[:64],
-                                                  idempotency_key=idempotency_key or str(body.get("idempotency_key", "")))
+                                                  idempotency_key=key)
         return True, episode, 201 if created else 200
     m = re.fullmatch(r"/api/v1/kids/episodes/([a-z0-9][a-z0-9-]{0,62})/script", path)
     if m:
@@ -241,11 +258,9 @@ def kids_post(app, principal, tenant_id: str, path: str, body: dict, *, idempote
         except (TypeError, ValueError):
             raise KidsValidationError("num_scenes must be an integer")
         plan = build_storyboard(script_body=script_body, num_scenes=num_scenes)
-        saved = []
         for index, item in enumerate(plan):
-            scene_id = f"s{index + 1:02d}"
-            validated = validate_scene(item)
-            saved.append(db.kids_upsert_scene(tenant_id, episode_id, scene_id, validated, actor))
+            item["id"] = f"s{index + 1:02d}"
+        saved = db.kids_replace_storyboard(tenant_id, episode_id, plan, actor)
         db.kids_set_episode_status(tenant_id, episode_id, "storyboarded", actor)
         db.kids_record_usage(tenant_id, episode_id, "mock", "llm", float(len(saved)), 0.1 * len(saved))
         return True, {"items": saved}, 201
@@ -274,21 +289,57 @@ def kids_post(app, principal, tenant_id: str, path: str, body: dict, *, idempote
         db.kids_record_usage(tenant_id, episode_id, "ffmpeg", "render_plan", 1.0, cost * 0.1)
         return True, {**saved, "estimated_cost_credits": cost}, 201
     if path == "/api/v1/kids/assets":
+        import base64 as _b64
+        import hashlib as _hl
+        import re as _re
+        raw_b64 = str(body.get("content_base64", ""))
+        data: bytes | None = None
+        if raw_b64:
+            try:
+                data = _b64.b64decode(raw_b64, validate=True)
+            except Exception:
+                raise KidsValidationError("asset.content_base64 is invalid")
+            if len(data) > 25 * 1024 * 1024:
+                raise KidsValidationError("asset content exceeds 25 MiB")
         validate_media_upload(filename=str(body.get("name", "")), content_type=str(body.get("content_type", "")),
-                              size_bytes=int(body.get("size_bytes", 0) or 0))
+                              size_bytes=len(data) if data is not None else int(body.get("size_bytes", 0) or 0))
         episode_id = str(body.get("episode_id", ""))
         if episode_id and not db.kids_get_episode(tenant_id, episode_id):
             raise KidsValidationError("asset.episode_id does not exist in this tenant")
-        return True, db.kids_register_asset(tenant_id, body, actor), 201
+        claimed_sha = str(body.get("sha256", ""))
+        if data is not None:
+            actual_sha = _hl.sha256(data).hexdigest()
+            if claimed_sha and claimed_sha.lower() != actual_sha:
+                raise KidsValidationError("asset.sha256 does not match uploaded content")
+            stored = app.artifacts.put_bytes(tenant_id, str(body.get("name", "asset.bin")), data, actor=actor,
+                                             content_type=str(body.get("content_type", "")),
+                                             metadata={"kids_episode": episode_id, "verified": True})
+            return True, db.kids_register_asset(tenant_id, {
+                "episode_id": episode_id, "scene_id": str(body.get("scene_id", "")),
+                "kind": str(body.get("kind", "image")), "name": str(body.get("name", "")),
+                "storage_uri": stored.get("storage_uri", ""), "sha256": stored.get("sha256", actual_sha),
+                "size_bytes": stored.get("size_bytes", len(data)),
+                "provenance": {**(body.get("provenance") or {}), "verified": True}}, actor), 201
+        if not claimed_sha or not _re.fullmatch(r"[0-9a-fA-F]{64}", claimed_sha):
+            raise KidsValidationError("asset.sha256 must be a 64-char hex digest for metadata-only registration")
+        return True, db.kids_register_asset(tenant_id, {
+            "episode_id": episode_id, "scene_id": str(body.get("scene_id", "")),
+            "kind": str(body.get("kind", "image")), "name": str(body.get("name", "")),
+            "storage_uri": str(body.get("storage_uri", "")), "sha256": claimed_sha.lower(),
+            "size_bytes": int(body.get("size_bytes", 0) or 0),
+            "provenance": {**(body.get("provenance") or {}), "verified": False}}, actor), 201
     if path == "/api/v1/kids/render-jobs":
         episode_id = _slug_or_raise(body.get("episode_id", ""), "render.episode_id")
         episode = db.kids_get_episode(tenant_id, episode_id)
         if not episode:
             return True, {"error": {"code": "episode_not_found", "message": "episode not found"}}, 404
+        if db.kids_is_unreviewed_variant(tenant_id, episode_id):
+            raise KidsValidationError("translation review required: submit human translation before rendering this variant")
         timeline = db.kids_latest_timeline(tenant_id, episode_id)
         if not timeline:
             raise KidsValidationError("episode has no timeline; build timeline before rendering")
         preset = str(body.get("preset", "landscape_1080p"))
+        _enforce_render_budget(db, tenant_id, episode)
         job, created = db.kids_submit_render(tenant_id, episode_id, int(timeline.get("version", 1)), preset, actor,
                                              idempotency_key=idempotency_key or str(body.get("idempotency_key", "")))
         if not created:
@@ -305,10 +356,13 @@ def kids_post(app, principal, tenant_id: str, path: str, body: dict, *, idempote
         episode = db.kids_get_episode(tenant_id, episode_id)
         if not episode:
             return True, {"error": {"code": "episode_not_found", "message": "episode not found"}}, 404
+        if db.kids_is_unreviewed_variant(tenant_id, episode_id):
+            raise KidsValidationError("translation review required: submit human translation before rendering this variant")
         timeline = db.kids_latest_timeline(tenant_id, episode_id)
         if not timeline:
             raise KidsValidationError("episode has no timeline; build timeline before queueing")
         preset = str(body.get("preset", "landscape_1080p"))
+        _enforce_render_budget(db, tenant_id, episode)
         job, created = db.kids_submit_render(tenant_id, episode_id, int(timeline.get("version", 1)), preset, actor,
                                              idempotency_key=idempotency_key or str(body.get("idempotency_key", "")))
         return True, job, 201 if created else 200
@@ -330,11 +384,12 @@ def kids_post(app, principal, tenant_id: str, path: str, body: dict, *, idempote
             return True, {"error": {"code": "episode_not_found", "message": "episode not found"}}, 404
         subject_type = str(body.get("subject_type", "episode"))[:24] or "episode"
         # รัน safety check อัตโนมัติก่อนขออนุมัติ (QA gate, ไม่แทน human approval)
+        from .kids_factory import build_safety_corpus
         episode = db.kids_get_episode(tenant_id, episode_id)
         script = db.kids_latest_script(tenant_id, episode_id)
         scenes = db.kids_list_scenes(tenant_id, episode_id)
-        corpus = (episode.get("summary", "") + " " + str((script or {}).get("body", "")) + " " +
-                  " ".join(s.get("visual_prompt", "") for s in scenes))
+        timeline = db.kids_latest_timeline(tenant_id, episode_id)
+        corpus = build_safety_corpus(episode=episode, script=script, scenes=scenes, timeline=timeline)
         report = kids_safety_check(age_band=episode.get("age_band", "preschool"), text=corpus)
         db.kids_save_moderation(tenant_id, episode_id, report, f"quality-agent:{actor}")
         if not report["passed"]:
@@ -357,6 +412,8 @@ def kids_post(app, principal, tenant_id: str, path: str, body: dict, *, idempote
         episode = db.kids_get_episode(tenant_id, episode_id)
         if not episode:
             return True, {"error": {"code": "episode_not_found", "message": "episode not found"}}, 404
+        if db.kids_is_unreviewed_variant(tenant_id, episode_id):
+            raise KidsValidationError("translation review required: submit human translation before publishing this variant")
         metadata = prepare_youtube_metadata(title=body.get("title") or episode.get("title", ""),
                                             description=body.get("description") or episode.get("summary", ""),
                                             audience=str(body.get("audience", "madeForKids")))
@@ -383,14 +440,15 @@ def kids_post(app, principal, tenant_id: str, path: str, body: dict, *, idempote
             done = db.kids_publish_approved(tenant_id, job["id"], external, actor)
         except ValueError as exc:
             raise KidsValidationError(str(exc))
-        db.kids_record_usage(tenant_id, job["episode_id"], "youtube_mock", "upload", 1.0, 0.1)
+        # Usage is recorded inside kids_publish_approved exactly once, on the
+        # prepared -> published transition, so retries stay cost-idempotent.
         return True, {**(done or job), "mock_upload": external}, 200
     if path == "/api/v1/kids/analytics/snapshot":
         snap = db.kids_save_analytics(tenant_id, {"channel_id": str(body.get("channel_id", "")),
                                                   "episode_id": str(body.get("episode_id", "")),
                                                   "period": str(body.get("period", "7d")),
                                                   "metrics": body.get("metrics") or {"note": "synthetic fixture, not real YouTube data"},
-                                                  "synthetic": True})
+                                                  "synthetic": True}, actor)
         return True, snap, 201
     if path == "/api/v1/kids/episodes/import":
         bundle = body.get("bundle")
@@ -457,6 +515,11 @@ def kids_post(app, principal, tenant_id: str, path: str, body: dict, *, idempote
         if not parent:
             return True, {"error": {"code": "episode_not_found", "message": "episode not found"}}, 404
         child_id = _slug_or_raise(body.get("id", f"{parent_id}-shorts"), "episode.id")
+        key = idempotency_key or f"shorts:{parent_id}:{child_id}"
+        replay = db.kids_find_episode_by_idem(tenant_id, key)
+        if replay:
+            return True, {"episode": replay, "derivation": db.kids_get_derivation(tenant_id, replay["id"]),
+                          "preset": "portrait_1080x1920"}, 200
         check_brand_quota(db, tenant_id, parent["brand_id"], extra_episodes=1)
         child_validated = validate_episode({"title": f"{parent['title']} (Shorts)",
                                             "summary": parent.get("summary", ""),
@@ -466,7 +529,7 @@ def kids_post(app, principal, tenant_id: str, path: str, body: dict, *, idempote
                                             "vocabulary": parent.get("vocabulary", [])})
         child, created = db.kids_create_episode(tenant_id, child_id, parent["brand_id"], child_validated, actor,
                                                 channel_id=parent.get("channel_id", ""),
-                                                idempotency_key=idempotency_key or f"shorts:{parent_id}:{child_id}")
+                                                idempotency_key=key)
         if created:
             parent_scenes = db.kids_list_scenes(tenant_id, parent_id)[:3]
             for index, scene in enumerate(parent_scenes):
@@ -502,16 +565,21 @@ def kids_post(app, principal, tenant_id: str, path: str, body: dict, *, idempote
             return True, {"error": {"code": "episode_not_found", "message": "episode not found"}}, 404
         language = str(body.get("language", "")).strip().lower()
         child_id = _slug_or_raise(body.get("id", f"{parent_id}-{language or 'variant'}"), "episode.id")
+        key = idempotency_key or f"variant:{parent_id}:{child_id}"
+        replay = db.kids_find_episode_by_idem(tenant_id, key)
+        if replay:
+            return True, {"episode": replay, "derivation": db.kids_get_derivation(tenant_id, replay["id"]),
+                          "translation_status": db.kids_translation_status(tenant_id, replay["id"])}, 200
         check_brand_quota(db, tenant_id, parent["brand_id"], extra_episodes=1)
         draft = build_language_variant(parent=parent, language=language)
         child, created = db.kids_create_episode(tenant_id, child_id, parent["brand_id"],
                                                 {k: draft[k] for k in ("title", "summary", "age_band", "language", "objectives", "vocabulary", "budget_credits")},
                                                 actor, channel_id=parent.get("channel_id", ""),
-                                                idempotency_key=idempotency_key or f"variant:{parent_id}:{child_id}")
+                                                idempotency_key=key)
         if created:
             db.kids_record_derivation(tenant_id, parent_id, child_id, "language-variant", actor)
         return True, {"episode": child, "derivation": db.kids_get_derivation(tenant_id, child_id),
-                      "translation_status": "needs_review"}, 201 if created else 200
+                      "translation_status": db.kids_translation_status(tenant_id, child["id"])}, 201 if created else 200
     m = re.fullmatch(r"/api/v1/kids/episodes/([a-z0-9][a-z0-9-]{0,62})/marketing", path)
     if m:
         episode = db.kids_get_episode(tenant_id, m.group(1))

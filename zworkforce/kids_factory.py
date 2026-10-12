@@ -34,8 +34,8 @@ CONTENT_TYPES = {
     "animated_story",
 }
 RENDER_PRESETS = {
-    "landscape_1080p": {"width": 1280, "height": 720, "fps": 24},
-    "portrait_1080x1920": {"width": 720, "height": 1280, "fps": 24},
+    "landscape_1080p": {"width": 1920, "height": 1080, "fps": 24},
+    "portrait_1080x1920": {"width": 1080, "height": 1920, "fps": 24},
 }
 TIMELINE_TRACKS = ("video", "overlay", "voice", "music", "sfx", "captions", "branding")
 
@@ -99,6 +99,21 @@ def _check_copyright(text: str) -> None:
             raise KidsValidationError(f"content references protected work '{hint}'; use original designs only")
 
 
+def _scan_nested(value: Any, field: str, *, _depth: int = 0) -> None:
+    """Fail closed when nested settings smuggle secret-like values (never persisted to browser-visible reads)."""
+    if _depth > 6:
+        raise KidsValidationError(f"{field} is nested too deeply")
+    if isinstance(value, str):
+        if SECRET_LIKE.search(value):
+            raise KidsValidationError(f"{field} looks like it contains a secret; use server-side secret references")
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            _scan_nested(item, f"{field}.{key}", _depth=_depth + 1)
+    elif isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            _scan_nested(item, f"{field}[{index}]", _depth=_depth + 1)
+
+
 def validate_brand(payload: dict[str, Any]) -> dict[str, Any]:
     name = _text(payload.get("name"), "brand.name", max_len=120, required=True)
     _check_copyright(name + " " + str(payload.get("description", "")))
@@ -106,6 +121,12 @@ def validate_brand(payload: dict[str, Any]) -> dict[str, Any]:
     language = str(payload.get("language", "en")).strip().lower()
     if language not in LANGUAGES:
         raise KidsValidationError("brand.language must be 'en' or 'th'")
+    voice_defaults = dict(payload.get("voice_defaults") or {})
+    content_policy = dict(payload.get("content_policy") or {})
+    publishing = dict(payload.get("publishing") or {})
+    _scan_nested(voice_defaults, "brand.voice_defaults")
+    _scan_nested(content_policy, "brand.content_policy")
+    _scan_nested(publishing, "brand.publishing")
     return {
         "name": name,
         "description": _text(payload.get("description"), "brand.description", max_len=2000),
@@ -113,10 +134,25 @@ def validate_brand(payload: dict[str, Any]) -> dict[str, Any]:
         "language": language,
         "art_style": _text(payload.get("art_style"), "brand.art_style", max_len=200),
         "music_style": _text(payload.get("music_style"), "brand.music_style", max_len=200),
-        "voice_defaults": dict(payload.get("voice_defaults") or {}),
-        "content_policy": dict(payload.get("content_policy") or {}),
-        "publishing": dict(payload.get("publishing") or {}),
+        "voice_defaults": voice_defaults,
+        "content_policy": content_policy,
+        "publishing": publishing,
     }
+
+
+CHANNEL_PLATFORMS = ("youtube", "youtube_mock", "tiktok", "facebook", "instagram")
+
+
+def validate_channel(payload: dict[str, Any]) -> dict[str, Any]:
+    name = _text(payload.get("name"), "channel.name", max_len=160, required=True)
+    platform = str(payload.get("platform", "youtube")).strip().lower()
+    if platform not in CHANNEL_PLATFORMS:
+        raise KidsValidationError(f"channel.platform must be one of {list(CHANNEL_PLATFORMS)}")
+    external_ref = _text(payload.get("external_account_ref"), "channel.external_account_ref", max_len=200)
+    _scan_nested(external_ref, "channel.external_account_ref")
+    settings = dict(payload.get("publishing_settings") or {})
+    _scan_nested(settings, "channel.publishing_settings")
+    return {"name": name, "platform": platform, "external_account_ref": external_ref, "publishing_settings": settings}
 
 
 def validate_character(payload: dict[str, Any]) -> dict[str, Any]:
@@ -135,6 +171,28 @@ def validate_character(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _bounded_str_list(values: Any, field: str, *, max_items: int = 40, max_len: int = 120) -> list[str]:
+    if values is None:
+        return []
+    if not isinstance(values, list):
+        raise KidsValidationError(f"{field} must be a list of strings")
+    if len(values) > max_items:
+        raise KidsValidationError(f"{field} exceeds {max_items} entries")
+    cleaned: list[str] = []
+    for item in values:
+        if not isinstance(item, str):
+            raise KidsValidationError(f"{field} entries must be strings")
+        text = item.strip()
+        if not text:
+            continue
+        if len(text) > max_len:
+            raise KidsValidationError(f"{field} entry exceeds {max_len} chars")
+        if SECRET_LIKE.search(text):
+            raise KidsValidationError(f"{field} entry looks like it contains a secret")
+        cleaned.append(text)
+    return cleaned
+
+
 def validate_episode(payload: dict[str, Any]) -> dict[str, Any]:
     title = _text(payload.get("title"), "episode.title", max_len=160, required=True)
     _check_copyright(title + " " + str(payload.get("summary", "")))
@@ -149,8 +207,8 @@ def validate_episode(payload: dict[str, Any]) -> dict[str, Any]:
         "summary": _text(payload.get("summary"), "episode.summary", max_len=2000),
         "age_band": age_band,
         "language": language,
-        "objectives": list(payload.get("objectives") or []),
-        "vocabulary": list(payload.get("vocabulary") or []),
+        "objectives": _bounded_str_list(payload.get("objectives"), "episode.objectives"),
+        "vocabulary": _bounded_str_list(payload.get("vocabulary"), "episode.vocabulary"),
         "budget_credits": max(0.0, float(payload.get("budget_credits", 0) or 0)),
     }
 
@@ -182,19 +240,65 @@ def validate_scene(payload: dict[str, Any]) -> dict[str, Any]:
     ordering = int(payload.get("ordering", 0) or 0)
     if not 0 <= ordering <= 500:
         raise KidsValidationError("scene.ordering must be 0..500")
+    dialogue = payload.get("dialogue") or {}
+    if not isinstance(dialogue, dict):
+        raise KidsValidationError("scene.dialogue must be an object")
+    _scan_nested(dialogue, "scene.dialogue")
+    captions = payload.get("captions") or []
+    if not isinstance(captions, list):
+        raise KidsValidationError("scene.captions must be a list")
+    _scan_nested(captions, "scene.captions")
+    music_cues = payload.get("music_cues") or []
+    if not isinstance(music_cues, list):
+        raise KidsValidationError("scene.music_cues must be a list")
+    character_refs = payload.get("character_refs") or []
+    if not isinstance(character_refs, list):
+        raise KidsValidationError("scene.character_refs must be a list")
+    asset_ids = payload.get("asset_ids") or []
+    if not isinstance(asset_ids, list):
+        raise KidsValidationError("scene.asset_ids must be a list")
+    camera = payload.get("camera") or {}
+    if not isinstance(camera, dict):
+        raise KidsValidationError("scene.camera must be an object")
     return {
         "ordering": ordering,
         "duration_seconds": duration,
         "objective": _text(payload.get("objective"), "scene.objective", max_len=500),
         "visual_prompt": visual,
         "negative_prompt": _text(payload.get("negative_prompt"), "scene.negative_prompt", max_len=1000),
-        "character_refs": list(payload.get("character_refs") or []),
-        "camera": dict(payload.get("camera") or {}),
-        "dialogue": dict(payload.get("dialogue") or {}),
-        "music_cues": list(payload.get("music_cues") or []),
-        "captions": list(payload.get("captions") or []),
-        "asset_ids": list(payload.get("asset_ids") or []),
+        "character_refs": [str(x)[:64] for x in character_refs],
+        "camera": camera,
+        "dialogue": dialogue,
+        "music_cues": music_cues,
+        "captions": captions,
+        "asset_ids": [str(x)[:32] for x in asset_ids],
     }
+
+
+def build_safety_corpus(*, episode: dict[str, Any], script: dict[str, Any] | None,
+                        scenes: list[dict[str, Any]], timeline: dict[str, Any] | None) -> str:
+    """Single shared corpus for every transport: script, visuals, dialogue, captions, timeline tracks."""
+    parts: list[str] = [str(episode.get("summary", ""))]
+    body = ((script or {}).get("body")) or {}
+    if isinstance(body, dict):
+        parts.append(" ".join(str(v) for v in body.values()))
+    for scene in scenes or []:
+        parts.append(str(scene.get("visual_prompt", "")))
+        dialogue = scene.get("dialogue") or {}
+        if isinstance(dialogue, dict) and dialogue.get("line"):
+            parts.append(str(dialogue["line"]))
+        for caption in scene.get("captions") or []:
+            if isinstance(caption, dict):
+                parts.append(str(caption.get("text", "")))
+            else:
+                parts.append(str(caption))
+    tracks = ((timeline or {}).get("tracks")) or {}
+    if isinstance(tracks, dict):
+        for name in ("voice", "captions"):
+            for entry in tracks.get(name) or []:
+                if isinstance(entry, dict):
+                    parts.append(str(entry.get("line", entry.get("text", ""))))
+    return " ".join(p for p in parts if p)
 
 
 def validate_timeline(payload: dict[str, Any]) -> dict[str, Any]:
@@ -349,7 +453,7 @@ def render_deterministic_video(
         out.write_bytes(payload)
         digest = hashlib.sha256(payload).hexdigest()
         return {"output_uri": f"file://{out.resolve()}", "sha256": digest, "size_bytes": len(payload),
-                "synthetic": True, "duration_seconds": total}
+                "synthetic": True, "placeholder": True, "duration_seconds": total}
 
     # สร้างคลิปสีพื้น deterministic ต่อ scene แล้ว concat (label ชัดเจนว่าเป็น sample)
     with tempfile.TemporaryDirectory(prefix="kids-render-") as tmp:
@@ -385,7 +489,7 @@ def render_deterministic_video(
                        capture_output=True, timeout=60, shell=False, check=False)
     data = out.read_bytes()
     return {"output_uri": f"file://{out.resolve()}", "sha256": hashlib.sha256(data).hexdigest(),
-            "size_bytes": len(data), "synthetic": True, "duration_seconds": total,
+            "size_bytes": len(data), "synthetic": True, "placeholder": False, "duration_seconds": total,
             "thumbnail_uri": f"file://{thumb.resolve()}" if thumb.exists() else ""}
 
 
@@ -488,7 +592,7 @@ def check_brand_quota(db, tenant_id: str, brand_id: str, *, extra_episodes: int 
     except (TypeError, ValueError):
         max_cost = 0.0
     if max_episodes > 0:
-        current = len(db.kids_list_episodes(tenant_id, brand_id=brand_id))
+        current = db.kids_count_episodes(tenant_id, brand_id)
         if current + extra_episodes > max_episodes:
             raise KidsValidationError(f"brand quota exceeded: max_episodes={max_episodes} (have {current})")
     if max_cost > 0:

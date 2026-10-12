@@ -168,8 +168,8 @@ class KidsApiEndToEndTests(unittest.TestCase):
         self.engine.shutdown()
         self.temp.cleanup()
 
-    def req(self, path, method="GET", body=None, headers=None):
-        h = {"Authorization": "Bearer test-admin-secret", **(headers or {})}
+    def req(self, path, method="GET", body=None, headers=None, secret="test-admin-secret"):
+        h = {"Authorization": f"Bearer {secret}", **(headers or {})}
         data = None
         if body is not None:
             data = json.dumps(body).encode()
@@ -235,8 +235,12 @@ class KidsApiEndToEndTests(unittest.TestCase):
         self.assertEqual(s, 201)
         s, blocked = self.req(f"/api/v1/kids/publishing/{pub['id']}/publish", "POST", {})
         self.assertEqual(s, 400)
-        # approve then 11 mock publish
-        s, decided = self.req(f"/api/v1/kids/approvals/{approval['id']}/approve", "POST", {"comment": "reviewer ok"})
+        # approve then 11 mock publish — four-eyes: requester cannot approve own request
+        s, self_approved = self.req(f"/api/v1/kids/approvals/{approval['id']}/approve", "POST", {"comment": "self approve"})
+        self.assertEqual(s, 400)
+        _, reviewer_secret = self.auth.create_key("default", "human-reviewer", "admin", ["*"])
+        s, decided = self.req(f"/api/v1/kids/approvals/{approval['id']}/approve", "POST", {"comment": "reviewer ok"},
+                              secret=reviewer_secret)
         self.assertEqual(s, 200)
         # เตรียม job ใหม่ที่ผูก approval ที่อนุมัติแล้ว
         s, pub2 = self.req("/api/v1/kids/publishing/prepare", "POST",
@@ -709,6 +713,256 @@ class KidsSlice3Tests(unittest.TestCase):
         evil = dict(bundle, tenant_id="other")
         s, cross = self.req("/api/v1/kids/episodes/import", "POST", {"bundle": evil, "id": "evil-copy"})
         self.assertEqual(s, 400)
+
+
+class KidsHardeningTests(unittest.TestCase):
+    """Regression tests for PR #285 review findings (safety, SoD, idempotency, honesty)."""
+
+    def setUp(self):
+        self.temp, self.settings, self.db, self.provider, self.engine, self.auth = stack()
+        self.app = App(self.settings, self.db, self.engine, self.auth, self.provider)
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), self.app.handler())
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.base = f"http://127.0.0.1:{self.server.server_address[1]}"
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.engine.shutdown()
+        self.temp.cleanup()
+
+    def req(self, path, method="GET", body=None, headers=None, secret="test-admin-secret"):
+        h = {"Authorization": f"Bearer {secret}", **(headers or {})}
+        data = None
+        if body is not None:
+            data = json.dumps(body).encode()
+            h["Content-Type"] = "application/json"
+        r = urllib.request.Request(self.base + path, data=data, headers=h, method=method)
+        try:
+            with urllib.request.urlopen(r, timeout=60) as resp:
+                return resp.status, json.loads(resp.read() or b"{}")
+        except urllib.error.HTTPError as exc:
+            return exc.code, json.loads(exc.read() or b"{}")
+
+    def _brand_episode(self, prefix):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": f"{prefix}-b", "name": "H Brand", "language": "en"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes", "POST", {"id": f"{prefix}-e", "brand_id": f"{prefix}-b",
+                                                          "title": "H Episode", "summary": "learn"})
+        self.assertIn(s, (200, 201))
+
+    def test_nested_secrets_rejected(self):
+        s, denied = self.req("/api/v1/kids/brands", "POST", {"id": "evil-b", "name": "Evil",
+                                                              "voice_defaults": {"api_key": "sk_1234567890123456"}})
+        self.assertEqual(s, 400)
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": "ok-b", "name": "Ok Brand"})
+        self.assertEqual(s, 201)
+        s, denied = self.req("/api/v1/kids/channels", "POST", {"id": "evil-c", "brand_id": "ok-b", "name": "C",
+                                                                "publishing_settings": {"token": "ghp_1234567890123456"}})
+        self.assertEqual(s, 400)
+
+    def test_locked_character_rejects_edits(self):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": "lb", "name": "Lock Brand"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/characters", "POST", {"id": "locky", "brand_id": "lb", "name": "Locky"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/characters/locky/lock", "POST", {})
+        self.assertEqual(s, 200)
+        s, denied = self.req("/api/v1/kids/characters", "POST", {"id": "locky", "brand_id": "lb", "name": "Changed"})
+        self.assertEqual(s, 400)
+        s, _ = self.req("/api/v1/kids/characters/locky/unlock", "POST", {})
+        self.assertEqual(s, 200)
+        s, _ = self.req("/api/v1/kids/characters", "POST", {"id": "locky", "brand_id": "lb", "name": "Changed"})
+        self.assertEqual(s, 201)
+
+    def test_storyboard_replace_drops_stale_scenes(self):
+        self._brand_episode("sb")
+        s, _ = self.req("/api/v1/kids/episodes/sb-e/storyboard", "POST", {"num_scenes": 4})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes/sb-e/storyboard", "POST", {"num_scenes": 2})
+        self.assertEqual(s, 201)
+        s, scenes = self.req("/api/v1/kids/episodes/sb-e/scenes")
+        self.assertEqual(sorted(sc["id"] for sc in scenes["items"]), ["s01", "s02"])
+
+    def test_timeline_ordering_unit(self):
+        from zworkforce.kids_workflow import _order_scenes_for_timeline
+        scenes = [{"id": "s01", "duration_seconds": 5}, {"id": "s02", "duration_seconds": 5}]
+        timeline = {"version": 2, "tracks": {"video": [{"scene_id": "s02", "duration": 3.0}]}}
+        ordered = _order_scenes_for_timeline(scenes, timeline, 2)
+        self.assertEqual([s["id"] for s in ordered], ["s02"])
+        self.assertEqual(ordered[0]["duration_seconds"], 3.0)
+        # wrong timeline version falls back to full scene list
+        self.assertEqual(len(_order_scenes_for_timeline(scenes, timeline, 1)), 2)
+        self.assertEqual(len(_order_scenes_for_timeline(scenes, None, 0)), 2)
+
+    def test_objectives_members_must_be_strings(self):
+        s, denied = self.req("/api/v1/kids/brands", "POST", {"id": "ob", "name": "O Brand"})
+        self.assertEqual(s, 201)
+        s, denied = self.req("/api/v1/kids/episodes", "POST", {"id": "o-e", "brand_id": "ob",
+                                                                 "title": "T", "objectives": [{"topic": "x"}]})
+        self.assertEqual(s, 400)
+
+    def test_idempotent_replay_beats_quota(self):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": "qb", "name": "Q Brand",
+                                                        "publishing": {"max_episodes": 1}})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes", "POST", {"id": "q-e1", "brand_id": "qb", "title": "One"},
+                         headers={"Idempotency-Key": "quota-replay-1"})
+        self.assertEqual(s, 201)
+        s, replay = self.req("/api/v1/kids/episodes", "POST", {"id": "q-e1-dup", "brand_id": "qb", "title": "Dup"},
+                             headers={"Idempotency-Key": "quota-replay-1"})
+        self.assertEqual(s, 200)
+        self.assertEqual(replay["id"], "q-e1")
+
+    def test_stale_approval_cannot_publish(self):
+        self._brand_episode("st")
+        s, _ = self.req("/api/v1/kids/episodes/st-e/storyboard", "POST", {"num_scenes": 2})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes/st-e/timeline", "POST", {})
+        self.assertEqual(s, 201)
+        s, render = self.req("/api/v1/kids/render-jobs", "POST", {"episode_id": "st-e"})
+        self.assertEqual(render["status"], "succeeded")
+        s, approval = self.req("/api/v1/kids/approvals", "POST", {"episode_id": "st-e"})
+        self.assertEqual(s, 201)
+        _, reviewer_secret = self.auth.create_key("default", "st-reviewer", "admin", ["*"])
+        s, _ = self.req(f"/api/v1/kids/approvals/{approval['id']}/approve", "POST", {}, secret=reviewer_secret)
+        self.assertEqual(s, 200)
+        # เปลี่ยน content หลัง approve
+        s, _ = self.req("/api/v1/kids/episodes/st-e/scenes", "POST", {"id": "s99", "visual_prompt": "new scene"})
+        self.assertEqual(s, 201)
+        s, pub = self.req("/api/v1/kids/publishing/prepare", "POST", {"episode_id": "st-e",
+                                                                       "render_job_id": render["id"],
+                                                                       "approval_id": approval["id"]})
+        self.assertEqual(s, 201)
+        s, blocked = self.req(f"/api/v1/kids/publishing/{pub['id']}/publish", "POST", {})
+        self.assertEqual(s, 400)
+
+    def test_prepare_validates_render_job(self):
+        self._brand_episode("rj")
+        s, _ = self.req("/api/v1/kids/episodes/rj-e/storyboard", "POST", {"num_scenes": 1})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes/rj-e/timeline", "POST", {})
+        self.assertEqual(s, 201)
+        s, queued = self.req("/api/v1/kids/render-jobs/queue", "POST", {"episode_id": "rj-e"})
+        self.assertEqual(s, 201)
+        # queued (not succeeded) must be rejected at prepare time
+        s, denied = self.req("/api/v1/kids/publishing/prepare", "POST", {"episode_id": "rj-e",
+                                                                          "render_job_id": queued["id"]})
+        self.assertEqual(s, 400)
+        s, denied = self.req("/api/v1/kids/publishing/prepare", "POST", {"episode_id": "rj-e",
+                                                                          "render_job_id": "deadbeefcafe"})
+        self.assertEqual(s, 400)
+
+    def test_direct_render_enforces_budget(self):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": "bb", "name": "B Brand"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes", "POST", {"id": "b-e", "brand_id": "bb", "title": "B",
+                                                          "budget_credits": 0.01})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes/b-e/storyboard", "POST", {"num_scenes": 2})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes/b-e/timeline", "POST", {})
+        self.assertEqual(s, 201)
+        s, denied = self.req("/api/v1/kids/render-jobs", "POST", {"episode_id": "b-e"})
+        self.assertEqual(s, 400)
+
+    def test_unreviewed_variant_blocked_until_translated(self):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": "vb", "name": "V Brand"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes", "POST", {"id": "v-e", "brand_id": "vb", "title": "V", "language": "en"})
+        self.assertEqual(s, 201)
+        s, variant = self.req("/api/v1/kids/episodes/v-e/variants", "POST", {"id": "v-e-th", "language": "th"})
+        self.assertEqual(s, 201)
+        s, blocked = self.req("/api/v1/kids/publishing/prepare", "POST", {"episode_id": "v-e-th", "title": "T"})
+        self.assertEqual(s, 400)
+
+    def test_publish_usage_counted_once(self):
+        self._brand_episode("uc")
+        for step, payload in (("storyboard", {"num_scenes": 1}), ("timeline", {})):
+            s, _ = self.req(f"/api/v1/kids/episodes/uc-e/{step}", "POST", payload)
+            self.assertEqual(s, 201)
+        s, render = self.req("/api/v1/kids/render-jobs", "POST", {"episode_id": "uc-e"})
+        self.assertEqual(render["status"], "succeeded")
+        s, approval = self.req("/api/v1/kids/approvals", "POST", {"episode_id": "uc-e"})
+        _, reviewer_secret = self.auth.create_key("default", "uc-reviewer", "admin", ["*"])
+        s, _ = self.req(f"/api/v1/kids/approvals/{approval['id']}/approve", "POST", {}, secret=reviewer_secret)
+        self.assertEqual(s, 200)
+        s, pub = self.req("/api/v1/kids/publishing/prepare", "POST", {"episode_id": "uc-e",
+                                                                       "render_job_id": render["id"],
+                                                                       "approval_id": approval["id"]})
+        self.assertEqual(s, 201)
+        before = self.db.kids_usage_summary("default")["cost_credits"]
+        s, _ = self.req(f"/api/v1/kids/publishing/{pub['id']}/publish", "POST", {})
+        self.assertEqual(s, 200)
+        mid = self.db.kids_usage_summary("default")["cost_credits"]
+        self.assertGreater(mid, before)
+        s, _ = self.req(f"/api/v1/kids/publishing/{pub['id']}/publish", "POST", {})
+        self.assertEqual(s, 200)
+        after = self.db.kids_usage_summary("default")["cost_credits"]
+        self.assertEqual(after, mid)
+
+    def test_placeholder_render_fails_honestly(self):
+        import shutil as _shutil
+        self._brand_episode("ph")
+        s, _ = self.req("/api/v1/kids/episodes/ph-e/storyboard", "POST", {"num_scenes": 1})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes/ph-e/timeline", "POST", {})
+        self.assertEqual(s, 201)
+        s, queued = self.req("/api/v1/kids/render-jobs/queue", "POST", {"episode_id": "ph-e"})
+        self.assertEqual(s, 201)
+        real_which = _shutil.which
+        _shutil.which = lambda name: None
+        try:
+            s, ticked = self.req("/api/v1/kids/render-jobs/tick", "POST", {})
+        finally:
+            _shutil.which = real_which
+        self.assertEqual(s, 200)
+        self.assertNotEqual(ticked["render_job"]["status"], "succeeded")
+        self.assertIn("FFmpeg", ticked["render_job"].get("error", "") + ticked.get("error", ""))
+
+    def test_analytics_snapshot_is_audited(self):
+        self._brand_episode("au")
+        s, snap = self.req("/api/v1/kids/analytics/snapshot", "POST", {"episode_id": "au-e"})
+        self.assertEqual(s, 201)
+        s, audit = self.req("/api/v1/audit?limit=200")
+        actions = [(e["action"], e["target_id"]) for e in audit["items"]]
+        self.assertIn(("kids.analytics.snapshot", snap["id"]), actions)
+
+    def test_asset_ids_are_server_scoped_per_tenant(self):
+        self._brand_episode("ai")
+        self.db.ensure_tenant("other", "Other")
+        s, first = self.req("/api/v1/kids/assets", "POST", {"id": "logo", "name": "a.png",
+                                                             "content_type": "image/png", "size_bytes": 5,
+                                                             "episode_id": "ai-e", "sha256": "b" * 64})
+        self.assertEqual(s, 201)
+        other_headers = {"X-Tenant-ID": "other"}
+        s, second = self.req("/api/v1/kids/assets", "POST", {"id": "logo", "name": "a.png",
+                                                              "content_type": "image/png", "size_bytes": 5,
+                                                              "sha256": "c" * 64}, headers=other_headers)
+        self.assertEqual(s, 201)
+        self.assertNotEqual(first["id"], second["id"])
+
+    def test_mcp_parent_checks_and_parity(self):
+        from zworkforce.mcp import _call_tool
+        superadmin = type("P", (), {"name": "mcp-t", "role": "superadmin", "key_id": "k",
+                                    "has_scope": lambda self, s: True})()
+        with self.assertRaises(ValueError):
+            _call_tool(self.app, superadmin, "default", "kids.create_episode_draft",
+                       {"id": "x", "brand_id": "ghost", "title": "T"})
+        with self.assertRaises(ValueError):
+            _call_tool(self.app, superadmin, "default", "kids.create_storyboard",
+                       {"episode_id": "ghost"})
+        char_ep = "mcp-ep"
+        self.db.kids_upsert_brand("default", "mcp-b", {"name": "M", "description": "", "age_range": "3-6",
+                                                       "language": "en", "art_style": "", "music_style": "",
+                                                       "voice_defaults": {}, "content_policy": {}, "publishing": {}},
+                                  "t")
+        from zworkforce.kids_factory import validate_episode
+        self.db.kids_create_episode("default", char_ep, "mcp-b", validate_episode({"title": "T"}), "t")
+        script = _call_tool(self.app, superadmin, "default", "kids.generate_script", {"episode_id": char_ep})
+        self.assertEqual(self.db.kids_get_episode("default", char_ep)["status"], "scripted")
+        self.assertGreater(self.db.kids_usage_summary("default")["cost_credits"], 0)
 
 
 if __name__ == "__main__":

@@ -15,6 +15,24 @@ def _new_id() -> str:
     return uuid.uuid4().hex[:12]
 
 
+def _is_idem_conflict(exc: Exception) -> bool:
+    """DB-agnostic unique-violation detection for idempotency races (SQLite + PostgreSQL)."""
+    message = str(exc).lower()
+    return any(token in message for token in ("unique", "duplicate", "conflict", "already exists"))
+
+
+def _kids_now() -> str:
+    """Microsecond-precision UTC timestamp for kids content/decision ordering.
+
+    The shared utcnow() uses whole seconds, which cannot order two writes in
+    the same second (e.g. approve-then-edit). All timestamps compared by
+    kids_episode_content_changed_since use this helper so staleness checks
+    are exact.
+    """
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat()
+
+
 class KidsMixin:
     def _kids_init(self, c) -> None:
         c.executescript(KIDS_SCHEMA_SQL)
@@ -105,8 +123,14 @@ class KidsMixin:
     def kids_upsert_character(self, tenant_id: str, character_id: str, brand_id: str, validated: dict, actor: str) -> dict:
         now = utcnow()
         with self.connection() as c:
-            row = c.execute("SELECT version FROM kids_characters WHERE tenant_id=? AND id=?", (tenant_id, character_id)).fetchone()
-            version = int(row[0]) + 1 if row else 1
+            row = c.execute("SELECT version,locked FROM kids_characters WHERE tenant_id=? AND id=?", (tenant_id, character_id)).fetchone()
+            if row:
+                locked = int(row[1] if not hasattr(row, "keys") else row["locked"])
+                if locked:
+                    raise ValueError("character is locked for human review; unlock it first before material edits")
+                version = int(row[0] if not hasattr(row, "keys") else row["version"]) + 1
+            else:
+                version = 1
             c.execute(
                 """INSERT INTO kids_characters(tenant_id,id,brand_id,name,role,description,species,personality_json,
                 voice_profile_json,palette_json,costume_json,negative_prompt,version,locked,approval_state,created_at,updated_at)
@@ -149,28 +173,53 @@ class KidsMixin:
         return updated
 
     # ----- episodes -----
+    def kids_count_episodes(self, tenant_id: str, brand_id: str) -> int:
+        with self.connection() as c:
+            row = c.execute("SELECT COUNT(*) FROM kids_episodes WHERE tenant_id=? AND brand_id=?", (tenant_id, brand_id)).fetchone()
+            return int(row[0])
+
+    def kids_episode_spend(self, tenant_id: str, episode_id: str) -> float:
+        with self.connection() as c:
+            row = c.execute("SELECT COALESCE(SUM(cost_credits),0) FROM kids_usage WHERE tenant_id=? AND episode_id=?",
+                            (tenant_id, episode_id)).fetchone()
+            return float(row[0])
+
+    def kids_find_episode_by_idem(self, tenant_id: str, idempotency_key: str) -> dict | None:
+        if not idempotency_key:
+            return None
+        with self.connection() as c:
+            row = c.execute("SELECT * FROM kids_episodes WHERE tenant_id=? AND idempotency_key=?", (tenant_id, idempotency_key)).fetchone()
+            return self._decode(dict(row)) if row else None
+
     def kids_create_episode(self, tenant_id: str, episode_id: str, brand_id: str, validated: dict, actor: str, *, channel_id: str = "", idempotency_key: str = "") -> tuple[dict, bool]:
         now = utcnow()
         if idempotency_key:
+            existing = self.kids_find_episode_by_idem(tenant_id, idempotency_key)
+            if existing:
+                return existing, False
+        try:
             with self.connection() as c:
-                row = c.execute("SELECT * FROM kids_episodes WHERE tenant_id=? AND idempotency_key=?", (tenant_id, idempotency_key)).fetchone()
-                if row:
-                    return self._decode(dict(row)), False
-        with self.connection() as c:
-            exists = c.execute("SELECT id FROM kids_episodes WHERE tenant_id=? AND id=?", (tenant_id, episode_id)).fetchone()
-            created = not bool(exists)
-            if created:
-                c.execute(
-                    """INSERT INTO kids_episodes(tenant_id,id,brand_id,channel_id,title,summary,age_band,language,objectives_json,
-                    vocabulary_json,status,version,budget_credits,idempotency_key,created_by,created_at,updated_at)
-                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                    (tenant_id, episode_id, brand_id, channel_id, validated["title"], validated["summary"],
-                     validated["age_band"], validated["language"], json_dumps(validated["objectives"]),
-                     json_dumps(validated["vocabulary"]), "draft", 1, float(validated["budget_credits"]),
-                     idempotency_key or "", actor, now, now),
-                )
-            row = c.execute("SELECT * FROM kids_episodes WHERE tenant_id=? AND id=?", (tenant_id, episode_id)).fetchone()
-            result = self._decode(dict(row)) if row else {}
+                exists = c.execute("SELECT id FROM kids_episodes WHERE tenant_id=? AND id=?", (tenant_id, episode_id)).fetchone()
+                created = not bool(exists)
+                if created:
+                    c.execute(
+                        """INSERT INTO kids_episodes(tenant_id,id,brand_id,channel_id,title,summary,age_band,language,objectives_json,
+                        vocabulary_json,status,version,budget_credits,idempotency_key,created_by,created_at,updated_at)
+                        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                        (tenant_id, episode_id, brand_id, channel_id, validated["title"], validated["summary"],
+                         validated["age_band"], validated["language"], json_dumps(validated["objectives"]),
+                         json_dumps(validated["vocabulary"]), "draft", 1, float(validated["budget_credits"]),
+                         idempotency_key or "", actor, now, now),
+                    )
+                row = c.execute("SELECT * FROM kids_episodes WHERE tenant_id=? AND id=?", (tenant_id, episode_id)).fetchone()
+                result = self._decode(dict(row)) if row else {}
+        except Exception as exc:
+            if idempotency_key and _is_idem_conflict(exc):
+                # Concurrent duplicate won the race: return the winner instead of 500.
+                existing = self.kids_find_episode_by_idem(tenant_id, idempotency_key)
+                if existing:
+                    return existing, False
+            raise
         if created:
             self.audit(tenant_id, actor, "kids.episode.create", "kids_episode", episode_id, {"brand_id": brand_id})
         return result, created
@@ -204,17 +253,24 @@ class KidsMixin:
 
     # ----- scripts -----
     def kids_save_script(self, tenant_id: str, episode_id: str, validated: dict, actor: str) -> dict:
-        with self.connection() as c:
-            row = c.execute("SELECT COALESCE(MAX(version),0) n FROM kids_scripts WHERE tenant_id=? AND episode_id=?", (tenant_id, episode_id)).fetchone()
-            version = int(row["n"] if hasattr(row, "keys") else row[0]) + 1
-            script_id = uuid.uuid4().hex
-            c.execute("INSERT INTO kids_scripts(id,tenant_id,episode_id,version,content_type,body_json,provenance_json,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?)",
-                      (script_id, tenant_id, episode_id, version, validated["content_type"], json_dumps(validated["body"]),
-                       json_dumps({"origin": "kids_factory", "synthetic": True}), actor, utcnow()))
-            row = c.execute("SELECT * FROM kids_scripts WHERE id=?", (script_id,)).fetchone()
-            result = self._decode(dict(row)) if row else {}
-        self.audit(tenant_id, actor, "kids.script.save", "kids_episode", episode_id, {"version": version})
-        return result
+        for _ in range(3):
+            with self.connection() as c:
+                row = c.execute("SELECT COALESCE(MAX(version),0) n FROM kids_scripts WHERE tenant_id=? AND episode_id=?", (tenant_id, episode_id)).fetchone()
+                version = int(row["n"] if hasattr(row, "keys") else row[0]) + 1
+                script_id = uuid.uuid4().hex
+                try:
+                    c.execute("INSERT INTO kids_scripts(id,tenant_id,episode_id,version,content_type,body_json,provenance_json,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?)",
+                              (script_id, tenant_id, episode_id, version, validated["content_type"], json_dumps(validated["body"]),
+                               json_dumps({"origin": "kids_factory", "synthetic": True}), actor, _kids_now()))
+                except Exception as exc:
+                    if _is_idem_conflict(exc):
+                        continue  # concurrent writer won; recompute next version
+                    raise
+                row = c.execute("SELECT * FROM kids_scripts WHERE id=?", (script_id,)).fetchone()
+                result = self._decode(dict(row)) if row else {}
+            self.audit(tenant_id, actor, "kids.script.save", "kids_episode", episode_id, {"version": version})
+            return result
+        raise ValueError("script version race could not settle; retry the request")
 
     def kids_latest_script(self, tenant_id: str, episode_id: str) -> dict | None:
         with self.connection() as c:
@@ -223,7 +279,7 @@ class KidsMixin:
 
     # ----- scenes -----
     def kids_upsert_scene(self, tenant_id: str, episode_id: str, scene_id: str, validated: dict, actor: str) -> dict:
-        now = utcnow()
+        now = _kids_now()
         checksum = hashlib.sha256(json_dumps(validated).encode()).hexdigest()[:16]
         with self.connection() as c:
             c.execute(
@@ -251,9 +307,35 @@ class KidsMixin:
         with self.connection() as c:
             return self._rows(c.execute("SELECT * FROM kids_scenes WHERE tenant_id=? AND episode_id=? ORDER BY ordering", (tenant_id, episode_id)).fetchall())
 
+    def kids_replace_storyboard(self, tenant_id: str, episode_id: str, scenes: list[dict], actor: str) -> list[dict]:
+        """Atomically replace a storyboard: upsert the new plan, drop stale scenes.
+
+        Regenerating with fewer scenes must not leave removed scenes active in
+        downstream timeline/render steps.
+        """
+        from .kids_factory import validate_scene as _validate_scene
+        keep = set()
+        saved: list[dict] = []
+        for index, item in enumerate(scenes):
+            scene_id = str(item.get("id") or f"s{index + 1:02d}")
+            validated = _validate_scene({**item, "ordering": index})
+            saved.append(self.kids_upsert_scene(tenant_id, episode_id, scene_id, validated, actor))
+            keep.add(scene_id)
+        with self.connection() as c:
+            existing = [dict(r)["id"] for r in c.execute("SELECT id FROM kids_scenes WHERE tenant_id=? AND episode_id=?",
+                                                          (tenant_id, episode_id)).fetchall()]
+            for stale in [sid for sid in existing if sid not in keep]:
+                c.execute("DELETE FROM kids_scenes WHERE tenant_id=? AND episode_id=? AND id=?", (tenant_id, episode_id, stale))
+        if len(existing) != len(keep):
+            self.audit(tenant_id, actor, "kids.storyboard.replace", "kids_episode", episode_id,
+                       {"scenes": len(keep), "removed": len(existing) - len(keep)})
+        return saved
+
     # ----- assets -----
     def kids_register_asset(self, tenant_id: str, asset: dict, actor: str) -> dict:
-        asset_id = asset.get("id") or uuid.uuid4().hex[:12]
+        # Asset IDs are always server-generated: caller-supplied IDs are ignored so one
+        # tenant can never squat a predictable ID and collide with another tenant's row.
+        asset_id = uuid.uuid4().hex[:12]
         with self.connection() as c:
             c.execute(
                 """INSERT INTO kids_assets(id,tenant_id,episode_id,scene_id,kind,name,storage_uri,sha256,size_bytes,provenance_json,version,created_by,created_at)
@@ -277,14 +359,21 @@ class KidsMixin:
 
     # ----- timelines -----
     def kids_save_timeline(self, tenant_id: str, episode_id: str, tracks: dict, actor: str) -> dict:
-        with self.connection() as c:
-            row = c.execute("SELECT COALESCE(MAX(version),0) n FROM kids_timelines WHERE tenant_id=? AND episode_id=?", (tenant_id, episode_id)).fetchone()
-            version = int(row["n"] if hasattr(row, "keys") else row[0]) + 1
-            checksum = timeline_checksum(tracks)
-            c.execute("INSERT INTO kids_timelines(tenant_id,episode_id,version,tracks_json,checksum,created_by,created_at) VALUES(?,?,?,?,?,?,?)",
-                      (tenant_id, episode_id, version, json_dumps(tracks), checksum, actor, utcnow()))
-        self.audit(tenant_id, actor, "kids.timeline.save", "kids_episode", episode_id, {"version": version, "checksum": checksum[:12]})
-        return {"episode_id": episode_id, "version": version, "checksum": checksum, "tracks": tracks}
+        for _ in range(3):
+            with self.connection() as c:
+                row = c.execute("SELECT COALESCE(MAX(version),0) n FROM kids_timelines WHERE tenant_id=? AND episode_id=?", (tenant_id, episode_id)).fetchone()
+                version = int(row["n"] if hasattr(row, "keys") else row[0]) + 1
+                checksum = timeline_checksum(tracks)
+                try:
+                    c.execute("INSERT INTO kids_timelines(tenant_id,episode_id,version,tracks_json,checksum,created_by,created_at) VALUES(?,?,?,?,?,?,?)",
+                              (tenant_id, episode_id, version, json_dumps(tracks), checksum, actor, _kids_now()))
+                except Exception as exc:
+                    if _is_idem_conflict(exc):
+                        continue
+                    raise
+            self.audit(tenant_id, actor, "kids.timeline.save", "kids_episode", episode_id, {"version": version, "checksum": checksum[:12]})
+            return {"episode_id": episode_id, "version": version, "checksum": checksum, "tracks": tracks}
+        raise ValueError("timeline version race could not settle; retry the request")
 
     def kids_latest_timeline(self, tenant_id: str, episode_id: str) -> dict | None:
         with self.connection() as c:
@@ -300,15 +389,23 @@ class KidsMixin:
                     return self._decode(dict(row)), False
         job_id = uuid.uuid4().hex[:12]
         now = utcnow()
-        with self.connection() as c:
-            c.execute(
-                """INSERT INTO kids_render_jobs(id,tenant_id,episode_id,timeline_version,preset,status,output_uri,output_sha256,
-                thumbnail_uri,error,idempotency_key,attempts,created_by,created_at,updated_at,finished_at)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)""",
-                (job_id, tenant_id, episode_id, int(timeline_version), preset, "queued", "", "", "", "", idempotency_key or "", 0, actor, now, now),
-            )
-            row = c.execute("SELECT * FROM kids_render_jobs WHERE id=?", (job_id,)).fetchone()
-            result = self._decode(dict(row)) if row else {}
+        try:
+            with self.connection() as c:
+                c.execute(
+                    """INSERT INTO kids_render_jobs(id,tenant_id,episode_id,timeline_version,preset,status,output_uri,output_sha256,
+                    thumbnail_uri,error,idempotency_key,attempts,created_by,created_at,updated_at,finished_at)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)""",
+                    (job_id, tenant_id, episode_id, int(timeline_version), preset, "queued", "", "", "", "", idempotency_key or "", 0, actor, now, now),
+                )
+                row = c.execute("SELECT * FROM kids_render_jobs WHERE id=?", (job_id,)).fetchone()
+                result = self._decode(dict(row)) if row else {}
+        except Exception as exc:
+            if idempotency_key and _is_idem_conflict(exc):
+                with self.connection() as c:
+                    row = c.execute("SELECT * FROM kids_render_jobs WHERE tenant_id=? AND idempotency_key=?", (tenant_id, idempotency_key)).fetchone()
+                    if row:
+                        return self._decode(dict(row)), False
+            raise
         self.audit(tenant_id, actor, "kids.render.submit", "kids_render", job_id, {"episode_id": episode_id})
         return result, True
 
@@ -370,8 +467,14 @@ class KidsMixin:
             current = self._decode(dict(row))
             if current.get("state") != "pending":
                 return current
-            c.execute("UPDATE kids_approvals SET state=?,reviewer=?,comment=?,decided_at=? WHERE tenant_id=? AND id=?",
-                      (decision, reviewer, comment[:1000], utcnow(), tenant_id, approval_id))
+            if reviewer == current.get("created_by"):
+                raise ValueError("four-eyes: the requester cannot decide their own approval; a different reviewer is required")
+            # Compare-and-set: exactly one concurrent decider wins; losers read the terminal state.
+            cur = c.execute("UPDATE kids_approvals SET state=?,reviewer=?,comment=?,decided_at=? WHERE tenant_id=? AND id=? AND state='pending'",
+                            (decision, reviewer, comment[:1000], _kids_now(), tenant_id, approval_id))
+            if cur.rowcount == 0:
+                row = c.execute("SELECT * FROM kids_approvals WHERE tenant_id=? AND id=?", (tenant_id, approval_id)).fetchone()
+                return self._decode(dict(row)) if row else None
             row = c.execute("SELECT * FROM kids_approvals WHERE tenant_id=? AND id=?", (tenant_id, approval_id)).fetchone()
             result = self._decode(dict(row)) if row else None
         self.audit(tenant_id, reviewer, "kids.approval.decide", "kids_approval", approval_id, {"decision": decision})
@@ -418,26 +521,47 @@ class KidsMixin:
                 row = c.execute("SELECT * FROM kids_publishing_jobs WHERE tenant_id=? AND idempotency_key=?", (tenant_id, idempotency_key)).fetchone()
                 if row:
                     return self._decode(dict(row)), False
+        render_job_id = str(payload.get("render_job_id", ""))
+        if render_job_id:
+            render = self.kids_get_render(tenant_id, render_job_id)
+            if not render or render.get("episode_id") != episode_id:
+                raise ValueError("publishing.render_job_id must reference a render job of the same episode")
+            if render.get("status") != "succeeded" or not render.get("output_sha256"):
+                raise ValueError("publishing requires a succeeded render job with a verified digest")
         job_id = uuid.uuid4().hex[:12]
         now = utcnow()
-        with self.connection() as c:
-            c.execute(
-                """INSERT INTO kids_publishing_jobs(id,tenant_id,episode_id,render_job_id,channel_id,platform,title,description,
-                audience,visibility,status,external_id,error,idempotency_key,approval_id,created_by,created_at,updated_at)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (job_id, tenant_id, episode_id, str(payload.get("render_job_id", ""))[:32], str(payload.get("channel_id", ""))[:64],
-                 str(payload.get("platform", "youtube_mock"))[:32], str(payload.get("title", ""))[:100],
-                 str(payload.get("description", ""))[:5000], str(payload.get("audience", "madeForKids"))[:24],
-                 str(payload.get("visibility", "private"))[:16], "prepared", "", "", idempotency_key or "",
-                 str(payload.get("approval_id", ""))[:32], actor, now, now),
-            )
-            row = c.execute("SELECT * FROM kids_publishing_jobs WHERE id=?", (job_id,)).fetchone()
-            result = self._decode(dict(row)) if row else {}
+        try:
+            with self.connection() as c:
+                c.execute(
+                    """INSERT INTO kids_publishing_jobs(id,tenant_id,episode_id,render_job_id,channel_id,platform,title,description,
+                    audience,visibility,status,external_id,error,idempotency_key,approval_id,created_by,created_at,updated_at)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (job_id, tenant_id, episode_id, str(payload.get("render_job_id", ""))[:32], str(payload.get("channel_id", ""))[:64],
+                     str(payload.get("platform", "youtube_mock"))[:32], str(payload.get("title", ""))[:100],
+                     str(payload.get("description", ""))[:5000], str(payload.get("audience", "madeForKids"))[:24],
+                     str(payload.get("visibility", "private"))[:16], "prepared", "", "", idempotency_key or "",
+                     str(payload.get("approval_id", ""))[:32], actor, now, now),
+                )
+                row = c.execute("SELECT * FROM kids_publishing_jobs WHERE id=?", (job_id,)).fetchone()
+                result = self._decode(dict(row)) if row else {}
+        except Exception as exc:
+            if idempotency_key and _is_idem_conflict(exc):
+                with self.connection() as c:
+                    row = c.execute("SELECT * FROM kids_publishing_jobs WHERE tenant_id=? AND idempotency_key=?", (tenant_id, idempotency_key)).fetchone()
+                    if row:
+                        return self._decode(dict(row)), False
+            raise
         self.audit(tenant_id, actor, "kids.publishing.prepare", "kids_publishing", job_id, {"episode_id": episode_id})
         return result, True
 
     def kids_publish_approved(self, tenant_id: str, job_id: str, external: dict, actor: str) -> dict | None:
-        """Complete a prepared job only when a matching approved approval exists."""
+        """Complete a prepared job only when a matching, still-valid approval exists.
+
+        The approval must target this episode, be approved, and no script,
+        scene, or timeline may have changed since the decision (stale approvals
+        cannot publish new content). Usage is recorded only on the
+        prepared -> published transition, so retries stay cost-idempotent.
+        """
         with self.connection() as c:
             row = c.execute("SELECT * FROM kids_publishing_jobs WHERE tenant_id=? AND id=?", (tenant_id, job_id)).fetchone()
             if not row:
@@ -451,12 +575,19 @@ class KidsMixin:
                 approval = self._decode(dict(arow)) if arow else None
             if not approval or approval.get("state") != "approved" or approval.get("episode_id") != job.get("episode_id"):
                 raise ValueError("publishing blocked: no approved publishing action for this episode")
-            c.execute("UPDATE kids_publishing_jobs SET status='published',external_id=?,updated_at=? WHERE tenant_id=? AND id=?",
+            if approval.get("subject_type") != "episode" or approval.get("subject_id") != job.get("episode_id"):
+                raise ValueError("publishing blocked: approval subject does not match this episode")
+            decided_at = approval.get("decided_at") or ""
+            if not decided_at or self.kids_episode_content_changed_since(tenant_id, job["episode_id"], decided_at):
+                raise ValueError("publishing blocked: episode content changed since approval; re-request approval")
+            c.execute("UPDATE kids_publishing_jobs SET status='published',external_id=?,updated_at=? WHERE tenant_id=? AND id=? AND status='prepared'",
                       (str(external.get("external_id", ""))[:64], utcnow(), tenant_id, job_id))
             row = c.execute("SELECT * FROM kids_publishing_jobs WHERE tenant_id=? AND id=?", (tenant_id, job_id)).fetchone()
             result = self._decode(dict(row)) if row else None
+            transitioned = bool(result and result.get("status") == "published")
         self.audit(tenant_id, actor, "kids.publishing.publish", "kids_publishing", job_id, {"external_id": external.get("external_id", "")})
-        if result:
+        if result and transitioned:
+            self.kids_record_usage(tenant_id, job["episode_id"], "youtube_mock", "upload", 1.0, 0.1)
             self.kids_set_episode_status(tenant_id, job["episode_id"], "published", actor)
         return result
 
@@ -473,7 +604,7 @@ class KidsMixin:
             return self._rows(c.execute("SELECT * FROM kids_publishing_jobs WHERE tenant_id=? ORDER BY created_at DESC LIMIT 100", (tenant_id,)).fetchall())
 
     # ----- analytics (synthetic labeled) + usage -----
-    def kids_save_analytics(self, tenant_id: str, payload: dict) -> dict:
+    def kids_save_analytics(self, tenant_id: str, payload: dict, actor: str = "system") -> dict:
         snap_id = uuid.uuid4().hex[:12]
         with self.connection() as c:
             c.execute("INSERT INTO kids_analytics(id,tenant_id,channel_id,episode_id,period,metrics_json,synthetic,captured_at) VALUES(?,?,?,?,?,?,?,?)",
@@ -481,7 +612,10 @@ class KidsMixin:
                        str(payload.get("period", "7d"))[:16], json_dumps(payload.get("metrics") or {}),
                        int(bool(payload.get("synthetic", True))), utcnow()))
             row = c.execute("SELECT * FROM kids_analytics WHERE id=?", (snap_id,)).fetchone()
-            return self._decode(dict(row)) if row else {}
+            result = self._decode(dict(row)) if row else {}
+        self.audit(tenant_id, actor, "kids.analytics.snapshot", "kids_analytics", snap_id,
+                   {"episode_id": str(payload.get("episode_id", ""))[:32], "synthetic": bool(payload.get("synthetic", True))})
+        return result
 
     def kids_list_analytics(self, tenant_id: str, *, channel_id: str = "") -> list[dict]:
         with self.connection() as c:
@@ -563,17 +697,56 @@ class KidsMixin:
                     return self._decode(dict(row)), False
         run_id = uuid.uuid4().hex[:12]
         now = utcnow()
-        with self.connection() as c:
-            c.execute(
-                """INSERT INTO kids_agent_runs(id,tenant_id,episode_id,agent,step,status,input_json,output_json,attempts,error,idempotency_key,created_by,created_at,updated_at)
-                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (run_id, tenant_id, episode_id, agent[:64], step[:64], status[:24], json_dumps(input_data or {}),
-                 json_dumps(output_data or {}), 1, error[:2000], idempotency_key or "", actor, now, now),
-            )
-            row = c.execute("SELECT * FROM kids_agent_runs WHERE id=?", (run_id,)).fetchone()
-            result = self._decode(dict(row)) if row else {}
+        try:
+            with self.connection() as c:
+                c.execute(
+                    """INSERT INTO kids_agent_runs(id,tenant_id,episode_id,agent,step,status,input_json,output_json,attempts,error,idempotency_key,created_by,created_at,updated_at)
+                    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    (run_id, tenant_id, episode_id, agent[:64], step[:64], status[:24], json_dumps(input_data or {}),
+                     json_dumps(output_data or {}), 1, error[:2000], idempotency_key or "", actor, now, now),
+                )
+                row = c.execute("SELECT * FROM kids_agent_runs WHERE id=?", (run_id,)).fetchone()
+                result = self._decode(dict(row)) if row else {}
+        except Exception as exc:
+            if idempotency_key and _is_idem_conflict(exc):
+                with self.connection() as c:
+                    row = c.execute("SELECT * FROM kids_agent_runs WHERE tenant_id=? AND idempotency_key=?",
+                                    (tenant_id, idempotency_key)).fetchone()
+                    if row:
+                        return self._decode(dict(row)), False
+            raise
         self.audit(tenant_id, actor, "kids.agent_run", "kids_episode", episode_id, {"agent": agent, "step": step, "status": status})
         return result, True
+
+    def kids_episode_content_changed_since(self, tenant_id: str, episode_id: str, since_iso: str) -> bool:
+        """True when scripts, scenes, or timelines changed after the given ISO timestamp.
+
+        The episode row itself is excluded: approval-driven status changes must
+        not invalidate the approval they just created.
+        """
+        with self.connection() as c:
+            for table, col in (("kids_scripts", "created_at"), ("kids_scenes", "updated_at"),
+                               ("kids_timelines", "created_at")):
+                row = c.execute(f"SELECT 1 FROM {table} WHERE tenant_id=? AND episode_id=? AND {col}>? LIMIT 1",
+                                (tenant_id, episode_id, since_iso or "")).fetchone()
+                if row:
+                    return True
+            return False
+
+    def kids_translation_status(self, tenant_id: str, episode_id: str) -> str:
+        """Durable translation status derived from translator runs (no extra column)."""
+        with self.connection() as c:
+            row = c.execute("SELECT 1 FROM kids_agent_runs WHERE tenant_id=? AND episode_id=? AND agent='translator' AND step='translate' AND status='succeeded' LIMIT 1",
+                            (tenant_id, episode_id)).fetchone()
+            return "reviewed" if row else "needs_review"
+
+    def kids_is_unreviewed_variant(self, tenant_id: str, episode_id: str) -> bool:
+        with self.connection() as c:
+            row = c.execute("SELECT 1 FROM kids_derivations WHERE tenant_id=? AND child_episode_id=? AND kind='language-variant' LIMIT 1",
+                            (tenant_id, episode_id)).fetchone()
+            if not row:
+                return False
+        return self.kids_translation_status(tenant_id, episode_id) != "reviewed"
 
     def kids_list_agent_runs(self, tenant_id: str, *, episode_id: str = "", limit: int = 100) -> list[dict]:
         limit = max(1, min(int(limit or 100), 200))
@@ -700,9 +873,22 @@ class KidsMixin:
                 return {}, False, "slot_conflict"
             sched_id = _uuid.uuid4().hex[:12]
             now = utcnow()
-            c.execute("INSERT INTO kids_schedules(id,tenant_id,channel_id,episode_id,slot_at,timezone,status,idempotency_key,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
-                      (sched_id, tenant_id, channel_id, episode_id, slot["slot_at"], slot["timezone"],
-                       "scheduled", idempotency_key or "", actor, now))
+            try:
+                c.execute("INSERT INTO kids_schedules(id,tenant_id,channel_id,episode_id,slot_at,timezone,status,idempotency_key,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                          (sched_id, tenant_id, channel_id, episode_id, slot["slot_at"], slot["timezone"],
+                           "scheduled", idempotency_key or "", actor, now))
+            except Exception as exc:
+                if _is_idem_conflict(exc):
+                    if idempotency_key:
+                        row = c.execute("SELECT * FROM kids_schedules WHERE tenant_id=? AND idempotency_key=?",
+                                        (tenant_id, idempotency_key)).fetchone()
+                        if row:
+                            return self._decode(dict(row)), False, ""
+                    dupe = c.execute("SELECT id FROM kids_schedules WHERE tenant_id=? AND channel_id=? AND slot_at=? AND status='scheduled'",
+                                     (tenant_id, channel_id, slot["slot_at"])).fetchone()
+                    if dupe:
+                        return {}, False, "slot_conflict"
+                raise
             row = c.execute("SELECT * FROM kids_schedules WHERE id=?", (sched_id,)).fetchone()
             result = self._decode(dict(row)) if row else {}
         self.audit(tenant_id, actor, "kids.schedule.create", "kids_schedule", sched_id, {"slot_at": slot["slot_at"]})

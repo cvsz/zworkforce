@@ -228,7 +228,7 @@ def call_kids_tool(app, principal, tenant_id: str, name: str, args: dict[str, An
     if name == "kids.derive_shorts":
         require("operator", "automation:write")
         from .kids_api import _slug_or_raise
-        from .kids_factory import check_brand_quota, storyboard_to_timeline, validate_episode, validate_scene
+        from .kids_factory import check_brand_quota, storyboard_to_timeline
         parent_id = str(args.get("episode_id", ""))
         parent = db.kids_get_episode(tenant_id, parent_id)
         if not parent:
@@ -296,7 +296,6 @@ def call_kids_tool(app, principal, tenant_id: str, name: str, args: dict[str, An
         return tick_render_queue(app, tenant_id, actor)
     if name == "kids.submit_translation":
         require("operator", "automation:write")
-        from .kids_factory import validate_scene
         episode = db.kids_get_episode(tenant_id, str(args.get("episode_id", "")))
         if not episode:
             raise ValueError("episode not found")
@@ -366,6 +365,8 @@ def call_kids_tool(app, principal, tenant_id: str, name: str, args: dict[str, An
         from .kids_api import _slug_or_raise  # reuse slug guard
         episode_id = _slug_or_raise(args.get("id", ""), "episode.id")
         brand_id = _slug_or_raise(args.get("brand_id", ""), "episode.brand_id")
+        if not db.kids_get_brand(tenant_id, brand_id):
+            raise ValueError("episode.brand_id does not exist in this tenant")
         episode, created = db.kids_create_episode(tenant_id, episode_id, brand_id, validated, actor)
         return {"created": created, "episode": episode}
     if name == "kids.generate_script":
@@ -386,16 +387,20 @@ def call_kids_tool(app, principal, tenant_id: str, name: str, args: dict[str, An
             "ending": "Great job, little learners!",
         }
         validated = validate_script({"content_type": str(args.get("content_type", "nursery_rhyme")), "body": body})
-        return db.kids_save_script(tenant_id, episode_id, validated, actor)
+        saved = db.kids_save_script(tenant_id, episode_id, validated, actor)
+        db.kids_set_episode_status(tenant_id, episode_id, "scripted", actor)
+        db.kids_record_usage(tenant_id, episode_id, "mock", "llm", 1.0, 0.2)
+        return saved
     if name == "kids.create_storyboard":
         require("operator", "automation:write")
         episode_id = str(args.get("episode_id", ""))
+        if not db.kids_get_episode(tenant_id, episode_id):
+            raise ValueError("episode not found")
         script = db.kids_latest_script(tenant_id, episode_id)
         plan = build_storyboard(script_body=((script or {}).get("body") or {}), num_scenes=int(args.get("num_scenes", 4) or 4))
-        saved = []
         for index, item in enumerate(plan):
-            saved.append(db.kids_upsert_scene(tenant_id, episode_id, f"s{index + 1:02d}", validate_scene(item), actor))
-        return {"items": saved}
+            item["id"] = f"s{index + 1:02d}"
+        return {"items": db.kids_replace_storyboard(tenant_id, episode_id, plan, actor)}
     if name == "kids.request_character_review":
         require("operator", "automation:write")
         character_id = str(args.get("character_id", ""))
@@ -403,10 +408,18 @@ def call_kids_tool(app, principal, tenant_id: str, name: str, args: dict[str, An
         if not char:
             raise ValueError("character not found")
         db.kids_lock_character(tenant_id, character_id, actor, locked=True)
-        return {"character_id": character_id, "locked": True, "note": "human approval required before publishing the Character Bible"}
+        episode_id = str(args.get("episode_id", "")) or f"character-{character_id}"
+        approval = db.kids_request_approval(tenant_id, episode_id, "character", character_id,
+                                            int(char.get("version", 1) or 1), actor)
+        return {"character_id": character_id, "locked": True, "approval": approval,
+                "note": "human approval required before publishing the Character Bible"}
     if name == "kids.generate_scene_assets":
         require("operator", "automation:write")
         episode_id = str(args.get("episode_id", "")); scene_id = str(args.get("scene_id", ""))
+        if not db.kids_get_episode(tenant_id, episode_id):
+            raise ValueError("episode not found")
+        if not any(s["id"] == scene_id for s in db.kids_list_scenes(tenant_id, episode_id)):
+            raise ValueError("scene does not exist in this episode")
         asset = db.kids_register_asset(tenant_id, {
             "episode_id": episode_id, "scene_id": scene_id, "kind": "image",
             "name": f"{scene_id}-synthetic.png", "storage_uri": "synthetic://mock/scene",
@@ -417,6 +430,8 @@ def call_kids_tool(app, principal, tenant_id: str, name: str, args: dict[str, An
     if name == "kids.submit_render":
         require("operator", "automation:write")
         episode_id = str(args.get("episode_id", ""))
+        if not db.kids_get_episode(tenant_id, episode_id):
+            raise ValueError("episode not found")
         timeline = db.kids_latest_timeline(tenant_id, episode_id)
         if not timeline:
             raise ValueError("episode has no timeline")
@@ -431,11 +446,15 @@ def call_kids_tool(app, principal, tenant_id: str, name: str, args: dict[str, An
         return job
     if name == "kids.request_publish_approval":
         require("operator", "automation:write")
+        from .kids_factory import build_safety_corpus
         episode_id = str(args.get("episode_id", ""))
         episode = db.kids_get_episode(tenant_id, episode_id)
         if not episode:
             raise ValueError("episode not found")
-        report = kids_safety_check(age_band=episode.get("age_band", "preschool"), text=episode.get("summary", ""))
+        corpus = build_safety_corpus(episode=episode, script=db.kids_latest_script(tenant_id, episode_id),
+                                     scenes=db.kids_list_scenes(tenant_id, episode_id),
+                                     timeline=db.kids_latest_timeline(tenant_id, episode_id))
+        report = kids_safety_check(age_band=episode.get("age_band", "preschool"), text=corpus)
         db.kids_save_moderation(tenant_id, episode_id, report, f"quality-agent:{actor}")
         if not report["passed"]:
             raise ValueError("safety review blocked publishing")

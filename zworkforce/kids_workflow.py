@@ -46,15 +46,19 @@ def _idem(tenant_id: str, episode_id: str, step: str, version: str = "") -> str:
 
 
 def check_budget(db, tenant_id: str, episode: dict, estimated: float) -> None:
-    """Pre-execution cost approval: block when estimate exceeds episode budget."""
+    """Pre-execution cost approval: block when estimate exceeds the episode budget.
+
+    Episode budgets compare against the episode's own recorded spend (never the
+    whole tenant ledger); tenant-level ceilings live in brand quotas.
+    """
     budget = float(episode.get("budget_credits", 0) or 0)
-    if budget > 0 and estimated > budget:
-        raise KidsBudgetBlocked(
-            f"estimated cost {estimated} credits exceeds episode budget {budget} credits; raise budget or reduce scope"
-        )
-    spent = db.kids_usage_summary(tenant_id).get("cost_credits", 0.0)
-    if budget > 0 and spent + estimated > budget * 5:
-        raise KidsBudgetBlocked("tenant spend ceiling would be exceeded by this run")
+    if budget > 0:
+        spent = db.kids_episode_spend(tenant_id, episode.get("id", ""))
+        if spent + estimated > budget:
+            raise KidsBudgetBlocked(
+                f"estimated cost {estimated} credits exceeds episode budget {budget} credits "
+                f"(already spent {spent}); raise budget or reduce scope"
+            )
 
 
 def run_episode_pipeline(app, tenant_id: str, episode_id: str, actor: str, *, preset: str = "landscape_1080p",
@@ -73,7 +77,10 @@ def run_episode_pipeline(app, tenant_id: str, episode_id: str, actor: str, *, pr
         _, created = db.kids_record_agent_run(tenant_id, episode_id, AGENT_FOR_STEP[step], step, status, actor,
                                               input_data={"episode_id": episode_id}, output_data=out or {},
                                               error=err, idempotency_key=key)
-        (completed if status == "succeeded" else skipped if not created else completed).append(step)
+        if status == "succeeded":
+            completed.append(step)
+        elif not created:
+            skipped.append(step)
         return created
 
     def already_done(step: str, version: str = "") -> bool:
@@ -168,25 +175,8 @@ def run_episode_pipeline(app, tenant_id: str, episode_id: str, actor: str, *, pr
                 if not created and job.get("status") == "succeeded":
                     record("render", "succeeded", f"v{timeline.get('version', 1)}", {"render_job": job["id"]})
                     break
-                render_dir = app.settings.data_dir / "kids-renders" / tenant_id
-                render_dir.mkdir(parents=True, exist_ok=True)
-                out_path = render_dir / f"{job['id']}.mp4"
-                result = render_deterministic_video(scenes=scenes, preset=preset, title=episode.get("title", ""), out_path=out_path)
-                try:
-                    data = out_path.read_bytes()
-                    artifact = app.artifacts.put_bytes(tenant_id, f"{episode_id}-{job['id']}.mp4", data, actor=actor,
-                                                       content_type="video/mp4",
-                                                       metadata={"kids_episode": episode_id, "kids_render": job["id"], "synthetic": True})
-                    patch = {"status": "succeeded", "output_uri": artifact.get("storage_uri") or result["output_uri"],
-                             "output_sha256": artifact.get("sha256", result["sha256"]),
-                             "thumbnail_uri": result.get("thumbnail_uri", "")}
-                except Exception:
-                    patch = {"status": "succeeded", "output_uri": result["output_uri"],
-                             "output_sha256": result["sha256"], "thumbnail_uri": result.get("thumbnail_uri", "")}
-                db.kids_update_render(tenant_id, job["id"], patch, actor)
-                db.kids_set_episode_status(tenant_id, episode_id, "rendered", actor)
-                db.kids_record_usage(tenant_id, episode_id, "ffmpeg", "video_render", 1.0, 0.5)
-                record("render", "succeeded", f"v{timeline.get('version', 1)}", {"render_job": job["id"]})
+                done = execute_render_job(app, tenant_id, job["id"], actor)
+                record("render", "succeeded", f"v{timeline.get('version', 1)}", {"render_job": done["id"]})
                 break
             except Exception as exc:
                 last_error = str(exc)[:500]
@@ -198,11 +188,12 @@ def run_episode_pipeline(app, tenant_id: str, episode_id: str, actor: str, *, pr
         skipped.append("render")
 
     # qa + approval request (safety gate, human decision still required)
+    from .kids_factory import build_safety_corpus
     episode = db.kids_get_episode(tenant_id, episode_id)
     script = db.kids_latest_script(tenant_id, episode_id)
     scenes = db.kids_list_scenes(tenant_id, episode_id)
-    corpus = (episode.get("summary", "") + " " + str((script or {}).get("body", "")) + " " +
-              " ".join(s.get("visual_prompt", "") for s in scenes))
+    timeline = db.kids_latest_timeline(tenant_id, episode_id)
+    corpus = build_safety_corpus(episode=episode, script=script, scenes=scenes, timeline=timeline)
     report = kids_safety_check(age_band=episode.get("age_band", "preschool"), text=corpus)
     db.kids_save_moderation(tenant_id, episode_id, report, f"quality-agent:{actor}")
     if not report["passed"]:
@@ -246,25 +237,56 @@ def execute_render_job(app, tenant_id: str, job_id: str, actor: str) -> dict[str
     scenes = db.kids_list_scenes(tenant_id, job["episode_id"])
     if not scenes:
         raise KidsValidationError("episode has no scenes to render")
+    # Resolve scene order/duration from the immutable timeline version the job
+    # references, so trims and reorders actually change the rendered output.
+    timeline = db.kids_latest_timeline(tenant_id, job["episode_id"])
+    ordered = _order_scenes_for_timeline(scenes, timeline, int(job.get("timeline_version", 0) or 0))
     render_dir = app.settings.data_dir / "kids-renders" / tenant_id
     render_dir.mkdir(parents=True, exist_ok=True)
     out_path = render_dir / f"{job['id']}.mp4"
-    result = render_deterministic_video(scenes=scenes, preset=preset, title=episode.get("title", ""), out_path=out_path)
-    try:
-        data = out_path.read_bytes()
-        artifact = app.artifacts.put_bytes(tenant_id, f"{job['episode_id']}-{job['id']}.mp4", data, actor=actor,
-                                           content_type="video/mp4",
-                                           metadata={"kids_episode": job["episode_id"], "kids_render": job["id"], "synthetic": True})
-        patch = {"status": "succeeded", "output_uri": artifact.get("storage_uri") or result["output_uri"],
-                 "output_sha256": artifact.get("sha256", result["sha256"]),
-                 "thumbnail_uri": result.get("thumbnail_uri", "")}
-    except Exception:
-        patch = {"status": "succeeded", "output_uri": result["output_uri"],
-                 "output_sha256": result["sha256"], "thumbnail_uri": result.get("thumbnail_uri", "")}
+    result = render_deterministic_video(scenes=ordered, preset=preset, title=episode.get("title", ""), out_path=out_path)
+    if result.get("placeholder"):
+        # FFmpeg is unavailable: never report a non-video placeholder as success.
+        raise RuntimeError("render failed: FFmpeg is not installed; cannot produce an MP4 output")
+    # Artifact registration must succeed: a render without a durable, readable
+    # artifact is a failure, not a success with a local-only file:// URI.
+    data = out_path.read_bytes()
+    artifact = app.artifacts.put_bytes(tenant_id, f"{job['episode_id']}-{job['id']}.mp4", data, actor=actor,
+                                       content_type="video/mp4",
+                                       metadata={"kids_episode": job["episode_id"], "kids_render": job["id"], "synthetic": True})
+    patch = {"status": "succeeded", "output_uri": artifact.get("storage_uri") or result["output_uri"],
+             "output_sha256": artifact.get("sha256", result["sha256"]),
+             "thumbnail_uri": result.get("thumbnail_uri", "")}
     done = db.kids_update_render(tenant_id, job["id"], patch, actor) or job
     db.kids_set_episode_status(tenant_id, job["episode_id"], "rendered", actor)
     db.kids_record_usage(tenant_id, job["episode_id"], "ffmpeg", "video_render", 1.0, 0.5)
     return done
+
+
+def _order_scenes_for_timeline(scenes: list[dict[str, Any]], timeline: dict[str, Any] | None,
+                               timeline_version: int) -> list[dict[str, Any]]:
+    """Order scenes (and durations) from a timeline's video track when present."""
+    by_id = {s.get("id"): dict(s) for s in scenes}
+    tracks = ((timeline or {}).get("tracks")) or {}
+    entries = tracks.get("video") if isinstance(tracks, dict) else None
+    if not entries:
+        return scenes
+    ordered: list[dict[str, Any]] = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        scene = by_id.get(entry.get("scene_id"))
+        if not scene:
+            continue
+        try:
+            duration = float(entry.get("duration", scene.get("duration_seconds", 5)))
+        except (TypeError, ValueError):
+            duration = float(scene.get("duration_seconds", 5))
+        ordered.append({**scene, "duration_seconds": min(max(duration, 1.0), 60.0)})
+    voided = timeline_version and int(((timeline or {}).get("version", 0)) or 0) != timeline_version
+    if not ordered or voided:
+        return scenes
+    return ordered
 
 
 def tick_render_queue(app, tenant_id: str, actor: str) -> dict[str, Any]:
