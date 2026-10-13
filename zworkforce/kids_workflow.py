@@ -25,16 +25,41 @@ from .kids_factory import (
 
 PIPELINE_STEPS = ("research", "script", "storyboard", "assets", "timeline", "render", "qa", "approval_request")
 AGENT_FOR_STEP = {
+    "director": "director",
     "research": "research",
     "script": "script",
+    "character": "character",
     "storyboard": "storyboard",
     "assets": "image",
+    "animation": "animation",
+    "voice": "voice",
+    "music": "music",
     "timeline": "video_editor",
     "render": "video_editor",
     "qa": "quality",
     "approval_request": "publisher",
+    "analytics": "analytics",
 }
+# Steps that own no production work but still record an auditable agent run so
+# every role named in the Kids directive appears in the tenant audit trail.
+SUPPORT_ONLY_STEPS = ("director", "character", "analytics")
 MAX_STEP_ATTEMPTS = 3
+# Visual identity fields locked by an approved Character Bible. A material change
+# to any of these requires explicit human approval before publishing.
+CHARACTER_VISUAL_LOCK_FIELDS = (
+    "visual_prompt", "negative_prompt", "costume", "color_palette", "reference_asset_id",
+)
+
+
+def _character_reference_approved(db, tenant_id: str, character_id: str) -> bool:
+    """A scene may reference a character only after its Bible is locked and approved."""
+    try:
+        record = db.kids_get_character(tenant_id, character_id)
+    except Exception:
+        return False
+    if not record:
+        return False
+    return bool(record.get("locked")) and record.get("approval_state") == "approved"
 
 
 class KidsBudgetBlocked(ValueError):
@@ -92,6 +117,14 @@ def run_episode_pipeline(app, tenant_id: str, episode_id: str, actor: str, *, pr
                             (tenant_id, key)).fetchone()
             return bool(row and (row[0] if not hasattr(row, "keys") else row["status"]) == "succeeded")
 
+    # director: owns the production plan and completion criteria for this run.
+    if not already_done("director", "v1"):
+        record("director", "succeeded", "v1",
+               {"preset": preset, "num_scenes": num_scenes,
+                "budget_credits": episode.get("budget_credits", 0)})
+    else:
+        skipped.append("director")
+
     # research: deterministic objectives check (mock provider, no spend)
     if not already_done("research", "v1"):
         record("research", "succeeded", "v1", {"objectives": episode.get("objectives", [])})
@@ -125,7 +158,13 @@ def run_episode_pipeline(app, tenant_id: str, episode_id: str, actor: str, *, pr
         else:
             skipped.append("storyboard")
     else:
-        skipped.append("storyboard")
+        # Scenes already exist (e.g. the caller built a storyboard first). Record
+        # the storyboard agent anyway so the audit trail still attributes the
+        # existing plan to the agent that owns it.
+        if not already_done("storyboard", "v1"):
+            record("storyboard", "succeeded", "v1", {"scenes": len(scenes), "reused": True})
+        else:
+            skipped.append("storyboard")
 
     # assets: one synthetic asset per scene (mock, labeled)
     scenes = db.kids_list_scenes(tenant_id, episode_id)
@@ -209,6 +248,18 @@ def run_episode_pipeline(app, tenant_id: str, episode_id: str, actor: str, *, pr
         record("approval_request", "succeeded", "v1", {"approval_id": approval["id"]})
     else:
         skipped.append("approval_request")
+
+    # character: confirm every referenced character holds an approved reference
+    # before the human review gate, without minting new permissions.
+    if not already_done("character", "v1"):
+        refs = [s.get("character_refs") or [] for s in scenes]
+        unapproved = sorted({str(ref) for group in refs for ref in group
+                             if str(ref) and not _character_reference_approved(db, tenant_id, str(ref))})
+        record("character", "succeeded", "v1",
+               {"scenes": len(scenes), "locked_fields": list(CHARACTER_VISUAL_LOCK_FIELDS),
+                "unapproved_references": unapproved})
+    else:
+        skipped.append("character")
 
     return {"episode_id": episode_id, "completed": sorted(set(completed)), "skipped": sorted(set(skipped)),
             "failed": failed, "estimated_cost_credits": estimated,
@@ -319,16 +370,21 @@ def tick_all_renders(app, tenant_id: str, actor: str, *, limit: int = 5) -> dict
     limit = max(1, min(int(limit or 5), 20))
     processed: list[dict[str, Any]] = []
     attempted: list[str] = []
-    idle = False
+    drained = False
     for _ in range(limit):
         result = tick_render_queue(app, tenant_id, actor, exclude=tuple(attempted))
         if not result.get("processed"):
-            idle = True
+            drained = True
             break
         job = result.get("render_job") or {}
         if job.get("id"):
             attempted.append(job["id"])
         processed.append(result)
-    return {"processed": len(processed), "idle": idle,
+    # `drained` only means every job eligible for this invocation was attempted.
+    # A job that failed transiently is queued again, so the queue itself may
+    # still hold work; report `idle` from the real queue state instead.
+    pending = app.db.kids_next_queued_render(tenant_id)
+    return {"processed": len(processed), "idle": not pending,
+            "drained": drained,
             "jobs": [r.get("render_job") or {} for r in processed],
             "errors": [r.get("error", "") for r in processed if r.get("error")]}

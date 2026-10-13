@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 import shutil
 import subprocess
@@ -722,6 +723,25 @@ def _vtt_timestamp(seconds: float) -> str:
     return _srt_timestamp(seconds).replace(",", ".")
 
 
+def _caption_span(caption: Any, cursor: float, duration: float) -> tuple[float | None, float | None]:
+    """Resolve a caption's absolute (start, end) window.
+
+    `validate_scene` accepts any scalar caption payload, so a stored caption may
+    carry non-numeric, infinite, or out-of-range bounds. Such a caption is
+    skipped rather than raising, which would otherwise fail the export for the
+    entire episode.
+    """
+    if isinstance(caption, dict) and "start" in caption and "end" in caption:
+        try:
+            start, end = float(caption["start"]), float(caption["end"])
+        except (TypeError, ValueError):
+            return None, None
+        if not (math.isfinite(start) and math.isfinite(end)) or start < 0 or end <= start:
+            return None, None
+        return start, end
+    return cursor, cursor + duration
+
+
 def build_captions_export(*, scenes: list[dict[str, Any]], format: str = "srt") -> dict[str, Any]:
     """Build downloadable caption tracks from scene captions with timings.
 
@@ -740,10 +760,9 @@ def build_captions_export(*, scenes: list[dict[str, Any]], format: str = "srt") 
             text = str(caption.get("text", "") if isinstance(caption, dict) else caption).strip()
             if not text:
                 continue
-            if isinstance(caption, dict) and "start" in caption and "end" in caption:
-                start, end = float(caption["start"]), float(caption["end"])
-            else:
-                start, end = cursor, cursor + duration
+            start, end = _caption_span(caption, cursor, duration)
+            if start is None:
+                continue
             entries.append({"start": round(start, 3), "end": round(max(end, start + 0.5), 3),
                             "text": text[:160], "scene_id": scene.get("id", "")})
         cursor += duration

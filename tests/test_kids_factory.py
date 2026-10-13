@@ -1006,6 +1006,29 @@ class KidsFullWorkflowsTests(unittest.TestCase):
         s, _ = self.req(f"/api/v1/kids/episodes/{prefix}-e/timeline", "POST", {})
         self.assertEqual(s, 201)
 
+    def test_pipeline_records_every_directive_agent_role(self):
+        """Every agent role named in the Kids directive must appear in the audit trail."""
+        self._ready_episode("roles")
+        s, result = self.req("/api/v1/kids/episodes/roles-e/pipeline", "POST", {"num_scenes": 1})
+        self.assertEqual(s, 200)
+        self.assertFalse(result.get("failed"), result.get("error"))
+        s, runs = self.req("/api/v1/kids/agent-runs?episode_id=roles-e")
+        self.assertEqual(s, 200)
+        agents = {r["agent"] for r in runs["items"]}
+        for role in ("director", "research", "script", "character",
+                     "storyboard", "image", "video_editor", "quality", "publisher"):
+            self.assertIn(role, agents, f"missing agent role: {role}")
+
+    def test_analytics_snapshot_is_attributed_to_analytics_agent(self):
+        self._ready_episode("an")
+        s, snap = self.req("/api/v1/kids/analytics/snapshot", "POST",
+                           {"episode_id": "an-e", "channel_id": "an-ch", "period": "7d"})
+        self.assertEqual(s, 201)
+        self.assertTrue(snap["synthetic"])
+        s, runs = self.req("/api/v1/kids/agent-runs?episode_id=an-e")
+        agents = {r["agent"] for r in runs["items"]}
+        self.assertIn("analytics", agents)
+
     def test_tick_all_processes_bounded_batch(self):
         self._ready_episode("w1")
         self._ready_episode("w2")
@@ -1057,6 +1080,35 @@ class KidsFullWorkflowsTests(unittest.TestCase):
         epcost = _call_tool(self.app, superadmin, "default", "kids.get_episode_cost", {"episode_id": "th-e"})
         self.assertEqual(epcost["episode_id"], "th-e")
 
+
+    def test_tick_all_reports_idle_from_real_queue_state(self):
+        """Regression: a transiently-failed job stays queued, so idle must be false."""
+        from zworkforce import kids_workflow
+        self._ready_episode("w1")
+        s, _ = self.req("/api/v1/kids/render-jobs/queue", "POST", {"episode_id": "w1-e"},
+                        headers={"Idempotency-Key": "tick-all-idle-1"})
+        self.assertEqual(s, 201)
+        original = kids_workflow.execute_render_job
+        calls = {"n": 0}
+
+        def flaky(app, tenant_id, job_id, actor):
+            calls["n"] += 1
+            raise RuntimeError("transient provider failure")
+
+        kids_workflow.execute_render_job = flaky
+        try:
+            s, result = self.req("/api/v1/kids/render-jobs/tick-all", "POST", {"limit": 5})
+        finally:
+            kids_workflow.execute_render_job = original
+        self.assertEqual(s, 200)
+        # one attempt per job per invocation, not three
+        self.assertEqual(calls["n"], 1)
+        self.assertEqual(result["processed"], 1)
+        # the job went back to queued, so the queue is not idle
+        self.assertFalse(result["idle"])
+        self.assertTrue(result["drained"])
+        s, jobs = self.req("/api/v1/kids/render-jobs")
+        self.assertEqual(jobs["items"][0]["status"], "queued")
 
 class KidsSlice10Tests(unittest.TestCase):
     """Slice 10: captions export, playlists, bench tool contract."""
@@ -1133,6 +1185,27 @@ class KidsSlice10Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             _call_tool(self.app, superadmin, "default", "kids.resolve_provider", {"capability": "nope"})
 
+    def test_captions_skip_non_numeric_bounds_without_failing_export(self):
+        """Regression: a stored caption with unparsable bounds must not break the episode export."""
+        from zworkforce.kids_factory import build_captions_export
+        scenes = [{"id": "s1", "ordering": 1, "duration_seconds": 4,
+                   "captions": [{"text": "hello", "start": "later", "end": "soon"},
+                                {"text": "world", "start": 1.0, "end": 2.0},
+                                {"text": "bare"}]}]
+        out = build_captions_export(scenes=scenes, format="json")
+        captions = json.loads(out["content"])["captions"]
+        texts = [e["text"] for e in captions]
+        self.assertNotIn("hello", texts)
+        self.assertIn("world", texts)
+        self.assertIn("bare", texts)
+        self.assertEqual(out["entries"], 2)
+        srt = build_captions_export(scenes=scenes, format="srt")
+        self.assertIn("world", srt["content"])
+        self.assertNotIn("hello", srt["content"])
+        # inverted / negative spans are dropped too
+        bad = [{"id": "s1", "ordering": 1, "duration_seconds": 3,
+                "captions": [{"text": "inverted", "start": 5.0, "end": 1.0}]}]
+        self.assertEqual(build_captions_export(scenes=bad, format="json")["entries"], 0)
 
 if __name__ == "__main__":
     unittest.main()
