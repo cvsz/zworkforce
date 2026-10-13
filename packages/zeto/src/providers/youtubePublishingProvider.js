@@ -38,6 +38,9 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
   }
 
   async publish(credentials, publication) {
+    if (publication.privacyStatus && publication.privacyStatus !== "private") {
+      throw new Error("YouTube uploads must start private; publication requires separate human approval");
+    }
     const media = publication.media;
     if (!Buffer.isBuffer(media?.buffer) || !media.mimeType)
       throw new Error(
@@ -59,7 +62,7 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
           description: publication.text || "",
           tags: publication.tags || [],
         },
-        status: { privacyStatus: publication.privacyStatus || "private" },
+        status: { privacyStatus: "private" },
       },
     });
     const location = initialized.headers?.location;
@@ -80,6 +83,24 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
       permalink: `https://www.youtube.com/watch?v=${response.data.id}`,
       rateLimit: standardRateLimit(response.headers),
     };
+  }
+
+  async setVisibility(credentials, publicationId, approval) {
+    if (!approval || approval.approved !== true || approval.videoId !== publicationId ||
+        !approval.approverId || !approval.auditId) {
+      throw new Error("A bound, auditable human approval is required for YouTube visibility changes");
+    }
+    if (approval.privacyStatus !== "public" && approval.privacyStatus !== "unlisted") {
+      throw new Error("Unsupported approved visibility");
+    }
+    const response = await this.request({
+      method: "PUT",
+      url: `${this.apiUrl}/videos`,
+      headers: this.bearer(credentials?.accessToken),
+      params: { part: "status" },
+      data: { id: publicationId, status: { privacyStatus: approval.privacyStatus } },
+    });
+    return { publication: response.data, rateLimit: standardRateLimit(response.headers) };
   }
 
   async delete(credentials, publicationId) {
