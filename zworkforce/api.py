@@ -243,7 +243,9 @@ class App:
                 self._prepare()
                 path = urllib.parse.urlsplit(self.path).path
                 try:
-                    if path == "/":
+                    if path == "/" or path in {"/apps", "/apps/", "/service", "/service/", "/package", "/package/"}:
+                        # Dashboard entrypoints preserve the path while rendering the same app shell.
+                        # The Cloudflare path matcher does not rewrite the origin request path.
                         return self._static("index.html")
                     if path in {"/app.js", "/styles.css", "/zarvis-voice-worklet.js", "/zarvis-hud.js", "/zarvis-hud.css"}:
                         return self._static(path[1:])
@@ -359,6 +361,14 @@ class App:
                 ctx, response = self._principal("viewer", "workforce:read")
                 if response: return response
                 _, tenant_id = ctx
+                if path == "/api/v1/kids/overview" or path.startswith("/api/v1/kids/"):
+                    from .kids_api import kids_get as _kids_get
+                    handled, payload = _kids_get(app, tenant_id, path, q)
+                    if handled:
+                        if isinstance(payload, dict) and payload.get("_status"):
+                            code, msg = payload["_error"]
+                            return self._error(payload["_status"], code, msg)
+                        return self._json(200, payload)
                 if path == "/api/v1/overview": return self._json(200, app.db.overview(tenant_id))
                 if path == "/api/v1/agents": return self._json(200, {"items": app.db.list_agents(tenant_id)})
                 if path == "/api/v1/agent-templates": return self._json(200, {"items": app.db.list_agent_templates(tenant_id)})
@@ -803,6 +813,24 @@ class App:
                         _,tenant_id=ctx;body=self._body()
                         app.db.set_tenant_economics(tenant_id,str(body.get("currency","USD")),float(body.get("currency_per_credit",.01)),float(body.get("target_worker_utilization",.70)))
                         return self._json(200,app.db.get_tenant_economics(tenant_id))
+                    if path == "/api/v1/kids/overview" or path.startswith("/api/v1/kids/"):
+                        from .kids_api import kids_post as _kids_post
+                        from .kids_factory import KidsValidationError as _KidsValidationError
+                        ctx,response=self._principal("operator","automation:write")
+                        if response:return response
+                        principal,tenant_id=ctx
+                        try:
+                            body=self._body()
+                        except ValueError as exc:
+                            return self._error(400,"invalid_request",str(exc))
+                        try:
+                            handled,payload,status=_kids_post(app,principal,tenant_id,path,body,
+                                idempotency_key=self.headers.get("Idempotency-Key","") or "")
+                        except _KidsValidationError as exc:
+                            return self._error(400,"invalid_request",str(exc))
+                        if handled:
+                            return self._json(status,payload)
+                        return self._error(404,"not_found","not found")
                     return self._error(404,"not_found","not found")
                 except (ValueError,TypeError,SkillError,PolicyError) as exc:
                     return self._error(400,"invalid_request",str(exc))

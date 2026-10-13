@@ -191,6 +191,8 @@ jobs:
           python-version: ${{ matrix.python }}
       - name: Install package and runtime dependencies
         run: python -m pip install --no-cache-dir '.[test]'
+      - name: Install FFmpeg for deterministic media tests
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg && ffmpeg -hide_banner -version | head -n 1
       - name: Compile
         run: python -m compileall -q zworkforce tests scripts
       - name: Unit and integration tests
