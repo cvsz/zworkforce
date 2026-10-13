@@ -763,6 +763,18 @@ class KidsMixin:
                             (tenant_id,)).fetchone()
             return self._decode(dict(row)) if row else None
 
+    def kids_next_queued_render(self, tenant_id: str, *, exclude: tuple[str, ...] = ()) -> dict | None:
+        """Oldest queued job skipping already-attempted IDs (tick-all fairness)."""
+        with self.connection() as c:
+            if exclude:
+                placeholders = ",".join("?" for _ in exclude)
+                row = c.execute(f"SELECT * FROM kids_render_jobs WHERE tenant_id=? AND status='queued' AND id NOT IN ({placeholders}) ORDER BY created_at LIMIT 1",
+                                (tenant_id, *exclude)).fetchone()
+            else:
+                row = c.execute("SELECT * FROM kids_render_jobs WHERE tenant_id=? AND status='queued' ORDER BY created_at LIMIT 1",
+                                (tenant_id,)).fetchone()
+            return self._decode(dict(row)) if row else None
+
     def kids_bump_render_attempt(self, tenant_id: str, job_id: str, actor: str, *, error: str = "") -> dict | None:
         with self.connection() as c:
             row = c.execute("SELECT attempts FROM kids_render_jobs WHERE tenant_id=? AND id=?", (tenant_id, job_id)).fetchone()
@@ -1032,6 +1044,37 @@ class KidsMixin:
         self.kids_set_episode_status(tenant_id, new_episode_id, "draft", actor)
         return {"episode_id": new_episode_id, "counts": counts,
                 "note": "creative graph restored; renders/approvals/publishing must be re-run and re-approved"}
+
+    def kids_episode_cost(self, tenant_id: str, episode_id: str) -> dict:
+        """Cost breakdown for one episode from the recorded usage ledger."""
+        with self.connection() as c:
+            rows = c.execute("SELECT capability,provider,COUNT(*) n,COALESCE(SUM(quantity),0) q,COALESCE(SUM(cost_credits),0) cost FROM kids_usage WHERE tenant_id=? AND episode_id=? GROUP BY capability,provider ORDER BY capability",
+                             (tenant_id, episode_id)).fetchall()
+            by_capability = [{"capability": r[0], "provider": r[1], "events": int(r[2]), "quantity": float(r[3]), "cost_credits": float(r[4])} for r in rows]
+            total = sum(item["cost_credits"] for item in by_capability)
+        episode = self.kids_get_episode(tenant_id, episode_id) or {}
+        budget = round(float(episode.get("budget_credits", 0) or 0), 4)
+        total = round(total, 4)
+        return {"episode_id": episode_id, "by_capability": by_capability, "total_cost_credits": total,
+                "budget_credits": budget, "within_budget": (total <= budget) if budget > 0 else True}
+
+    def kids_playlists(self, tenant_id: str, *, brand_id: str = "") -> list[dict]:
+        """Playlist planning view: campaigns with their ordered episode titles resolved."""
+        playlists: list[dict] = []
+        for campaign in self.kids_list_campaigns(tenant_id, brand_id=brand_id):
+            entries: list[dict] = []
+            for item in campaign.get("playlist") or []:
+                ep_id = item if isinstance(item, str) else (item.get("episode_id", "") if isinstance(item, dict) else "")
+                if not ep_id:
+                    continue
+                episode = self.kids_get_episode(tenant_id, str(ep_id))
+                if episode:
+                    entries.append({"episode_id": episode["id"], "title": episode["title"],
+                                    "status": episode["status"], "language": episode["language"]})
+            playlists.append({"campaign_id": campaign["id"], "campaign_name": campaign.get("name", ""),
+                              "brand_id": campaign.get("brand_id", ""), "topic": campaign.get("topic", ""),
+                              "episodes": entries, "count": len(entries)})
+        return playlists
 
     def kids_analytics_summary(self, tenant_id: str) -> dict:
         """Aggregate only persisted rows. Synthetic snapshots are counted separately, never as real views."""

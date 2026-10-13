@@ -965,5 +965,247 @@ class KidsHardeningTests(unittest.TestCase):
         self.assertGreater(self.db.kids_usage_summary("default")["cost_credits"], 0)
 
 
+class KidsFullWorkflowsTests(unittest.TestCase):
+    """Slice 9: worker fan-out, per-episode cost, bilingual end-to-end."""
+
+    def setUp(self):
+        self.temp, self.settings, self.db, self.provider, self.engine, self.auth = stack()
+        self.app = App(self.settings, self.db, self.engine, self.auth, self.provider)
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), self.app.handler())
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.base = f"http://127.0.0.1:{self.server.server_address[1]}"
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.engine.shutdown()
+        self.temp.cleanup()
+
+    def req(self, path, method="GET", body=None, headers=None, secret="test-admin-secret"):
+        h = {"Authorization": f"Bearer {secret}", **(headers or {})}
+        data = None
+        if body is not None:
+            data = json.dumps(body).encode()
+            h["Content-Type"] = "application/json"
+        r = urllib.request.Request(self.base + path, data=data, headers=h, method=method)
+        try:
+            with urllib.request.urlopen(r, timeout=120) as resp:
+                return resp.status, json.loads(resp.read() or b"{}")
+        except urllib.error.HTTPError as exc:
+            return exc.code, json.loads(exc.read() or b"{}")
+
+    def _ready_episode(self, prefix, title="Work"):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": f"{prefix}-b", "name": "W Brand", "language": "en"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes", "POST", {"id": f"{prefix}-e", "brand_id": f"{prefix}-b",
+                                                          "title": title, "summary": "learn"})
+        self.assertIn(s, (200, 201))
+        s, _ = self.req(f"/api/v1/kids/episodes/{prefix}-e/storyboard", "POST", {"num_scenes": 1})
+        self.assertEqual(s, 201)
+        s, _ = self.req(f"/api/v1/kids/episodes/{prefix}-e/timeline", "POST", {})
+        self.assertEqual(s, 201)
+
+    def test_pipeline_records_every_directive_agent_role(self):
+        """Every agent role named in the Kids directive must appear in the audit trail."""
+        self._ready_episode("roles")
+        s, result = self.req("/api/v1/kids/episodes/roles-e/pipeline", "POST", {"num_scenes": 1})
+        self.assertEqual(s, 200)
+        self.assertFalse(result.get("failed"), result.get("error"))
+        s, runs = self.req("/api/v1/kids/agent-runs?episode_id=roles-e")
+        self.assertEqual(s, 200)
+        agents = {r["agent"] for r in runs["items"]}
+        for role in ("director", "research", "script", "character",
+                     "storyboard", "image", "video_editor", "quality", "publisher"):
+            self.assertIn(role, agents, f"missing agent role: {role}")
+
+    def test_analytics_snapshot_is_attributed_to_analytics_agent(self):
+        self._ready_episode("an")
+        s, snap = self.req("/api/v1/kids/analytics/snapshot", "POST",
+                           {"episode_id": "an-e", "channel_id": "an-ch", "period": "7d"})
+        self.assertEqual(s, 201)
+        self.assertTrue(snap["synthetic"])
+        s, runs = self.req("/api/v1/kids/agent-runs?episode_id=an-e")
+        agents = {r["agent"] for r in runs["items"]}
+        self.assertIn("analytics", agents)
+
+    def test_tick_all_processes_bounded_batch(self):
+        self._ready_episode("w1")
+        self._ready_episode("w2")
+        for ep, key in (("w1-e", "tick-all-1"), ("w2-e", "tick-all-2")):
+            s, _ = self.req("/api/v1/kids/render-jobs/queue", "POST", {"episode_id": ep},
+                             headers={"Idempotency-Key": key})
+            self.assertEqual(s, 201)
+        s, result = self.req("/api/v1/kids/render-jobs/tick-all", "POST", {"limit": 5})
+        self.assertEqual(s, 200)
+        self.assertEqual(result["processed"], 2)
+        self.assertTrue(result["idle"])
+        self.assertTrue(all(j["status"] == "succeeded" for j in result["jobs"]))
+        s, empty = self.req("/api/v1/kids/render-jobs/tick-all", "POST", {"limit": 5})
+        self.assertEqual(empty["processed"], 0)
+
+    def test_episode_cost_breakdown(self):
+        self._ready_episode("c1", title="Costly")
+        s, render = self.req("/api/v1/kids/render-jobs", "POST", {"episode_id": "c1-e"})
+        self.assertEqual(render["status"], "succeeded")
+        s, cost = self.req("/api/v1/kids/episodes/c1-e/cost")
+        self.assertEqual(s, 200)
+        self.assertGreater(cost["total_cost_credits"], 0)
+        self.assertTrue(cost["within_budget"])
+        caps = {row["capability"] for row in cost["by_capability"]}
+        self.assertIn("video_render", caps)
+        s, missing = self.req("/api/v1/kids/episodes/nope/cost")
+        self.assertEqual(s, 404)
+
+    def test_thai_bilingual_end_to_end(self):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": "th-b", "name": "Thai Brand", "language": "th"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes", "POST", {"id": "th-e", "brand_id": "th-b",
+                                                          "title": "สีสัน", "summary": "เรียนสีห้าสี",
+                                                          "age_band": "preschool", "language": "th",
+                                                          "objectives": ["สี"], "vocabulary": ["แดง", "ฟ้า"]})
+        self.assertEqual(s, 201)
+        s, pipe = self.req("/api/v1/kids/episodes/th-e/pipeline", "POST", {"num_scenes": 2})
+        self.assertEqual(s, 200)
+        self.assertEqual(pipe["failed"], "")
+        s, cost = self.req("/api/v1/kids/episodes/th-e/cost")
+        self.assertGreaterEqual(cost["total_cost_credits"], 0)
+        from zworkforce.mcp import _call_tool
+        superadmin = type("P", (), {"name": "mcp-th", "role": "superadmin", "key_id": "k",
+                                    "has_scope": lambda self, s: True})()
+        summary = _call_tool(self.app, superadmin, "default", "kids.get_analytics_summary", {})
+        self.assertGreaterEqual(summary["episodes_by_status"].get("in_review", 0), 1)
+        ticked = _call_tool(self.app, superadmin, "default", "kids.tick_all_renders", {"limit": 5})
+        self.assertIn("processed", ticked)
+        epcost = _call_tool(self.app, superadmin, "default", "kids.get_episode_cost", {"episode_id": "th-e"})
+        self.assertEqual(epcost["episode_id"], "th-e")
+
+
+    def test_tick_all_reports_idle_from_real_queue_state(self):
+        """Regression: a transiently-failed job stays queued, so idle must be false."""
+        from zworkforce import kids_workflow
+        self._ready_episode("w1")
+        s, _ = self.req("/api/v1/kids/render-jobs/queue", "POST", {"episode_id": "w1-e"},
+                        headers={"Idempotency-Key": "tick-all-idle-1"})
+        self.assertEqual(s, 201)
+        original = kids_workflow.execute_render_job
+        calls = {"n": 0}
+
+        def flaky(app, tenant_id, job_id, actor):
+            calls["n"] += 1
+            raise RuntimeError("transient provider failure")
+
+        kids_workflow.execute_render_job = flaky
+        try:
+            s, result = self.req("/api/v1/kids/render-jobs/tick-all", "POST", {"limit": 5})
+        finally:
+            kids_workflow.execute_render_job = original
+        self.assertEqual(s, 200)
+        # one attempt per job per invocation, not three
+        self.assertEqual(calls["n"], 1)
+        self.assertEqual(result["processed"], 1)
+        # the job went back to queued, so the queue is not idle
+        self.assertFalse(result["idle"])
+        self.assertTrue(result["drained"])
+        s, jobs = self.req("/api/v1/kids/render-jobs")
+        self.assertEqual(jobs["items"][0]["status"], "queued")
+
+class KidsSlice10Tests(unittest.TestCase):
+    """Slice 10: captions export, playlists, bench tool contract."""
+
+    def setUp(self):
+        self.temp, self.settings, self.db, self.provider, self.engine, self.auth = stack()
+        self.app = App(self.settings, self.db, self.engine, self.auth, self.provider)
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), self.app.handler())
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.base = f"http://127.0.0.1:{self.server.server_address[1]}"
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.engine.shutdown()
+        self.temp.cleanup()
+
+    def req(self, path, method="GET", body=None, headers=None, secret="test-admin-secret"):
+        h = {"Authorization": f"Bearer {secret}", **(headers or {})}
+        data = None
+        if body is not None:
+            data = json.dumps(body).encode()
+            h["Content-Type"] = "application/json"
+        r = urllib.request.Request(self.base + path, data=data, headers=h, method=method)
+        try:
+            with urllib.request.urlopen(r, timeout=120) as resp:
+                return resp.status, json.loads(resp.read() or b"{}")
+        except urllib.error.HTTPError as exc:
+            return exc.code, json.loads(exc.read() or b"{}")
+
+    def test_captions_srt_vtt_json(self):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": "cap-b", "name": "Cap Brand"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes", "POST", {"id": "cap-e", "brand_id": "cap-b", "title": "Cap"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes/cap-e/storyboard", "POST", {"num_scenes": 2})
+        self.assertEqual(s, 201)
+        s, srt = self.req("/api/v1/kids/episodes/cap-e/captions?format=srt")
+        self.assertEqual(s, 200)
+        self.assertEqual(srt["format"], "srt")
+        self.assertIn("-->", srt["content"])
+        self.assertIn("00:00:00,000 -->", srt["content"])
+        s, vtt = self.req("/api/v1/kids/episodes/cap-e/captions?format=vtt")
+        self.assertTrue(vtt["content"].startswith("WEBVTT"))
+        self.assertIn(".000 -->", vtt["content"])
+        s, js = self.req("/api/v1/kids/episodes/cap-e/captions?format=json")
+        self.assertGreaterEqual(js["entries"], 1)
+        s, denied = self.req("/api/v1/kids/episodes/cap-e/captions?format=ass")
+        self.assertEqual(s, 400)
+        s, missing = self.req("/api/v1/kids/episodes/nope/captions")
+        self.assertEqual(s, 404)
+
+    def test_playlists_resolve_episode_titles(self):
+        s, _ = self.req("/api/v1/kids/brands", "POST", {"id": "pl-b", "name": "Pl Brand"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/episodes", "POST", {"id": "pl-e1", "brand_id": "pl-b", "title": "First"})
+        self.assertEqual(s, 201)
+        s, _ = self.req("/api/v1/kids/campaigns", "POST", {"id": "pl-c", "brand_id": "pl-b",
+                                                            "name": "Camp", "playlist": ["pl-e1", "ghost-e"]})
+        self.assertEqual(s, 201)
+        s, lists = self.req("/api/v1/kids/playlists?brand_id=pl-b")
+        self.assertEqual(s, 200)
+        self.assertEqual(len(lists["items"]), 1)
+        self.assertEqual(lists["items"][0]["episodes"][0]["title"], "First")
+        self.assertEqual(lists["items"][0]["count"], 1)
+
+    def test_mcp_captions_and_playlists(self):
+        from zworkforce.mcp import _call_tool
+        superadmin = type("P", (), {"name": "mcp-c", "role": "superadmin", "key_id": "k",
+                                    "has_scope": lambda self, s: True})()
+        with self.assertRaises(ValueError):
+            _call_tool(self.app, superadmin, "default", "kids.export_captions", {"episode_id": "ghost"})
+        with self.assertRaises(ValueError):
+            _call_tool(self.app, superadmin, "default", "kids.resolve_provider", {"capability": "nope"})
+
+    def test_captions_skip_non_numeric_bounds_without_failing_export(self):
+        """Regression: a stored caption with unparsable bounds must not break the episode export."""
+        from zworkforce.kids_factory import build_captions_export
+        scenes = [{"id": "s1", "ordering": 1, "duration_seconds": 4,
+                   "captions": [{"text": "hello", "start": "later", "end": "soon"},
+                                {"text": "world", "start": 1.0, "end": 2.0},
+                                {"text": "bare"}]}]
+        out = build_captions_export(scenes=scenes, format="json")
+        captions = json.loads(out["content"])["captions"]
+        texts = [e["text"] for e in captions]
+        self.assertNotIn("hello", texts)
+        self.assertIn("world", texts)
+        self.assertIn("bare", texts)
+        self.assertEqual(out["entries"], 2)
+        srt = build_captions_export(scenes=scenes, format="srt")
+        self.assertIn("world", srt["content"])
+        self.assertNotIn("hello", srt["content"])
+        # inverted / negative spans are dropped too
+        bad = [{"id": "s1", "ordering": 1, "duration_seconds": 3,
+                "captions": [{"text": "inverted", "start": 5.0, "end": 1.0}]}]
+        self.assertEqual(build_captions_export(scenes=bad, format="json")["entries"], 0)
+
 if __name__ == "__main__":
     unittest.main()

@@ -32,6 +32,7 @@ from .kids_factory import (
     validate_timeline,
     validate_voice_profile,
 )
+from .kids_workflow import AGENT_FOR_STEP
 
 SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}$")
 
@@ -153,6 +154,27 @@ def kids_get(app, tenant_id: str, path: str, query: dict) -> tuple[bool, Any]:
         if not bundle:
             return True, {"_status": 404, "_error": ("episode_not_found", "episode not found")}
         return True, bundle
+    m = re.fullmatch(r"/api/v1/kids/episodes/([a-z0-9][a-z0-9-]{0,62})/cost", path)
+    if m:
+        if not db.kids_get_episode(tenant_id, m.group(1)):
+            return True, {"_status": 404, "_error": ("episode_not_found", "episode not found")}
+        return True, db.kids_episode_cost(tenant_id, m.group(1))
+    m = re.fullmatch(r"/api/v1/kids/episodes/([a-z0-9][a-z0-9-]{0,62})/captions", path)
+    if m:
+        from .kids_factory import build_captions_export
+        from .kids_workflow import _order_scenes_for_timeline
+        if not db.kids_get_episode(tenant_id, m.group(1)):
+            return True, {"_status": 404, "_error": ("episode_not_found", "episode not found")}
+        scenes = db.kids_list_scenes(tenant_id, m.group(1))
+        # Captions must line up with the rendered video, so resolve scene order
+        # and duration from the same timeline version the render job consumed.
+        renders = db.kids_list_renders(tenant_id, episode_id=m.group(1), limit=1)
+        timeline = db.kids_latest_timeline(tenant_id, m.group(1))
+        ordered = _order_scenes_for_timeline(scenes, timeline,
+                                            int((renders[0] if renders else {}).get("timeline_version", 0) or 0))
+        return True, build_captions_export(scenes=ordered, format=(_strq(query, "format") or "srt"))
+    if path == "/api/v1/kids/playlists":
+        return True, {"items": db.kids_playlists(tenant_id, brand_id=_strq(query, "brand_id"))}
     if path == "/api/v1/kids/voices":
         return True, {"items": db.kids_list_voices(tenant_id, language=_strq(query, "language"))}
     if path == "/api/v1/kids/music":
@@ -369,6 +391,13 @@ def kids_post(app, principal, tenant_id: str, path: str, body: dict, *, idempote
     if path == "/api/v1/kids/render-jobs/tick":
         from .kids_workflow import tick_render_queue
         return True, tick_render_queue(app, tenant_id, actor), 200
+    if path == "/api/v1/kids/render-jobs/tick-all":
+        from .kids_workflow import tick_all_renders
+        try:
+            limit = int(body.get("limit", 5) or 5)
+        except (TypeError, ValueError):
+            raise KidsValidationError("limit must be an integer")
+        return True, tick_all_renders(app, tenant_id, actor, limit=limit), 200
     m = re.fullmatch(r"/api/v1/kids/render-jobs/([0-9a-f]{12})/retry", path)
     if m:
         job = db.kids_get_render(tenant_id, m.group(1))
@@ -449,6 +478,15 @@ def kids_post(app, principal, tenant_id: str, path: str, body: dict, *, idempote
                                                   "period": str(body.get("period", "7d")),
                                                   "metrics": body.get("metrics") or {"note": "synthetic fixture, not real YouTube data"},
                                                   "synthetic": True}, actor)
+        # Attribute the snapshot to the analytics agent so every role named in
+        # the Kids directive appears in the tenant audit trail.
+        if snap.get("episode_id"):
+            db.kids_record_agent_run(tenant_id, snap["episode_id"], AGENT_FOR_STEP["analytics"],
+                                     "analytics_snapshot", "succeeded", actor,
+                                     input_data={"channel_id": snap.get("channel_id", ""),
+                                                 "period": snap.get("period", "")},
+                                     output_data={"snapshot_id": snap.get("id", ""), "synthetic": True},
+                                     idempotency_key=f"{tenant_id}:{snap.get('id', '')}:analytics")
         return True, snap, 201
     if path == "/api/v1/kids/episodes/import":
         bundle = body.get("bundle")

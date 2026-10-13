@@ -78,6 +78,31 @@ MCP_TOOLS: dict[str, dict[str, Any]] = {
         "inputSchema": {"type": "object", "properties": {}},
         "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
     },
+    "kids.tick_all_renders": {
+        "name": "kids.tick_all_renders",
+        "description": "Process up to N queued render jobs (bounded fan-out, default 5, max 20).",
+        "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer"}}},
+        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": False},
+    },
+    "kids.get_episode_cost": {
+        "name": "kids.get_episode_cost",
+        "description": "Cost breakdown for one episode from the recorded usage ledger.",
+        "inputSchema": {"type": "object", "properties": {"episode_id": {"type": "string"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.export_captions": {
+        "name": "kids.export_captions",
+        "description": "Build SRT/VTT/JSON caption tracks from episode scenes with timings.",
+        "inputSchema": {"type": "object", "properties": {
+            "episode_id": {"type": "string"}, "format": {"type": "string"}}, "required": ["episode_id"]},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "kids.list_playlists": {
+        "name": "kids.list_playlists",
+        "description": "Playlist planning view: campaigns with ordered episode titles.",
+        "inputSchema": {"type": "object", "properties": {"brand_id": {"type": "string"}}},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
     "kids.submit_translation": {
         "name": "kids.submit_translation",
         "description": "Submit human translation lines for episode scenes (requires automation:write).",
