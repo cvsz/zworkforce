@@ -6,6 +6,7 @@ const {
 class YouTubePublishingProvider extends HttpPublishingProvider {
   constructor(options = {}) {
     super("youtube", options);
+    this.verifyPublicationApproval = options.verifyPublicationApproval || null;
     this.apiUrl = "https://www.googleapis.com/youtube/v3";
     this.uploadUrl = "https://www.googleapis.com/upload/youtube/v3/videos";
   }
@@ -92,6 +93,10 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
     }
     if (approval.privacyStatus !== "public" && approval.privacyStatus !== "unlisted") {
       throw new Error("Unsupported approved visibility");
+    }
+    if (typeof this.verifyPublicationApproval !== "function" ||
+        await this.verifyPublicationApproval(approval) !== true) {
+      throw new Error("Canonical server-side approval verification failed");
     }
     const response = await this.request({
       method: "PUT",
