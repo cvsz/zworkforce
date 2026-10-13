@@ -253,6 +253,58 @@
       </div>
     </section>
 
+    <!-- AI Kids Content Factory Studio -->
+    <section class="panel expandable-card" id="kidsFactoryCard" aria-label="AI Kids Content Factory">
+      <div class="panel-title">
+        <div><span class="eyebrow">AI KIDS CONTENT FACTORY</span><h2>Kids Studio — brands, episodes, renders, approvals</h2></div>
+        <div class="card-tools">
+          <span id="kidsStatusPill" class="pill">Not loaded</span>
+          <button id="kidsRefreshBtn" class="ghost small" type="button">Refresh Kids</button>
+          <button class="icon-button card-maximize-btn" title="Toggle Fullscreen" onclick="toggleCardFullscreen('kidsFactoryCard')">🗖</button>
+        </div>
+      </div>
+      <p id="kidsStatus" role="status" aria-live="polite">Connect to load tenant-scoped Kids Factory state. No synthetic progress is shown.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Metric</th><th>Brands</th><th>Episodes</th><th>Pending approvals</th><th>Renders</th><th>Published</th></tr>
+          </thead>
+          <tbody id="kidsOverviewRows"><tr><td colspan="6">No data yet.</td></tr></tbody>
+        </table>
+      </div>
+      <div id="kidsEpisodeList" class="memory-list" aria-label="Recent Kids episodes"></div>
+    </section>
+
+    <!-- Kids Studio workspace: full CRUD + workflow screens backed by /api/v1/kids/* -->
+    <section class="panel expandable-card" id="kidsStudioCard" aria-label="Kids Studio workspace">
+      <div class="panel-title">
+        <div><span class="eyebrow">KIDS STUDIO WORKSPACE</span><h2>Brands, characters, episodes, renders, approvals</h2></div>
+        <div class="card-tools">
+          <span id="kidsStudioPill" class="pill">Not loaded</span>
+          <button class="icon-button card-maximize-btn" title="Toggle Fullscreen" onclick="toggleCardFullscreen('kidsStudioCard')">🗖</button>
+        </div>
+      </div>
+      <p id="kidsStudioStatus" role="status" aria-live="polite">Connect, then pick a tab. Every view reads live tenant-scoped backend state.</p>
+      <div class="studio-tabs" role="tablist" aria-label="Kids Studio screens">
+        <button role="tab" data-studio-tab="dashboard">Dashboard</button>
+        <button role="tab" data-studio-tab="brands">Brands</button>
+        <button role="tab" data-studio-tab="characters">Characters</button>
+        <button role="tab" data-studio-tab="campaigns">Campaigns</button>
+        <button role="tab" data-studio-tab="episodes">Episodes</button>
+        <button role="tab" data-studio-tab="scripts">Scripts</button>
+        <button role="tab" data-studio-tab="storyboard">Storyboard</button>
+        <button role="tab" data-studio-tab="assets">Assets</button>
+        <button role="tab" data-studio-tab="voices">Voices</button>
+        <button role="tab" data-studio-tab="music">Music</button>
+        <button role="tab" data-studio-tab="renders">Renders</button>
+        <button role="tab" data-studio-tab="approvals">Approvals</button>
+        <button role="tab" data-studio-tab="schedules">Schedules</button>
+        <button role="tab" data-studio-tab="analytics">Analytics</button>
+        <button role="tab" data-studio-tab="providers">Providers</button>
+      </div>
+      <div id="kidsStudioBody"><p>Select a tab to load its screen.</p></div>
+    </section>
+
     <!-- Timeline Activity Feed Section -->
     <section class="panel">
       <div class="panel-title">

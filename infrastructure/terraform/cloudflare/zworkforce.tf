@@ -154,6 +154,9 @@ locals {
   ]
 
   zworkforce_ingress = [
+    { hostname = var.zwf_hostname, path = "^/apps(/.*)?$", service = var.zwf_origin },
+    { hostname = var.zwf_hostname, path = "^/service(/.*)?$", service = var.zwf_origin },
+    { hostname = var.zwf_hostname, path = "^/package(/.*)?$", service = var.zwf_origin },
     { hostname = var.zwf_hostname, service = var.zwf_origin },
     { hostname = var.zwf_api_hostname, service = var.zwf_origin },
     { hostname = var.zslog_hostname, service = var.zslog_origin },
@@ -319,4 +322,19 @@ output "zarvis_url" {
 output "zider_url" {
   value       = "https://${var.zider_hostname}"
   description = "Public zider AI Browser Sidebar & Workspace URL."
+}
+
+output "zwf_apps_url" {
+  value       = "https://${var.zwf_hostname}/apps/"
+  description = "zWorkforce URL for applications."
+}
+
+output "zwf_services_url" {
+  value       = "https://${var.zwf_hostname}/service/"
+  description = "zWorkforce URL for services."
+}
+
+output "zwf_packages_url" {
+  value       = "https://${var.zwf_hostname}/package/"
+  description = "zWorkforce URL for packages."
 }
