@@ -44,10 +44,19 @@ test("visibility change fails closed without canonical verifier", async () => {
 
 test("canonical verifier controls approved visibility transition", async () => {
   const requests = [];
+  const currentStatus = {
+    privacyStatus: "private",
+    license: "youtube",
+    embeddable: true,
+    madeForKids: false,
+  };
   const provider = new YouTubePublishingProvider({
     verifyPublicationApproval: async (approval) => approval.auditId === "accepted",
     http: async (request) => {
       requests.push(request);
+      if (request.method === "GET") {
+        return { data: { items: [{ id: "video-1", status: { ...currentStatus } }] }, headers: {} };
+      }
       return { data: { id: "video-1" }, headers: {} };
     },
   });
@@ -61,9 +70,41 @@ test("canonical verifier controls approved visibility transition", async () => {
     }), /verification failed/,
   );
   assert.equal(requests.length, 0);
-  await provider.setVisibility({ accessToken: "secret" }, "video-1", {
-    ...base, auditId: "accepted",
+  // Confirmation GET still reports private, so the transition must fail closed.
+  await assert.rejects(
+    provider.setVisibility({ accessToken: "secret" }, "video-1", {
+      ...base, auditId: "accepted",
+    }), /did not confirm/,
+  );
+  const put = requests.find((request) => request.method === "PUT");
+  assert.equal(put.data.status.privacyStatus, "public");
+  assert.equal(put.data.status.license, "youtube");
+  assert.equal(put.data.status.embeddable, true);
+  assert.equal(put.data.status.madeForKids, false);
+});
+
+test("approved visibility is confirmed and finalized after mutation", async () => {
+  const requests = [];
+  let finalized = 0;
+  const provider = new YouTubePublishingProvider({
+    verifyPublicationApproval: async () => true,
+    finalizePublicationApproval: async () => { finalized++; },
+    http: async (request) => {
+      requests.push(request);
+      if (request.method === "GET") {
+        const applied = requests.some((seen) => seen.method === "PUT");
+        return {
+          data: { items: [{ id: "video-1", status: { privacyStatus: applied ? "public" : "private" } }] },
+          headers: {},
+        };
+      }
+      return { data: { id: "video-1" }, headers: {} };
+    },
   });
-  assert.equal(requests.length, 1);
-  assert.equal(requests[0].data.status.privacyStatus, "public");
+  const result = await provider.setVisibility({ accessToken: "secret" }, "video-1", {
+    approved: true, videoId: "video-1", approverId: "human-1",
+    auditId: "accepted", privacyStatus: "public",
+  });
+  assert.equal(result.publication.status.privacyStatus, "public");
+  assert.equal(finalized, 1);
 });

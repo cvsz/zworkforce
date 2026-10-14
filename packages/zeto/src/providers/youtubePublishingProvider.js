@@ -3,10 +3,23 @@ const {
   standardRateLimit,
 } = require("./httpPublishingProvider");
 
+// Writable videos.status fields that must be round-tripped on
+// videos.update so a visibility change does not reset them.
+const PRESERVED_STATUS_FIELDS = [
+  "license",
+  "embeddable",
+  "publicStatsViewable",
+  "publishAt",
+  "madeForKids",
+  "selfDeclaredMadeForKids",
+  "containsSyntheticMedia",
+];
+
 class YouTubePublishingProvider extends HttpPublishingProvider {
   constructor(options = {}) {
     super("youtube", options);
     this.verifyPublicationApproval = options.verifyPublicationApproval || null;
+    this.finalizePublicationApproval = options.finalizePublicationApproval || null;
     this.apiUrl = "https://www.googleapis.com/youtube/v3";
     this.uploadUrl = "https://www.googleapis.com/upload/youtube/v3/videos";
   }
@@ -98,14 +111,33 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
         await this.verifyPublicationApproval(approval) !== true) {
       throw new Error("Canonical server-side approval verification failed");
     }
+    // P1: read current status first so videos.update does not reset other
+    // mutable status fields (license, embeddable, madeForKids, ...).
+    const current = await this.status(credentials, publicationId);
+    const existing = current.publication?.status || {};
+    const nextStatus = {};
+    for (const field of PRESERVED_STATUS_FIELDS) {
+      if (existing[field] !== undefined) nextStatus[field] = existing[field];
+    }
+    nextStatus.privacyStatus = approval.privacyStatus;
     const response = await this.request({
       method: "PUT",
       url: `${this.apiUrl}/videos`,
       headers: this.bearer(credentials?.accessToken),
       params: { part: "status" },
-      data: { id: publicationId, status: { privacyStatus: approval.privacyStatus } },
+      data: { id: publicationId, status: nextStatus },
     });
-    return { publication: response.data, rateLimit: standardRateLimit(response.headers) };
+    // Reconcile: confirm YouTube applied the visibility change before any
+    // single-use approval is consumed, keeping retries safe.
+    const confirmed = await this.status(credentials, publicationId);
+    if (confirmed.publication?.status?.privacyStatus !== approval.privacyStatus) {
+      throw new Error("YouTube did not confirm the approved visibility change");
+    }
+    // P2: consumption/finalization happens only after a confirmed mutation.
+    if (typeof this.finalizePublicationApproval === "function") {
+      await this.finalizePublicationApproval(approval, confirmed.publication);
+    }
+    return { publication: confirmed.publication, rateLimit: standardRateLimit(response.headers) };
   }
 
   async delete(credentials, publicationId) {
