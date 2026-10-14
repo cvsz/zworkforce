@@ -374,6 +374,11 @@ class App:
                     handled, payload = _cs_get(app, tenant_id, path, q)
                     if handled:
                         return self._json(200, payload)
+                if path.startswith("/api/v1/zeazverse/"):
+                    from .zeazverse_api import zeazverse_get as _zv_get
+                    handled, payload = _zv_get(app, tenant_id, path, q)
+                    if handled:
+                        return self._json(200, payload)
                 if path == "/api/v1/overview": return self._json(200, app.db.overview(tenant_id))
                 if path == "/api/v1/agents": return self._json(200, {"items": app.db.list_agents(tenant_id)})
                 if path == "/api/v1/agent-templates": return self._json(200, {"items": app.db.list_agent_templates(tenant_id)})
@@ -849,6 +854,26 @@ class App:
                             app, principal, tenant_id, path, body, self._query(),
                             idem_key=self.headers.get("Idempotency-Key", "") or ""
                         )
+                        if handled:
+                            return self._json(status, payload)
+                        return self._error(404, "not_found", "not found")
+                    if path.startswith("/api/v1/zeazverse/"):
+                        from .zeazverse_api import zeazverse_post as _zv_post
+                        from .zeazverse_domain import ZeazverseValidationError as _ZVValidationError
+                        ctx, response = self._principal("operator", "automation:write")
+                        if response: return response
+                        principal, tenant_id = ctx
+                        try:
+                            body = self._body()
+                        except ValueError as exc:
+                            return self._error(400, "invalid_request", str(exc))
+                        try:
+                            handled, payload, status = _zv_post(
+                                app, principal, tenant_id, path, body, self._query(),
+                                idem_key=self.headers.get("Idempotency-Key", "") or ""
+                            )
+                        except _ZVValidationError as exc:
+                            return self._error(400, "invalid_request", str(exc))
                         if handled:
                             return self._json(status, payload)
                         return self._error(404, "not_found", "not found")

@@ -15,12 +15,14 @@ from .db_workspace_grants import WorkspaceGrantMixin
 from .db_workspace_worktrees import WorkspaceWorktreeMixin
 from .db_realtime import DashboardEventMixin
 from .db_kids import KidsMixin
+from .db_zeazverse import ZeazverseMixin
 from .db_content_styles import ContentStylesMixin
 from .db_schema_browser_effects import BROWSER_EFFECT_SCHEMA_SQL
 from .db_schema_workspace_grants import WORKSPACE_GRANT_SCHEMA_SQL
 from .db_schema_workspace_worktrees import WORKSPACE_WORKTREE_SCHEMA_SQL
 from .db_schema_realtime import DASHBOARD_EVENT_SCHEMA_SQL
 from .db_schema_kids import KIDS_SCHEMA_SQL
+from .db_schema_zeazverse import ZEAZVERSE_SCHEMA_SQL
 from .db_schema_content_styles import UNIVERSAL_CONTENT_SCHEMA_SQL
 
 # Dashboard events are additive and initialized idempotently alongside the
@@ -28,7 +30,7 @@ from .db_schema_content_styles import UNIVERSAL_CONTENT_SCHEMA_SQL
 SCHEMA_VERSION = 8
 
 
-class Database(ContentStylesMixin, KidsMixin, WorkspaceWorktreeMixin, WorkspaceGrantMixin, WorkspaceContextMixin, WorkspaceMixin, EvidenceMixin, BrowserEffectMixin, ArtifactContentMixin, AutomationMixin, TaskMixin, FinOpsMixin, GovernanceMixin, DashboardEventMixin, MigrationMixin, DatabaseBase):
+class Database(ContentStylesMixin, ZeazverseMixin, KidsMixin, WorkspaceWorktreeMixin, WorkspaceGrantMixin, WorkspaceContextMixin, WorkspaceMixin, EvidenceMixin, BrowserEffectMixin, ArtifactContentMixin, AutomationMixin, TaskMixin, FinOpsMixin, GovernanceMixin, DashboardEventMixin, MigrationMixin, DatabaseBase):
     def _initialize_schema(self, c) -> None:
         super()._initialize_schema(c)
         c.executescript(WORKSPACE_GRANT_SCHEMA_SQL)
@@ -36,6 +38,7 @@ class Database(ContentStylesMixin, KidsMixin, WorkspaceWorktreeMixin, WorkspaceG
         c.executescript(BROWSER_EFFECT_SCHEMA_SQL)
         c.executescript(DASHBOARD_EVENT_SCHEMA_SQL)
         c.executescript(KIDS_SCHEMA_SQL)
+        c.executescript(ZEAZVERSE_SCHEMA_SQL)
         c.executescript(UNIVERSAL_CONTENT_SCHEMA_SQL)
         c.execute(
             "INSERT INTO schema_meta(key,value) VALUES('schema_version',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
