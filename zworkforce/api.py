@@ -369,6 +369,11 @@ class App:
                             code, msg = payload["_error"]
                             return self._error(payload["_status"], code, msg)
                         return self._json(200, payload)
+                if path.startswith("/api/v1/content-styles"):
+                    from .content_styles_api import content_styles_get as _cs_get
+                    handled, payload = _cs_get(app, tenant_id, path, q)
+                    if handled:
+                        return self._json(200, payload)
                 if path == "/api/v1/overview": return self._json(200, app.db.overview(tenant_id))
                 if path == "/api/v1/agents": return self._json(200, {"items": app.db.list_agents(tenant_id)})
                 if path == "/api/v1/agent-templates": return self._json(200, {"items": app.db.list_agent_templates(tenant_id)})
@@ -831,6 +836,22 @@ class App:
                         if handled:
                             return self._json(status,payload)
                         return self._error(404,"not_found","not found")
+                    if path.startswith("/api/v1/content-styles"):
+                        from .content_styles_api import content_styles_post as _cs_post
+                        ctx, response = self._principal("operator", "automation:write")
+                        if response: return response
+                        principal, tenant_id = ctx
+                        try:
+                            body = self._body()
+                        except ValueError as exc:
+                            return self._error(400, "invalid_request", str(exc))
+                        handled, payload, status = _cs_post(
+                            app, principal, tenant_id, path, body, self._query(),
+                            idem_key=self.headers.get("Idempotency-Key", "") or ""
+                        )
+                        if handled:
+                            return self._json(status, payload)
+                        return self._error(404, "not_found", "not found")
                     return self._error(404,"not_found","not found")
                 except (ValueError,TypeError,SkillError,PolicyError) as exc:
                     return self._error(400,"invalid_request",str(exc))
