@@ -87,6 +87,27 @@ class CMEVerifierTests(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 verifier.write_evidence(path, {"result": "PASS"})
 
+    def test_existing_output_rejected_before_network(self):
+        import sys
+
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "evidence.json"
+            path.write_text("{}", encoding="utf-8")
+            argv = [
+                "verify-cme-production.py",
+                "--expected-release", "abc",
+                "--runtime-release-url", "https://cme.zeaz.dev/release",
+                "--output", str(path),
+                "--operator", "op", "--approval-reference", "a",
+                "--terraform-plan-reference", "p", "--terraform-apply-reference", "ap",
+                "--deployment-reference", "d", "--alert-receipt", "al",
+            ]
+            with patch.object(sys, "argv", argv):
+                with self.assertRaises(SystemExit) as outcome:
+                    verifier.main()
+            self.assertEqual(outcome.exception.code, 2)
+            self.assertEqual(json.loads(path.read_text()), {})
+
 
 if __name__ == "__main__":
     unittest.main()

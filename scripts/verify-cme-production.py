@@ -69,6 +69,8 @@ def main() -> int:
     args = parser.parse_args()
 
     output = Path(args.output)
+    if output.exists():
+        parser.error("output path already exists; use a new path to preserve prior evidence")
     evidence_refs = {
         "operator": args.operator,
         "approval_reference": args.approval_reference,
