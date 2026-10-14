@@ -21,14 +21,14 @@ Do not place CMe database credentials, session secrets or Cloudflare credentials
 1. Freeze commit/image digest ของ CMe ที่จะ deploy ให้ชัดเจน
 2. รัน Terraform plan จาก Cloudflare stack ด้วย credentials ของ operator แล้วเก็บ plan artifact ไว้
 3. ขอ production-change approval อย่างชัดแจ้งสำหรับ Terraform plan/digest ที่บันทึกไว้ ก่อน apply Cloudflare mutations ใด ๆ
-4. Applyเฉพาะ Terraform plan ที่ได้รับอนุมัติแล้ว เก็บผล apply ไว้ และตรวจสอบว่า Access application/policies ปรากฏอยู่จริง ห้าม apply ด้วย fresh plan ที่ไม่ผ่านการทบทวน
+4. ก่อน apply ให้เก็บ pre-change Cloudflare Access application/policies และ Terraform state/reference ที่ใช้ย้อนกลับได้ พร้อมสร้างและอนุมัติ reverse plan สำหรับคืนค่า edge หาก operator หรือ verifier ถูก lock out จากนั้น Apply เฉพาะ Terraform plan ที่ได้รับอนุมัติแล้ว เก็บผล apply ไว้ และตรวจสอบว่า Access application/policies ปรากฏอยู่จริง ห้าม apply ด้วย fresh plan ที่ไม่ผ่านการทบทวน
 5. Deploy CMe artifact ที่ระบุชัดเจนไปยัง loopback origin ที่ผ่านการทบทวนแล้ว
 6. เปิดเผย identity ของ commit/image ที่ deploy แล้วแบบ immutable จาก runtime/deployment metadata endpoint ที่คืน JSON `{"release": "<digest-or-sha>"}` และผูกกับ deployment ที่ให้บริการอยู่จริง ไม่ใช่ไฟล์ที่ operator เขียนเอง
 7. Export machine-verification Access credentials จาก operator secret store ที่ได้รับการป้องกันเป็น `ZWORKFORCE_ACCESS_ID` และ `ZWORKFORCE_ACCESS_TOKEN`; ห้ามเขียนลงไฟล์ repository หรือ evidence
 8. รันทุกครั้งด้วย output path ใหม่เสมอ:
    `python3 scripts/verify-cme-production.py --expected-release <digest-or-sha> --runtime-release-url <https-runtime-metadata-url> --operator <operator-id> --approval-reference <approval-id> --terraform-plan-reference <plan-sha-or-uri> --terraform-apply-reference <apply-run-id> --deployment-reference <deployment-run-id> --alert-receipt <alert-delivery-id> --output <immutable-evidence.json>`
 9. เก็บ JSON evidence พร้อม operator identity, Terraform plan/apply reference, deployment reference และ alert receipt
-10. ทดสอบ rollback ไปยัง artifact ก่อนหน้า ทำ verification ซ้ำ วัด recovery time แล้วคืน artifact เป้าหมายพร้อม verify อีกครั้ง
+10. ทดสอบ rollback ทั้งสองชั้น: (a) apply reverse Cloudflare plan ที่ได้รับอนุมัติเพื่อคืน Access/DNS edge configuration เมื่อ edge mutation เป็นสาเหตุ และยืนยัน operator/machine access กลับมา, จากนั้น (b) rollback ไปยัง CMe artifact ก่อนหน้าเมื่อ application artifact เป็นสาเหตุ ทำ verification ซ้ำ วัด recovery time แล้วคืน configuration/artifact เป้าหมายพร้อม verify อีกครั้ง ห้ามแก้ state หรือ policy แบบ ad-hoc โดยไม่มี retained plan/evidence
 
 ## Non-goals / สิ่งที่ไม่อยู่ในขอบเขต
 
