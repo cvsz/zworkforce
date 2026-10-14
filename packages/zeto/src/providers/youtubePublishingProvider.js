@@ -132,9 +132,24 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
     // The approval is bound to the exact revision the human reviewed:
     // any title/description/thumbnail/status edit after approval
     // changes the ETag and invalidates it.
-    if (current.publication?.etag !== approval.expectedEtag) {
+    let confirmed;
+    if (current.publication?.etag === approval.expectedEtag) {
+      confirmed = await this.reconcileTransition(credentials, publicationId, approval, current);
+    } else if (current.publication?.status?.privacyStatus === approval.privacyStatus) {
+      // Recovery path: our PUT may have landed while confirmation or
+      // finalization failed. The video is already at the approved
+      // visibility, so reconcile and finalize instead of mutating again.
+      // The audit records the actual current state, including its ETag.
+      confirmed = current;
+    } else {
       throw new Error("Stale approval: video revision changed since human approval");
     }
+    // P2: consumption/finalization happens only after a confirmed mutation.
+    await this.finalizePublicationApproval(approval, confirmed.publication);
+    return { publication: confirmed.publication, rateLimit: standardRateLimit(confirmed.rateLimitHeaders || {}) };
+  }
+
+  async reconcileTransition(credentials, publicationId, approval, current) {
     const existing = current.publication?.status || {};
     const nextStatus = {};
     for (const field of PRESERVED_STATUS_FIELDS) {
@@ -160,9 +175,8 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
     if (confirmed.publication?.status?.privacyStatus !== approval.privacyStatus) {
       throw new Error("YouTube did not confirm the approved visibility change");
     }
-    // P2: consumption/finalization happens only after a confirmed mutation.
-    await this.finalizePublicationApproval(approval, confirmed.publication);
-    return { publication: confirmed.publication, rateLimit: standardRateLimit(response.headers) };
+    confirmed.publication.rateLimitHeaders = response.headers;
+    return confirmed;
   }
 
   async guardedUpdate(headers, publicationId, nextStatus) {
