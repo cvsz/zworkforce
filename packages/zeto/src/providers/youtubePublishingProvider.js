@@ -5,12 +5,13 @@ const {
 
 // Writable videos.status fields that must be round-tripped on
 // videos.update so a visibility change does not reset them.
+// madeForKids is read-only (only selfDeclaredMadeForKids is writable)
+// and publishAt is valid only with privacyStatus=private, so neither
+// is ever sent here.
 const PRESERVED_STATUS_FIELDS = [
   "license",
   "embeddable",
   "publicStatsViewable",
-  "publishAt",
-  "madeForKids",
   "selfDeclaredMadeForKids",
   "containsSyntheticMedia",
 ];
@@ -111,38 +112,59 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
         await this.verifyPublicationApproval(approval) !== true) {
       throw new Error("Canonical server-side approval verification failed");
     }
+    // Fail fast before any external mutation: without a wired finalizer
+    // a published video would be left unaudited and replayable.
+    if (typeof this.finalizePublicationApproval !== "function") {
+      throw new Error("A publication finalizer is required for YouTube visibility changes");
+    }
     // P1: read current status first so videos.update does not reset other
-    // mutable status fields (license, embeddable, madeForKids, ...).
-    // publishAt is never round-tripped here: YouTube accepts it only with
-    // privacyStatus=private, and this path only targets public/unlisted.
+    // mutable status fields (license, embeddable, selfDeclaredMadeForKids).
     const current = await this.status(credentials, publicationId);
     const existing = current.publication?.status || {};
     const nextStatus = {};
     for (const field of PRESERVED_STATUS_FIELDS) {
-      if (field === "publishAt") continue;
       if (existing[field] !== undefined) nextStatus[field] = existing[field];
     }
     nextStatus.privacyStatus = approval.privacyStatus;
-    const response = await this.request({
-      method: "PUT",
-      url: `${this.apiUrl}/videos`,
-      headers: this.bearer(credentials?.accessToken),
-      params: { part: "status" },
-      data: { id: publicationId, status: nextStatus },
-    });
+    // P2: guard the read-modify-write with the resource ETag so a
+    // concurrent Studio/API edit is not silently overwritten.
+    const headers = this.bearer(credentials?.accessToken);
+    if (current.publication?.etag) headers["If-Match"] = current.publication.etag;
+    const response = await this.guardedUpdate(headers, publicationId, nextStatus);
     // Reconcile: confirm YouTube applied the visibility change before any
     // single-use approval is consumed, keeping retries safe.
-    const confirmed = await this.status(credentials, publicationId);
+    let confirmed;
+    try {
+      confirmed = await this.status(credentials, publicationId);
+    } catch (error) {
+      if (error?.response?.status === 412 || error?.status === 412) {
+        throw new Error("YouTube status changed concurrently; retry the approved transition");
+      }
+      throw error;
+    }
     if (confirmed.publication?.status?.privacyStatus !== approval.privacyStatus) {
       throw new Error("YouTube did not confirm the approved visibility change");
     }
-    // P2: consumption/finalization happens only after a confirmed mutation,
-    // and a finalizer is mandatory so a verified approval cannot replay.
-    if (typeof this.finalizePublicationApproval !== "function") {
-      throw new Error("A publication finalizer is required for YouTube visibility changes");
-    }
+    // P2: consumption/finalization happens only after a confirmed mutation.
     await this.finalizePublicationApproval(approval, confirmed.publication);
     return { publication: confirmed.publication, rateLimit: standardRateLimit(response.headers) };
+  }
+
+  async guardedUpdate(headers, publicationId, nextStatus) {
+    try {
+      return await this.request({
+        method: "PUT",
+        url: `${this.apiUrl}/videos`,
+        headers,
+        params: { part: "status" },
+        data: { id: publicationId, status: nextStatus },
+      });
+    } catch (error) {
+      if (error?.status === 412 || error?.response?.status === 412) {
+        throw new Error("YouTube status changed concurrently; retry the approved transition");
+      }
+      throw error;
+    }
   }
 
   async delete(credentials, publicationId) {
