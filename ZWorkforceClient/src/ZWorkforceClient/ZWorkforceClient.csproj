@@ -10,9 +10,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
-    <!-- Runtime packs are SDK platform assets, not PackageReference dependencies.
-         Pin the framework runtime used for RID restores without violating NuGet CPM. -->
-    <RuntimeFrameworkVersion>10.0.13</RuntimeFrameworkVersion>
+    <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
     <UseWinUI>true</UseWinUI>
     <EnableMsixTooling>true</EnableMsixTooling>
     <!-- The CLI MSIX task runs in a .NET 6 task host. Keep a project-local copy
