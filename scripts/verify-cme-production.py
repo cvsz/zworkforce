@@ -13,6 +13,9 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
+EXPECTED_HOST = "cme.zeaz.dev"
+
+
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
@@ -57,7 +60,7 @@ def fetch_json(url: str, timeout: float, host: str) -> tuple[int, dict[str, obje
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--host", default="cme.zeaz.dev")
+    parser.add_argument("--host", default=EXPECTED_HOST, choices=[EXPECTED_HOST])
     parser.add_argument("--expected-release", required=True)
     parser.add_argument("--runtime-release-url", required=True)
     parser.add_argument("--output", required=True)
@@ -69,6 +72,8 @@ def main() -> int:
     parser.add_argument("--alert-receipt", required=True)
     parser.add_argument("--timeout", type=float, default=10)
     args = parser.parse_args()
+    if args.host != EXPECTED_HOST:
+        parser.error(f"host must be {EXPECTED_HOST}")
 
     output = Path(args.output)
     if output.exists():
