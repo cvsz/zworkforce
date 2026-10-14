@@ -9,6 +9,7 @@
     <RootNamespace>ZARVIS.Windows</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <RuntimeFrameworkVersion>8.0.32</RuntimeFrameworkVersion>
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
@@ -18,12 +19,4 @@
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
-
-  <ItemGroup>
-    <!-- Pin shared-framework runtimes past CVE-2026-83520 (fixed in 8.0.32).
-         Explicit references override the SDK-implicit transitive versions. -->
-    <PackageReference Include="Microsoft.NETCore.App.Runtime.win-x64" Version="8.0.32" />
-    <PackageReference Include="Microsoft.AspNetCore.App.Runtime.win-x64" Version="8.0.32" />
-    <PackageReference Include="Microsoft.WindowsDesktop.App.Runtime.win-x64" Version="8.0.32" />
-  </ItemGroup>
 </Project>
