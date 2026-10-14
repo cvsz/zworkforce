@@ -3,6 +3,8 @@ set -Eeuo pipefail
 
 OWNER="${ZEAZ_REPO_OWNER:-cvsz}"
 ZONE="${ZEAZ_ZONE:-zeaz.dev}"
+ZONE="$(printf '%s' "$ZONE" | tr '[:upper:]' '[:lower:]')"
+ZONE="${ZONE%.}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TF_DIR="${ZEAZ_CLOUDFLARE_TF_DIR:-${ROOT_DIR}/infrastructure/terraform/cloudflare}"
 OUT_FILE="${ZEAZ_REPO_FALLBACK_TFVARS:-${TF_DIR}/repo-fallback.auto.tfvars.json}"
@@ -116,7 +118,7 @@ is_live_code(){
   local code="$1"
   # 401/403 mean the probe was rejected: never classify those as live,
   # otherwise an expired or revoked token would mask an outage.
-  [[ "$code" =~ ^[23][0-9][0-9]$ ]] || \
+  [[ "$code" =~ ^2[0-9][0-9]$ ]] || \
     [[ "$code" == "405" || "$code" == "429" ]]
 }
 
@@ -133,6 +135,7 @@ is_forced_live(){
 probe_path(){
   local host="$1" path="$2" code
   local -a access_headers=()
+  local -a redirect_args=(--location --max-redirs 5)
   local access_config=""
   : > "$probe_body"
   if [[ "$host" == "cme.${ZONE}" ]]; then
@@ -143,10 +146,12 @@ probe_path(){
     [[ "${ZWORKFORCE_ACCESS_ID}" != *'"'* && "${ZWORKFORCE_ACCESS_TOKEN}" != *'"'* ]] ||
       fail "CMe Access credentials contain unsupported quotes"
     access_headers=(--config -)
+    redirect_args=()
     access_config="$(printf 'header = "CF-Access-Client-Id: %s"\nheader = "CF-Access-Client-Secret: %s"\n' "${ZWORKFORCE_ACCESS_ID}" "${ZWORKFORCE_ACCESS_TOKEN}")"
   fi
   code="$(curl --silent --show-error \
     --connect-timeout 3 --max-time 8 \
+    "${redirect_args[@]}" \
     "${access_headers[@]}" \
     --output "$probe_body" --write-out '%{http_code}' \
     "https://${host}${path}" <<< "$access_config" 2>/dev/null || true)"
