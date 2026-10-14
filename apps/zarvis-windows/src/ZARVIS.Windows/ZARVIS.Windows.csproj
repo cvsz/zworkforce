@@ -2,6 +2,8 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <!-- Pin runtime past CVE-2026-83520 (.NET RCE, fixed in 8.0.32). -->
+    <RuntimeFrameworkVersion>8.0.32</RuntimeFrameworkVersion>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
