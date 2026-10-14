@@ -49,6 +49,7 @@ test("canonical verifier controls approved visibility transition", async () => {
     license: "youtube",
     embeddable: true,
     madeForKids: false,
+    publishAt: "2026-12-01T00:00:00Z",
   };
   const provider = new YouTubePublishingProvider({
     verifyPublicationApproval: async (approval) => approval.auditId === "accepted",
@@ -81,6 +82,7 @@ test("canonical verifier controls approved visibility transition", async () => {
   assert.equal(put.data.status.license, "youtube");
   assert.equal(put.data.status.embeddable, true);
   assert.equal(put.data.status.madeForKids, false);
+  assert.ok(!("publishAt" in put.data.status));
 });
 
 test("approved visibility is confirmed and finalized after mutation", async () => {
@@ -107,4 +109,26 @@ test("approved visibility is confirmed and finalized after mutation", async () =
   });
   assert.equal(result.publication.status.privacyStatus, "public");
   assert.equal(finalized, 1);
+});
+
+test("visibility change requires a finalizer so approvals cannot replay", async () => {
+  const provider = new YouTubePublishingProvider({
+    verifyPublicationApproval: async () => true,
+    http: async (request) => {
+      if (request.method === "GET") {
+        const applied = request.params.part === "id,status,processingDetails";
+        return {
+          data: { items: [{ id: "video-1", status: { privacyStatus: "public" } }] },
+          headers: {},
+        };
+      }
+      return { data: { id: "video-1" }, headers: {} };
+    },
+  });
+  await assert.rejects(
+    provider.setVisibility({ accessToken: "secret" }, "video-1", {
+      approved: true, videoId: "video-1", approverId: "human-1",
+      auditId: "accepted", privacyStatus: "public",
+    }), /finalizer is required/,
+  );
 });

@@ -113,10 +113,13 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
     }
     // P1: read current status first so videos.update does not reset other
     // mutable status fields (license, embeddable, madeForKids, ...).
+    // publishAt is never round-tripped here: YouTube accepts it only with
+    // privacyStatus=private, and this path only targets public/unlisted.
     const current = await this.status(credentials, publicationId);
     const existing = current.publication?.status || {};
     const nextStatus = {};
     for (const field of PRESERVED_STATUS_FIELDS) {
+      if (field === "publishAt") continue;
       if (existing[field] !== undefined) nextStatus[field] = existing[field];
     }
     nextStatus.privacyStatus = approval.privacyStatus;
@@ -133,10 +136,12 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
     if (confirmed.publication?.status?.privacyStatus !== approval.privacyStatus) {
       throw new Error("YouTube did not confirm the approved visibility change");
     }
-    // P2: consumption/finalization happens only after a confirmed mutation.
-    if (typeof this.finalizePublicationApproval === "function") {
-      await this.finalizePublicationApproval(approval, confirmed.publication);
+    // P2: consumption/finalization happens only after a confirmed mutation,
+    // and a finalizer is mandatory so a verified approval cannot replay.
+    if (typeof this.finalizePublicationApproval !== "function") {
+      throw new Error("A publication finalizer is required for YouTube visibility changes");
     }
+    await this.finalizePublicationApproval(approval, confirmed.publication);
     return { publication: confirmed.publication, rateLimit: standardRateLimit(response.headers) };
   }
 
