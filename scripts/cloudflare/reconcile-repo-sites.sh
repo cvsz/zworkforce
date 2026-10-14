@@ -5,6 +5,7 @@ OWNER="${ZEAZ_REPO_OWNER:-cvsz}"
 ZONE="${ZEAZ_ZONE:-zeaz.dev}"
 ZONE="$(printf '%s' "$ZONE" | tr '[:upper:]' '[:lower:]')"
 ZONE="${ZONE%.}"
+[[ -n "$ZONE" ]] || { echo "ZEAZ_ZONE must not be empty" >&2; exit 1; }
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TF_DIR="${ZEAZ_CLOUDFLARE_TF_DIR:-${ROOT_DIR}/infrastructure/terraform/cloudflare}"
 OUT_FILE="${ZEAZ_REPO_FALLBACK_TFVARS:-${TF_DIR}/repo-fallback.auto.tfvars.json}"
@@ -143,11 +144,17 @@ probe_path(){
       fail "CMe probing requires ZWORKFORCE_ACCESS_ID and ZWORKFORCE_ACCESS_TOKEN; refusing to classify protected origin without them"
     fi
     # Never put an Access secret in curl argv; pass a private config over stdin.
+    # Redirects are intentionally not followed here so the secret never
+    # travels to a redirect target.
     [[ "${ZWORKFORCE_ACCESS_ID}" != *'"'* && "${ZWORKFORCE_ACCESS_TOKEN}" != *'"'* ]] ||
       fail "CMe Access credentials contain unsupported quotes"
     access_headers=(--config -)
     redirect_args=()
     access_config="$(printf 'header = "CF-Access-Client-Id: %s"\nheader = "CF-Access-Client-Secret: %s"\n' "${ZWORKFORCE_ACCESS_ID}" "${ZWORKFORCE_ACCESS_TOKEN}")"
+  else
+    # Non-credential probes keep following redirects so a 301/302 whose
+    # target is broken still resolves to fallback instead of live.
+    redirect_args=(--location --max-redirs 5)
   fi
   code="$(curl --silent --show-error \
     --connect-timeout 3 --max-time 8 \

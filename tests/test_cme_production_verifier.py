@@ -124,6 +124,27 @@ class CMEVerifierTests(unittest.TestCase):
             self.assertEqual(outcome.exception.code, 2)
             self.assertEqual(json.loads(path.read_text()), {})
 
+    def test_foreign_host_rejected_before_credentials(self):
+        import sys
+
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "evidence.json"
+            argv = [
+                "verify-cme-production.py",
+                "--host", "attacker.example",
+                "--expected-release", "abc",
+                "--runtime-release-url", "https://attacker.example/release",
+                "--output", str(path),
+                "--operator", "op", "--approval-reference", "a",
+                "--terraform-plan-reference", "p", "--terraform-apply-reference", "ap",
+                "--deployment-reference", "d", "--alert-receipt", "al",
+            ]
+            with patch.object(sys, "argv", argv):
+                with self.assertRaises(SystemExit) as outcome:
+                    verifier.main()
+            self.assertEqual(outcome.exception.code, 2)
+            self.assertFalse(path.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

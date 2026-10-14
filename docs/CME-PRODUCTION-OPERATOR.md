@@ -29,6 +29,7 @@ Do not place CMe database credentials, session secrets or Cloudflare credentials
    `python3 scripts/verify-cme-production.py --expected-release <digest-or-sha> --runtime-release-url <https-runtime-metadata-url> --operator <operator-id> --approval-reference <approval-id> --terraform-plan-reference <plan-sha-or-uri> --terraform-apply-reference <apply-run-id> --deployment-reference <deployment-run-id> --alert-receipt <alert-delivery-id> --output <immutable-evidence.json>`
 9. เก็บ JSON evidence พร้อม operator identity, Terraform plan/apply reference, deployment reference และ alert receipt
 10. ทดสอบ rollback ทั้งสองชั้น: (a) apply reverse Cloudflare plan ที่ได้รับอนุมัติเพื่อคืน Access/DNS edge configuration เมื่อ edge mutation เป็นสาเหตุ และยืนยัน operator/machine access กลับมา, จากนั้น (b) rollback ไปยัง CMe artifact ก่อนหน้าเมื่อ application artifact เป็นสาเหตุ ทำ verification ซ้ำ วัด recovery time แล้วคืน configuration/artifact เป้าหมายพร้อม verify อีกครั้ง ห้ามแก้ state หรือ policy แบบ ad-hoc โดยไม่มี retained plan/evidence
+10. Test two-layer rollback: (a) apply the approved reverse Cloudflare plan to restore Access/DNS edge configuration when the edge mutation is the cause, and confirm operator/machine access returns, then (b) roll back to the prior CMe artifact when the application artifact is the cause, re-verify, measure recovery time, and restore the target configuration/artifact with verification. No ad-hoc state or policy edits without a retained plan/evidence.
 
 ## Non-goals / สิ่งที่ไม่อยู่ในขอบเขต
 

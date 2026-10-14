@@ -78,6 +78,8 @@ def main() -> int:
     output = Path(args.output)
     if output.exists():
         parser.error("output path already exists; use a new path to preserve prior evidence")
+    if args.host != "cme.zeaz.dev":
+        parser.error("this verifier is bound to cme.zeaz.dev; refusing to send Access credentials elsewhere")
     evidence_refs = {
         "operator": args.operator,
         "approval_reference": args.approval_reference,
