@@ -114,8 +114,10 @@ PY
 
 is_live_code(){
   local code="$1"
+  # 401/403 mean the probe was rejected: never classify those as live,
+  # otherwise an expired or revoked token would mask an outage.
   [[ "$code" =~ ^[23][0-9][0-9]$ ]] || \
-    [[ "$code" == "401" || "$code" == "403" || "$code" == "405" || "$code" == "429" ]]
+    [[ "$code" == "405" || "$code" == "429" ]]
 }
 
 is_forced_live(){

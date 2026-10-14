@@ -28,6 +28,8 @@ def fetch_json(url: str, timeout: float, host: str) -> tuple[int, dict[str, obje
     parsed = urlparse(url)
     if parsed.scheme != "https" or parsed.hostname != host or parsed.port not in (None, 443):
         raise RuntimeError("verification URL must use the expected CMe HTTPS host")
+    if parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise RuntimeError("verification URL must not carry credentials, query, or fragment")
     headers = {"User-Agent": "zworkforce-cme-verifier/1"}
     access_id = os.environ.get("ZWORKFORCE_ACCESS_ID")
     access_token = os.environ.get("ZWORKFORCE_ACCESS_TOKEN")

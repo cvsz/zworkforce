@@ -1,33 +1,45 @@
-# CMe Production Operator Contract
+# CMe Production Operator Contract / สัญญาผู้ดูแลการผลิต CMe
+
+zWorkforce เป็นเจ้าของ edge ภายนอก `zeaz.dev` และหลักฐานการผลิตของ CMe ส่วน repository ของ CMe เป็นเจ้าของ application, พฤติกรรม database และคำสั่งตรวจสอบ application
 
 zWorkforce owns the external `zeaz.dev` edge and production evidence for CMe. The CMe repository owns the application, database behavior and application verification commands.
 
-## Edge contract
+## Edge contract / ขอบเขต edge
 
 - Public host: `cme.zeaz.dev`
-- Managed DNS: existing `cloudflare_dns_record.cmeerp` in `infrastructure/terraform/cloudflare/main.tf`; do not duplicate its Terraform state address
+- Managed DNS: ใช้ `cloudflare_dns_record.cmeerp` ที่มีอยู่แล้วใน `infrastructure/terraform/cloudflare/main.tf`; ห้ามสร้าง state address ของ Terraform ซ้ำ
 - Cloudflare Access protection: `infrastructure/terraform/cloudflare/cme.tf`
 - Tunnel ingress: `deploy/cloudflare/tunnel-ingress.yml`
 - Reviewed loopback origin: `http://127.0.0.1:8001`
 
+ห้ามใส่ database credentials, session secrets หรือ Cloudflare credentials ของ CMe ไว้ในไฟล์ของ repository
+
 Do not place CMe database credentials, session secrets or Cloudflare credentials in repository files.
 
-## Change procedure
+## Change procedure / ขั้นตอนการเปลี่ยนแปลง
 
-1. Freeze the exact CMe commit/image digest to deploy.
-2. Run Terraform plan from the Cloudflare stack with operator credentials and retain the plan artifact.
-3. Obtain explicit production-change approval for the saved Terraform plan/digest before applying Cloudflare mutations.
-4. Apply exactly the approved saved Terraform plan, retain the apply result, and verify the Access application/policies are present. Never run an unreviewed fresh plan as the apply step.
-5. Deploy the exact CMe artifact to the reviewed loopback origin.
-6. Expose immutable deployed commit/image identity from a runtime/deployment metadata endpoint that returns JSON `{\"release\": \"<digest-or-sha>\"}` and is bound to the serving deployment, not an operator-written file.
-7. Export the machine-verification Access credentials from the protected operator secret store as `ZWORKFORCE_ACCESS_ID` and `ZWORKFORCE_ACCESS_TOKEN`; never write them to repository files or evidence.
-8. Run with a new output path for every attempt:
+1. Freeze commit/image digest ของ CMe ที่จะ deploy ให้ชัดเจน
+2. รัน Terraform plan จาก Cloudflare stack ด้วย credentials ของ operator แล้วเก็บ plan artifact ไว้
+3. ขอ production-change approval อย่างชัดแจ้งสำหรับ Terraform plan/digest ที่บันทึกไว้ ก่อน apply Cloudflare mutations ใด ๆ
+4. Applyเฉพาะ Terraform plan ที่ได้รับอนุมัติแล้ว เก็บผล apply ไว้ และตรวจสอบว่า Access application/policies ปรากฏอยู่จริง ห้าม apply ด้วย fresh plan ที่ไม่ผ่านการทบทวน
+5. Deploy CMe artifact ที่ระบุชัดเจนไปยัง loopback origin ที่ผ่านการทบทวนแล้ว
+6. เปิดเผย identity ของ commit/image ที่ deploy แล้วแบบ immutable จาก runtime/deployment metadata endpoint ที่คืน JSON `{"release": "<digest-or-sha>"}` และผูกกับ deployment ที่ให้บริการอยู่จริง ไม่ใช่ไฟล์ที่ operator เขียนเอง
+7. Export machine-verification Access credentials จาก operator secret store ที่ได้รับการป้องกันเป็น `ZWORKFORCE_ACCESS_ID` และ `ZWORKFORCE_ACCESS_TOKEN`; ห้ามเขียนลงไฟล์ repository หรือ evidence
+8. รันทุกครั้งด้วย output path ใหม่เสมอ:
    `python3 scripts/verify-cme-production.py --expected-release <digest-or-sha> --runtime-release-url <https-runtime-metadata-url> --operator <operator-id> --approval-reference <approval-id> --terraform-plan-reference <plan-sha-or-uri> --terraform-apply-reference <apply-run-id> --deployment-reference <deployment-run-id> --alert-receipt <alert-delivery-id> --output <immutable-evidence.json>`
-9. Retain the JSON evidence with operator identity, Terraform plan/apply reference, deployment reference and alert receipt.
-10. Exercise rollback to the prior immutable artifact, repeat verification, measure recovery time, then restore the intended artifact and verify again.
+9. เก็บ JSON evidence พร้อม operator identity, Terraform plan/apply reference, deployment reference และ alert receipt
+10. ทดสอบ rollback ไปยัง artifact ก่อนหน้า ทำ verification ซ้ำ วัด recovery time แล้วคืน artifact เป้าหมายพร้อม verify อีกครั้ง
 
-## Required PASS evidence
+## Non-goals / สิ่งที่ไม่อยู่ในขอบเขต
+
+- CMe machine-verification secrets จะไม่ถูกผูกเข้า automated workflow ใด ๆ (รวมถึง `ha-infrastructure.yml`) การ apply  production ทำโดย operator ด้วยมือเท่านั้น ตามขั้นตอนด้านบน
+
+## Required PASS evidence / หลักฐาน PASS ที่ต้องมี
+
+การ GO การผลิตของ CMe ต้องมี evidence ที่เป็นปัจจุบันสำหรับ exact artifact identity, DNS resolution, trusted TLS, health, readiness, PostgreSQL restore/rollback พร้อม RPO/RTO ที่วัดได้, load threshold จาก workload, production monitoring/alert delivery และการหมุนเวียน runtime credential/secret
 
 A CMe production GO requires current evidence for exact artifact identity, DNS resolution, trusted TLS, health, readiness, PostgreSQL restore/rollback with measured RPO/RTO, workload-derived load thresholds, production monitoring/alert delivery, and runtime credential/secret rotation.
+
+การตั้งค่าใน repository ไม่ใช่หลักฐานว่า Cloudflare หรือ production infrastructure ถูก apply แล้ว จนกว่าจะมี approved operator apply และ post-action verification ที่เก็บไว้ gate เหล่านั้นถือว่ายังรอ external evidence อยู่
 
 Repository configuration is not proof that Cloudflare or production infrastructure has been applied. Until an approved operator apply and post-action verification are retained, those gates remain pending external evidence.

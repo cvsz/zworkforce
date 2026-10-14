@@ -38,8 +38,10 @@ class FakeOpener:
     def __init__(self, url=None, body=None):
         self.url = url
         self.body = {"release": "abc"} if body is None else body
+        self.requests = []
 
     def open(self, request, timeout):
+        self.requests.append(request)
         return FakeResponse(self.url or request.full_url, self.body)
 
 
@@ -64,6 +66,20 @@ class CMEVerifierTests(unittest.TestCase):
             self.assertEqual(status, 200)
             self.assertEqual(result["release"], "abc")
             self.assertIs(patched.call_args.args[0], verifier.NoRedirect)
+            sent = opener.requests[0]
+            self.assertEqual(sent.get_header("Cf-access-client-id"), "id")
+            self.assertEqual(sent.get_header("Cf-access-client-secret"), "token")
+
+    def test_credentialed_urls_rejected_before_network(self):
+        with patch.dict(os.environ, {"ZWORKFORCE_ACCESS_ID": "id", "ZWORKFORCE_ACCESS_TOKEN": "token"}):
+            opener = FakeOpener()
+            with patch.object(verifier.urllib.request, "build_opener", return_value=opener):
+                for url in ("https://user:secret@cme.zeaz.dev/release",
+                            "https://cme.zeaz.dev/release?sig=abc",
+                            "https://cme.zeaz.dev/release#frag"):
+                    with self.subTest(url=url), self.assertRaisesRegex(RuntimeError, "credentials, query, or fragment"):
+                        verifier.fetch_json(url, 1, "cme.zeaz.dev")
+            self.assertEqual(opener.requests, [])
 
     def test_redirect_to_other_host_rejected(self):
         with patch.dict(os.environ, {"ZWORKFORCE_ACCESS_ID": "id", "ZWORKFORCE_ACCESS_TOKEN": "token"}):
