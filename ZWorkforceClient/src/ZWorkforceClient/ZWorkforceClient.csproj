@@ -2,8 +2,6 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
-    <!-- Pin runtime past CVE-2026-83520 (.NET RCE, fixed in 10.0.13). -->
-    <RuntimeFrameworkVersion>10.0.13</RuntimeFrameworkVersion>
     <TargetPlatformMinVersion>10.0.22621.0</TargetPlatformMinVersion>
     <!-- Permit Linux dependency-submission and metadata restores; packaged builds
          remain authoritative on the Windows runner. -->
@@ -32,6 +30,14 @@
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools.MSIX" GeneratePathProperty="true" PrivateAssets="all" />
     <PackageReference Include="System.Security.Permissions" GeneratePathProperty="true" IncludeAssets="none" PrivateAssets="all" />
     <PackageReference Include="System.Windows.Extensions" GeneratePathProperty="true" IncludeAssets="none" PrivateAssets="all" />
+    <!-- Pin shared-framework runtimes past CVE-2026-83520 (fixed in 10.0.13).
+         Explicit references override the SDK-implicit transitive versions. -->
+    <PackageReference Include="Microsoft.NETCore.App.Runtime.win-x64" Version="10.0.13" />
+    <PackageReference Include="Microsoft.NETCore.App.Runtime.win-arm64" Version="10.0.13" />
+    <PackageReference Include="Microsoft.AspNetCore.App.Runtime.win-x64" Version="10.0.13" />
+    <PackageReference Include="Microsoft.AspNetCore.App.Runtime.win-arm64" Version="10.0.13" />
+    <PackageReference Include="Microsoft.WindowsDesktop.App.Runtime.win-x64" Version="10.0.13" />
+    <PackageReference Include="Microsoft.WindowsDesktop.App.Runtime.win-arm64" Version="10.0.13" />
   </ItemGroup>
 
   <ItemGroup>
