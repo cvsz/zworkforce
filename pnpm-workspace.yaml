@@ -23,6 +23,15 @@ minimumReleaseAgeExclude:
   - '@next/swc-win32-x64-msvc@16.3.5'
   - eslint-config-next@16.3.5
   - next@16.3.5
+  - proxy-addr@2.0.8
+  - sharp@0.35.5
+  - shell-quote@1.11.0
+  - source-map-js@1.2.2
   - qs@6.16.0
 overrides:
   qs: 6.16.0
+  # GHSA advisories: force transitive deps past fixed versions.
+  postcss-selector-parser: 7.1.6
+  proxy-addr: 2.0.8
+  sharp: 0.35.5
+  source-map-js: 1.2.2
