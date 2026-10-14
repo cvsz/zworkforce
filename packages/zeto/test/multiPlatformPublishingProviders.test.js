@@ -63,6 +63,8 @@ test("YouTube uses a resumable upload session and does not put tokens in URLs", 
     kind: "video",
     text: "description",
     title: "Title",
+    madeForKids: false,
+    containsSyntheticMedia: false,
     media: { buffer: Buffer.from("video"), mimeType: "video/mp4", size: 5 },
   });
   assert.equal(auth.account.id, "channel-1");
