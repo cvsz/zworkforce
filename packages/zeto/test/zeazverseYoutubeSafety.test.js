@@ -26,8 +26,28 @@ test("YouTube private upload is enforced on outgoing metadata", async () => {
         : { data: { id: "video-1" }, headers: {} };
     },
   });
-  await provider.publish({ accessToken: "secret" }, { title: "LALIN", media });
+  await provider.publish({ accessToken: "secret" }, {
+    title: "LALIN", media, madeForKids: false, containsSyntheticMedia: true,
+  });
   assert.equal(requests[0].data.status.privacyStatus, "private");
+  assert.equal(requests[0].data.status.selfDeclaredMadeForKids, false);
+  assert.equal(requests[0].data.status.containsSyntheticMedia, true);
+});
+
+test("YouTube upload requires explicit disclosure booleans", async () => {
+  let calls = 0;
+  const provider = new YouTubePublishingProvider({ http: async () => { calls++; } });
+  await assert.rejects(
+    provider.publish({ accessToken: "secret" }, { title: "LALIN", media }),
+    /explicit boolean/,
+  );
+  await assert.rejects(
+    provider.publish({ accessToken: "secret" }, {
+      title: "LALIN", media, madeForKids: "no", containsSyntheticMedia: false,
+    }),
+    /explicit boolean/,
+  );
+  assert.equal(calls, 0);
 });
 
 test("visibility change fails closed without canonical verifier", async () => {
@@ -38,7 +58,7 @@ test("visibility change fails closed without canonical verifier", async () => {
   await assert.rejects(provider.setVisibility({ accessToken: "secret" }, "video-1", {
     approved: true, videoId: "video-1", approverId: "user-1",
     auditId: "audit-1", privacyStatus: "public",
-  }), /verification failed/);
+  }), /bound, auditable/);
   assert.equal(called, false);
 });
 
@@ -65,7 +85,7 @@ test("canonical verifier controls approved visibility transition", async () => {
   });
   const base = {
     approved: true, videoId: "video-1", approverId: "human-1",
-    privacyStatus: "public",
+    privacyStatus: "public", expectedEtag: "etag-1",
   };
   await assert.rejects(
     provider.setVisibility({ accessToken: "secret" }, "video-1", {
@@ -100,7 +120,7 @@ test("approved visibility is confirmed and finalized after mutation", async () =
       if (request.method === "GET") {
         const applied = requests.some((seen) => seen.method === "PUT");
         return {
-          data: { items: [{ id: "video-1", status: { privacyStatus: applied ? "public" : "private" } }] },
+          data: { items: [{ id: "video-1", etag: "etag-1", status: { privacyStatus: applied ? "public" : "private" } }] },
           headers: {},
         };
       }
@@ -109,7 +129,7 @@ test("approved visibility is confirmed and finalized after mutation", async () =
   });
   const result = await provider.setVisibility({ accessToken: "secret" }, "video-1", {
     approved: true, videoId: "video-1", approverId: "human-1",
-    auditId: "accepted", privacyStatus: "public",
+    auditId: "accepted", privacyStatus: "public", expectedEtag: "etag-1",
   });
   assert.equal(result.publication.status.privacyStatus, "public");
   assert.equal(finalized, 1);
@@ -133,7 +153,7 @@ test("visibility change requires a finalizer so approvals cannot replay", async 
   await assert.rejects(
     provider.setVisibility({ accessToken: "secret" }, "video-1", {
       approved: true, videoId: "video-1", approverId: "human-1",
-      auditId: "accepted", privacyStatus: "public",
+      auditId: "accepted", privacyStatus: "public", expectedEtag: "etag-1",
     }), /finalizer is required/,
   );
   assert.equal(requests.length, 0);
@@ -158,7 +178,32 @@ test("concurrent status change fails closed instead of overwriting", async () =>
   await assert.rejects(
     provider.setVisibility({ accessToken: "secret" }, "video-1", {
       approved: true, videoId: "video-1", approverId: "human-1",
-      auditId: "accepted", privacyStatus: "public",
+      auditId: "accepted", privacyStatus: "public", expectedEtag: "etag-1",
     }), /changed concurrently/,
   );
+});
+
+test("stale approval is rejected when the video changed after approval", async () => {
+  let puts = 0;
+  const provider = new YouTubePublishingProvider({
+    verifyPublicationApproval: async () => true,
+    finalizePublicationApproval: async () => {},
+    http: async (request) => {
+      if (request.method === "GET") {
+        return {
+          data: { items: [{ id: "video-1", etag: "etag-2", status: { privacyStatus: "private" } }] },
+          headers: {},
+        };
+      }
+      puts++;
+      return { data: { id: "video-1" }, headers: {} };
+    },
+  });
+  await assert.rejects(
+    provider.setVisibility({ accessToken: "secret" }, "video-1", {
+      approved: true, videoId: "video-1", approverId: "human-1",
+      auditId: "accepted", privacyStatus: "public", expectedEtag: "etag-1",
+    }), /Stale approval/,
+  );
+  assert.equal(puts, 0);
 });

@@ -28,7 +28,8 @@ One workflow: `DRAFT → QA → APPROVED_FOR_PRIVATE_UPLOAD → PRIVATE_UPLOADED
 ## Private-first upload
 
 - `videos.insert` always sets `status.privacyStatus=private`.
-- Validate content format, size, MIME type, rights, made-for-kids selection, and synthetic media disclosure prior to upload.
+- Validate content format, size, MIME type, rights, made-for-kids selection, and synthetic media disclosure prior to upload; both audience/disclosure flags are explicit booleans and travel in the insert `status` body.
+- Visibility approval carries the reviewed resource `expectedEtag`; a changed ETag invalidates the approval before any mutation.
 - Use resumable upload with a durable session reference and status reconciliation, including uncertain network failures.
 - Store the provider video ID, content hash, channel ID, idempotency key, source artifact and trace IDs.
 - Do not retry after an ambiguous result without checking for already-created video.
@@ -37,7 +38,8 @@ One workflow: `DRAFT → QA → APPROVED_FOR_PRIVATE_UPLOAD → PRIVATE_UPLOADED
 
 - Upload approval and public-visibility approval are distinct.
 - Use the canonical Zeto approval persistence, RBAC, tenant/channel scoping, immutable video/content/metadata digest, expiry, distinct human reviewer and consume-once action.
-- Inject `verifyPublicationApproval` into the YouTube provider from a trusted server-side service; it must validate and consume the canonical approval atomically.
+- Inject `verifyPublicationApproval` into the YouTube provider from a trusted server-side service; it must perform non-consuming validation (optionally placing a durable idempotent claim keyed by video, visibility and approval ID) and must never consume a single-use approval before YouTube confirms the change.
+- Only `finalizePublicationApproval`, invoked after the provider reconciles the new visibility from YouTube, consumes the approval exactly once with an immutable audit event; it must be idempotent so a retried confirmation cannot double-consume.
 - Adapter explicitly **rejects** public/unlisted transitions if no verifier is configured.
 - Verify YouTube's resulting status and record an immutable audit event.
 - No scheduler or agent may bypass human approval.

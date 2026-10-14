@@ -56,6 +56,11 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
     if (publication.privacyStatus && publication.privacyStatus !== "private") {
       throw new Error("YouTube uploads must start private; publication requires separate human approval");
     }
+    for (const field of ["madeForKids", "containsSyntheticMedia"]) {
+      if (typeof publication[field] !== "boolean") {
+        throw new Error(`YouTube upload requires an explicit boolean ${field} disclosure`);
+      }
+    }
     const media = publication.media;
     if (!Buffer.isBuffer(media?.buffer) || !media.mimeType)
       throw new Error(
@@ -77,7 +82,11 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
           description: publication.text || "",
           tags: publication.tags || [],
         },
-        status: { privacyStatus: "private" },
+        status: {
+          privacyStatus: "private",
+          selfDeclaredMadeForKids: publication.madeForKids,
+          containsSyntheticMedia: publication.containsSyntheticMedia,
+        },
       },
     });
     const location = initialized.headers?.location;
@@ -102,7 +111,7 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
 
   async setVisibility(credentials, publicationId, approval) {
     if (!approval || approval.approved !== true || approval.videoId !== publicationId ||
-        !approval.approverId || !approval.auditId) {
+        !approval.approverId || !approval.auditId || !approval.expectedEtag) {
       throw new Error("A bound, auditable human approval is required for YouTube visibility changes");
     }
     if (approval.privacyStatus !== "public" && approval.privacyStatus !== "unlisted") {
@@ -120,6 +129,12 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
     // P1: read current status first so videos.update does not reset other
     // mutable status fields (license, embeddable, selfDeclaredMadeForKids).
     const current = await this.status(credentials, publicationId);
+    // The approval is bound to the exact revision the human reviewed:
+    // any title/description/thumbnail/status edit after approval
+    // changes the ETag and invalidates it.
+    if (current.publication?.etag !== approval.expectedEtag) {
+      throw new Error("Stale approval: video revision changed since human approval");
+    }
     const existing = current.publication?.status || {};
     const nextStatus = {};
     for (const field of PRESERVED_STATUS_FIELDS) {
