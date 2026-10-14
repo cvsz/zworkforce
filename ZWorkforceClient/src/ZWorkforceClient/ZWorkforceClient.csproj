@@ -10,6 +10,9 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <!-- Runtime packs are SDK platform assets, not PackageReference dependencies.
+         Pin the framework runtime used for RID restores without violating NuGet CPM. -->
+    <RuntimeFrameworkVersion>10.0.13</RuntimeFrameworkVersion>
     <UseWinUI>true</UseWinUI>
     <EnableMsixTooling>true</EnableMsixTooling>
     <!-- The CLI MSIX task runs in a .NET 6 task host. Keep a project-local copy
@@ -30,14 +33,6 @@
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools.MSIX" GeneratePathProperty="true" PrivateAssets="all" />
     <PackageReference Include="System.Security.Permissions" GeneratePathProperty="true" IncludeAssets="none" PrivateAssets="all" />
     <PackageReference Include="System.Windows.Extensions" GeneratePathProperty="true" IncludeAssets="none" PrivateAssets="all" />
-    <!-- Pin shared-framework runtimes past CVE-2026-83520 (fixed in 10.0.13).
-         Explicit references override the SDK-implicit transitive versions. -->
-    <PackageReference Include="Microsoft.NETCore.App.Runtime.win-x64" Version="10.0.13" />
-    <PackageReference Include="Microsoft.NETCore.App.Runtime.win-arm64" Version="10.0.13" />
-    <PackageReference Include="Microsoft.AspNetCore.App.Runtime.win-x64" Version="10.0.13" />
-    <PackageReference Include="Microsoft.AspNetCore.App.Runtime.win-arm64" Version="10.0.13" />
-    <PackageReference Include="Microsoft.WindowsDesktop.App.Runtime.win-x64" Version="10.0.13" />
-    <PackageReference Include="Microsoft.WindowsDesktop.App.Runtime.win-arm64" Version="10.0.13" />
   </ItemGroup>
 
   <ItemGroup>
