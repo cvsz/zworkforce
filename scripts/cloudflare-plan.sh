@@ -33,6 +33,14 @@ done
   echo "Missing PIEWDASH_ACCESS_ALLOWED_EMAILS JSON array in $ENV_FILE" >&2
   exit 1
 }
+[[ -n "${CME_ACCESS_ALLOWED_EMAILS:-}" ]] || {
+  echo "Missing CME_ACCESS_ALLOWED_EMAILS JSON array in $ENV_FILE" >&2
+  exit 1
+}
+[[ -n "${CME_ACCESS_SERVICE_TOKEN_ID:-}" ]] || {
+  echo "Missing CME_ACCESS_SERVICE_TOKEN_ID in $ENV_FILE" >&2
+  exit 1
+}
 
 TF_BIN="${TERRAFORM_BIN:-}"
 if [[ -z "$TF_BIN" ]]; then
@@ -68,6 +76,8 @@ export TF_VAR_zerp_hostname="${ZERP_HOSTNAME:-zerp.zeaz.dev}"
 export TF_VAR_zerp_origin="${ZERP_ORIGIN:-http://127.0.0.1:80}"
 export TF_VAR_cmeerp_hostname="${CMEERP_HOSTNAME:-cme.zeaz.dev}"
 export TF_VAR_cmeerp_origin="${CMEERP_ORIGIN:-http://127.0.0.1:8001}"
+export TF_VAR_cme_access_allowed_emails="$CME_ACCESS_ALLOWED_EMAILS"
+export TF_VAR_cme_access_service_token_id="$CME_ACCESS_SERVICE_TOKEN_ID"
 export TF_VAR_zai_hostname="${ZAI_HOSTNAME:-zai.zeaz.dev}"
 export TF_VAR_zai_origin="${ZAI_ORIGIN:-http://127.0.0.1:8765}"
 export TF_VAR_zwf_hostname="${ZWF_HOSTNAME:-zwf.zeaz.dev}"
