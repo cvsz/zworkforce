@@ -11,7 +11,8 @@
   ],
   "vars": {
     "ENVIRONMENT": "production",
-    "NOTIFICATION_FROM": "ZEAZ One <noreply@zeaz.dev>"
+    "NOTIFICATION_FROM": "ZEAZ One <noreply@zeaz.dev>",
+    "GOOGLE_CERTIFIED_CMP_READY": "false"
   },
   "d1_databases": [
     { "binding": "DB", "database_name": "zeaz-web", "database_id": "__D1_DATABASE_ID__", "migrations_dir": "migrations" }

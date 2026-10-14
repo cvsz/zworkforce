@@ -26,6 +26,16 @@ Production full-stack website for `https://www.zeaz.dev/` and the ZEAZ One produ
 
 Optional: `RESEND_API_KEY`, `ZEAZ_WEB_NOTIFICATION_EMAIL`.
 
+## Advertising activation
+
+- AdSense (`ca-pub-4971034675329740`) loads only when the Worker var
+  `GOOGLE_CERTIFIED_CMP_READY` is `"true"`. Default is `"false"`.
+- `/ads.txt` serves the publisher authorization line.
+- After a Google-certified CMP is installed, set the var durably in
+  `apps/zeaz-web/wrangler.template.json` (rendered into the generated
+  Wrangler config at deploy time) rather than only via dashboard,
+  otherwise the next Wrangler deploy overwrites dashboard-only values.
+
 ## Local validation
 
 ```bash
