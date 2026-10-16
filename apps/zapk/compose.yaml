@@ -1,0 +1,17 @@
+services:
+  web:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      ZEAZ_DATA_DIR: /srv/data
+      ZEAZ_ADMIN_TOKEN: ${ZEAZ_ADMIN_TOKEN:?Set ZEAZ_ADMIN_TOKEN in .env}
+      ZEAZ_SIGNING_SECRET: ${ZEAZ_SIGNING_SECRET:?Set ZEAZ_SIGNING_SECRET in .env}
+      APKCUBE_API_KEY: ${APKCUBE_API_KEY:-}
+    volumes:
+      - apk_data:/srv/data
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+volumes:
+  apk_data:

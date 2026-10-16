@@ -2,7 +2,8 @@
 
 This stack follows the Cloudflare Tunnel DNS ownership model used by
 `z-platform`: proxied CNAMEs send `moopiew.zeaz.dev`, `arin.zeaz.dev`, `zttshop.zeaz.dev`,
-`piewdash.zeaz.dev`, `qwen.zeaz.dev`, `chat.zeaz.dev`, `zwsl.zeaz.dev`,
+`piewdash.zeaz.dev`, `qwen.zeaz.dev`, `chat.zeaz.dev`, `zchat.zeaz.dev`,
+`zcoder.zeaz.dev`, `zwsl.zeaz.dev`,
 `zerp.zeaz.dev`, `cme.zeaz.dev`,
 `dbc.zeaz.dev`, and
 `zwf.zeaz.dev` to
@@ -11,6 +12,20 @@ port 8080 and the dashboard and ERP hostnames to Caddy on port 80. The
 OpenWebUI chat hostname is forwarded directly to its reviewed host-published
 port 3000, matching the existing container mapping, rather than to the
 container-only port 8080.
+Stack นี้ใช้ Cloudflare Tunnel `zwslcore` ที่มีอยู่เป็น connector เดียว
+กำหนด `CLOUDFLARE_TUNNEL_ID` ให้เป็น ID ของ Tunnel นี้ใน environment ภายในที่
+เก็บอย่างปลอดภัย โดย DNS CNAME และ ingress route ที่สร้างจาก stack นี้จะใช้ ID
+ที่กำหนดค่านี้ทั้งหมด
+`zchat.zeaz.dev` ส่งต่อไปยัง ZChat Control Server ที่ทำงานในเครื่องบน port 8000
+ส่วน `zcoder.zeaz.dev` เป็น hostname ใหม่ของ ZChat conversation UI ซึ่งส่งต่อไปยัง
+host-loopback port 3021 ต้อง publish และตรวจสอบ port นี้ก่อนเปิด tunnel route
+Kubernetes Service ของ UI เป็น ClusterIP เท่านั้น จึงเข้าถึงจาก host connector
+โดยตรงไม่ได้
+ดังนั้น hostname ของ ZChat ทั้งสองตัวใช้ connector `zwslcore` ส่วน resource ที่
+จัดการ tunnel configuration จะเปิดใช้ได้เมื่อกำหนด `manage_tunnel_config`
+โดยตั้งใจให้เป็น opt-in การเปลี่ยน DNS desired state เพียงอย่างเดียวไม่ได้เพิ่ม
+hostname เหล่านี้เข้า live tunnel ingress
+
 host-specific dashboard route applies Basic Auth before proxying to the
 loopback dashboard process on port 8082. Never point the tunnel directly at
 port 8082 because that bypasses the origin authentication layer. The zERP
@@ -112,6 +127,8 @@ terraform -chdir=infrastructure/terraform/cloudflare import \
   cloudflare_dns_record.zttshop "<zone-id>/<dns-record-id>"
 terraform -chdir=infrastructure/terraform/cloudflare import \
   cloudflare_dns_record.chat "<zone-id>/<dns-record-id>"
+terraform -chdir=infrastructure/terraform/cloudflare import \
+  cloudflare_dns_record.zcoder "<zone-id>/<dns-record-id>"
 terraform -chdir=infrastructure/terraform/cloudflare import \
   cloudflare_dns_record.piewdash "<zone-id>/<dns-record-id>"
 terraform -chdir=infrastructure/terraform/cloudflare import \

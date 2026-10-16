@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+!.env.zapk.example
+.git
+.pytest_cache
+__pycache__
+*.pyc
+tests
+data
+*.zip
