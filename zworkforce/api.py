@@ -858,6 +858,10 @@ class App:
                             idem_key=self.headers.get("Idempotency-Key", "") or ""
                         )
                         if handled:
+                            if status >= 400 and isinstance(payload, dict):
+                                error = payload.get("error")
+                                if isinstance(error, dict):
+                                    return self._error(status, str(error.get("code", "invalid_request")), str(error.get("message", "Invalid request")))
                             return self._json(status, payload)
                         return self._error(404, "not_found", "not found")
                     if path.startswith("/api/v1/zeazverse/"):
