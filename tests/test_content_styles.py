@@ -138,6 +138,28 @@ class ContentStylesApiIntegrationTest(unittest.TestCase):
         payload = json.loads(raised.exception.read().decode("utf-8"))
         self.assertEqual(payload["error"]["code"], "preset_not_found")
 
+    def test_creative_brief_rejects_non_string_title(self):
+        req = urllib.request.Request(
+            f"{self.base_url}/api/v1/content-styles/creative-briefs",
+            data=json.dumps({"id": "invalid-title", "style_id": "cinematic-storytelling:cyberpunk", "title": 123}).encode(),
+            headers=self.headers,
+            method="POST",
+        )
+        with self.assertRaises(urllib.error.HTTPError) as err:
+            urllib.request.urlopen(req)
+        self.assertEqual(err.exception.code, 400)
+
+    def test_creative_brief_rejects_overlong_id(self):
+        req = urllib.request.Request(
+            f"{self.base_url}/api/v1/content-styles/creative-briefs",
+            data=json.dumps({"id": "x" * 129, "style_id": "cinematic-storytelling:cyberpunk", "title": "Too long"}).encode(),
+            headers=self.headers,
+            method="POST",
+        )
+        with self.assertRaises(urllib.error.HTTPError) as err:
+            urllib.request.urlopen(req)
+        self.assertEqual(err.exception.code, 400)
+
     def test_create_creative_brief_with_style(self):
         body = {
             "id": "brief-neon-city-01",
