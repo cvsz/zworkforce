@@ -6,6 +6,7 @@ import json
 import threading
 import unittest
 import urllib.request
+import urllib.error
 from http.server import ThreadingHTTPServer
 
 from tests.common import stack
@@ -117,6 +118,17 @@ class ContentStylesApiIntegrationTest(unittest.TestCase):
         preset = data["preset"]
         self.assertEqual(preset["display_name"], "Cyberpunk")
         self.assertEqual(preset["category"], "Cinematic & Storytelling")
+
+    def test_missing_style_returns_structured_404(self):
+        req = urllib.request.Request(
+            f"{self.base_url}/api/v1/content-styles/presets/missing-style",
+            headers=self.headers,
+        )
+        with self.assertRaises(urllib.error.HTTPError) as raised:
+            urllib.request.urlopen(req)
+        self.assertEqual(raised.exception.code, 404)
+        payload = json.loads(raised.exception.read().decode("utf-8"))
+        self.assertEqual(payload["error"]["code"], "preset_not_found")
 
     def test_create_creative_brief_with_style(self):
         body = {
