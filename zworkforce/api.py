@@ -369,6 +369,14 @@ class App:
                             code, msg = payload["_error"]
                             return self._error(payload["_status"], code, msg)
                         return self._json(200, payload)
+                if path.startswith("/api/v1/content-styles"):
+                    from .content_styles_api import content_styles_get as _cs_get
+                    handled, payload = _cs_get(app, tenant_id, path, q)
+                    if handled:
+                        if isinstance(payload, dict) and payload.get("_status"):
+                            code, msg = payload["_error"]
+                            return self._error(payload["_status"], code, msg)
+                        return self._json(200, payload)
                 if path.startswith("/api/v1/zeazverse/"):
                     from .zeazverse_api import zeazverse_get as _zv_get
                     handled, payload = _zv_get(app, tenant_id, path, q)
@@ -836,6 +844,26 @@ class App:
                         if handled:
                             return self._json(status,payload)
                         return self._error(404,"not_found","not found")
+                    if path.startswith("/api/v1/content-styles"):
+                        from .content_styles_api import content_styles_post as _cs_post
+                        ctx, response = self._principal("operator", "automation:write")
+                        if response: return response
+                        principal, tenant_id = ctx
+                        try:
+                            body = self._body()
+                        except ValueError as exc:
+                            return self._error(400, "invalid_request", str(exc))
+                        handled, payload, status = _cs_post(
+                            app, principal, tenant_id, path, body, self._query(),
+                            idem_key=self.headers.get("Idempotency-Key", "") or ""
+                        )
+                        if handled:
+                            if status >= 400 and isinstance(payload, dict):
+                                error = payload.get("error")
+                                if isinstance(error, dict):
+                                    return self._error(status, str(error.get("code", "invalid_request")), str(error.get("message", "Invalid request")))
+                            return self._json(status, payload)
+                        return self._error(404, "not_found", "not found")
                     if path.startswith("/api/v1/zeazverse/"):
                         from .zeazverse_api import zeazverse_post as _zv_post
                         from .zeazverse_domain import ZeazverseValidationError as _ZVValidationError
