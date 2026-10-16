@@ -159,6 +159,22 @@ test("visibility change requires a finalizer so approvals cannot replay", async 
   assert.equal(requests.length, 0);
 });
 
+test("missing finalizer does not invoke stateful approval verifier", async () => {
+  let verifierCalls = 0;
+  const provider = new YouTubePublishingProvider({
+    verifyPublicationApproval: async () => { verifierCalls++; return true; },
+    http: async () => { throw new Error("Unexpected network request"); },
+  });
+  await assert.rejects(
+    provider.setVisibility({ accessToken: "secret" }, "video-1", {
+      approved: true, videoId: "video-1", approverId: "human-1",
+      auditId: "audit-1", privacyStatus: "public", expectedEtag: "etag-1",
+    }),
+    /finalizer is required/,
+  );
+  assert.equal(verifierCalls, 0);
+});
+
 test("concurrent status change fails closed instead of overwriting", async () => {
   const provider = new YouTubePublishingProvider({
     verifyPublicationApproval: async () => true,
