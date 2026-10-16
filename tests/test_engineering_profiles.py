@@ -40,6 +40,11 @@ class EngineeringProfileTests(unittest.TestCase):
             {"github": {"repository_allowlist": ["../secrets"]}},
             {"github": {"token": "should-not-be-here"}},
             {"profile": "unknown"},
+            {"execution": {"mode": []}},
+            {"execution": {"mode": None}},
+            {"github": {"provider": ["github"]}},
+            {"github": {"repository_allowlist": [42]}},
+            {42: "unexpected"},
         ):
             with self.subTest(payload=payload):
                 with self.assertRaises(EngineeringProfileError):
