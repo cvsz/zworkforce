@@ -117,14 +117,14 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
     if (approval.privacyStatus !== "public" && approval.privacyStatus !== "unlisted") {
       throw new Error("Unsupported approved visibility");
     }
+    // Check both callbacks before invoking the verifier: verification may
+    // reserve or claim approval state and must not run without a finalizer.
     if (typeof this.verifyPublicationApproval !== "function" ||
-        await this.verifyPublicationApproval(approval) !== true) {
-      throw new Error("Canonical server-side approval verification failed");
+        typeof this.finalizePublicationApproval !== "function") {
+      throw new Error("Canonical approval verifier and publication finalizer are required");
     }
-    // Fail fast before any external mutation: without a wired finalizer
-    // a published video would be left unaudited and replayable.
-    if (typeof this.finalizePublicationApproval !== "function") {
-      throw new Error("A publication finalizer is required for YouTube visibility changes");
+    if (await this.verifyPublicationApproval(approval) !== true) {
+      throw new Error("Canonical server-side approval verification failed");
     }
     // P1: read current status first so videos.update does not reset other
     // mutable status fields (license, embeddable, selfDeclaredMadeForKids).
