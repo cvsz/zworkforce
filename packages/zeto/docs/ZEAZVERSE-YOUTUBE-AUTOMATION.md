@@ -21,6 +21,10 @@ One workflow: `DRAFT → QA → APPROVED_FOR_PRIVATE_UPLOAD → PRIVATE_UPLOADED
 1. Register a Google Cloud OAuth consent screen and authorized redirect URI for the chosen deployment.
 2. Request minimum necessary Google scopes and offline access only as needed; use Authorization Code + PKCE, `state`, one-time verifier and short-lived session.
 3. Exchange authorization codes server-side. Never send access/refresh tokens to the browser or log them.
+   - For `videos.insert` private uploads, Google documents `https://www.googleapis.com/auth/youtube.upload` (among other accepted scopes).
+   - For `videos.update` visibility changes, request and verify `https://www.googleapis.com/auth/youtube.force-ssl` or `https://www.googleapis.com/auth/youtube` as appropriate; `youtube.upload` alone is not listed as an accepted scope for that operation.
+   - Verify the actual granted scopes at connection and refresh time. Disable visibility-changing features if an accepted scope was not granted. Never silently elevate scope or reuse an upload-only grant.
+   - Official references: https://developers.google.com/youtube/v3/docs/videos/insert and https://developers.google.com/youtube/v3/docs/videos/update.
 4. Encrypt refresh tokens via the existing server-side secret infrastructure. Support token rotation and revocation.
 5. Bind the token to the exact YouTube channel ID returned by `channels.list(mine=true)`, not just a mutable handle.
 6. Validate that the connected channel is the operator-approved `@ZEAZVERSE` channel before any upload.
