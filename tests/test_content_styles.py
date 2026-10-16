@@ -95,6 +95,14 @@ class ContentStylesApiIntegrationTest(unittest.TestCase):
         with urllib.request.urlopen(req) as resp:
             return resp.status, json.loads(resp.read().decode("utf-8"))
 
+    def test_preset_seed_is_idempotent(self):
+        tenant_id = "preset-seed-idempotency"
+        first = self.db.seed_content_style_presets(tenant_id)
+        second = self.db.seed_content_style_presets(tenant_id)
+        self.assertEqual(first, 128)
+        self.assertEqual(second, 0)
+        self.assertEqual(len(self.db.list_content_style_presets(tenant_id)), 128)
+
     def test_list_all_presets_and_categories_api(self):
         status, data = self._req("GET", "/api/v1/content-styles/categories")
         self.assertEqual(status, 200)
