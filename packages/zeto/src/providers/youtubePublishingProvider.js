@@ -136,17 +136,16 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
     if (current.publication?.etag === approval.expectedEtag) {
       confirmed = await this.reconcileTransition(credentials, publicationId, approval, current);
     } else if (current.publication?.status?.privacyStatus === approval.privacyStatus) {
-      // Recovery path: our PUT may have landed while confirmation or
-      // finalization failed. The video is already at the approved
-      // visibility, so reconcile and finalize instead of mutating again.
-      // The audit records the actual current state, including its ETag.
-      confirmed = current;
+      // Visibility alone is not evidence that this job performed the write.
+      // An external API client may have changed the resource after approval.
+      // Fail closed until a durable, atomically claimed outcome is available.
+      throw new Error("Stale approval: visibility matches without a verified durable transition claim");
     } else {
       throw new Error("Stale approval: video revision changed since human approval");
     }
     // P2: consumption/finalization happens only after a confirmed mutation.
     await this.finalizePublicationApproval(approval, confirmed.publication);
-    return { publication: confirmed.publication, rateLimit: standardRateLimit(confirmed.rateLimitHeaders || {}) };
+    return { publication: confirmed.publication, rateLimit: standardRateLimit(confirmed.publication?.rateLimitHeaders || {}) };
   }
 
   async reconcileTransition(credentials, publicationId, approval, current) {
