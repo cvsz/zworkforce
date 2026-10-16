@@ -208,7 +208,7 @@ test("stale approval is rejected when the video changed after approval", async (
   assert.equal(puts, 0);
 });
 
-test("retry after a landed mutation reconciles and finalizes without re-put", async () => {
+test("stale visibility match without durable claim fails closed", async () => {
   let puts = 0;
   let finalized = null;
   const provider = new YouTubePublishingProvider({
@@ -225,11 +225,10 @@ test("retry after a landed mutation reconciles and finalizes without re-put", as
       return { data: { id: "video-1" }, headers: {} };
     },
   });
-  const result = await provider.setVisibility({ accessToken: "secret" }, "video-1", {
+  await assert.rejects(provider.setVisibility({ accessToken: "secret" }, "video-1", {
     approved: true, videoId: "video-1", approverId: "human-1",
     auditId: "accepted", privacyStatus: "public", expectedEtag: "etag-1",
-  });
+  }), /verified durable transition claim/);
   assert.equal(puts, 0);
-  assert.equal(result.publication.status.privacyStatus, "public");
-  assert.equal(finalized.etag, "etag-2");
+  assert.equal(finalized, null);
 });
