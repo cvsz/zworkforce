@@ -16,51 +16,50 @@ class ContentStylesMixin:
         count = 0
         with self.connection() as c:
             for s in CONTENT_STYLE_PRESETS:
-                if True:
-                    inserted = c.execute(
-                        """INSERT INTO content_style_presets (
-                            tenant_id, style_id, category, display_name, description,
-                            supported_content_types_json, audience_profile, age_rating,
-                            default_aspect_ratio, target_duration, visual_style,
-                            animation_style, camera_language, lighting_profile,
-                            color_grading, editing_pace, narration_style, music_profile,
-                            subtitle_style, thumbnail_style, safety_policy,
-                            publishing_targets_json, provider_capabilities_json,
-                            estimated_cost_class, prompt_template_version, active,
-                            version, created_at, updated_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?) ON CONFLICT(tenant_id, style_id) DO NOTHING""",
-                        (
-                            tenant_id,
-                            s["style_id"],
-                            s["category"],
-                            s["display_name"],
-                            s["description"],
-                            json_dumps(s["supported_content_types"]),
-                            s["audience_profile"],
-                            s["age_rating"],
-                            s["default_aspect_ratio"],
-                            s["target_duration"],
-                            s["visual_style"],
-                            s["animation_style"],
-                            s["camera_language"],
-                            s["lighting_profile"],
-                            s["color_grading"],
-                            s["editing_pace"],
-                            s["narration_style"],
-                            s["music_profile"],
-                            s["subtitle_style"],
-                            s["thumbnail_style"],
-                            s["safety_policy"],
-                            json_dumps(s["publishing_targets"]),
-                            json_dumps(s["provider_capabilities"]),
-                            s["estimated_cost_class"],
-                            s["prompt_template_version"],
-                            s["active"],
-                            now,
-                            now,
-                        ),
-                    )
-                    count += max(0, inserted.rowcount)
+                inserted = c.execute(
+                    """INSERT INTO content_style_presets (
+                        tenant_id, style_id, category, display_name, description,
+                        supported_content_types_json, audience_profile, age_rating,
+                        default_aspect_ratio, target_duration, visual_style,
+                        animation_style, camera_language, lighting_profile,
+                        color_grading, editing_pace, narration_style, music_profile,
+                        subtitle_style, thumbnail_style, safety_policy,
+                        publishing_targets_json, provider_capabilities_json,
+                        estimated_cost_class, prompt_template_version, active,
+                        version, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?) ON CONFLICT(tenant_id, style_id) DO NOTHING""",
+                    (
+                        tenant_id,
+                        s["style_id"],
+                        s["category"],
+                        s["display_name"],
+                        s["description"],
+                        json_dumps(s["supported_content_types"]),
+                        s["audience_profile"],
+                        s["age_rating"],
+                        s["default_aspect_ratio"],
+                        s["target_duration"],
+                        s["visual_style"],
+                        s["animation_style"],
+                        s["camera_language"],
+                        s["lighting_profile"],
+                        s["color_grading"],
+                        s["editing_pace"],
+                        s["narration_style"],
+                        s["music_profile"],
+                        s["subtitle_style"],
+                        s["thumbnail_style"],
+                        s["safety_policy"],
+                        json_dumps(s["publishing_targets"]),
+                        json_dumps(s["provider_capabilities"]),
+                        s["estimated_cost_class"],
+                        s["prompt_template_version"],
+                        s["active"],
+                        now,
+                        now,
+                    ),
+                )
+                count += max(0, inserted.rowcount)
         return count
 
     def list_content_style_presets(
