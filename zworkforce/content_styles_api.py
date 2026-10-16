@@ -36,16 +36,21 @@ def content_styles_post(
 ) -> tuple[bool, Any, int]:
     """Handles POST /api/v1/content-styles/..."""
     if path == "/api/v1/content-styles/creative-briefs":
-        brief_id = str(body.get("id", "")).strip()
-        style_id = str(body.get("style_id", "")).strip()
-        title = str(body.get("title", "")).strip()
-        objective = str(body.get("objective", "")).strip()
+        fields = ("id", "style_id", "title", "objective")
+        if not isinstance(body, dict) or any(not isinstance(body.get(k, ""), str) for k in fields):
+            return True, {"error": {"code": "validation_error", "message": "Creative brief fields must be strings"}}, 400
+        brief_id = body.get("id", "").strip()
+        style_id = body.get("style_id", "").strip()
+        title = body.get("title", "").strip()
+        objective = body.get("objective", "").strip()
+        if len(brief_id) > 128 or len(style_id) > 256 or len(title) > 512:
+            return True, {"error": {"code": "validation_error", "message": "Creative brief field exceeds maximum length"}}, 400
         if not brief_id or not style_id or not title:
             return True, {"error": {"code": "validation_error", "message": "brief_id, style_id, and title are required"}}, 400
 
         preset = app.db.get_content_style_preset(tenant_id, style_id)
-        if not preset:
-            return True, {"error": {"code": "preset_not_found", "message": f"Style preset '{style_id}' not found"}}, 404
+        if not preset or not preset.get("active", 0):
+            return True, {"error": {"code": "preset_not_found", "message": "Active style preset not found"}}, 404
 
         brief = app.db.create_creative_brief(tenant_id, brief_id, style_id, title, objective, created_by=principal.key_id)
         return True, {"creative_brief": brief, "applied_style": preset}, 201
