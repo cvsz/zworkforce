@@ -29,6 +29,8 @@ class EngineeringProfile:
 
 
 def _keys(obj: Mapping[str, Any], allowed: set[str], field: str) -> None:
+    if any(not isinstance(key, str) for key in obj):
+        raise EngineeringProfileError(f"{field} keys must be strings")
     unexpected = set(obj) - allowed
     if unexpected:
         raise EngineeringProfileError(f"unknown {field} keys: {', '.join(sorted(map(str, unexpected)))}")
@@ -64,9 +66,9 @@ def parse_engineering_profile(raw: Mapping[str, Any]) -> EngineeringProfile:
     _keys(github, {"provider", "reviewer_account", "merger_account", "repository_allowlist",
                    "require_independent_review", "require_required_checks"}, "github")
     mode = execution.get("mode", "local")
-    if mode not in _MODES:
+    if not isinstance(mode, str) or mode not in _MODES:
         raise EngineeringProfileError("unsupported execution mode")
-    if github.get("provider", "github") != "github":
+    if not isinstance(github.get("provider", "github"), str) or github.get("provider", "github") != "github":
         raise EngineeringProfileError("unsupported git provider")
     reviewer = _account(github.get("reviewer_account"), "reviewer_account")
     merger = _account(github.get("merger_account"), "merger_account")
