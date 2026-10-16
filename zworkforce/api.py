@@ -373,6 +373,9 @@ class App:
                     from .content_styles_api import content_styles_get as _cs_get
                     handled, payload = _cs_get(app, tenant_id, path, q)
                     if handled:
+                        if isinstance(payload, dict) and payload.get("_status"):
+                            code, msg = payload["_error"]
+                            return self._error(payload["_status"], code, msg)
                         return self._json(200, payload)
                 if path.startswith("/api/v1/zeazverse/"):
                     from .zeazverse_api import zeazverse_get as _zv_get
