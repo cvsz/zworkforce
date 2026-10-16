@@ -148,6 +148,9 @@ class ContentStylesApiIntegrationTest(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as err:
             urllib.request.urlopen(req)
         self.assertEqual(err.exception.code, 400)
+        payload = json.loads(err.exception.read().decode("utf-8"))
+        self.assertEqual(payload["error"]["code"], "validation_error")
+        self.assertTrue(payload.get("request_id"))
 
     def test_creative_brief_rejects_overlong_id(self):
         req = urllib.request.Request(
