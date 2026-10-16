@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import unquote
 
 
 def content_styles_get(app, tenant_id: str, path: str, query: dict) -> tuple[bool, Any]:
@@ -13,7 +14,7 @@ def content_styles_get(app, tenant_id: str, path: str, query: dict) -> tuple[boo
         return True, {"presets": presets, "total": len(presets)}
 
     if path.startswith("/api/v1/content-styles/presets/"):
-        style_id = path.split("/api/v1/content-styles/presets/")[1]
+        style_id = unquote(path.removeprefix("/api/v1/content-styles/presets/"))
         preset = app.db.get_content_style_preset(tenant_id, style_id)
         if not preset:
             return True, {"error": "preset_not_found"}
@@ -40,11 +41,11 @@ def content_styles_post(
         title = str(body.get("title", "")).strip()
         objective = str(body.get("objective", "")).strip()
         if not brief_id or not style_id or not title:
-            return True, {"error": "brief_id, style_id, and title are required"}, 400
+            return True, {"error": {"code": "validation_error", "message": "brief_id, style_id, and title are required"}}, 400
 
         preset = app.db.get_content_style_preset(tenant_id, style_id)
         if not preset:
-            return True, {"error": f"Style preset '{style_id}' not found"}, 404
+            return True, {"error": {"code": "preset_not_found", "message": f"Style preset '{style_id}' not found"}}, 404
 
         brief = app.db.create_creative_brief(tenant_id, brief_id, style_id, title, objective, created_by=principal.key_id)
         return True, {"creative_brief": brief, "applied_style": preset}, 201
