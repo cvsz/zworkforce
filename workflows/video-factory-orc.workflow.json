@@ -1,0 +1,70 @@
+{
+  "schema_version": "1.0",
+  "id": "zeaz-video-factory-v1",
+  "kind": "video_factory_opt_in_plan",
+  "runtime": "scripts/video_factory_orc.py",
+  "mode": "manual_media_import_zero_cost",
+  "cost_policy": {
+    "additional_api_budget_usd": 0,
+    "paid_fallback": false,
+    "aipass_automated_access": false
+  },
+  "stages": [
+    {
+      "id": "ingest",
+      "depends_on": [],
+      "implementation": "local_ffprobe_and_sha256"
+    },
+    {
+      "id": "scene_plan",
+      "depends_on": [
+        "ingest"
+      ],
+      "implementation": "timestamp_heuristic_unverified"
+    },
+    {
+      "id": "review_storyboard",
+      "depends_on": [
+        "scene_plan"
+      ],
+      "implementation": "human_review_required"
+    },
+    {
+      "id": "external_generation",
+      "depends_on": [
+        "review_storyboard"
+      ],
+      "implementation": "manual_only_optional"
+    },
+    {
+      "id": "import",
+      "depends_on": [
+        "external_generation"
+      ],
+      "implementation": "user_supplied_media"
+    },
+    {
+      "id": "render",
+      "depends_on": [
+        "import"
+      ],
+      "implementation": "local_ffmpeg"
+    },
+    {
+      "id": "qa",
+      "depends_on": [
+        "render"
+      ],
+      "implementation": "ffprobe_and_sha256"
+    },
+    {
+      "id": "approve_export",
+      "depends_on": [
+        "qa"
+      ],
+      "implementation": "explicit_actor_and_rights_attestation"
+    }
+  ],
+  "integration_status": "standalone_vertical_slice_not_registered_with_existing_zworkforce_orchestrator",
+  "release_status": "NOT_VERIFIED"
+}
