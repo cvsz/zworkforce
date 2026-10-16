@@ -17,7 +17,7 @@ def content_styles_get(app, tenant_id: str, path: str, query: dict) -> tuple[boo
         style_id = unquote(path.removeprefix("/api/v1/content-styles/presets/"))
         preset = app.db.get_content_style_preset(tenant_id, style_id)
         if not preset:
-            return True, {"error": "preset_not_found"}
+            return True, {"_status": 404, "_error": ("preset_not_found", "Style preset not found")}
         return True, {"preset": preset}
 
     if path == "/api/v1/content-styles/categories":
