@@ -28,6 +28,16 @@ output "chat_url" {
   description = "Public OpenWebUI chat URL after the proxied DNS record and tunnel ingress are active."
 }
 
+output "zchat_url" {
+  value       = "https://${var.zchat_hostname}"
+  description = "Public ZChat Control Server URL after the proxied DNS record and tunnel ingress are active."
+}
+
+output "zcoder_url" {
+  value       = "https://${var.zcoder_hostname}"
+  description = "Public ZChat conversation UI URL after the proxied DNS record and tunnel ingress are active."
+}
+
 output "piewdash_url" {
   value       = "https://${var.piewdash_hostname}"
   description = "Public engineering dashboard URL."

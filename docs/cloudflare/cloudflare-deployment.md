@@ -40,6 +40,24 @@ cloudflared preserves each incoming path.
 Ollama หรือ LiteLLM ผ่าน Tunnel โดยตรง คง signup เป็น disabled และยืนยันว่า
 Provider Bearer authentication ทำงานก่อนเปิด hostname ต่อสาธารณะ
 
+## ZChat บน Tunnel ของ zwslcore
+
+`zchat.zeaz.dev` และ `zcoder.zeaz.dev` ใช้ Cloudflare Tunnel `zwslcore` ตัวเดียวกับ
+`zwsl.zeaz.dev` โดย `CLOUDFLARE_TUNNEL_ID` ของ Terraform เป็น ID เดียวสำหรับ DNS
+CNAME ที่ใช้ Tunnel และ ingress route ทั้งหมดใน stack เครื่อง connector ต้องมี
+ZChat Control Server ที่ `127.0.0.1:8000` และ conversation UI ที่
+`127.0.0.1:3021` ก่อนเปิด ingress route ให้รับ traffic
+
+| Hostname | Connector origin | บริการ |
+| --- | --- | --- |
+| `zchat.zeaz.dev` | `127.0.0.1:8000` | ZChat Control Server |
+| `zcoder.zeaz.dev` | `127.0.0.1:3021` | ZChat conversation UI |
+
+คง `manage_tunnel_config = false` ไว้จนกว่าจะ import และ review ingress จริงของ
+`zwslcore` แล้ว output `cloudflared_ingress` ที่สร้างจาก Terraform มี hostname ของ
+ZChat ทั้งสองตัว ให้นำไปรวมกับ connector configuration เดิมผ่าน Cloudflare
+workflow ที่ผ่านการ review แล้ว
+
 ## Required operator values
 
 Populate `.env.cloudflare` locally from the Cloudflare account that owns

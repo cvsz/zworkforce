@@ -352,19 +352,19 @@ jobs:
           grep -q 'sbom: true' .github/workflows/release.yml
           grep -q 'gh release create' .github/workflows/release.yml
           grep -q 'id-token: write' .github/workflows/release.yml
-          grep -q 'azure/login@v3' .github/workflows/release.yml
-          grep -q 'azure/artifact-signing-action@v2' .github/workflows/release.yml
+          grep -q 'Self-signed code signing is not configured; skipping Windows MSIX release artifacts.' .github/workflows/release.yml
+          grep -q 'Sign MSIX with self-signed certificate' .github/workflows/release.yml
           grep -q 'workflow_dispatch:' .github/workflows/windows-signed-candidate.yml
           grep -q 'git merge-base --is-ancestor' .github/workflows/windows-signed-candidate.yml
-          grep -q 'azure/login@v3' .github/workflows/windows-signed-candidate.yml
-          grep -q 'azure/artifact-signing-action@v2' .github/workflows/windows-signed-candidate.yml
+          grep -q 'sign MSIX (self-signed)' .github/workflows/windows-signed-candidate.yml
           grep -q 'CANDIDATE_REF' .github/workflows/windows-signed-candidate.yml
           grep -q 'Upload signed candidate evidence' .github/workflows/windows-signed-candidate.yml
           grep -q 'Package-Client.ps1 -Configuration Release -Platform x64 -Unsigned' .github/workflows/release.yml
-          grep -q 'timestamp-rfc3161: http://timestamp.acs.microsoft.com' .github/workflows/release.yml
+          grep -q 'timestamp.digicert.com' .github/workflows/release.yml
           grep -q 'AppxPackageSigningEnabled=false' ZWorkforceClient/build/windows/Package-Client.ps1
           legacy_signing_key="WINDOWS_MSIX_""PFX_BASE64"
           ! grep -q "$legacy_signing_key" .github/workflows/release.yml
+          ! grep -rn 'azure/artifact-signing-action' .github/workflows/
           # Package-Client.ps1 -Unsigned is the production package path.
 
   container:
