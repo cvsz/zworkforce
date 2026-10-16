@@ -119,9 +119,11 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
     }
     // Check both callbacks before invoking the verifier: verification may
     // reserve or claim approval state and must not run without a finalizer.
-    if (typeof this.verifyPublicationApproval !== "function" ||
-        typeof this.finalizePublicationApproval !== "function") {
-      throw new Error("Canonical approval verifier and publication finalizer are required");
+    if (typeof this.finalizePublicationApproval !== "function") {
+      throw new Error("A publication finalizer is required for YouTube visibility changes");
+    }
+    if (typeof this.verifyPublicationApproval !== "function") {
+      throw new Error("Canonical server-side approval verifier is required");
     }
     if (await this.verifyPublicationApproval(approval) !== true) {
       throw new Error("Canonical server-side approval verification failed");
