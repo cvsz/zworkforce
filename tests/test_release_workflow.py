@@ -150,6 +150,11 @@ postgres_cleanup_service
         self.assertIn("Package-Client.ps1 -Unsigned", policy)
         self.assertNotIn("WINDOWS_MSIX_PFX_BASE64", policy)
         self.assertNotIn("uses: azure/artifact-signing-action", policy)
+        # The guard must not match its own definition, and it must still be able
+        # to fail if a workflow re-adopts the Azure signing action.
+        self.assertIn('azure_action="azure/artifact-signing-""action"', policy)
+        self.assertIn('! grep -rqrn "$azure_action"', policy)
+        self.assertNotIn("! grep -rn 'azure/artifact-signing-action'", policy)
 
     def test_external_gates_bind_evidence_to_runtime_and_candidate(self):
         gates = EXTERNAL_GATES.read_text(encoding="utf-8")

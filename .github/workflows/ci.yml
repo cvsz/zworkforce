@@ -364,7 +364,10 @@ jobs:
           grep -q 'AppxPackageSigningEnabled=false' ZWorkforceClient/build/windows/Package-Client.ps1
           legacy_signing_key="WINDOWS_MSIX_""PFX_BASE64"
           ! grep -q "$legacy_signing_key" .github/workflows/release.yml
-          ! grep -rn 'azure/artifact-signing-action' .github/workflows/
+          # Reject the Azure signing action anywhere it could be *used*. The
+          # needle is split so this guard does not match its own definition.
+          azure_action="azure/artifact-signing-""action"
+          ! grep -rqrn "$azure_action" --include='*.yml' --include='*.yaml' .github/workflows/
           # Package-Client.ps1 -Unsigned is the production package path.
 
   container:
