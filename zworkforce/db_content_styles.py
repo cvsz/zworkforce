@@ -16,11 +16,8 @@ class ContentStylesMixin:
         count = 0
         with self.connection() as c:
             for s in CONTENT_STYLE_PRESETS:
-                existing = c.execute(
-                    "SELECT 1 FROM content_style_presets WHERE tenant_id=? AND style_id=?", (tenant_id, s["style_id"])
-                ).fetchone()
-                if not existing:
-                    c.execute(
+                if True:
+                    inserted = c.execute(
                         """INSERT INTO content_style_presets (
                             tenant_id, style_id, category, display_name, description,
                             supported_content_types_json, audience_profile, age_rating,
@@ -31,7 +28,7 @@ class ContentStylesMixin:
                             publishing_targets_json, provider_capabilities_json,
                             estimated_cost_class, prompt_template_version, active,
                             version, created_at, updated_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)""",
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?) ON CONFLICT(tenant_id, style_id) DO NOTHING""",
                         (
                             tenant_id,
                             s["style_id"],
@@ -63,7 +60,7 @@ class ContentStylesMixin:
                             now,
                         ),
                     )
-                    count += 1
+                    count += max(0, inserted.rowcount)
         return count
 
     def list_content_style_presets(
