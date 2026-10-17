@@ -14,15 +14,15 @@ class ProviderIntegrationProbeTests(unittest.TestCase):
     def test_refuses_public_plaintext_and_credentials(self):
         invalid = (
             "http://example.com/v1", "http://169.254.169.254/v1",
-            "https://user:pass@example.com/v1", "http://10.88.0.3:11434/v1?token=x",
+            "https://user:pass@example.com/v1", "http://10.0.0.10:11434/v1?token=x",
             "ftp://localhost/v1", "http://192.168.1.5/v1",
         )
         for url in invalid:
             with self.subTest(url=url), self.assertRaises(probe.ProbeError):
                 probe.validate_url(url)
         self.assertEqual(
-            probe.validate_url("http://10.88.0.3:11434/v1", private_http=True),
-            "http://10.88.0.3:11434/v1",
+            probe.validate_url("http://10.0.0.10:11434/v1", private_http=True),
+            "http://10.0.0.10:11434/v1",
         )
         with self.assertRaises(probe.ProbeError):
             probe.validate_url("http://127.0.0.1:9569/mcp", mcp=True, private_http=True)
