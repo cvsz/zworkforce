@@ -153,7 +153,8 @@ class OpenAICompatibleEndpoint:
                 raise ProviderError("Cloudflare Access requires HTTPS provider URL", retryable=False)
             headers["CF-Access-Client-Id"] = self.cfg.cf_access_client_id
             headers["CF-Access-Client-Secret"] = self.cfg.cf_access_client_secret
-        access_opener = (urllib.request.build_opener(urllib.request.ProxyHandler({}), NoAccessCredentialRedirect())\n                         if has_access_token else None)
+        access_opener = (urllib.request.build_opener(urllib.request.ProxyHandler({}), NoAccessCredentialRedirect())
+                         if has_access_token else None)
         last_error = "unknown provider error"
         for attempt in range(self.cfg.retries):
             req = urllib.request.Request(
