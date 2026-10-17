@@ -46,6 +46,64 @@ The probe performs modern `server/discover` using the documented
 redirects or prints response bodies or credentials. A nonzero exit status
 means that the selected check was not verified.
 
+
+## Cloudflare Access protected public Provider
+
+For a public API hostname protected by Cloudflare Access, zWorkforce must
+provide two independent credentials: an API bearer token for the zwslcore
+Provider and a Cloudflare Access **service token pair**. Access must have an
+authorized Service Auth policy for this token. Do not bypass Access or
+publish the local Ollama TCP port.
+
+The existing zWorkforce Provider adapter now reads the optional variables
+`ZWORKFORCE_CF_ACCESS_CLIENT_ID` and
+`ZWORKFORCE_CF_ACCESS_CLIENT_SECRET` (legacy single-provider mode).
+`ZWORKFORCE_PROVIDER_BASE_URL` must use HTTPS. Both values must be present
+together; otherwise startup fails closed. In multi-provider mode, configure
+only the names of secret environment variables rather than embedding secrets
+inside JSON:
+
+```json
+[
+  {
+    "name": "zwslcore",
+    "kind": "openai-compatible",
+    "base_url": "https://api.example.com/v1",
+    "api_key_env": "ZWSLCORE_PROVIDER_TOKEN",
+    "cf_access_client_id_env": "ZWORKFORCE_CF_ACCESS_CLIENT_ID",
+    "cf_access_client_secret_env": "ZWORKFORCE_CF_ACCESS_CLIENT_SECRET",
+    "priority": 10,
+    "models": {
+      "luna": "zeaz-free",
+      "terra": "zeaz-free",
+      "sol": "zeaz-free"
+    }
+  }
+]
+```
+
+Provide that JSON as `ZWORKFORCE_PROVIDERS_JSON` through the existing
+operator-managed configuration mechanism. Credentials stay in server-side
+secret storage or the process environment. The Provider client sends
+`CF-Access-Client-Id` and `CF-Access-Client-Secret` only for HTTPS
+endpoints, alongside the normal `Authorization: Bearer` Provider key,
+and refuses redirects when Cloudflare Access tokens are used.
+
+The optional diagnostic also reads these Access token environment variables
+and checks authenticated `/v1/models` / chat inference without printing
+secrets:
+
+```bash
+python3 scripts/zwslcore-provider-check.py \
+  --provider-url https://api.example.com/v1 --model zeaz-free --infer
+```
+
+Tests are mock-backed; they do not establish that the Cloudflare Access
+application, service-token policy, current DNS route, or Cloud Shell origin
+actually exists or is live. Capture external runtime evidence before
+declaring Production Stage D complete. Reverting this opt-in configuration
+restores the original Provider request path; no data migration is required.
+
 ## Scope and rollback
 
 This diagnostic does not modify DNS, Tunnel, Cloudflare Access, SSH, WebUI,
