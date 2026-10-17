@@ -78,6 +78,31 @@ class ProviderIntegrationProbeTests(unittest.TestCase):
         with self.assertRaises(probe.ProbeError):
             probe.probe_mcp("https://workforce.example.com/mcp", "")
 
+    def test_service_token_pair_requires_https(self):
+        with mock.patch.dict("os.environ", {
+            "ZWORKFORCE_CF_ACCESS_CLIENT_ID": "fake-id",
+            "ZWORKFORCE_CF_ACCESS_CLIENT_SECRET": "fake-secret"}, clear=True):
+            self.assertEqual(probe.access_headers("https://api.example.net/v1"), {
+                "CF-Access-Client-Id": "fake-id",
+                "CF-Access-Client-Secret": "fake-secret",
+            })
+            with self.assertRaisesRegex(probe.ProbeError, "HTTPS"):
+                probe.access_headers("http://10.0.0.10:8080/v1")
+        with mock.patch.dict("os.environ", {
+            "ZWORKFORCE_CF_ACCESS_CLIENT_ID": "fake-id"}, clear=True):
+            with self.assertRaisesRegex(probe.ProbeError, "Both"):
+                probe.access_headers("https://api.example.net/v1")
+
+    def test_provider_probe_includes_service_token_headers(self):
+        with mock.patch.dict("os.environ", {
+            "ZWORKFORCE_CF_ACCESS_CLIENT_ID": "fake-id",
+            "ZWORKFORCE_CF_ACCESS_CLIENT_SECRET": "fake-secret"}, clear=True), \\
+             mock.patch.object(probe, "invoke", return_value={"data": [{"id": "zeaz-free"}]}) as invoke:
+            probe.probe_provider("https://api.example.net/v1", "fake-provider-token", "zeaz-free", False)
+        sent = invoke.call_args.kwargs["headers"]
+        self.assertEqual(sent["CF-Access-Client-Id"], "fake-id")
+        self.assertEqual(sent["Authorization"], "Bearer fake-provider-token")
+
     def test_no_shell_or_dotenv(self):
         source = SCRIPT.read_text()
         self.assertNotIn("shell=True", source)
