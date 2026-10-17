@@ -40,7 +40,7 @@ request() {
   local name="$1" url="$2" host_header="${3:-}"
   local status
   if [[ -n "$host_header" ]]; then
-    status="$(curl --silent --show-error --location-trusted=false --max-time 12 -o /dev/null -w '%{http_code}' -H "Host: $host_header" "$url")" || status="NETWORK_ERROR"
+    status="$(curl --silent --show-error --max-time 12 -o /dev/null -w '%{http_code}' -H "Host: $host_header" "$url")" || status="NETWORK_ERROR"
   else
     status="$(curl --silent --show-error --max-time 12 -o /dev/null -w '%{http_code}' "$url")" || status="NETWORK_ERROR"
   fi
