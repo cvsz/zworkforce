@@ -55,6 +55,11 @@ function normalizeUsage(input) {
   };
 }
 
+function tenantIdempotencyKey(tenantId, idempotencyKey) {
+  // Tuple encoding avoids ambiguous delimiters and cross-tenant key collisions.
+  return JSON.stringify([tenantId, idempotencyKey]);
+}
+
 export class MemoryLedgerStore {
   constructor() {
     this.records = new Map();
@@ -63,8 +68,9 @@ export class MemoryLedgerStore {
   }
 
   async recordUsage(record) {
-    if (this.records.has(record.idempotency_key)) return { duplicate: true, record: this.records.get(record.idempotency_key) };
-    this.records.set(record.idempotency_key, structuredClone(record));
+    const key = tenantIdempotencyKey(record.tenant_id, record.idempotency_key);
+    if (this.records.has(key)) return { duplicate: true, record: this.records.get(key) };
+    this.records.set(key, structuredClone(record));
     return { duplicate: false, record };
   }
 
@@ -74,8 +80,9 @@ export class MemoryLedgerStore {
   }
 
   async createInvoiceIntent(intent) {
-    if (this.invoiceIntents.has(intent.idempotency_key)) return this.invoiceIntents.get(intent.idempotency_key);
-    this.invoiceIntents.set(intent.idempotency_key, structuredClone(intent));
+    const key = tenantIdempotencyKey(intent.tenant_id, intent.idempotency_key);
+    if (this.invoiceIntents.has(key)) return this.invoiceIntents.get(key);
+    this.invoiceIntents.set(key, structuredClone(intent));
     return intent;
   }
 }
