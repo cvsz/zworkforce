@@ -73,8 +73,22 @@ def invoke(url: str, *, method="GET", headers=None, body=None, timeout=8) -> dic
         raise ProbeError("Request failed: " + type(exc).__name__ + (f" HTTP {status}" if status else "")) from exc
 
 
+
+def access_headers(url: str) -> dict[str, str]:
+    """Never forward Cloudflare Access credentials over plaintext HTTP."""
+    client_id = os.environ.get("ZWORKFORCE_CF_ACCESS_CLIENT_ID", "")
+    secret = os.environ.get("ZWORKFORCE_CF_ACCESS_CLIENT_SECRET", "")
+    if bool(client_id) != bool(secret):
+        raise ProbeError("Both Cloudflare Access service token values are required")
+    if not client_id:
+        return {}
+    if urllib.parse.urlsplit(url).scheme != "https":
+        raise ProbeError("Cloudflare Access service token requires HTTPS")
+    return {"CF-Access-Client-Id": client_id, "CF-Access-Client-Secret": secret}
+
+
 def probe_provider(base: str, token: str, model: str, infer: bool) -> None:
-    headers = {"Accept": "application/json"}
+    headers = {"Accept": "application/json", **access_headers(base)}
     if token:
         headers["Authorization"] = "Bearer " + token
     inventory = invoke(base + "/models", headers=headers)
@@ -110,6 +124,7 @@ def probe_mcp(url: str, token: str) -> None:
     version = "2026-07-28"
     result = invoke(url, method="POST", headers={
         "Authorization": "Bearer " + token,
+        **access_headers(url),
         "Content-Type": "application/json",
         "MCP-Protocol-Version": version,
         "Mcp-Method": "server/discover",
