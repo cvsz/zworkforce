@@ -20,7 +20,7 @@ explicitly opt into private HTTP:
 
 ```bash
 python3 scripts/zwslcore-provider-check.py \
-  --provider-url http://10.88.0.3:11434/v1 \
+  --provider-url http://10.0.0.10:11434/v1 \
   --allow-private-http --model qwen2.5-coder:7b
 ```
 
