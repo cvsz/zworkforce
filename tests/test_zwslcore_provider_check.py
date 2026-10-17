@@ -47,6 +47,33 @@ class ProviderIntegrationProbeTests(unittest.TestCase):
         self.assertEqual(params["_meta"]["io.modelcontextprotocol/protocolVersion"], "2026-07-28")
         self.assertEqual(invoke.call_args.kwargs["headers"]["Mcp-Method"], "server/discover")
 
+    def test_empty_provider_inventory_is_not_a_pass(self):
+        for result in ({"data": []}, {"data": [{}]}, {"data": [{"id": ""}]}):
+            with self.subTest(result=result), mock.patch.object(probe, "invoke", return_value=result):
+                with self.assertRaises(probe.ProbeError):
+                    probe.probe_provider("https://provider.example.com/v1", "test-token", "", False)
+
+    def test_empty_inference_output_is_not_a_pass(self):
+        inventory = {"data": [{"id": "qwen2.5-coder:7b"}]}
+        for invalid in ({"choices": []}, {"choices": [{}]},
+                        {"choices": [{"message": {"content": ""}}]},
+                        {"choices": [{"message": {"content": None}}]}):
+            with self.subTest(invalid=invalid), mock.patch.object(
+                    probe, "invoke", side_effect=(inventory, invalid)):
+                with self.assertRaises(probe.ProbeError):
+                    probe.probe_provider("https://provider.example.com/v1",
+                                         "test-token", "qwen2.5-coder:7b", True)
+
+    def test_mcp_requires_result_object(self):
+        for bad_response in ({"jsonrpc": "2.0", "id": 1},
+                             {"jsonrpc": "2.0", "id": 1, "result": None},
+                             {"jsonrpc": "2.0", "id": 1, "result": []},
+                             {"jsonrpc": "2.0", "id": 1, "error": {"code": -32601}}):
+            with self.subTest(bad_response=bad_response), mock.patch.object(
+                    probe, "invoke", return_value=bad_response):
+                with self.assertRaises(probe.ProbeError):
+                    probe.probe_mcp("https://workforce.example.com/mcp", "test-token")
+
     def test_mcp_without_token_fails_closed(self):
         with self.assertRaises(probe.ProbeError):
             probe.probe_mcp("https://workforce.example.com/mcp", "")
