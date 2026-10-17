@@ -52,7 +52,11 @@ class CloudflareAccessTests(unittest.TestCase):
              mock.patch("zworkforce.providers.urllib.request.urlopen") as normal:
             result = OpenAICompatibleEndpoint(cfg).chat("luna", [{"role": "user", "content": "hi"}], [])
         self.assertEqual(result.content, "OK")
-        self.assertTrue(isinstance(factory.call_args.args[0], NoAccessCredentialRedirect))
+        handlers = factory.call_args.args
+        self.assertTrue(any(isinstance(h, NoAccessCredentialRedirect) for h in handlers))
+        proxy_handlers = [h for h in handlers if isinstance(h, __import__("urllib.request").request.ProxyHandler)]
+        self.assertEqual(len(proxy_handlers), 1)
+        self.assertEqual(proxy_handlers[0].proxies, {})
         normal.assert_not_called()
         request, _ = opener.calls[0]
         sent = {key.lower(): value for key, value in request.header_items()}
