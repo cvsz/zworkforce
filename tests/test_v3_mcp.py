@@ -1,13 +1,16 @@
 import json
-import urllib.error
-import urllib.request
 import threading
 import unittest
+import urllib.error
+import urllib.request
+from dataclasses import replace
 from http.server import ThreadingHTTPServer
+from unittest.mock import patch
 
 from common import stack
+
 from zworkforce.api import App
-from zworkforce.mcp import RemoteMCPClient, MCP_PROTOCOL_VERSION
+from zworkforce.mcp import MCP_PROTOCOL_VERSION, MCPError, RemoteMCPClient
 
 
 class MCPTests(unittest.TestCase):
@@ -24,10 +27,107 @@ class MCPTests(unittest.TestCase):
         discovery = self.client.discover()
         self.assertIn(MCP_PROTOCOL_VERSION, discovery["supportedVersions"])
         self.assertIn("tools", discovery["capabilities"])
+        self.assertIn("resources", discovery["capabilities"])
         self.assertIn("_meta", discovery)
         tools = self.client.list_tools()["tools"]
         self.assertTrue(any(x["name"] == "workforce.submit_task" for x in tools))
         self.assertTrue(any(x["name"] == "workforce.install_prometa" for x in tools))
+        self.assertTrue(any(x["name"] == "zchat.get_capabilities" for x in tools))
+        self.assertTrue(any(x["name"] == "zchat.get_health" for x in tools))
+        resources = self.client.list_resources()["resources"]
+        self.assertEqual(
+            {resource["uri"] for resource in resources},
+            {"zchat://capabilities", "zchat://health"},
+        )
+
+    def test_zchat_health_resource_is_scoped_and_audited(self):
+        self.app.settings = replace(self.settings, zchat_control_url="https://control.example.test", zchat_integration_token="z" * 48)
+        health = {"status": "healthy", "database": "reachable"}
+        with patch("zworkforce.zchat_integration.fetch_resource", return_value=health) as fetch:
+            result = self.client.read_resource("zchat://health")
+        self.assertEqual(result["contents"][0]["uri"], "zchat://health")
+        self.assertEqual(json.loads(result["contents"][0]["text"]), health)
+        fetch.assert_called_once_with(self.app.settings, "health")
+        events = self.db.list_audit("default", limit=10)
+        self.assertTrue(any(event["action"] == "zchat.health.read" for event in events))
+
+    def test_zchat_resource_requires_workforce_read_scope(self):
+        _, token = self.auth.create_key(
+            "default", "limited-viewer-resource", "viewer", ["agents:read"]
+        )
+        client = RemoteMCPClient(self.endpoint, token)
+        with (
+            patch("zworkforce.zchat_integration.fetch_resource") as fetch,
+            self.assertRaises(MCPError) as caught,
+        ):
+            client.read_resource("zchat://health")
+
+        self.assertIsInstance(caught.exception.__cause__, urllib.error.HTTPError)
+        self.assertEqual(caught.exception.__cause__.code, 403)
+        fetch.assert_not_called()
+
+    def test_zchat_resource_rejects_uncontracted_tenant_parameter(self):
+        request = {
+            "jsonrpc": "2.0",
+            "id": 76,
+            "method": "resources/read",
+            "params": {
+                "uri": "zchat://health",
+                "tenant_id": "other",
+                "_meta": {
+                    "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+                    "io.modelcontextprotocol/clientCapabilities": {},
+                    "io.modelcontextprotocol/clientInfo": {
+                        "name": "test-client",
+                        "version": "1.0",
+                    },
+                },
+            },
+        }
+        with patch("zworkforce.zchat_integration.fetch_resource") as fetch:
+            status, body = self._post_mcp(request, {
+                "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
+                "Mcp-Method": "resources/read",
+                "Mcp-Name": "zchat://health",
+            })
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body["error"]["code"], -32602)
+        self.assertIn("only uri", body["error"]["message"])
+        fetch.assert_not_called()
+
+    def test_zchat_health_tool_requires_read_scope_and_audits(self):
+        self.app.settings = replace(self.settings, zchat_control_url="https://control.example.test", zchat_integration_token="z" * 48)
+        health = {"status": "healthy", "database": "reachable"}
+        with patch("zworkforce.zchat_integration.fetch_resource", return_value=health) as fetch:
+            result = self.client.call_tool("zchat.get_health", {})
+        self.assertEqual(result["structuredContent"], health)
+        fetch.assert_called_once_with(self.app.settings, "health")
+        events = self.db.list_audit("default", limit=10)
+        self.assertTrue(any(event["action"] == "zchat.health.read" for event in events))
+
+    def test_zchat_tools_reject_viewers_without_workforce_read_scope(self):
+        _, token = self.auth.create_key(
+            "default", "limited-viewer", "viewer", ["agents:read"]
+        )
+        client = RemoteMCPClient(self.endpoint, token)
+        with (
+            patch("zworkforce.zchat_integration.fetch_resource") as fetch,
+            self.assertRaises(MCPError) as caught,
+        ):
+            client.call_tool("zchat.get_health", {})
+
+        self.assertIsInstance(caught.exception.__cause__, urllib.error.HTTPError)
+        self.assertEqual(caught.exception.__cause__.code, 403)
+        fetch.assert_not_called()
+
+    def test_zchat_tools_reject_uncontracted_arguments(self):
+        with patch("zworkforce.zchat_integration.fetch_resource") as fetch:
+            result = self.client.call_tool("zchat.get_health", {"tenant_id": "other"})
+
+        self.assertTrue(result["isError"])
+        self.assertIn("does not accept arguments", result["content"][0]["text"])
+        fetch.assert_not_called()
 
     def test_standard_initialize_handshake(self):
         initialized = self.client.request("initialize", {
@@ -136,7 +236,7 @@ class MCPTests(unittest.TestCase):
         self.assertEqual(body["error"]["data"]["requested"], "2099-01-01")
         self.assertIn("2025-03-26", body["error"]["data"]["supported"])
 
-    def test_unknown_modern_method_returns_http_404(self):
+    def test_unknown_modern_resource_is_rejected(self):
         request = {"jsonrpc": "2.0", "id": 74, "method": "resources/read", "params": {
             "uri": "test://item", "_meta": {
                 "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
@@ -148,8 +248,9 @@ class MCPTests(unittest.TestCase):
             "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
             "Mcp-Method": "resources/read", "Mcp-Name": "test://item",
         })
-        self.assertEqual(status, 404)
-        self.assertEqual(body["error"]["code"], -32601)
+        self.assertEqual(status, 200)
+        self.assertTrue(body["result"]["isError"])
+        self.assertIn("unsupported ZChat resource URI", body["result"]["contents"][0]["text"])
 
     def test_legacy_get_returns_405(self):
         request = urllib.request.Request(self.endpoint, method="GET")

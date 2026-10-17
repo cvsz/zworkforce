@@ -5,14 +5,16 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
+from . import (
+    cloudflare_api,
+    cloudflare_live,
+    samsung_builder_preflight,
+    samsung_compat,
+    samsung_manifest,
+    samsung_sdk_probe,
+    samsung_tv,
+)
 from .prometa import install_prometa_catalog
-from . import samsung_tv
-from . import samsung_compat
-from . import samsung_sdk_probe
-from . import samsung_builder_preflight
-from . import samsung_manifest
-from . import cloudflare_api
-from . import cloudflare_live
 from .security import AuthManager
 
 MCP_PROTOCOL_VERSION = "2026-07-28"
@@ -235,14 +237,6 @@ MCP_TOOLS: dict[str, dict[str, Any]] = {
             "required": ["episode_id"]},
         "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
     },
-    "kids.run_episode_pipeline": {
-        "name": "kids.run_episode_pipeline",
-        "description": "Run the pre-publish agent pipeline for an episode (bounded, idempotent steps; publishing stays manual).",
-        "inputSchema": {"type": "object", "properties": {
-            "episode_id": {"type": "string"}, "preset": {"type": "string"}, "num_scenes": {"type": "integer"}},
-            "required": ["episode_id"]},
-        "annotations": {"readOnlyHint": False, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
-    },
     "workforce.submit_task": {
         "name": "workforce.submit_task",
         "description": "Submit a bounded zWorkforce task to a tenant agent.",
@@ -256,6 +250,18 @@ MCP_TOOLS: dict[str, dict[str, Any]] = {
         "name": "workforce.get_task", "description": "Read a zWorkforce task by id.",
         "inputSchema": {"type": "object", "properties": {"task_id": {"type": "string"}}, "required": ["task_id"]},
         "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False},
+    },
+    "zchat.get_capabilities": {
+        "name": "zchat.get_capabilities",
+        "description": "Read versioned ZChat capability metadata; requires workforce:read and server-side integration credentials.",
+        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+    },
+    "zchat.get_health": {
+        "name": "zchat.get_health",
+        "description": "Read ZChat control-plane/database reachability; requires workforce:read and server-side integration credentials.",
+        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
     },
     "workforce.search_memory": {
         "name": "workforce.search_memory", "description": "Search tenant semantic memory.",
@@ -428,6 +434,33 @@ def handle_mcp(
         return None
     if method == "tools/list":
         return _result(request_id, {"tools": [MCP_TOOLS[name] for name in sorted(MCP_TOOLS)]})
+    if method == "resources/list":
+        return _result(request_id, {"resources": _zchat_resources()})
+    if method == "resources/read":
+        if set(params) - {"uri", "_meta"}:
+            return _error(request_id, -32602, "resources/read accepts only uri")
+        uri = params.get("uri")
+        if not isinstance(uri, str) or not uri:
+            return _error(request_id, -32602, "resource uri is required")
+        try:
+            value = _read_zchat_resource(app, principal, tenant_id, uri)
+        except PermissionError as exc:
+            return _result(request_id, {
+                "contents": [{"uri": uri, "mimeType": "text/plain", "text": str(exc)}],
+                "isError": True,
+            })
+        except (ValueError, KeyError, TypeError) as exc:
+            return _result(request_id, {
+                "contents": [{"uri": uri, "mimeType": "text/plain", "text": str(exc)}],
+                "isError": True,
+            })
+        return _result(request_id, {
+            "contents": [{
+                "uri": uri,
+                "mimeType": "application/json",
+                "text": json.dumps(value, ensure_ascii=False, separators=(",", ":")),
+            }]
+        })
     if method != "tools/call":
         return _error(request_id, -32601, "method not found")
     name = str(params.get("name") or header_name or "")
@@ -441,11 +474,16 @@ def handle_mcp(
         return _result(request_id, {"content": [{"type": "text", "text": json.dumps(value, ensure_ascii=False, default=str)}], "structuredContent": value, "isError": False})
     except PermissionError as exc:
         return _result(request_id, {"content": [{"type": "text", "text": str(exc)}], "isError": True})
-    except (ValueError, KeyError) as exc:
+    except (ValueError, KeyError, TypeError) as exc:
         return _result(request_id, {"content": [{"type": "text", "text": str(exc)}], "isError": True})
 
 
 def _call_tool(app, principal, tenant_id: str, name: str, args: dict[str, Any]) -> Any:
+    if name in {"zchat.get_capabilities", "zchat.get_health"}:
+        if args:
+            raise ValueError(f"{name} does not accept arguments")
+        resource = "capabilities" if name.endswith("capabilities") else "health"
+        return _read_zchat_resource(app, principal, tenant_id, f"zchat://{resource}")
     if name == "cloudflare.live_inventory":
         _require(principal, "viewer", "workforce:read")
         if set(args) - {"resource", "resource_id", "page"} or not isinstance(args.get("resource"), str):
@@ -545,6 +583,62 @@ def _call_tool(app, principal, tenant_id: str, name: str, args: dict[str, Any]) 
     raise ValueError(f"unknown MCP tool: {name}")
 
 
+def _zchat_resources() -> list[dict[str, Any]]:
+    return [
+        {
+            "uri": "zchat://capabilities",
+            "name": "zchat-capabilities",
+            "title": "ZChat capability matrix",
+            "description": "Versioned, evidence-bounded ZChat feature capabilities.",
+            "mimeType": "application/json",
+            "annotations": {"audience": ["user", "assistant"], "priority": 0.8},
+        },
+        {
+            "uri": "zchat://health",
+            "name": "zchat-health",
+            "title": "ZChat control-plane health",
+            "description": "Read-only control-plane and database reachability.",
+            "mimeType": "application/json",
+            "annotations": {"audience": ["user", "assistant"], "priority": 0.8},
+        },
+    ]
+
+
+def _read_zchat_resource(app, principal, tenant_id: str, uri: str) -> Any:
+    resources = {item["uri"]: item for item in _zchat_resources()}
+    if uri not in resources:
+        raise ValueError("unsupported ZChat resource URI")
+    _require(principal, "viewer", "workforce:read")
+    from .zchat_integration import fetch_capabilities, fetch_resource
+
+    resource = uri.removeprefix("zchat://")
+    try:
+        value = (
+            fetch_capabilities(app.settings)
+            if resource == "capabilities"
+            else fetch_resource(app.settings, resource)
+        )
+    except (ValueError, TypeError):
+        app.db.audit(
+            tenant_id,
+            principal.name,
+            f"zchat.{resource}.read",
+            "integration",
+            "zchat",
+            {"outcome": "failed"},
+        )
+        raise
+    app.db.audit(
+        tenant_id,
+        principal.name,
+        f"zchat.{resource}.read",
+        "integration",
+        "zchat",
+        {"outcome": "success"},
+    )
+    return value
+
+
 def _require(principal, role: str, scope: str) -> None:
     if not AuthManager.require(principal, role, scope):
         raise PermissionError(f"{role} role and {scope} scope required")
@@ -563,13 +657,13 @@ def _legacy_server_metadata(protocol_version: str) -> dict[str, Any]:
     return {
         "protocolVersion": protocol_version,
         "serverInfo": _server_info(),
-        "capabilities": {"tools": {}},
+        "capabilities": {"tools": {}, "resources": {}},
     }
 
 
 def _modern_server_metadata() -> dict[str, Any]:
     return {
-        "capabilities": {"tools": {}},
+        "capabilities": {"tools": {}, "resources": {}},
         "supportedVersions": [MCP_PROTOCOL_VERSION],
         "_meta": {MCP_SERVER_INFO_META_KEY: _server_info()},
     }
@@ -585,7 +679,7 @@ def add_modern_mcp_metadata(response: dict[str, Any], method: str) -> None:
         meta = {}
         result["_meta"] = meta
     meta.setdefault(MCP_SERVER_INFO_META_KEY, _server_info())
-    if method in {"server/discover", "tools/list"}:
+    if method in {"server/discover", "tools/list", "resources/list"}:
         result.setdefault("ttlMs", 0)
         result.setdefault("cacheScope", "private")
 
@@ -648,6 +742,12 @@ class RemoteMCPClient:
 
     def list_tools(self):
         return self.request("tools/list")
+
+    def list_resources(self):
+        return self.request("resources/list")
+
+    def read_resource(self, uri: str):
+        return self.request("resources/read", {"uri": uri}, uri)
 
     def call_tool(self, name: str, arguments: dict[str, Any]):
         return self.request("tools/call", {"name": name, "arguments": arguments}, name)

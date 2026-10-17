@@ -196,7 +196,7 @@ jobs:
       - name: Compile
         run: python -m compileall -q zworkforce tests scripts
       - name: Unit and integration tests
-        run: PYTHONPATH=. python -m unittest discover -s tests -v
+        run: PYTHONPATH=. python -m pytest -q tests
       - name: Doctor
         run: ZWORKFORCE_DATA_DIR=/tmp/zworkforce-ci ZWORKFORCE_WORKSPACE_ROOT=$PWD zworkforce doctor
       - name: CLI smoke
