@@ -79,9 +79,12 @@ def probe_provider(base: str, token: str, model: str, infer: bool) -> None:
         headers["Authorization"] = "Bearer " + token
     inventory = invoke(base + "/models", headers=headers)
     items = inventory.get("data")
-    if not isinstance(items, list):
+    if not isinstance(items, list) or not items:
         raise ProbeError("Provider returned no model inventory")
-    names = {entry.get("id") for entry in items if isinstance(entry, dict)}
+    names = {entry.get("id") for entry in items
+             if isinstance(entry, dict) and isinstance(entry.get("id"), str) and entry["id"]}
+    if not names:
+        raise ProbeError("Provider returned no usable model identifiers")
     if model and model not in names:
         raise ProbeError("Requested model is unavailable")
     print(f"PROVIDER_MODELS=PASS count={len(names)}")
@@ -92,8 +95,12 @@ def probe_provider(base: str, token: str, model: str, infer: bool) -> None:
                         headers={**headers, "Content-Type": "application/json"},
                         body={"model": model, "messages": [{"role": "user", "content": "Reply OK."}], "max_tokens": 8},
                         timeout=30)
-        if not isinstance(result.get("choices"), list) or not result["choices"]:
+        choices = result.get("choices")
+        if not isinstance(choices, list) or not choices:
             raise ProbeError("No choices in inference response")
+        message = choices[0].get("message") if isinstance(choices[0], dict) else None
+        if not isinstance(message, dict) or not isinstance(message.get("content"), str) or not message["content"].strip():
+            raise ProbeError("Inference did not return nonempty assistant content")
         print("PROVIDER_INFERENCE=PASS")
 
 
@@ -113,7 +120,8 @@ def probe_mcp(url: str, token: str) -> None:
             "io.modelcontextprotocol/clientCapabilities": {},
         }},
     })
-    if result.get("jsonrpc") != "2.0" or result.get("id") != 1 or "error" in result:
+    if (result.get("jsonrpc") != "2.0" or result.get("id") != 1
+            or "error" in result or not isinstance(result.get("result"), dict)):
         raise ProbeError("MCP server/discover contract mismatch")
     print("MCP_DISCOVERY=PASS")
 
