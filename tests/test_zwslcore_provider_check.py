@@ -94,10 +94,12 @@ class ProviderIntegrationProbeTests(unittest.TestCase):
                 probe.access_headers("https://api.example.net/v1")
 
     def test_provider_probe_includes_service_token_headers(self):
-        with mock.patch.dict("os.environ", {
-            "ZWORKFORCE_CF_ACCESS_CLIENT_ID": "fake-id",
-            "ZWORKFORCE_CF_ACCESS_CLIENT_SECRET": "fake-secret"}, clear=True), \\
-             mock.patch.object(probe, "invoke", return_value={"data": [{"id": "zeaz-free"}]}) as invoke:
+        with (
+            mock.patch.dict("os.environ", {
+                "ZWORKFORCE_CF_ACCESS_CLIENT_ID": "fake-id",
+                "ZWORKFORCE_CF_ACCESS_CLIENT_SECRET": "fake-secret"}, clear=True),
+            mock.patch.object(probe, "invoke", return_value={"data": [{"id": "zeaz-free"}]}) as invoke,
+        ):
             probe.probe_provider("https://api.example.net/v1", "fake-provider-token", "zeaz-free", False)
         sent = invoke.call_args.kwargs["headers"]
         self.assertEqual(sent["CF-Access-Client-Id"], "fake-id")
