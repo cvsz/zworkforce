@@ -118,6 +118,13 @@ class ZworkforceLocalEndpoint:
             raise ProviderError(f"zwf-coder invocation error: {_clean_error(str(exc))}", retryable=True) from exc
 
 
+class NoAccessCredentialRedirect(urllib.request.HTTPRedirectHandler):
+    """Reject redirects instead of forwarding Cloudflare Access credentials."""
+
+    def redirect_request(self, request, fp, code, msg, headers, newurl):
+        return None
+
+
 class OpenAICompatibleEndpoint:
     def __init__(self, cfg: ProviderConfig):
         self.cfg = cfg
@@ -132,34 +139,51 @@ class OpenAICompatibleEndpoint:
         if tools:
             body.update({"tools": tools, "tool_choice": "auto"})
         payload = json.dumps(body, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        headers = {
+            "Authorization": f"Bearer {self.cfg.api_key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "zWorkforce/2.0",
+        }
+        has_access_token = bool(self.cfg.cf_access_client_id or self.cfg.cf_access_client_secret)
+        if has_access_token:
+            if not self.cfg.cf_access_client_id or not self.cfg.cf_access_client_secret:
+                raise ProviderError("Cloudflare Access credential pair is incomplete", retryable=False)
+            if not self.cfg.base_url.lower().startswith("https://"):
+                raise ProviderError("Cloudflare Access requires HTTPS provider URL", retryable=False)
+            headers["CF-Access-Client-Id"] = self.cfg.cf_access_client_id
+            headers["CF-Access-Client-Secret"] = self.cfg.cf_access_client_secret
+        access_opener = (urllib.request.build_opener(urllib.request.ProxyHandler({}), NoAccessCredentialRedirect())
+                         if has_access_token else None)
+        secrets = (self.cfg.api_key, self.cfg.cf_access_client_id, self.cfg.cf_access_client_secret)
         last_error = "unknown provider error"
         for attempt in range(self.cfg.retries):
             req = urllib.request.Request(
                 self.cfg.base_url + "/chat/completions",
                 data=payload,
-                headers={
-                    "Authorization": f"Bearer {self.cfg.api_key}",
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                    "User-Agent": "zWorkforce/2.0",
-                },
+                headers=headers,
                 method="POST",
             )
             try:
-                with urllib.request.urlopen(req, timeout=self.cfg.timeout_seconds) as resp:
+                response = (
+                    access_opener.open(req, timeout=self.cfg.timeout_seconds)
+                    if access_opener is not None
+                    else urllib.request.urlopen(req, timeout=self.cfg.timeout_seconds)
+                )
+                with response as resp:
                     raw = resp.read(8 * 1024 * 1024)
                 data = json.loads(raw)
                 return self._parse(data, model)
             except urllib.error.HTTPError as exc:
                 body_text = exc.read(4096).decode(errors="replace")
-                last_error = f"HTTP {exc.code}: {_clean_error(body_text)}"
+                last_error = f"HTTP {exc.code}: {_clean_error(body_text, secrets)}"
                 retryable = exc.code in {408, 409, 425, 429, 500, 502, 503, 504}
                 if not retryable:
                     raise ProviderError(f"provider {self.cfg.name} {last_error}", retryable=False) from exc
                 if attempt + 1 < self.cfg.retries:
                     time.sleep(_retry_delay(exc.headers.get("Retry-After"), attempt))
             except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
-                last_error = _clean_error(str(exc))
+                last_error = _clean_error(str(exc), secrets)
                 if attempt + 1 < self.cfg.retries:
                     time.sleep(min(0.25 * (2**attempt) + random.random() * 0.1, 3.0))
         raise ProviderError(f"provider {self.cfg.name} request failed: {last_error}", retryable=True)
@@ -267,7 +291,11 @@ def build_provider(settings, db) -> ProviderPool:
     return ProviderPool(settings, db)
 
 
-def _clean_error(text: str) -> str:
+def _clean_error(text: str, secrets: tuple[str, ...] = ()) -> str:
+    # Match exact credential values even when an upstream body omits key labels.
+    # Replace longer overlapping values first; do not log or persist secrets.
+    for secret in sorted({value for value in secrets if value}, key=len, reverse=True):
+        text = text.replace(secret, "[REDACTED]")
     text = text.replace("\r", " ").replace("\n", " ").strip()
     # Provider responses occasionally echo credentials or headers. Never persist those in task/provider errors.
     text = re.sub(r"(?i)(authorization\s*[:=]\s*bearer\s+)[^\s,;]+", r"\1[REDACTED]", text)
