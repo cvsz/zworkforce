@@ -78,7 +78,9 @@ class RepositoryPolicyTests(unittest.TestCase):
         runbook = (ROOT / "docs" / "GITHUB-OPERATIONS.md").read_text(encoding="utf-8")
         self.assertIn("Request independent PR review", runbook)
         self.assertIn("pull_request_target:", workflow)
-        self.assertIn("types: [opened, reopened, ready_for_review]", workflow)
+        self.assertIn(
+            "types: [opened, reopened, ready_for_review, synchronize]", workflow
+        )
         self.assertIn("contents: read", workflow)
         self.assertIn("pull-requests: write", workflow)
         self.assertIn("github.event.pull_request.draft == false", workflow)
