@@ -35,6 +35,7 @@
           {"context": "container"},
           {"context": "security-invariants"},
           {"context": "documentation-contract"},
+          {"context": "zchat-contract"},
           {"context": "dependency-review"},
           {"context": "build-test-package"},
           {"context": "Analyze (python)"},
