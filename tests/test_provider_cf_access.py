@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import json
 import os
+import io
+import urllib.error
 from unittest import mock
 import unittest
 
@@ -79,6 +81,56 @@ class CloudflareAccessTests(unittest.TestCase):
         ):
             with self.subTest(name=cfg.name), self.assertRaisesRegex(ProviderError, "Access"):
                 OpenAICompatibleEndpoint(cfg).chat("luna", [], [])
+
+    def test_provider_http_error_redacts_all_configured_credentials(self):
+        tokens = ("PROVIDER-API-KEY-DO-NOT-LOG",
+                  "CLOUDFLARE-ID-DO-NOT-LOG",
+                  "CLOUDFLARE-SECRET-DO-NOT-LOG")
+        cfg = ProviderConfig(
+            name="access", kind="openai-compatible",
+            base_url="https://api.example.net/v1", api_key=tokens[0],
+            cf_access_client_id=tokens[1], cf_access_client_secret=tokens[2],
+            models={"luna": "model-a"}, retries=1,
+        )
+
+        class LeakyOpener:
+            def open(self, request, timeout):
+                upstream_body = ("upstream echoed " + " ".join(tokens)).encode()
+                raise urllib.error.HTTPError(
+                    request.full_url, 403, "Forbidden", {}, io.BytesIO(upstream_body)
+                )
+
+        with mock.patch("zworkforce.providers.urllib.request.build_opener",
+                        return_value=LeakyOpener()):
+            with self.assertRaises(ProviderError) as observed:
+                OpenAICompatibleEndpoint(cfg).chat("luna", [], [])
+        failure = str(observed.exception)
+        self.assertIn("HTTP 403", failure)
+        self.assertIn("[REDACTED]", failure)
+        self.assertFalse(observed.exception.retryable)
+        for secret in tokens:
+            self.assertNotIn(secret, failure)
+
+    def test_provider_transport_error_redacts_unlabeled_token(self):
+        token = "CLOUDFLARE-SECRET-TRANSPORT-DO-NOT-LOG"
+        cfg = ProviderConfig(
+            name="access", kind="openai-compatible",
+            base_url="https://api.example.net/v1", api_key="PROVIDER-KEY-TEST",
+            cf_access_client_id="CLOUDFLARE-ID-TEST",
+            cf_access_client_secret=token,
+            models={"luna": "model-a"}, retries=1,
+        )
+
+        class LeakyOpener:
+            def open(self, request, timeout):
+                raise urllib.error.URLError("diagnostic echoed " + token)
+
+        with mock.patch("zworkforce.providers.urllib.request.build_opener",
+                        return_value=LeakyOpener()):
+            with self.assertRaises(ProviderError) as observed:
+                OpenAICompatibleEndpoint(cfg).chat("luna", [], [])
+        self.assertNotIn(token, str(observed.exception))
+        self.assertIn("[REDACTED]", str(observed.exception))
 
     def test_json_config_resolves_environment_names(self):
         raw = [{"name": "cloud", "base_url": "https://api.example.net/v1",
