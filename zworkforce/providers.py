@@ -155,6 +155,7 @@ class OpenAICompatibleEndpoint:
             headers["CF-Access-Client-Secret"] = self.cfg.cf_access_client_secret
         access_opener = (urllib.request.build_opener(urllib.request.ProxyHandler({}), NoAccessCredentialRedirect())
                          if has_access_token else None)
+        secrets = (self.cfg.api_key, self.cfg.cf_access_client_id, self.cfg.cf_access_client_secret)
         last_error = "unknown provider error"
         for attempt in range(self.cfg.retries):
             req = urllib.request.Request(
@@ -175,14 +176,14 @@ class OpenAICompatibleEndpoint:
                 return self._parse(data, model)
             except urllib.error.HTTPError as exc:
                 body_text = exc.read(4096).decode(errors="replace")
-                last_error = f"HTTP {exc.code}: {_clean_error(body_text)}"
+                last_error = f"HTTP {exc.code}: {_clean_error(body_text, secrets)}"
                 retryable = exc.code in {408, 409, 425, 429, 500, 502, 503, 504}
                 if not retryable:
                     raise ProviderError(f"provider {self.cfg.name} {last_error}", retryable=False) from exc
                 if attempt + 1 < self.cfg.retries:
                     time.sleep(_retry_delay(exc.headers.get("Retry-After"), attempt))
             except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
-                last_error = _clean_error(str(exc))
+                last_error = _clean_error(str(exc), secrets)
                 if attempt + 1 < self.cfg.retries:
                     time.sleep(min(0.25 * (2**attempt) + random.random() * 0.1, 3.0))
         raise ProviderError(f"provider {self.cfg.name} request failed: {last_error}", retryable=True)
@@ -290,7 +291,11 @@ def build_provider(settings, db) -> ProviderPool:
     return ProviderPool(settings, db)
 
 
-def _clean_error(text: str) -> str:
+def _clean_error(text: str, secrets: tuple[str, ...] = ()) -> str:
+    # Match exact credential values even when an upstream body omits key labels.
+    # Replace longer overlapping values first; do not log or persist secrets.
+    for secret in sorted({value for value in secrets if value}, key=len, reverse=True):
+        text = text.replace(secret, "[REDACTED]")
     text = text.replace("\r", " ").replace("\n", " ").strip()
     # Provider responses occasionally echo credentials or headers. Never persist those in task/provider errors.
     text = re.sub(r"(?i)(authorization\s*[:=]\s*bearer\s+)[^\s,;]+", r"\1[REDACTED]", text)
