@@ -41,9 +41,21 @@ class SecretResolver:
                 raise SecretStoreError(f"environment secret not found: {name}")
             return os.environ[name]
         if scheme == "file":
+            # `file://../../etc/passwd` puts `..` in netloc, and
+            # url2pathname(parts.path) alone silently yields a *relative*
+            # path that escapes the intended directory. Require an empty or
+            # localhost authority, then reject relative references outright.
+            if parts.netloc and parts.netloc.lower() not in {"localhost", "127.0.0.1", "::1"}:
+                raise SecretStoreError("file secret reference must not carry a remote host")
+            if not parts.path or not parts.path.startswith("/"):
+                raise SecretStoreError("file secret reference must be an absolute path")
             path = Path(urllib.request.url2pathname(parts.path))
             try:
-                raw = path.read_text(encoding="utf-8")
+                resolved = path.resolve(strict=True)
+            except OSError as exc:
+                raise SecretStoreError(f"cannot read secret file: {path}") from exc
+            try:
+                raw = resolved.read_text(encoding="utf-8")
             except OSError as exc:
                 raise SecretStoreError(f"cannot read secret file: {path}") from exc
             if parts.fragment:

@@ -4,7 +4,11 @@ import test from "node:test";
 
 import { chat, chatStream, createZChatRequestHandler, models, platformStatus, zchatHealthSnapshot } from "../server.mjs";
 
-const env = { Z_PLATFORM_AI_GATEWAY_URL: "http://gateway", Z_PLATFORM_SERVICE_TOKEN: "service-token" };
+const env = {
+  Z_PLATFORM_AI_GATEWAY_URL: "http://gateway",
+  Z_PLATFORM_SERVICE_TOKEN: "service-token",
+  ZCHAT_TENANT_ID: "trusted-tenant-1",
+};
 
 function createMockResponse() {
   const chunks = [];
@@ -54,6 +58,7 @@ test("health reports gateway configuration and session policy without auth", { c
     service: "zchat",
     release_sha: "a".repeat(40),
     gateway_configured: true,
+    tenant_configured: true,
     session_ttl_seconds: 3600,
   });
 });
@@ -68,7 +73,7 @@ test("liveness does not depend on configured upstream backends", { concurrency: 
   assert.deepEqual(await response.json(), { status: "ok", service: "zchat", release_sha: "unknown" });
 });
 
-test("chat shell exposes accessible history search and shortcut guidance", { concurrency: false }, async () => {
+test("chat shell exposes accessible conversation history and Messenger-style workspace structure", { concurrency: false }, async () => {
   const response = await invoke(createZChatRequestHandler({ env: {} }), {
     method: "GET",
     url: "/",
@@ -76,12 +81,26 @@ test("chat shell exposes accessible history search and shortcut guidance", { con
   const html = await response.text();
 
   assert.equal(response.status, 200);
+  assert.match(html, /class="workspace" aria-label="ZChat workspace"/);
+  assert.match(html, /id="conversation-options"/);
+  assert.match(html, /id="conversation-tools"[^>]+hidden/);
   assert.match(html, /id="history-search"/);
   assert.match(html, /aria-keyshortcuts="Control\+K Meta\+K"/);
-  assert.match(html, /Ctrl\/⌘\+K searches chats/);
+  assert.match(html, /Ctrl\/⌘\+K to search/);
   assert.match(html, /id="import-json"/);
   assert.match(html, /id="import-json-file"[^>]+accept="application\/json,\.json"/);
   assert.match(html, /id="load-older"[^>]+hidden/);
+});
+
+test("chat shell serves its safe Markdown renderer module", { concurrency: false }, async () => {
+  const response = await invoke(createZChatRequestHandler({ env: {} }), {
+    method: "GET",
+    url: "/markdown.mjs",
+  });
+
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type"), /^text\/javascript; charset=utf-8$/);
+  assert.match(await response.text(), /renderMarkdownFragment/);
 });
 
 test("platform status keeps api6 and zc as separate backend boundaries", { concurrency: false }, async () => {
@@ -132,13 +151,13 @@ test("chat forwards prompt through gateway with tenant, conversation, and usage 
       calls.push({ url, options });
       return Response.json({ choices: [{ message: { content: "world" } }] });
     },
-    { headers: { "x-tenant-id": "tenant-1", "x-usage-correlation-id": "usage-1", "x-request-id": "request-1" } },
+    { headers: { "x-tenant-id": "attacker-selected-tenant", "x-usage-correlation-id": "usage-1", "x-request-id": "request-1" } },
   );
 
   assert.deepEqual(result, { content: "world", conversation_id: "conversation-1" });
   assert.equal(calls[0].url, "http://gateway/v1/chat/completions");
   assert.equal(calls[0].options.headers.Authorization, "Bearer service-token");
-  assert.equal(calls[0].options.headers["X-Tenant-Id"], "tenant-1");
+  assert.equal(calls[0].options.headers["X-Tenant-Id"], "trusted-tenant-1");
   assert.equal(calls[0].options.headers["X-Conversation-Id"], "conversation-1");
   assert.equal(calls[0].options.headers["X-Usage-Correlation-Id"], "usage-1");
   assert.equal(calls[0].options.headers["X-Request-Id"], "request-1");
@@ -151,12 +170,29 @@ test("chat forwards prompt through gateway with tenant, conversation, and usage 
     stream: false,
     metadata: {
       z_platform: {
-        tenant_id: "tenant-1",
+        tenant_id: "trusted-tenant-1",
         conversation_id: "conversation-1",
         usage_correlation_id: "usage-1",
       },
     },
   });
+});
+
+test("chat rejects missing trusted tenant context before calling the gateway", { concurrency: false }, async () => {
+  let called = false;
+  await assert.rejects(
+    chat(
+      { prompt: "hello" },
+      { ...env, ZCHAT_TENANT_ID: "" },
+      async () => {
+        called = true;
+        throw new Error("should not call gateway");
+      },
+      { headers: { "x-tenant-id": "browser-selected-tenant" } },
+    ),
+    /tenant context is not configured/,
+  );
+  assert.equal(called, false);
 });
 
 test("chat rejects non-string system prompts before calling the gateway", { concurrency: false }, async () => {
@@ -175,7 +211,7 @@ test("chat does not duplicate v1 when gateway url already includes it", { concur
   const calls = [];
   await chat(
     { prompt: "hello", conversation_id: "conversation-1" },
-    { Z_PLATFORM_AI_GATEWAY_URL: "http://gateway/v1", Z_PLATFORM_SERVICE_TOKEN: "service-token" },
+    { ...env, Z_PLATFORM_AI_GATEWAY_URL: "http://gateway/v1" },
     async (url) => {
       calls.push(url);
       return Response.json({ choices: [{ message: { content: "ok" } }] });

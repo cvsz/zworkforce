@@ -80,3 +80,7 @@ deploy/observability/*.rendered.yml
 infrastructure/terraform/cloudflare/repo-fallback.auto.tfvars.json
 infrastructure/terraform/cloudflare/repo-fallback-status.json
 infrastructure/terraform/cloudflare/tfplan.repo-fallback
+
+# Windows NTFS alternate data stream markers must never be tracked
+*Zone.Identifier
+:Zone.Identifier
