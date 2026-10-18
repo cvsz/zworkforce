@@ -204,6 +204,33 @@ def test_fetch_capabilities_rejects_non_boolean_claims():
 @pytest.mark.parametrize(
     ("field", "value"),
     [
+        ("implementation_status", "production-ready"),
+        ("evidence_status", "verified-ish"),
+    ],
+)
+def test_fetch_capabilities_rejects_noncanonical_status_claims(field, value):
+    payload = _capability_document()
+    payload["features"][0][field] = value
+    with (
+        _Server(payload=payload) as server,
+        pytest.raises(ValueError, match=f"{field} is not a recognized v1 state"),
+    ):
+        fetch_capabilities(_settings(server.url))
+
+
+def test_fetch_capabilities_rejects_remote_command_claims_in_read_only_v1():
+    payload = _capability_document()
+    payload["features"][0]["supports_remote_commands"] = True
+    with (
+        _Server(payload=payload) as server,
+        pytest.raises(ValueError, match="does not support remote commands"),
+    ):
+        fetch_capabilities(_settings(server.url))
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
         ("implementation_status", None),
         ("implementation_status", " "),
         ("evidence_status", None),

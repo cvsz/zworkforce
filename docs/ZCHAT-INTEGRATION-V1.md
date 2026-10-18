@@ -28,7 +28,8 @@ zWorkforce tools require the `workforce:read` scope and produce audit events.
 The integration does not expose resource-lock ownership, provider identity
 proof, or verified external outcomes. The client rejects non-HTTPS non-loopback
 URLs, redirects, malformed capability data, duplicate feature IDs, missing
-evidence labels, and unsupported protocol versions. Contract version/resource lists and verified
+or non-canonical implementation/evidence labels, remote-command capability
+claims, and unsupported protocol versions. Contract version/resource lists and verified
 platform/provider-version lists must contain unique, non-empty trimmed strings.
 The v1 health response accepts only `{"status":"healthy","database":"reachable"}`;
 other states fail closed instead of being interpreted as healthy.

@@ -15,6 +15,14 @@ CAPABILITIES_PATH = "/api/v1/integrations/zworkforce/v1/capabilities"
 HEALTH_PATH = "/api/v1/integrations/zworkforce/v1/health"
 MAX_RESPONSE_BYTES = 65_536
 TOKEN_PATTERN = re.compile(r"^[A-Za-z0-9._~-]{32,512}$")
+IMPLEMENTATION_STATUSES = {"configured", "implemented", "live_verified"}
+EVIDENCE_STATUSES = {
+    "VERIFIED",
+    "PARTIALLY VERIFIED",
+    "UNVERIFIED",
+    "BLOCKED",
+    "NOT APPLICABLE",
+}
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -238,3 +246,16 @@ def _validate_capabilities(payload: Any) -> None:
                 raise TypeError(
                     f"ZChat capability feature field {field} must be a non-empty string"
                 )
+            allowed = (
+                IMPLEMENTATION_STATUSES
+                if field == "implementation_status"
+                else EVIDENCE_STATUSES
+            )
+            if value not in allowed:
+                raise ValueError(
+                    f"ZChat capability feature field {field} is not a recognized v1 state"
+                )
+        if feature["supports_remote_commands"]:
+            raise ValueError(
+                "ZChat integration v1 does not support remote commands"
+            )
