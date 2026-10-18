@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import queue
 import re
+import threading
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -14,7 +16,10 @@ PROTOCOL_VERSION = "1.0"
 CAPABILITIES_PATH = "/api/v1/integrations/zworkforce/v1/capabilities"
 HEALTH_PATH = "/api/v1/integrations/zworkforce/v1/health"
 MAX_RESPONSE_BYTES = 65_536
+FETCH_TOTAL_TIMEOUT_SECONDS = 5.0
+MAX_CONCURRENT_FETCHES = 4
 TOKEN_PATTERN = re.compile(r"^[A-Za-z0-9._~-]{32,512}$")
+_FETCH_SLOTS = threading.BoundedSemaphore(MAX_CONCURRENT_FETCHES)
 IMPLEMENTATION_STATUSES = {"configured", "implemented", "live_verified"}
 EVIDENCE_STATUSES = {
     "VERIFIED",
@@ -30,8 +35,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def _fetch(settings: Any, path: str, *, query: str = "") -> Any:
-    """Fetch one fixed read-only v1 resource from a configured ZChat origin."""
+def _validated_config(settings: Any) -> tuple[urllib.parse.SplitResult, str]:
     base_url = str(getattr(settings, "zchat_control_url", "") or "").strip()
     token = str(getattr(settings, "zchat_integration_token", "") or "").strip()
     if not base_url or not token:
@@ -67,19 +71,27 @@ def _fetch(settings: Any, path: str, *, query: str = "") -> Any:
         if str(exc).startswith("ZChat control URL"):
             raise
         raise ValueError("ZChat control URL is invalid") from None
+    return parsed, token
 
-    endpoint = urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, path, query, ""))
+
+def integration_configured(settings: Any) -> bool:
+    """Whether a syntactically valid ZChat endpoint and service token are set."""
+    try:
+        _validated_config(settings)
+    except ValueError:
+        return False
+    return True
+
+
+def _fetch_response(endpoint: str, token: str) -> bytes:
     request = urllib.request.Request(
         endpoint,
-        headers={
-            "Accept": "application/json",
-            "Authorization": f"Bearer {token}",
-        },
+        headers={"Accept": "application/json", "Authorization": f"Bearer {token}"},
         method="GET",
     )
     opener = urllib.request.build_opener(_NoRedirect())
     try:
-        with opener.open(request, timeout=5) as response:
+        with opener.open(request, timeout=FETCH_TOTAL_TIMEOUT_SECONDS) as response:
             if 300 <= response.status < 400:
                 raise ValueError("ZChat integration redirects are rejected")
             raw = response.read(MAX_RESPONSE_BYTES + 1)
@@ -91,9 +103,41 @@ def _fetch(settings: Any, path: str, *, query: str = "") -> Any:
         raise
     except (urllib.error.URLError, TimeoutError, OSError):
         raise ValueError("ZChat integration request failed") from None
-
     if len(raw) > MAX_RESPONSE_BYTES:
         raise ValueError("ZChat integration response exceeds the size limit")
+    return raw
+
+
+def _fetch(settings: Any, path: str, *, query: str = "") -> Any:
+    """Fetch a fixed resource with a bounded caller deadline and concurrency."""
+    parsed, token = _validated_config(settings)
+
+    endpoint = urllib.parse.urlunsplit((parsed.scheme, parsed.netloc, path, query, ""))
+    if not _FETCH_SLOTS.acquire(blocking=False):
+        raise ValueError("ZChat integration is at its concurrent request limit")
+    result: queue.Queue[tuple[bytes | None, Exception | None]] = queue.Queue(maxsize=1)
+
+    def read_response() -> None:
+        try:
+            result.put((_fetch_response(endpoint, token), None))
+        except Exception as exc:
+            result.put((None, exc))
+        finally:
+            _FETCH_SLOTS.release()
+
+    worker = threading.Thread(target=read_response, name="zchat-read", daemon=True)
+    try:
+        worker.start()
+    except Exception:
+        _FETCH_SLOTS.release()
+        raise
+    try:
+        raw, error = result.get(timeout=FETCH_TOTAL_TIMEOUT_SECONDS)
+    except queue.Empty:
+        raise ValueError("ZChat integration request exceeded its total deadline") from None
+    if error is not None:
+        raise error
+    assert raw is not None
     try:
         payload = json.loads(raw)
     except (UnicodeDecodeError, json.JSONDecodeError):

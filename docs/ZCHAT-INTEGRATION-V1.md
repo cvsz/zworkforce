@@ -33,6 +33,12 @@ claims, and unsupported protocol versions. Contract version/resource lists and v
 platform/provider-version lists must contain unique, non-empty trimmed strings.
 The v1 health response accepts only `{"status":"healthy","database":"reachable"}`;
 other states fail closed instead of being interpreted as healthy.
+The caller waits at most five seconds for a ZChat response. At most four
+upstream reads run at once; a slow or stalled upstream cannot occupy additional
+zWorkforce request threads, and new reads fail closed while all four slots are
+busy. Resource discovery is empty until the endpoint and service token are
+syntactically configured. Resource failures use JSON-RPC errors, and successful
+resource reads are marked private with zero cache lifetime.
 
 Configure the same random service token server-side as
 `CONTROL_ZWORKFORCE_INTEGRATION_TOKEN` in ZChat and

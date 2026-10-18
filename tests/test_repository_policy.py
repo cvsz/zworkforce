@@ -49,6 +49,7 @@ class RepositoryPolicyTests(unittest.TestCase):
             "container",
             "security-invariants",
             "documentation-contract",
+            "zchat-contract",
             "dependency-review",
             "build-test-package",
             "Analyze (python)",
@@ -64,6 +65,7 @@ class RepositoryPolicyTests(unittest.TestCase):
             "container:",
             "security-invariants:",
             "documentation-contract:",
+            "zchat-contract:",
         ]:
             with self.subTest(job=job):
                 self.assertIn(job, ci)

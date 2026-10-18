@@ -35,6 +35,15 @@ class MCPTests(unittest.TestCase):
         self.assertTrue(any(x["name"] == "zchat.get_capabilities" for x in tools))
         self.assertTrue(any(x["name"] == "zchat.get_health" for x in tools))
         resources = self.client.list_resources()["resources"]
+        self.assertEqual(resources, [])
+
+    def test_zchat_resources_are_listed_only_when_configured(self):
+        self.app.settings = replace(
+            self.settings,
+            zchat_control_url="https://control.example.test",
+            zchat_integration_token="z" * 48,
+        )
+        resources = self.client.list_resources()["resources"]
         self.assertEqual(
             {resource["uri"] for resource in resources},
             {"zchat://capabilities", "zchat://health"},
@@ -249,8 +258,46 @@ class MCPTests(unittest.TestCase):
             "Mcp-Method": "resources/read", "Mcp-Name": "test://item",
         })
         self.assertEqual(status, 200)
-        self.assertTrue(body["result"]["isError"])
-        self.assertIn("unsupported ZChat resource URI", body["result"]["contents"][0]["text"])
+        self.assertEqual(body["error"]["code"], -32602)
+        self.assertEqual(body["error"]["message"], "Resource not found")
+
+    def test_unconfigured_modern_resource_returns_jsonrpc_internal_error(self):
+        request = {"jsonrpc": "2.0", "id": 78, "method": "resources/read", "params": {
+            "uri": "zchat://health", "_meta": {
+                "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+                "io.modelcontextprotocol/clientCapabilities": {},
+                "io.modelcontextprotocol/clientInfo": {"name": "test-client", "version": "1.0"},
+            },
+        }}
+        status, body = self._post_mcp(request, {
+            "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
+            "Mcp-Method": "resources/read", "Mcp-Name": "zchat://health",
+        })
+        self.assertEqual(status, 200)
+        self.assertEqual(body["error"]["code"], -32603)
+
+    def test_resource_read_response_has_private_cache_metadata(self):
+        self.app.settings = replace(
+            self.settings,
+            zchat_control_url="https://control.example.test",
+            zchat_integration_token="z" * 48,
+        )
+        health = {"status": "healthy", "database": "reachable"}
+        request = {"jsonrpc": "2.0", "id": 79, "method": "resources/read", "params": {
+            "uri": "zchat://health", "_meta": {
+                "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+                "io.modelcontextprotocol/clientCapabilities": {},
+                "io.modelcontextprotocol/clientInfo": {"name": "test-client", "version": "1.0"},
+            },
+        }}
+        with patch("zworkforce.zchat_integration.fetch_resource", return_value=health):
+            status, body = self._post_mcp(request, {
+                "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
+                "Mcp-Method": "resources/read", "Mcp-Name": "zchat://health",
+            })
+        self.assertEqual(status, 200)
+        self.assertEqual(body["result"]["ttlMs"], 0)
+        self.assertEqual(body["result"]["cacheScope"], "private")
 
     def test_legacy_get_returns_405(self):
         request = urllib.request.Request(self.endpoint, method="GET")

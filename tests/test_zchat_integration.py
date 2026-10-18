@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 from dataclasses import replace
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -13,6 +14,7 @@ from zworkforce.zchat_integration import (
     fetch_capabilities,
     fetch_resource,
 )
+import zworkforce.zchat_integration as integration
 
 
 def _capability_document(*, version: str = "1.0") -> dict:
@@ -161,6 +163,47 @@ def test_fetch_capabilities_uses_authenticated_versioned_read_only_endpoint():
 def test_fetch_capabilities_fails_closed_when_not_configured():
     with pytest.raises(ValueError, match="not configured"):
         fetch_capabilities(Settings())
+
+
+def test_fetch_uses_total_deadline_and_bounded_worker(monkeypatch):
+    monkeypatch.setattr(integration, "FETCH_TOTAL_TIMEOUT_SECONDS", 0.02)
+
+    def slow_response(_endpoint, _token):
+        time.sleep(0.12)
+        return b"{}"
+
+    monkeypatch.setattr(integration, "_fetch_response", slow_response)
+    started = time.monotonic()
+    with pytest.raises(ValueError, match="total deadline"):
+        integration._fetch(_settings("https://control.example.test"), "/health")
+    assert time.monotonic() - started < 0.1
+    time.sleep(0.15)
+    assert integration._FETCH_SLOTS.acquire(blocking=False)
+    integration._FETCH_SLOTS.release()
+
+
+def test_fetch_rejects_reads_when_all_worker_slots_are_busy(monkeypatch):
+    monkeypatch.setattr(integration, "FETCH_TOTAL_TIMEOUT_SECONDS", 0.02)
+    slots = threading.BoundedSemaphore(1)
+    monkeypatch.setattr(integration, "_FETCH_SLOTS", slots)
+    started = threading.Event()
+    release = threading.Event()
+
+    def stalled_response(_endpoint, _token):
+        started.set()
+        release.wait(1)
+        return b"{}"
+
+    monkeypatch.setattr(integration, "_fetch_response", stalled_response)
+    settings = _settings("https://control.example.test")
+    with pytest.raises(ValueError, match="total deadline"):
+        integration._fetch(settings, "/health")
+    assert started.wait(0.2)
+    with pytest.raises(ValueError, match="concurrent request limit"):
+        integration._fetch(settings, "/health")
+    release.set()
+    assert slots.acquire(timeout=1)
+    slots.release()
 
 
 def test_integration_token_is_excluded_from_settings_repr():

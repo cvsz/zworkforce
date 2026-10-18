@@ -435,25 +435,24 @@ def handle_mcp(
     if method == "tools/list":
         return _result(request_id, {"tools": [MCP_TOOLS[name] for name in sorted(MCP_TOOLS)]})
     if method == "resources/list":
-        return _result(request_id, {"resources": _zchat_resources()})
+        resources = []
+        if AuthManager.require(principal, "viewer", "workforce:read"):
+            resources = _zchat_resources(app.settings)
+        return _result(request_id, {"resources": resources})
     if method == "resources/read":
         if set(params) - {"uri", "_meta"}:
             return _error(request_id, -32602, "resources/read accepts only uri")
         uri = params.get("uri")
         if not isinstance(uri, str) or not uri:
             return _error(request_id, -32602, "resource uri is required")
+        if uri not in {"zchat://capabilities", "zchat://health"}:
+            return _error(request_id, -32602, "Resource not found")
         try:
             value = _read_zchat_resource(app, principal, tenant_id, uri)
-        except PermissionError as exc:
-            return _result(request_id, {
-                "contents": [{"uri": uri, "mimeType": "text/plain", "text": str(exc)}],
-                "isError": True,
-            })
-        except (ValueError, KeyError, TypeError) as exc:
-            return _result(request_id, {
-                "contents": [{"uri": uri, "mimeType": "text/plain", "text": str(exc)}],
-                "isError": True,
-            })
+        except PermissionError:
+            return _error(request_id, -32003, "Access denied")
+        except (ValueError, KeyError, TypeError):
+            return _error(request_id, -32603, "ZChat resource is unavailable")
         return _result(request_id, {
             "contents": [{
                 "uri": uri,
@@ -583,7 +582,11 @@ def _call_tool(app, principal, tenant_id: str, name: str, args: dict[str, Any]) 
     raise ValueError(f"unknown MCP tool: {name}")
 
 
-def _zchat_resources() -> list[dict[str, Any]]:
+def _zchat_resources(settings: Any) -> list[dict[str, Any]]:
+    from .zchat_integration import integration_configured
+
+    if not integration_configured(settings):
+        return []
     return [
         {
             "uri": "zchat://capabilities",
@@ -605,7 +608,7 @@ def _zchat_resources() -> list[dict[str, Any]]:
 
 
 def _read_zchat_resource(app, principal, tenant_id: str, uri: str) -> Any:
-    resources = {item["uri"]: item for item in _zchat_resources()}
+    resources = {item["uri"]: item for item in _zchat_resources(app.settings)}
     if uri not in resources:
         raise ValueError("unsupported ZChat resource URI")
     _require(principal, "viewer", "workforce:read")
@@ -679,7 +682,7 @@ def add_modern_mcp_metadata(response: dict[str, Any], method: str) -> None:
         meta = {}
         result["_meta"] = meta
     meta.setdefault(MCP_SERVER_INFO_META_KEY, _server_info())
-    if method in {"server/discover", "tools/list", "resources/list"}:
+    if method in {"server/discover", "tools/list", "resources/list", "resources/read"}:
         result.setdefault("ttlMs", 0)
         result.setdefault("cacheScope", "private")
 
