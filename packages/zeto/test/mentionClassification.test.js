@@ -6,29 +6,40 @@
 const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
 
-const { classifyMention, normalizeSentiment } = require("../src/domain/monitoring.js");
+const {
+  classifyMention,
+  normalizeSentiment,
+} = require("../src/domain/monitoring.js");
 
 describe("classifyMention", () => {
   it("classifies a question correctly", () => {
-    const r = classifyMention({ text: "How do I get started with your product?" });
+    const r = classifyMention({
+      text: "How do I get started with your product?",
+    });
     assert.equal(r.category, "question");
     assert.ok(r.confidence > 0.5);
   });
 
   it("classifies a complaint correctly", () => {
-    const r = classifyMention({ text: "This is terrible, the product is broken and I want a refund!" });
+    const r = classifyMention({
+      text: "This is terrible, the product is broken and I want a refund!",
+    });
     assert.equal(r.category, "complaint");
     assert.ok(r.confidence > 0.5);
   });
 
   it("classifies praise correctly", () => {
-    const r = classifyMention({ text: "Amazing product, I absolutely love it! Thank you!" });
+    const r = classifyMention({
+      text: "Amazing product, I absolutely love it! Thank you!",
+    });
     assert.equal(r.category, "praise");
     assert.ok(r.confidence > 0.5);
   });
 
   it("classifies a lead correctly", () => {
-    const r = classifyMention({ text: "How much does the enterprise plan cost? Interested in a demo." });
+    const r = classifyMention({
+      text: "How much does the enterprise plan cost? Interested in a demo.",
+    });
     assert.equal(r.category, "lead");
     assert.ok(r.confidence > 0.5);
   });

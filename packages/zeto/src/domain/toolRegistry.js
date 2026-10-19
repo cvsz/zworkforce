@@ -11,33 +11,33 @@
  *
  * This module is pure domain logic with no I/O dependencies.
  */
-'use strict';
+"use strict";
 
 class DuplicateToolError extends Error {
   constructor(name) {
     super(`Tool already registered: ${name}`);
-    this.name = 'DuplicateToolError';
+    this.name = "DuplicateToolError";
   }
 }
 
 class ToolNotFoundError extends Error {
   constructor(name) {
     super(`Tool not found: ${name}`);
-    this.name = 'ToolNotFoundError';
+    this.name = "ToolNotFoundError";
   }
 }
 
 class ApprovalRequiredError extends Error {
   constructor(name) {
     super(`Mutating tool "${name}" requires an explicit approval record`);
-    this.name = 'ApprovalRequiredError';
+    this.name = "ApprovalRequiredError";
   }
 }
 
 class ToolNotGrantedError extends Error {
   constructor(name) {
     super(`Tool not granted in session capabilities: ${name}`);
-    this.name = 'ToolNotGrantedError';
+    this.name = "ToolNotGrantedError";
   }
 }
 
@@ -63,13 +63,17 @@ class ToolRegistry {
 
   list() {
     return Array.from(this.tools.values())
-      .map(({ name, description, mutating }) => ({ name, description, mutating }))
+      .map(({ name, description, mutating }) => ({
+        name,
+        description,
+        mutating,
+      }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
   async invoke(name, args, context, { approvalRecord = null } = {}) {
     const tool = this.get(name);
-    
+
     if (tool.mutating && !approvalRecord) {
       throw new ApprovalRequiredError(name);
     }
@@ -78,8 +82,8 @@ class ToolRegistry {
     if (tool.schema) {
       try {
         // Handle Zod schema parsing or similar
-        validatedArgs = tool.schema.parseAsync 
-          ? await tool.schema.parseAsync(args) 
+        validatedArgs = tool.schema.parseAsync
+          ? await tool.schema.parseAsync(args)
           : await tool.schema.validate(args);
       } catch (err) {
         throw this._sanitizeError(err, args);
@@ -100,16 +104,16 @@ class ToolRegistry {
   }
 
   _sanitizeError(error, args) {
-    if (!args || typeof args !== 'object') return error;
-    
-    const credentialKeys = ['token', 'secret', 'key', 'password'];
+    if (!args || typeof args !== "object") return error;
+
+    const credentialKeys = ["token", "secret", "key", "password"];
     let message = error.message;
     let changed = false;
 
     for (const key of credentialKeys) {
-      if (args[key] && typeof args[key] === 'string') {
+      if (args[key] && typeof args[key] === "string") {
         if (message.includes(args[key])) {
-          message = message.split(args[key]).join('***');
+          message = message.split(args[key]).join("***");
           changed = true;
         }
       }
@@ -136,39 +140,39 @@ function clampLimit(raw, fallback = 25, max = 100) {
 
 function registerBuiltins(registry, { pool }) {
   registry.register({
-    name: 'queue.read',
-    description: 'Reads publication_queue',
+    name: "queue.read",
+    description: "Reads publication_queue",
     mutating: false,
     schema: null,
     handler: async (args) => {
-      const status = typeof args.status === 'string' ? args.status : null;
+      const status = typeof args.status === "string" ? args.status : null;
       const limit = clampLimit(args.limit, 25);
       const params = [limit];
-      let where = '';
+      let where = "";
       if (status) {
         params.unshift(status);
-        where = 'WHERE status = $1';
+        where = "WHERE status = $1";
       }
       const result = await pool.query(
         `SELECT id, status, message, created_at\n         FROM publication_queue\n         ${where}\n         ORDER BY created_at ASC\n         LIMIT $${status ? 2 : 1}`,
-        params
+        params,
       );
       return {
         count: result.rowCount,
-        status: status ?? 'all',
-        items: result.rows.map(row => ({
+        status: status ?? "all",
+        items: result.rows.map((row) => ({
           id: row.id,
           status: row.status,
           message: row.message,
           created_at: row.created_at,
         })),
       };
-    }
+    },
   });
 
   registry.register({
-    name: 'session.status',
-    description: 'Reads operator session state',
+    name: "session.status",
+    description: "Reads operator session state",
     mutating: false,
     schema: null,
     handler: async (args, context) => {
@@ -180,12 +184,12 @@ function registerBuiltins(registry, { pool }) {
         generation: session.generation,
         last_sequence_id: session.lastSequenceId ?? 0,
       };
-    }
+    },
   });
 
   registry.register({
-    name: 'events.recent',
-    description: 'Reads recent session events',
+    name: "events.recent",
+    description: "Reads recent session events",
     mutating: false,
     schema: null,
     handler: async (args, context) => {
@@ -194,14 +198,14 @@ function registerBuiltins(registry, { pool }) {
       const events = await repository.listEventsAfter(session.id, 0, limit);
       return {
         count: events.length,
-        items: events.map(event => ({
+        items: events.map((event) => ({
           event_id: event.event_id,
           sequence_id: event.sequence_id,
           type: event.type,
           occurred_at: event.occurred_at,
         })),
       };
-    }
+    },
   });
 }
 
@@ -212,5 +216,5 @@ module.exports = {
   ApprovalRequiredError,
   ToolNotGrantedError,
   createToolRegistry,
-  registerBuiltins
+  registerBuiltins,
 };

@@ -5,14 +5,14 @@
  * Modifies temperature, persona intensity, and hashtag constraints based on engagement metrics.
  */
 
-'use strict';
+"use strict";
 
 class PromptTuner {
   constructor() {
     this.defaultConfig = {
       temperature: 0.7,
       maxTokens: 1000,
-      hashtagDensity: 'moderate',
+      hashtagDensity: "moderate",
     };
   }
 
@@ -21,16 +21,18 @@ class PromptTuner {
     const clickThroughRate = Number(feedback.ctr || 0.02);
 
     let adjustedTemp = this.defaultConfig.temperature;
-    let styleGuidance = '';
+    let styleGuidance = "";
 
     if (engagementScore < 60) {
       // Low engagement -> Boost hook punchiness and curiosity
       adjustedTemp = 0.85;
-      styleGuidance = 'Increase curiosity gap and open with an irresistible question hook.';
+      styleGuidance =
+        "Increase curiosity gap and open with an irresistible question hook.";
     } else if (engagementScore > 85) {
       // High performance -> Lock in structured clarity
       adjustedTemp = 0.65;
-      styleGuidance = 'Maintain authoritative, conversion-focused structure with clear CTA.';
+      styleGuidance =
+        "Maintain authoritative, conversion-focused structure with clear CTA.";
     }
 
     let tunedPrompt = basePrompt.trim();
@@ -53,14 +55,15 @@ class HumanApprovalGate {
   }
 
   submitForApproval(contentId, tenantId, content, riskScore = 0) {
-    if (!contentId || !tenantId) throw new Error('contentId and tenantId are required');
+    if (!contentId || !tenantId)
+      throw new Error("contentId and tenantId are required");
 
     const item = {
       contentId,
       tenantId,
       content,
       riskScore: Number(riskScore),
-      status: riskScore > 50 ? 'REQUIRES_ESCALATION' : 'PENDING_APPROVAL',
+      status: riskScore > 50 ? "REQUIRES_ESCALATION" : "PENDING_APPROVAL",
       submittedAt: new Date().toISOString(),
     };
 
@@ -73,8 +76,8 @@ class HumanApprovalGate {
     const item = this.pendingReviews.get(key);
     if (!item) return null;
 
-    item.status = decision === 'APPROVE' ? 'APPROVED' : 'REJECTED';
-    item.decidedBy = reviewer || 'Operator';
+    item.status = decision === "APPROVE" ? "APPROVED" : "REJECTED";
+    item.decidedBy = reviewer || "Operator";
     item.decidedAt = new Date().toISOString();
     return item;
   }
