@@ -124,7 +124,10 @@ test("approved visibility is confirmed and finalized after mutation", async () =
           headers: {},
         };
       }
-      return { data: { id: "video-1" }, headers: {} };
+      return {
+        data: { id: "video-1" },
+        headers: { "x-rate-limit-limit": "100", "x-rate-limit-remaining": "87" },
+      };
     },
   });
   const result = await provider.setVisibility({ accessToken: "secret" }, "video-1", {
@@ -133,6 +136,8 @@ test("approved visibility is confirmed and finalized after mutation", async () =
   });
   assert.equal(result.publication.status.privacyStatus, "public");
   assert.equal(finalized, 1);
+  assert.deepEqual(result.rateLimit, { limit: 100, remaining: 87 });
+  assert.equal("rateLimitHeaders" in result.publication, false);
 });
 
 test("visibility change requires a finalizer so approvals cannot replay", async () => {
@@ -157,6 +162,22 @@ test("visibility change requires a finalizer so approvals cannot replay", async 
     }), /finalizer is required/,
   );
   assert.equal(requests.length, 0);
+});
+
+test("missing finalizer does not invoke stateful approval verifier", async () => {
+  let verifierCalls = 0;
+  const provider = new YouTubePublishingProvider({
+    verifyPublicationApproval: async () => { verifierCalls++; return true; },
+    http: async () => { throw new Error("Unexpected network request"); },
+  });
+  await assert.rejects(
+    provider.setVisibility({ accessToken: "secret" }, "video-1", {
+      approved: true, videoId: "video-1", approverId: "human-1",
+      auditId: "audit-1", privacyStatus: "public", expectedEtag: "etag-1",
+    }),
+    /finalizer is required/,
+  );
+  assert.equal(verifierCalls, 0);
 });
 
 test("concurrent status change fails closed instead of overwriting", async () => {
@@ -208,7 +229,7 @@ test("stale approval is rejected when the video changed after approval", async (
   assert.equal(puts, 0);
 });
 
-test("retry after a landed mutation reconciles and finalizes without re-put", async () => {
+test("stale visibility match without durable claim fails closed", async () => {
   let puts = 0;
   let finalized = null;
   const provider = new YouTubePublishingProvider({
@@ -225,11 +246,10 @@ test("retry after a landed mutation reconciles and finalizes without re-put", as
       return { data: { id: "video-1" }, headers: {} };
     },
   });
-  const result = await provider.setVisibility({ accessToken: "secret" }, "video-1", {
+  await assert.rejects(provider.setVisibility({ accessToken: "secret" }, "video-1", {
     approved: true, videoId: "video-1", approverId: "human-1",
     auditId: "accepted", privacyStatus: "public", expectedEtag: "etag-1",
-  });
+  }), /verified durable transition claim/);
   assert.equal(puts, 0);
-  assert.equal(result.publication.status.privacyStatus, "public");
-  assert.equal(finalized.etag, "etag-2");
+  assert.equal(finalized, null);
 });

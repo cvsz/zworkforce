@@ -6,7 +6,7 @@ Target: [@ZEAZVERSE](https://www.youtube.com/@ZEAZVERSE).
 
 ## Single integration boundary
 
-Use `packages/zeto` as the only ZEAZVERSE YouTube publishing surface. Reuse its existing `YouTubePublishingProvider`, publishing service, canonical approval repository, and platform analytics persistence. Do not create parallel YouTube clients under `kids-factory`, `zworkforce/` or `services/zc`.
+Use `packages/zeto` as the only ZEAZVERSE YouTube publishing surface. Reuse its existing `YouTubePublishingProvider`, publishing service, and platform analytics persistence. A canonical approval repository and its production wiring still need to be implemented; do not imply that this repository already exists. Do not create parallel YouTube clients under `kids-factory`, `zworkforce/` or `services/zc`.
 
 One workflow: `DRAFT → QA → APPROVED_FOR_PRIVATE_UPLOAD → PRIVATE_UPLOADED → PUBLICATION_APPROVAL → PUBLISHED → ANALYTICS_SYNCED`.
 
@@ -21,9 +21,26 @@ One workflow: `DRAFT → QA → APPROVED_FOR_PRIVATE_UPLOAD → PRIVATE_UPLOADED
 1. Register a Google Cloud OAuth consent screen and authorized redirect URI for the chosen deployment.
 2. Request minimum necessary Google scopes and offline access only as needed; use Authorization Code + PKCE, `state`, one-time verifier and short-lived session.
 3. Exchange authorization codes server-side. Never send access/refresh tokens to the browser or log them.
+   - For `videos.insert` private uploads, Google documents `https://www.googleapis.com/auth/youtube.upload` (among other accepted scopes).
+   - For `videos.update` visibility changes, request and verify `https://www.googleapis.com/auth/youtube.force-ssl` or `https://www.googleapis.com/auth/youtube` as appropriate; `youtube.upload` alone is not listed as an accepted scope for that operation.
+   - Verify the actual granted scopes at connection and refresh time. Disable visibility-changing features if an accepted scope was not granted. Never silently elevate scope or reuse an upload-only grant.
+   - Official references: https://developers.google.com/youtube/v3/docs/videos/insert and https://developers.google.com/youtube/v3/docs/videos/update.
 4. Encrypt refresh tokens via the existing server-side secret infrastructure. Support token rotation and revocation.
 5. Bind the token to the exact YouTube channel ID returned by `channels.list(mine=true)`, not just a mutable handle.
 6. Validate that the connected channel is the operator-approved `@ZEAZVERSE` channel before any upload.
+
+### Verify an operator-provided OAuth grant
+
+The OAuth lifecycle is not implemented by this package yet. Before enabling a visibility-changing integration, an operator can verify the actual granted scope on the intended YouTube account with the opt-in integration test below. The access token is sent only in the HTTPS POST body to Google's tokeninfo endpoint; the test does not print the token or scope values. Run it against the same grant configured for the integration and rotate/revoke the test token afterward according to the operator's credential policy.
+
+```bash
+cd packages/zeto
+export YOUTUBE_OAUTH_TEST_ACCESS_TOKEN='operator-provided-access-token'
+ZETO_REQUIRE_YOUTUBE_SCOPE_TEST=1 node --test test/youtubeOAuthScope.integration.test.js
+unset YOUTUBE_OAUTH_TEST_ACCESS_TOKEN
+```
+
+Without `YOUTUBE_OAUTH_TEST_ACCESS_TOKEN`, the test is skipped by the normal package test suite. The forced command fails when the token is missing. This check verifies the granted OAuth scope only; it does not upload or modify a YouTube video and does not replace a separately authorized live publishing test.
 
 ## Private-first upload
 
@@ -37,9 +54,10 @@ One workflow: `DRAFT → QA → APPROVED_FOR_PRIVATE_UPLOAD → PRIVATE_UPLOADED
 ## Independent publication approval
 
 - Upload approval and public-visibility approval are distinct.
-- Use the canonical Zeto approval persistence, RBAC, tenant/channel scoping, immutable video/content/metadata digest, expiry, distinct human reviewer and consume-once action.
-- Inject `verifyPublicationApproval` into the YouTube provider from a trusted server-side service; it must perform non-consuming validation (optionally placing a durable idempotent claim keyed by video, visibility and approval ID) and must never consume a single-use approval before YouTube confirms the change.
+- Implement canonical Zeto approval persistence with RBAC, tenant/channel scoping, immutable video/content/metadata digest, expiry, distinct human reviewer and consume-once action.
+- Implement and inject `verifyPublicationApproval` from a trusted server-side service backed by durable approval persistence, RBAC, tenant/channel scoping and an atomic consume-once claim. This repository currently has only the provider callback boundary; it has no canonical approval repository or production wiring.
 - Only `finalizePublicationApproval`, invoked after the provider reconciles the new visibility from YouTube, consumes the approval exactly once with an immutable audit event; it must be idempotent so a retried confirmation cannot double-consume.
+- If YouTube reports a changed ETag, matching visibility alone is not proof that this approval caused the transition. The provider fails closed and does not finalize; an operator or future durable claim integration must reconcile the uncertain outcome.
 - Adapter explicitly **rejects** public/unlisted transitions if no verifier is configured.
 - Verify YouTube's resulting status and record an immutable audit event.
 - No scheduler or agent may bypass human approval.

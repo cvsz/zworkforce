@@ -117,14 +117,16 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
     if (approval.privacyStatus !== "public" && approval.privacyStatus !== "unlisted") {
       throw new Error("Unsupported approved visibility");
     }
-    if (typeof this.verifyPublicationApproval !== "function" ||
-        await this.verifyPublicationApproval(approval) !== true) {
-      throw new Error("Canonical server-side approval verification failed");
-    }
-    // Fail fast before any external mutation: without a wired finalizer
-    // a published video would be left unaudited and replayable.
+    // Check both callbacks before invoking the verifier: verification may
+    // reserve or claim approval state and must not run without a finalizer.
     if (typeof this.finalizePublicationApproval !== "function") {
       throw new Error("A publication finalizer is required for YouTube visibility changes");
+    }
+    if (typeof this.verifyPublicationApproval !== "function") {
+      throw new Error("Canonical server-side approval verifier is required");
+    }
+    if (await this.verifyPublicationApproval(approval) !== true) {
+      throw new Error("Canonical server-side approval verification failed");
     }
     // P1: read current status first so videos.update does not reset other
     // mutable status fields (license, embeddable, selfDeclaredMadeForKids).
@@ -136,17 +138,16 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
     if (current.publication?.etag === approval.expectedEtag) {
       confirmed = await this.reconcileTransition(credentials, publicationId, approval, current);
     } else if (current.publication?.status?.privacyStatus === approval.privacyStatus) {
-      // Recovery path: our PUT may have landed while confirmation or
-      // finalization failed. The video is already at the approved
-      // visibility, so reconcile and finalize instead of mutating again.
-      // The audit records the actual current state, including its ETag.
-      confirmed = current;
+      // Visibility alone is not evidence that this job performed the write.
+      // An external API client may have changed the resource after approval.
+      // Fail closed until a durable, atomically claimed outcome is available.
+      throw new Error("Stale approval: visibility matches without a verified durable transition claim");
     } else {
       throw new Error("Stale approval: video revision changed since human approval");
     }
     // P2: consumption/finalization happens only after a confirmed mutation.
     await this.finalizePublicationApproval(approval, confirmed.publication);
-    return { publication: confirmed.publication, rateLimit: standardRateLimit(confirmed.rateLimitHeaders || {}) };
+    return { publication: confirmed.publication, rateLimit: confirmed.rateLimit };
   }
 
   async reconcileTransition(credentials, publicationId, approval, current) {
@@ -175,7 +176,7 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
     if (confirmed.publication?.status?.privacyStatus !== approval.privacyStatus) {
       throw new Error("YouTube did not confirm the approved visibility change");
     }
-    confirmed.publication.rateLimitHeaders = response.headers;
+    confirmed.rateLimit = standardRateLimit(response.headers) || confirmed.rateLimit;
     return confirmed;
   }
 
