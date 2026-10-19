@@ -43,6 +43,12 @@ def validate_character_data(data: dict[str, Any]) -> dict[str, Any]:
     nationality = str(data.get("nationality", "Thai")).strip()
     if not nationality:
         raise ZeazverseValidationError("character.nationality cannot be empty")
+    costume_config = data.get("costume_config", data.get("costume", {}))
+    if not isinstance(costume_config, dict):
+        raise ZeazverseValidationError("character.costume must be an object")
+    accessories = data.get("accessories", costume_config.get("accessories", []))
+    if not isinstance(accessories, list):
+        raise ZeazverseValidationError("character.accessories must be a list")
     return {
         "id": char_id,
         "name": name,
@@ -54,8 +60,8 @@ def validate_character_data(data: dict[str, Any]) -> dict[str, Any]:
         "story_themes": data.get("story_themes", []),
         "dialogue_style": data.get("dialogue_style", {}),
         "voice_profile": data.get("voice_profile", {}),
-        "costume_config": data.get("costume_config", {}),
-        "accessories": data.get("accessories", []),
+        "costume_config": costume_config,
+        "accessories": accessories,
         "consistency_rules": data.get("consistency_rules", {}),
         "reference_turnaround": data.get("reference_turnaround", {}),
         "status": data.get("status", "canonical"),
@@ -172,7 +178,8 @@ def generate_cinematic_storyboard(
     episode: dict[str, Any], characters: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
     """Build a structured 5-act 30s storyboard following the cinematic standard."""
-    char_names = [c.get("name", "LALIN") for c in characters] if characters else ["LALIN"]
+    characters = characters or [CANONICAL_CHARACTERS["lalin"]]
+    char_names = [c.get("name", "LALIN") for c in characters]
     primary_char = characters[0] if characters else CANONICAL_CHARACTERS["lalin"]
     char_id = primary_char.get("id", "lalin")
     primary_name = primary_char.get("name", "LALIN")
@@ -247,8 +254,8 @@ def generate_cinematic_storyboard(
             "ordering": act["ordering"],
             "time_start_seconds": act["time_start_seconds"],
             "time_end_seconds": act["time_end_seconds"],
-            "characters": [char_id],
-            "character_ref_ids": [f"ref_{char_id}_turnaround_v1"],
+            "characters": [c.get("id", char_id) for c in (characters if act["id"] == "scene_04_climax" else [primary_char])],
+            "character_ref_ids": [f"ref_{c.get('id', char_id)}_turnaround_v1" for c in (characters if act["id"] == "scene_04_climax" else [primary_char])],
             "environment": "Futuristic Cyberpunk Bangkok City 2088",
             "subject_action": act["subject_action"],
             "camera_framing": act["camera_framing"],
@@ -285,9 +292,19 @@ def generate_youtube_seo_metadata(
         f"{title_base} (Official AI Cinematic Story) | ZEAZVERSE",
     ]
 
+    story_concept = episode.get("story_concept", episode.get("story_concept_json", {}))
+    if isinstance(story_concept, str):
+        try:
+            import json
+            story_concept = json.loads(story_concept)
+        except (ValueError, TypeError):
+            story_concept = {}
+    if not isinstance(story_concept, dict):
+        story_concept = {}
+
     description = (
         f"Watch '{title_base}' from ZEAZVERSE!\n\n"
-        f"Synopsis: {episode.get('story_concept', {}).get('synopsis', 'An original AI virtual idol sci-fi cinematic story from Thailand.')}\n\n"
+        f"Synopsis: {story_concept.get('synopsis', 'An original AI virtual idol sci-fi cinematic story from Thailand.')}\n\n"
         f"✨ Featured Idols: {char_names}\n"
         f"🌌 Brand: ZEAZVERSE — Four Souls. One Universe.\n"
         f"🇹🇭 Created by ZEAZDEV COMPANY LIMITED\n\n"
@@ -329,23 +346,23 @@ def generate_youtube_seo_metadata(
 
 
 def evaluate_qa_continuity(scenes: list[dict[str, Any]], rendered_manifest: dict[str, Any]) -> dict[str, Any]:
-    """Automated continuity and defect evaluation for rendered video."""
+    """Validate storyboard structure and encoded media without claiming visual review."""
     defects = []
-    # In mock / baseline mode, inspect parameters and structure
     if not scenes:
         defects.append("No scenes defined in storyboard")
     for s in scenes:
         if s.get("time_end_seconds", 0) <= s.get("time_start_seconds", 0):
             defects.append(f"Invalid duration in scene {s.get('id')}")
 
-    passed = len(defects) == 0
+    media_encoded = rendered_manifest.get("validation_status") == "encoded"
+    if not media_encoded:
+        defects.append("Rendered media did not pass the encoder validation")
+    checks_passed = len(defects) == 0
     return {
-        "passed": 1 if passed else 0,
-        "reviewer_agent": "Continuity QA",
-        "identity_consistency_score": 0.98 if passed else 0.50,
-        "anatomy_score": 0.99 if passed else 0.60,
-        "temporal_continuity_score": 0.97 if passed else 0.55,
-        "policy_compliance_passed": 1 if passed else 0,
+        "technical_checks_passed": checks_passed,
+        "visual_review_status": "pending",
+        "human_visual_review_required": True,
+        "media_encoded": media_encoded,
         "defects": defects,
-        "notes": "Verified character facial consistency, anatomy, and costume continuity against Character Bible.",
+        "notes": "Automated checks cover storyboard timing and media encoding only. Character identity, anatomy, costume, policy, and creative quality require human visual review.",
     }
