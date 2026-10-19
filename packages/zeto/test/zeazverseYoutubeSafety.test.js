@@ -1,16 +1,27 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { YouTubePublishingProvider } = require("../src/providers/youtubePublishingProvider");
+const {
+  YouTubePublishingProvider,
+} = require("../src/providers/youtubePublishingProvider");
 
 const media = { buffer: Buffer.from("test"), mimeType: "video/mp4", size: 4 };
 
 test("YouTube rejects non-private upload before any network call", async () => {
   let calls = 0;
-  const provider = new YouTubePublishingProvider({ http: async () => { calls++; } });
+  const provider = new YouTubePublishingProvider({
+    http: async () => {
+      calls++;
+    },
+  });
   await assert.rejects(
-    provider.publish({ accessToken: "secret" }, {
-      title: "Unsafe", media, privacyStatus: "public",
-    }),
+    provider.publish(
+      { accessToken: "secret" },
+      {
+        title: "Unsafe",
+        media,
+        privacyStatus: "public",
+      },
+    ),
     /must start private/,
   );
   assert.equal(calls, 0);
@@ -26,9 +37,15 @@ test("YouTube private upload is enforced on outgoing metadata", async () => {
         : { data: { id: "video-1" }, headers: {} };
     },
   });
-  await provider.publish({ accessToken: "secret" }, {
-    title: "LALIN", media, madeForKids: false, containsSyntheticMedia: true,
-  });
+  await provider.publish(
+    { accessToken: "secret" },
+    {
+      title: "LALIN",
+      media,
+      madeForKids: false,
+      containsSyntheticMedia: true,
+    },
+  );
   assert.equal(requests[0].data.status.privacyStatus, "private");
   assert.equal(requests[0].data.status.selfDeclaredMadeForKids, false);
   assert.equal(requests[0].data.status.containsSyntheticMedia, true);
@@ -36,15 +53,25 @@ test("YouTube private upload is enforced on outgoing metadata", async () => {
 
 test("YouTube upload requires explicit disclosure booleans", async () => {
   let calls = 0;
-  const provider = new YouTubePublishingProvider({ http: async () => { calls++; } });
+  const provider = new YouTubePublishingProvider({
+    http: async () => {
+      calls++;
+    },
+  });
   await assert.rejects(
     provider.publish({ accessToken: "secret" }, { title: "LALIN", media }),
     /explicit boolean/,
   );
   await assert.rejects(
-    provider.publish({ accessToken: "secret" }, {
-      title: "LALIN", media, madeForKids: "no", containsSyntheticMedia: false,
-    }),
+    provider.publish(
+      { accessToken: "secret" },
+      {
+        title: "LALIN",
+        media,
+        madeForKids: "no",
+        containsSyntheticMedia: false,
+      },
+    ),
     /explicit boolean/,
   );
   assert.equal(calls, 0);
@@ -53,12 +80,20 @@ test("YouTube upload requires explicit disclosure booleans", async () => {
 test("visibility change fails closed without canonical verifier", async () => {
   let called = false;
   const provider = new YouTubePublishingProvider({
-    http: async () => { called = true; },
+    http: async () => {
+      called = true;
+    },
   });
-  await assert.rejects(provider.setVisibility({ accessToken: "secret" }, "video-1", {
-    approved: true, videoId: "video-1", approverId: "user-1",
-    auditId: "audit-1", privacyStatus: "public",
-  }), /bound, auditable/);
+  await assert.rejects(
+    provider.setVisibility({ accessToken: "secret" }, "video-1", {
+      approved: true,
+      videoId: "video-1",
+      approverId: "user-1",
+      auditId: "audit-1",
+      privacyStatus: "public",
+    }),
+    /bound, auditable/,
+  );
   assert.equal(called, false);
 });
 
@@ -73,31 +108,46 @@ test("canonical verifier controls approved visibility transition", async () => {
     madeForKids: false,
   };
   const provider = new YouTubePublishingProvider({
-    verifyPublicationApproval: async (approval) => approval.auditId === "accepted",
+    verifyPublicationApproval: async (approval) =>
+      approval.auditId === "accepted",
     finalizePublicationApproval: async () => {},
     http: async (request) => {
       requests.push(request);
       if (request.method === "GET") {
-        return { data: { items: [{ id: "video-1", etag: "etag-1", status: { ...currentStatus } }] }, headers: {} };
+        return {
+          data: {
+            items: [
+              { id: "video-1", etag: "etag-1", status: { ...currentStatus } },
+            ],
+          },
+          headers: {},
+        };
       }
       return { data: { id: "video-1" }, headers: {} };
     },
   });
   const base = {
-    approved: true, videoId: "video-1", approverId: "human-1",
-    privacyStatus: "public", expectedEtag: "etag-1",
+    approved: true,
+    videoId: "video-1",
+    approverId: "human-1",
+    privacyStatus: "public",
+    expectedEtag: "etag-1",
   };
   await assert.rejects(
     provider.setVisibility({ accessToken: "secret" }, "video-1", {
-      ...base, auditId: "rejected",
-    }), /verification failed/,
+      ...base,
+      auditId: "rejected",
+    }),
+    /verification failed/,
   );
   assert.equal(requests.length, 0);
   // Confirmation GET still reports private, so the transition must fail closed.
   await assert.rejects(
     provider.setVisibility({ accessToken: "secret" }, "video-1", {
-      ...base, auditId: "accepted",
-    }), /did not confirm/,
+      ...base,
+      auditId: "accepted",
+    }),
+    /did not confirm/,
   );
   const put = requests.find((request) => request.method === "PUT");
   assert.equal(put.data.status.privacyStatus, "public");
@@ -114,23 +164,41 @@ test("approved visibility is confirmed and finalized after mutation", async () =
   let finalized = 0;
   const provider = new YouTubePublishingProvider({
     verifyPublicationApproval: async () => true,
-    finalizePublicationApproval: async () => { finalized++; },
+    finalizePublicationApproval: async () => {
+      finalized++;
+    },
     http: async (request) => {
       requests.push(request);
       if (request.method === "GET") {
         const applied = requests.some((seen) => seen.method === "PUT");
         return {
-          data: { items: [{ id: "video-1", etag: "etag-1", status: { privacyStatus: applied ? "public" : "private" } }] },
+          data: {
+            items: [
+              {
+                id: "video-1",
+                etag: "etag-1",
+                status: { privacyStatus: applied ? "public" : "private" },
+              },
+            ],
+          },
           headers: {},
         };
       }
       return { data: { id: "video-1" }, headers: {} };
     },
   });
-  const result = await provider.setVisibility({ accessToken: "secret" }, "video-1", {
-    approved: true, videoId: "video-1", approverId: "human-1",
-    auditId: "accepted", privacyStatus: "public", expectedEtag: "etag-1",
-  });
+  const result = await provider.setVisibility(
+    { accessToken: "secret" },
+    "video-1",
+    {
+      approved: true,
+      videoId: "video-1",
+      approverId: "human-1",
+      auditId: "accepted",
+      privacyStatus: "public",
+      expectedEtag: "etag-1",
+    },
+  );
   assert.equal(result.publication.status.privacyStatus, "public");
   assert.equal(finalized, 1);
 });
@@ -143,7 +211,9 @@ test("visibility change requires a finalizer so approvals cannot replay", async 
       requests.push(request);
       if (request.method === "GET") {
         return {
-          data: { items: [{ id: "video-1", status: { privacyStatus: "public" } }] },
+          data: {
+            items: [{ id: "video-1", status: { privacyStatus: "public" } }],
+          },
           headers: {},
         };
       }
@@ -152,9 +222,14 @@ test("visibility change requires a finalizer so approvals cannot replay", async 
   });
   await assert.rejects(
     provider.setVisibility({ accessToken: "secret" }, "video-1", {
-      approved: true, videoId: "video-1", approverId: "human-1",
-      auditId: "accepted", privacyStatus: "public", expectedEtag: "etag-1",
-    }), /finalizer is required/,
+      approved: true,
+      videoId: "video-1",
+      approverId: "human-1",
+      auditId: "accepted",
+      privacyStatus: "public",
+      expectedEtag: "etag-1",
+    }),
+    /finalizer is required/,
   );
   assert.equal(requests.length, 0);
 });
@@ -166,7 +241,15 @@ test("concurrent status change fails closed instead of overwriting", async () =>
     http: async (request) => {
       if (request.method === "GET") {
         return {
-          data: { items: [{ id: "video-1", etag: "etag-1", status: { privacyStatus: "private" } }] },
+          data: {
+            items: [
+              {
+                id: "video-1",
+                etag: "etag-1",
+                status: { privacyStatus: "private" },
+              },
+            ],
+          },
           headers: {},
         };
       }
@@ -177,9 +260,14 @@ test("concurrent status change fails closed instead of overwriting", async () =>
   });
   await assert.rejects(
     provider.setVisibility({ accessToken: "secret" }, "video-1", {
-      approved: true, videoId: "video-1", approverId: "human-1",
-      auditId: "accepted", privacyStatus: "public", expectedEtag: "etag-1",
-    }), /changed concurrently/,
+      approved: true,
+      videoId: "video-1",
+      approverId: "human-1",
+      auditId: "accepted",
+      privacyStatus: "public",
+      expectedEtag: "etag-1",
+    }),
+    /changed concurrently/,
   );
 });
 
@@ -191,7 +279,15 @@ test("stale approval is rejected when the video changed after approval", async (
     http: async (request) => {
       if (request.method === "GET") {
         return {
-          data: { items: [{ id: "video-1", etag: "etag-2", status: { privacyStatus: "private" } }] },
+          data: {
+            items: [
+              {
+                id: "video-1",
+                etag: "etag-2",
+                status: { privacyStatus: "private" },
+              },
+            ],
+          },
           headers: {},
         };
       }
@@ -201,9 +297,14 @@ test("stale approval is rejected when the video changed after approval", async (
   });
   await assert.rejects(
     provider.setVisibility({ accessToken: "secret" }, "video-1", {
-      approved: true, videoId: "video-1", approverId: "human-1",
-      auditId: "accepted", privacyStatus: "public", expectedEtag: "etag-1",
-    }), /Stale approval/,
+      approved: true,
+      videoId: "video-1",
+      approverId: "human-1",
+      auditId: "accepted",
+      privacyStatus: "public",
+      expectedEtag: "etag-1",
+    }),
+    /Stale approval/,
   );
   assert.equal(puts, 0);
 });
@@ -213,11 +314,21 @@ test("retry after a landed mutation reconciles and finalizes without re-put", as
   let finalized = null;
   const provider = new YouTubePublishingProvider({
     verifyPublicationApproval: async () => true,
-    finalizePublicationApproval: async (approval, publication) => { finalized = publication; },
+    finalizePublicationApproval: async (approval, publication) => {
+      finalized = publication;
+    },
     http: async (request) => {
       if (request.method === "GET") {
         return {
-          data: { items: [{ id: "video-1", etag: "etag-2", status: { privacyStatus: "public" } }] },
+          data: {
+            items: [
+              {
+                id: "video-1",
+                etag: "etag-2",
+                status: { privacyStatus: "public" },
+              },
+            ],
+          },
           headers: {},
         };
       }
@@ -225,10 +336,18 @@ test("retry after a landed mutation reconciles and finalizes without re-put", as
       return { data: { id: "video-1" }, headers: {} };
     },
   });
-  const result = await provider.setVisibility({ accessToken: "secret" }, "video-1", {
-    approved: true, videoId: "video-1", approverId: "human-1",
-    auditId: "accepted", privacyStatus: "public", expectedEtag: "etag-1",
-  });
+  const result = await provider.setVisibility(
+    { accessToken: "secret" },
+    "video-1",
+    {
+      approved: true,
+      videoId: "video-1",
+      approverId: "human-1",
+      auditId: "accepted",
+      privacyStatus: "public",
+      expectedEtag: "etag-1",
+    },
+  );
   assert.equal(puts, 0);
   assert.equal(result.publication.status.privacyStatus, "public");
   assert.equal(finalized.etag, "etag-2");
