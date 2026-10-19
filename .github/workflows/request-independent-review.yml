@@ -2,7 +2,7 @@ name: Request independent PR review
 
 on:
   pull_request_target:
-    types: [opened, reopened, ready_for_review]
+    types: [opened, reopened, ready_for_review, synchronize]
 
 permissions:
   contents: read
@@ -20,8 +20,14 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
-          gh api --method POST "repos/$GH_REPO/pulls/$PR_NUMBER/requested_reviewers" \
-            -f 'reviewers[]=policedbc'
+          endpoint="repos/$GH_REPO/pulls/$PR_NUMBER/requested_reviewers"
+          requested="$(gh api "$endpoint" --jq '[.users[].login] | index("policedbc") != null')"
+          if [[ "$requested" != "true" ]]; then
+            gh api --silent --method POST "$endpoint" \
+              -f 'reviewers[]=policedbc'
+          fi
+          gh api "$endpoint" --jq '[.users[].login] | index("policedbc") != null' \
+            | grep -qx true
 
 # Repository administrator prerequisites:
 # - Invite policedbc as a collaborator and wait for acceptance.
