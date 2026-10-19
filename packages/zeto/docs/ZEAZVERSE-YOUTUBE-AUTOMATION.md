@@ -6,7 +6,7 @@ Target: [@ZEAZVERSE](https://www.youtube.com/@ZEAZVERSE).
 
 ## Single integration boundary
 
-Use `packages/zeto` as the only ZEAZVERSE YouTube publishing surface. Reuse its existing `YouTubePublishingProvider`, publishing service, canonical approval repository, and platform analytics persistence. Do not create parallel YouTube clients under `kids-factory`, `zworkforce/` or `services/zc`.
+Use `packages/zeto` as the only ZEAZVERSE YouTube publishing surface. Reuse its existing `YouTubePublishingProvider`, publishing service, and platform analytics persistence. A canonical approval repository and its production wiring still need to be implemented; do not imply that this repository already exists. Do not create parallel YouTube clients under `kids-factory`, `zworkforce/` or `services/zc`.
 
 One workflow: `DRAFT → QA → APPROVED_FOR_PRIVATE_UPLOAD → PRIVATE_UPLOADED → PUBLICATION_APPROVAL → PUBLISHED → ANALYTICS_SYNCED`.
 
@@ -41,9 +41,10 @@ One workflow: `DRAFT → QA → APPROVED_FOR_PRIVATE_UPLOAD → PRIVATE_UPLOADED
 ## Independent publication approval
 
 - Upload approval and public-visibility approval are distinct.
-- Use the canonical Zeto approval persistence, RBAC, tenant/channel scoping, immutable video/content/metadata digest, expiry, distinct human reviewer and consume-once action.
-- Inject `verifyPublicationApproval` into the YouTube provider from a trusted server-side service; it must perform non-consuming validation (optionally placing a durable idempotent claim keyed by video, visibility and approval ID) and must never consume a single-use approval before YouTube confirms the change.
+- Implement canonical Zeto approval persistence with RBAC, tenant/channel scoping, immutable video/content/metadata digest, expiry, distinct human reviewer and consume-once action.
+- Implement and inject `verifyPublicationApproval` from a trusted server-side service backed by durable approval persistence, RBAC, tenant/channel scoping and an atomic consume-once claim. This repository currently has only the provider callback boundary; it has no canonical approval repository or production wiring.
 - Only `finalizePublicationApproval`, invoked after the provider reconciles the new visibility from YouTube, consumes the approval exactly once with an immutable audit event; it must be idempotent so a retried confirmation cannot double-consume.
+- If YouTube reports a changed ETag, matching visibility alone is not proof that this approval caused the transition. The provider fails closed and does not finalize; an operator or future durable claim integration must reconcile the uncertain outcome.
 - Adapter explicitly **rejects** public/unlisted transitions if no verifier is configured.
 - Verify YouTube's resulting status and record an immutable audit event.
 - No scheduler or agent may bypass human approval.

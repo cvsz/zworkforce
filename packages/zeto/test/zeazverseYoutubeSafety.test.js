@@ -124,7 +124,10 @@ test("approved visibility is confirmed and finalized after mutation", async () =
           headers: {},
         };
       }
-      return { data: { id: "video-1" }, headers: {} };
+      return {
+        data: { id: "video-1" },
+        headers: { "x-rate-limit-limit": "100", "x-rate-limit-remaining": "87" },
+      };
     },
   });
   const result = await provider.setVisibility({ accessToken: "secret" }, "video-1", {
@@ -133,6 +136,8 @@ test("approved visibility is confirmed and finalized after mutation", async () =
   });
   assert.equal(result.publication.status.privacyStatus, "public");
   assert.equal(finalized, 1);
+  assert.deepEqual(result.rateLimit, { limit: 100, remaining: 87 });
+  assert.equal("rateLimitHeaders" in result.publication, false);
 });
 
 test("visibility change requires a finalizer so approvals cannot replay", async () => {

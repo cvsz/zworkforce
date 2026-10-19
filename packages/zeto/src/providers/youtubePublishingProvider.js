@@ -147,7 +147,7 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
     }
     // P2: consumption/finalization happens only after a confirmed mutation.
     await this.finalizePublicationApproval(approval, confirmed.publication);
-    return { publication: confirmed.publication, rateLimit: standardRateLimit(confirmed.publication?.rateLimitHeaders || {}) };
+    return { publication: confirmed.publication, rateLimit: confirmed.rateLimit };
   }
 
   async reconcileTransition(credentials, publicationId, approval, current) {
@@ -176,7 +176,7 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
     if (confirmed.publication?.status?.privacyStatus !== approval.privacyStatus) {
       throw new Error("YouTube did not confirm the approved visibility change");
     }
-    confirmed.publication.rateLimitHeaders = response.headers;
+    confirmed.rateLimit = standardRateLimit(response.headers) || confirmed.rateLimit;
     return confirmed;
   }
 
