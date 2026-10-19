@@ -29,6 +29,19 @@ One workflow: `DRAFT → QA → APPROVED_FOR_PRIVATE_UPLOAD → PRIVATE_UPLOADED
 5. Bind the token to the exact YouTube channel ID returned by `channels.list(mine=true)`, not just a mutable handle.
 6. Validate that the connected channel is the operator-approved `@ZEAZVERSE` channel before any upload.
 
+### Verify an operator-provided OAuth grant
+
+The OAuth lifecycle is not implemented by this package yet. Before enabling a visibility-changing integration, an operator can verify the actual granted scope on the intended YouTube account with the opt-in integration test below. The access token is sent only in the HTTPS POST body to Google's tokeninfo endpoint; the test does not print the token or scope values. Run it against the same grant configured for the integration and rotate/revoke the test token afterward according to the operator's credential policy.
+
+```bash
+cd packages/zeto
+export YOUTUBE_OAUTH_TEST_ACCESS_TOKEN='operator-provided-access-token'
+ZETO_REQUIRE_YOUTUBE_SCOPE_TEST=1 node --test test/youtubeOAuthScope.integration.test.js
+unset YOUTUBE_OAUTH_TEST_ACCESS_TOKEN
+```
+
+Without `YOUTUBE_OAUTH_TEST_ACCESS_TOKEN`, the test is skipped by the normal package test suite. The forced command fails when the token is missing. This check verifies the granted OAuth scope only; it does not upload or modify a YouTube video and does not replace a separately authorized live publishing test.
+
 ## Private-first upload
 
 - `videos.insert` always sets `status.privacyStatus=private`.
