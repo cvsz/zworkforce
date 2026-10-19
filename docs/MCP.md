@@ -25,6 +25,14 @@ A missing or malformed modern metadata object, unsupported revision, or mismatch
 - `server/discover` — modern discovery
 - `tools/list`
 - `tools/call`
+- `resources/list`
+- `resources/read`
+
+The ZChat integration publishes only `zchat://capabilities` and `zchat://health`.
+Reading either resource requires the caller's `workforce:read` scope and is
+audited. The resources contain read-only metadata and health state; account,
+worker, operation, command, lease, and mutation data are not exposed through
+this integration.
 
 ## Example: modern discovery
 

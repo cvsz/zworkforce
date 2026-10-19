@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from pathlib import Path
 import json
 import os
-from typing import Any
-
+from dataclasses import dataclass, field
+from pathlib import Path
 
 DASHBOARD_EVENT_DEFAULT_RETENTION_SECONDS = 7 * 24 * 60 * 60
 DASHBOARD_EVENT_MAX_RETENTION_SECONDS = 365 * 24 * 60 * 60
@@ -97,6 +95,8 @@ class Settings:
         "terra": Rate(50.0, 5.0, 300.0),
         "luna": Rate(5.0, 0.5, 30.0),
     })
+    zchat_control_url: str = ""
+    zchat_integration_token: str = field(default="", repr=False)
 
     @property
     def database_path(self) -> Path:
@@ -110,7 +110,7 @@ class Settings:
         return tier
 
     @classmethod
-    def from_env(cls) -> "Settings":
+    def from_env(cls) -> Settings:
         env = os.getenv("ZWORKFORCE_ENV", "development").strip().lower()
         default_tenant = _slug(os.getenv("ZWORKFORCE_DEFAULT_TENANT", "default"), "tenant")
 
@@ -194,6 +194,8 @@ class Settings:
             doom_loop_max_identical_calls=i("ZWORKFORCE_DOOM_LOOP_MAX_IDENTICAL_CALLS", 3, 1),
             doom_loop_max_consecutive_failures=i("ZWORKFORCE_DOOM_LOOP_MAX_CONSECUTIVE_FAILURES", 5, 1),
             rates=rates,
+            zchat_control_url=os.getenv("ZCHAT_CONTROL_URL", "").strip(),
+            zchat_integration_token=os.getenv("ZCHAT_INTEGRATION_TOKEN", "").strip(),
         )
 
 
@@ -217,7 +219,7 @@ def _providers_from_env(env: str) -> tuple[ProviderConfig, ...]:
         seen: set[str] = set()
         for idx, item in enumerate(items):
             if not isinstance(item, dict):
-                raise ValueError("each provider must be an object")
+                raise TypeError("each provider must be an object")
             name = _slug(str(item.get("name") or f"provider-{idx+1}"), "provider")
             if name in seen:
                 raise ValueError(f"duplicate provider name: {name}")
@@ -229,7 +231,7 @@ def _providers_from_env(env: str) -> tuple[ProviderConfig, ...]:
                 raise ValueError("mock providers are not allowed in production")
             models = item.get("models") or {}
             if not isinstance(models, dict):
-                raise ValueError(f"provider {name} models must be an object")
+                raise TypeError(f"provider {name} models must be an object")
             models = {tier: str(models.get(tier, "")) for tier in ("luna", "terra", "sol")}
             api_key = str(item.get("api_key") or "")
             api_key_env = str(item.get("api_key_env") or "")
