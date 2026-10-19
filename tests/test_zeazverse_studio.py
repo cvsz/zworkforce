@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import shutil
+import subprocess
+import tempfile
 import threading
 import unittest
 import urllib.request
@@ -55,6 +59,10 @@ class ZeazverseDomainTest(unittest.TestCase):
             self.assertEqual(s["generation_model"], "mock-video-v1")
             self.assertIn("character_ref_ids", s)
 
+    def test_storyboard_uses_only_selected_episode_characters(self):
+        scenes = generate_cinematic_storyboard({"id": "ep_pim", "title": "PIM Pilot"}, [CANONICAL_CHARACTERS["pim"]])
+        self.assertTrue(all(scene["characters"] == ["pim"] for scene in scenes))
+
     def test_youtube_seo_and_disclosure(self):
         ep = {"id": "ep_01", "title": "Cyber Mirage"}
         seo = generate_youtube_seo_metadata(ep, [CANONICAL_CHARACTERS["lalin"]])
@@ -65,17 +73,33 @@ class ZeazverseDomainTest(unittest.TestCase):
         self.assertIn("#ZEAZVERSE", seo["description"])
 
     def test_video_render_and_media_qa(self):
-        pipeline = VideoEditingPipeline(output_dir="/tmp/zeazverse_test_renders")
+        if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
+            self.skipTest("FFmpeg and ffprobe are required for media validation")
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        pipeline = VideoEditingPipeline(output_dir=temp.name)
         ep = {"id": "ep_render_test"}
         scenes = generate_cinematic_storyboard(ep, [CANONICAL_CHARACTERS["nicha"]])
         render_res = pipeline.render_episode("ep_render_test", scenes, {})
-        self.assertEqual(render_res["status"], "completed")
-        self.assertEqual(render_res["format"], "1080x1920")
+        self.assertEqual(render_res["status"], "synthetic_sample")
+        self.assertFalse(render_res["external_media_generated"])
+        self.assertEqual(render_res["format"], "720x1280")
         self.assertEqual(render_res["fps"], 30)
+        media_path = render_res["output_video_uri"]
+        self.assertGreater(__import__("pathlib").Path(media_path).stat().st_size, 1024)
+        self.assertEqual(hashlib.sha256(__import__("pathlib").Path(media_path).read_bytes()).hexdigest(), render_res["output_sha256"])
+        probe = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "stream=codec_name,width,height", "-of", "json", media_path],
+            check=True, capture_output=True, text=True,
+        )
+        streams = json.loads(probe.stdout)["streams"]
+        self.assertTrue(any(s.get("codec_name") == "h264" and s.get("width") == 720 and s.get("height") == 1280 for s in streams))
 
         qa = evaluate_qa_continuity(scenes, render_res)
-        self.assertEqual(qa["passed"], 1)
-        self.assertGreater(qa["identity_consistency_score"], 0.9)
+        self.assertTrue(qa["technical_checks_passed"])
+        self.assertEqual(qa["visual_review_status"], "pending")
+        self.assertTrue(qa["human_visual_review_required"])
+        self.assertIn("--> ", __import__("pathlib").Path(render_res["subtitles_vtt_uri"]).read_text(encoding="utf-8"))
 
 
 class ZeazverseApiIntegrationTest(unittest.TestCase):
@@ -121,6 +145,10 @@ class ZeazverseApiIntegrationTest(unittest.TestCase):
         self.assertIn("NICHA", names)
         self.assertIn("PIM", names)
         self.assertIn("YADA", names)
+        lalin = next(c for c in data["characters"] if c["id"] == "lalin")
+        self.assertTrue(lalin["costume_config"].get("accessories"))
+        self.assertTrue(lalin["accessories"])
+        self.assertTrue(lalin["reference_turnaround"]["views"])
 
     def test_channel_setup_step_progression(self):
         status, data = self._req(
@@ -152,27 +180,55 @@ class ZeazverseApiIntegrationTest(unittest.TestCase):
                 "title": "Awakening of LALIN",
                 "content_class": "Cyberpunk Stories",
                 "characters": ["lalin"],
+                "story_concept": {"synopsis": "LALIN discovers a signal beneath Bangkok."},
             },
             extra_headers={"Idempotency-Key": "idem-ep-01"},
         )
         self.assertEqual(status, 201)
         self.assertEqual(ep_data["episode"]["status"], "IDEA")
+        status, duplicate_episode = self._req(
+            "POST", "/api/v1/zeazverse/episodes",
+            body={"id": ep_id, "series_id": "cyber-bangkok", "title": "Changed duplicate", "content_class": "Cyberpunk Stories"},
+            extra_headers={"Idempotency-Key": "idem-ep-01"},
+        )
+        self.assertEqual(status, 201)
+        self.assertEqual(duplicate_episode["episode"]["title"], "Awakening of LALIN")
+        status, listed = self._req("GET", "/api/v1/zeazverse/episodes?series_id=cyber-bangkok&limit=1")
+        self.assertEqual(status, 200)
+        self.assertEqual(listed["episodes"][0]["story_concept"]["synopsis"], "LALIN discovers a signal beneath Bangkok.")
 
         # 3. Generate Storyboard
         status, sb_data = self._req("POST", f"/api/v1/zeazverse/episodes/{ep_id}/generate-storyboard")
         self.assertEqual(status, 200)
         self.assertEqual(len(sb_data["scenes"]), 5)
         self.assertEqual(sb_data["status"], "SCRIPT_APPROVED")
+        self.assertEqual(sb_data["scenes"][0]["characters"], ["lalin"])
+        self.assertEqual(sb_data["scenes"][3]["characters"], ["lalin"])
 
         # 4. Generate SEO Metadata
         status, seo_data = self._req("POST", f"/api/v1/zeazverse/episodes/{ep_id}/generate-seo")
         self.assertEqual(status, 200)
         self.assertEqual(seo_data["seo_metadata"]["privacy_status"], "private")
+        self.assertIn("LALIN discovers a signal beneath Bangkok.", seo_data["seo_metadata"]["description"])
 
         # 5. Render & Technical QA
         status, render_data = self._req("POST", f"/api/v1/zeazverse/episodes/{ep_id}/render")
         self.assertEqual(status, 200)
-        self.assertEqual(render_data["status"], "QA_PASSED")
+        self.assertEqual(render_data["status"], "QA_PENDING")
+        self.assertTrue(render_data["qa_report"]["human_visual_review_required"])
+        video_artifact_id = render_data["render_result"]["video_artifact"]["id"]
+        _, content_data = self._req("GET", f"/api/v1/artifacts/{video_artifact_id}/content")
+        import base64
+        media_bytes = base64.b64decode(content_data["content_base64"], validate=True)
+        self.assertEqual(hashlib.sha256(media_bytes).hexdigest(), content_data["sha256"])
+
+        # Visual review is an explicit human action; technical rendering alone cannot approve release.
+        status, qa_data = self._req(
+            "POST", f"/api/v1/zeazverse/episodes/{ep_id}/qa-review",
+            body={"visual_review_passed": True, "notes": "Reviewed rendered storyboard sample"},
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(qa_data["status"], "QA_PASSED")
 
         # 6. Request Publishing Approval
         status, req_data = self._req(
@@ -183,33 +239,57 @@ class ZeazverseApiIntegrationTest(unittest.TestCase):
         )
         self.assertEqual(status, 201)
         approval_id = req_data["approval_request"]["id"]
+        _, duplicate_approval = self._req(
+            "POST", f"/api/v1/zeazverse/episodes/{ep_id}/request-approval",
+            body={"target_visibility": "private"}, extra_headers={"Idempotency-Key": "idem-req-01"},
+        )
+        self.assertEqual(duplicate_approval["approval_request"]["id"], approval_id)
 
-        # 7. Approve (Human in the Loop)
+        # 7. A distinct reviewer approves (self-approval is rejected).
+        with self.assertRaises(urllib.error.HTTPError) as self_approval:
+            self._req("POST", "/api/v1/zeazverse/approvals/decide",
+                      body={"request_id": approval_id, "approved": True})
+        self.assertEqual(self_approval.exception.code, 400)
+        self_approval.exception.close()
+        _, reviewer_secret = self.app.auth.create_key("default", "zeazverse-reviewer", "admin", ["*"])
         status, dec_data = self._req(
             "POST",
             "/api/v1/zeazverse/approvals/decide",
             body={"request_id": approval_id, "approved": True, "comment": "Verified compliance"},
+            extra_headers={"Authorization": f"Bearer {reviewer_secret}"},
         )
         self.assertEqual(status, 200)
         self.assertEqual(dec_data["approval"]["state"], "approved")
 
-        # 8. YouTube Private Publishing with approved single-use token
-        status, pub_data = self._req(
-            "POST",
-            f"/api/v1/zeazverse/episodes/{ep_id}/publish",
-            body={"approval_id": approval_id},
-            extra_headers={"Idempotency-Key": "idem-pub-01"},
-        )
-        self.assertEqual(status, 200)
-        self.assertEqual(pub_data["status"], "PRIVATE_UPLOADED")
-        self.assertEqual(pub_data["visibility"], "private")
-
-        # 9. Verify approval cannot be reused (consume-once)
+        # 8. Publishing must fail closed without consuming the approval or inventing a YouTube ID.
         with self.assertRaises(urllib.error.HTTPError) as ctx:
             self._req(
                 "POST",
                 f"/api/v1/zeazverse/episodes/{ep_id}/publish",
                 body={"approval_id": approval_id},
-                extra_headers={"Idempotency-Key": "idem-pub-02"},
+                extra_headers={"Idempotency-Key": "idem-pub-01"},
             )
-        self.assertEqual(ctx.exception.code, 400)
+        self.assertEqual(ctx.exception.code, 503)
+        ctx.exception.close()
+        with self.assertRaises(urllib.error.HTTPError) as locked_edit:
+            self._req("POST", f"/api/v1/zeazverse/episodes/{ep_id}/generate-storyboard")
+        self.assertEqual(locked_edit.exception.code, 400)
+        locked_edit.exception.close()
+        with self.db.connection() as conn:
+            conn.execute("UPDATE zeazverse_scenes SET subject_action=? WHERE tenant_id=? AND episode_id=? AND id=?",
+                         ("Changed after approval", "default", ep_id, "scene_01_hook"))
+        with self.assertRaises(urllib.error.HTTPError) as stale_publish:
+            self._req("POST", f"/api/v1/zeazverse/episodes/{ep_id}/publish", body={"approval_id": approval_id})
+        self.assertEqual(stale_publish.exception.code, 400)
+        stale_publish.exception.close()
+        with self.db.connection() as conn:
+            approval = conn.execute(
+                "SELECT consumed_at FROM zeazverse_approval_requests WHERE tenant_id=? AND id=?",
+                ("default", approval_id),
+            ).fetchone()
+        self.assertIsNone(approval["consumed_at"])
+        self.assertTrue(self.db.verify_audit_chain("default")["ok"])
+        actions = {item["action"] for item in self.db.list_audit("default", limit=1000)}
+        self.assertIn("zeazverse.qa.review", actions)
+        self.assertIn("zeazverse.approval.decide", actions)
+        self.assertIn("zeazverse.publish.attempt", actions)
