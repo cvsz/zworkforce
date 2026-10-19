@@ -49,7 +49,7 @@ The repository uses these GitHub Actions as release and merge evidence:
 
 | Workflow | Purpose |
 | --- | --- |
-| `CI` | Python 3.12/3.13/3.14 tests, PostgreSQL integration, documentation/repository policy, release integrity, container build, security invariants. |
+| `CI` | Python 3.12/3.13/3.14 tests, PostgreSQL integration, documentation/repository policy, release integrity, container build, security invariants, and the pinned ZChat contract test. |
 | `ZARVIS` | Z.A.R.V.I.S. package migration contract, Node workspace tests, API tests/audit, Windows restore checks for affected paths. |
 | `Windows client` | Native client restore, build, core tests, MSIX package, launch smoke check, artifact upload. |
 | `Windows signed candidate` | Manually signs a full-SHA `main` candidate with Azure Artifact Signing for pre-tag Stage H evidence; never publishes a release or image. |
