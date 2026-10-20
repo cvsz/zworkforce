@@ -25,7 +25,7 @@ class CloudflareZChatAuditTests(unittest.TestCase):
         curl.chmod(0o700)
         cloudflared = bin_dir / "cloudflared"
         cloudflared.write_text(
-            "#!/usr/bin/env bash\nprintf 'called\\n' >> \"$ZCHAT_CLOUDFLARED_LOG\"\nprintf 'connections: 1\\n'\n",
+            "#!/usr/bin/env bash\nprintf 'called\\n' >> \"$ZCHAT_CLOUDFLARED_LOG\"\nprintf 'token: TEST_SENTINEL\\n'\nprintf 'secret=TEST_SENTINEL\\n' >&2\n",
             encoding="utf-8",
         )
         cloudflared.chmod(0o700)
@@ -109,6 +109,7 @@ class CloudflareZChatAuditTests(unittest.TestCase):
             self.assertEqual(explicit.returncode, 0, explicit.stderr)
             self.assertEqual(cloudflared_log.read_text(encoding="utf-8").splitlines(), ["called"])
             self.assertIn("cloudflared credentials may be used", explicit.stdout)
+            self.assertNotIn("TEST_SENTINEL", explicit.stdout + explicit.stderr)
 
 
 if __name__ == "__main__":
