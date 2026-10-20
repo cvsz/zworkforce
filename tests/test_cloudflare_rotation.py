@@ -201,6 +201,83 @@ CLOUDFLARE_ROTATION_INTERVAL_DAYS=30
         self.assertIn("OnUnitActiveSec=24h", timer)
         self.assertIn("Persistent=true", timer)
 
+    def test_account_token_hook_keeps_bearer_token_out_of_curl_arguments(self):
+        hook = ROOT / "scripts" / "cloudflare-rotation.d" / "10-account-api-token.sh"
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            env_file = directory / ".env.cloudflare"
+            bootstrap_file = directory / "bootstrap.env"
+            records_file = directory / "curl-records.jsonl"
+            shim_dir = directory / "bin"
+            output_dir = directory / "evidence"
+            shim_dir.mkdir()
+            env_file.write_text(
+                "CLOUDFLARE_API_TOKEN=runtime-secret-value\n"
+                "CLOUDFLARE_ACCOUNT_ID=account-id\n"
+                "CLOUDFLARE_TUNNEL_ID=tunnel-id\n",
+                encoding="utf-8",
+            )
+            bootstrap_file.write_text(
+                "CLOUDFLARE_ROTATION_BOOTSTRAP_TOKEN=bootstrap-secret-value\n",
+                encoding="utf-8",
+            )
+            os.chmod(env_file, 0o600)
+            os.chmod(bootstrap_file, 0o600)
+
+            curl_shim = shim_dir / "curl"
+            curl_shim.write_text(
+                "#!/usr/bin/env python3\n"
+                "import json, os, pathlib, sys\n"
+                "args = sys.argv[1:]\n"
+                "headers = [args[i + 1] for i, value in enumerate(args[:-1]) if value == '-H']\n"
+                "auth_ref = next(value[1:] for value in headers if value.startswith('@'))\n"
+                "auth_path = pathlib.Path(auth_ref)\n"
+                "auth = auth_path.read_text().strip()\n"
+                "record = {'args': args, 'auth': auth, 'mode': auth_path.stat().st_mode & 0o777}\n"
+                "with open(os.environ['CURL_RECORDS_FILE'], 'a', encoding='utf-8') as out: out.write(json.dumps(record) + '\\n')\n"
+                "url = args[-1]\n"
+                "if url.endswith('/tokens/verify') and 'runtime-secret-value' in auth: result = {'id': 'runtime-id', 'status': 'active'}\n"
+                "elif url.endswith('/tokens/verify') and 'bootstrap-secret-value' in auth: result = {'id': 'bootstrap-id', 'status': 'active'}\n"
+                "elif url.endswith('/tokens/runtime-id/value'): result = 'replacement-secret-value'\n"
+                "elif url.endswith('/tokens/verify'): result = {'id': 'runtime-id', 'status': 'active'}\n"
+                "else: result = {'id': 'tunnel-id'}\n"
+                "print(json.dumps({'success': True, 'result': result}))\n",
+                encoding="utf-8",
+            )
+            os.chmod(curl_shim, 0o700)
+            run_env = os.environ.copy()
+            run_env.update(
+                {
+                    "PATH": f"{shim_dir}:{run_env['PATH']}",
+                    "ROTATION_BOOTSTRAP_ENV_FILE": str(bootstrap_file),
+                    "ROTATION_OUT_DIR": str(output_dir),
+                    "CLOUDFLARE_API_ROOT": "https://api.cloudflare.test/client/v4",
+                    "CURL_RECORDS_FILE": str(records_file),
+                }
+            )
+
+            result = subprocess.run(
+                ["bash", str(hook), str(env_file)],
+                check=False,
+                capture_output=True,
+                text=True,
+                env=run_env,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("account_api_token_rotated=true", result.stdout)
+            records = [json.loads(line) for line in records_file.read_text().splitlines()]
+            self.assertEqual(len(records), 5)
+            for record in records:
+                self.assertEqual(record["mode"], 0o600)
+                self.assertTrue(any(arg.startswith("@") for arg in record["args"]))
+                self.assertNotIn("runtime-secret-value", " ".join(record["args"]))
+                self.assertNotIn("bootstrap-secret-value", " ".join(record["args"]))
+            self.assertEqual(records[0]["auth"], "Authorization: Bearer runtime-secret-value")
+            self.assertEqual(records[2]["auth"], "Authorization: Bearer bootstrap-secret-value")
+            self.assertFalse(any(Path(arg[1:]).exists() for record in records for arg in record["args"] if arg.startswith("@")))
+            self.assertIn("CLOUDFLARE_API_TOKEN=replacement-secret-value", env_file.read_text())
+
 
 if __name__ == "__main__":
     unittest.main()

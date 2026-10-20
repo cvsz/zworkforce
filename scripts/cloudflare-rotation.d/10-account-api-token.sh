@@ -10,11 +10,19 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BOOTSTRAP_ENV_FILE="${ROTATION_BOOTSTRAP_ENV_FILE:-$HOME/.config/zworkforce/cloudflare-rotation.env}"
 OUT_DIR="${ROTATION_OUT_DIR:-$ROOT/output/cloudflare-rotation}"
 API_ROOT="${CLOUDFLARE_API_ROOT:-https://api.cloudflare.com/client/v4}"
+active_header_file=""
 
 fail() {
   printf 'cloudflare account-token rotation: %s\n' "$1" >&2
   exit "${2:-1}"
 }
+
+cleanup_header() {
+  if [[ -n "$active_header_file" && -e "$active_header_file" ]]; then
+    rm -f -- "$active_header_file"
+  fi
+}
+trap cleanup_header EXIT
 
 require_secret_file() {
   local path="$1" label="$2" mode
@@ -59,21 +67,43 @@ bootstrap_token="$(read_env_value CLOUDFLARE_ROTATION_BOOTSTRAP_TOKEN "$BOOTSTRA
 }
 
 api_get() {
-  local token="$1" path="$2" response
-  response="$(curl --silent --show-error --fail-with-body --max-time 30 \
-    -H "Authorization: Bearer $token" \
-    "$API_ROOT$path")" || fail "Cloudflare API GET failed: $path"
+  local token="$1" path="$2" response header_file
+  [[ "$token" != *$'\r'* && "$token" != *$'\n'* ]] || fail "Cloudflare token contains invalid header characters"
+  header_file="$(mktemp "${TMPDIR:-/tmp}/zwslcore-cloudflare-header.XXXXXX")"
+  active_header_file="$header_file"
+  chmod 600 "$header_file"
+  printf 'Authorization: Bearer %s\n' "$token" > "$header_file"
+  if ! response="$(curl --silent --show-error --fail-with-body --max-time 30 \
+    -H "@$header_file" \
+    "$API_ROOT$path")"; then
+    rm -f -- "$header_file"
+    active_header_file=""
+    fail "Cloudflare API GET failed: $path"
+  fi
+  rm -f -- "$header_file"
+  active_header_file=""
   printf '%s' "$response"
 }
 
 api_roll() {
-  local token="$1" path="$2" response
-  response="$(curl --silent --show-error --fail-with-body --max-time 30 \
+  local token="$1" path="$2" response header_file
+  [[ "$token" != *$'\r'* && "$token" != *$'\n'* ]] || fail "Cloudflare token contains invalid header characters"
+  header_file="$(mktemp "${TMPDIR:-/tmp}/zwslcore-cloudflare-header.XXXXXX")"
+  active_header_file="$header_file"
+  chmod 600 "$header_file"
+  printf 'Authorization: Bearer %s\n' "$token" > "$header_file"
+  if ! response="$(curl --silent --show-error --fail-with-body --max-time 30 \
     -X PUT \
-    -H "Authorization: Bearer $token" \
+    -H "@$header_file" \
     -H 'Content-Type: application/json' \
     -d '{}' \
-    "$API_ROOT$path")" || fail "Cloudflare API token roll failed"
+    "$API_ROOT$path")"; then
+    rm -f -- "$header_file"
+    active_header_file=""
+    fail "Cloudflare API token roll failed"
+  fi
+  rm -f -- "$header_file"
+  active_header_file=""
   printf '%s' "$response"
 }
 
@@ -100,14 +130,15 @@ tunnel_status="$(api_get "$new_token" "/accounts/$account_id/cfd_tunnel/$tunnel_
 env_dir="$(dirname "$ENV_FILE")"
 env_tmp="$(mktemp "$env_dir/.env.cloudflare.rotation.XXXXXX")"
 cleanup() {
+  cleanup_header
   if [[ -n "${env_tmp:-}" && -e "$env_tmp" ]]; then
     rm -f -- "$env_tmp"
   fi
 }
 trap cleanup EXIT
 
-awk -v replacement="$new_token" '
-  BEGIN { count=0 }
+awk '
+  BEGIN { count=0; if ((getline replacement < "/dev/fd/3") <= 0) exit 18 }
   /^[[:space:]]*(export[[:space:]]+)?CLOUDFLARE_API_TOKEN[[:space:]]*=/ {
     print "CLOUDFLARE_API_TOKEN=" replacement
     count++
@@ -115,7 +146,7 @@ awk -v replacement="$new_token" '
   }
   { print }
   END { if (count != 1) exit 17 }
-' "$ENV_FILE" > "$env_tmp" || fail "environment file must contain exactly one CLOUDFLARE_API_TOKEN assignment"
+' "$ENV_FILE" 3<<< "$new_token" > "$env_tmp" || fail "environment file must contain exactly one CLOUDFLARE_API_TOKEN assignment"
 chmod 600 "$env_tmp"
 mv -f "$env_tmp" "$ENV_FILE"
 env_tmp=""
