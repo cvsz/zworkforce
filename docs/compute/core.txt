@@ -1,0 +1,197 @@
+Processor (CPU)
+
+CPU Name
+
+AMD Ryzen 5 3400G with Radeon Vega Graphics
+
+Threading
+
+1 CPU - 4 Core - 8 Threads
+
+Frequency
+
+3799.33 MHz (38 \* 100.02 MHz)
+
+Multiplier
+
+Current: 38 / Max: 37
+
+Architecture
+
+Picasso / Stepping: B1 / Technology: 12 nm
+
+CPUID / Ext.
+
+F.8.1 / 17.18
+
+IA Extensions
+
+MMX(+), SSE, SSE2, SSE3, SSSE3, SSE4.1, SSE4.2, SSE4A, x86-64, AES, AVX, AVX2, FMA3, SHA
+
+Caches
+
+L1D : 32 KB / L2 : 512 KB / L3 : 4096 KB
+
+Caches Assoc.
+
+L1D : 8-way / L2 : 8-way / L3 : 16-way
+
+Microcode
+
+Rev. 0x810810E
+
+TDP / Vcore
+
+65 Watts / 1.368 Volts
+
+Temperature
+
+65.3 °C / 150 °F
+
+Type
+
+Retail
+
+Cores Frequencies
+
+#00: 3799.3 MHz  #01: 3799.3 MHz  #02: 3799.3 MHz  #03: 3799.3 MHz   
+
+Motherboard
+
+Model
+
+MSI A520M-A PRO (MS-7C96)
+
+Socket
+
+Socket AM4 (1331)
+
+North Bridge
+
+AMD Ryzen SOC rev 00
+
+South Bridge
+
+AMD A520 rev 51
+
+BIOS
+
+American Megatrends International LLC. 1.K0 (09/02/2025)
+
+Memory (RAM)
+
+Total Size
+
+32768 MB
+
+Type
+
+Dual Channel (128 bit) DDR4-SDRAM
+
+Frequency
+
+1199.2 MHz (DDR4-2398) - Ratio 1:12
+
+Timings
+
+17-17-17-39-56-2 (tCAS-tRCD-tRP-tRAS-tRC-tCR)
+
+Slot #1 Module
+
+16384 MB (DDR4-2666) - XMP 2.0 - P/N: HKED4161CAB2F2HB1
+
+Slot #2 Module
+
+16384 MB (DDR4-2666) - XMP 2.0 - P/N: HKED4161CAB2F2HB1
+
+Graphic Card (GPU)
+
+GPU Type
+
+AMD Radeon(TM) RX Vega 11 Graphics
+
+GPU Brand
+
+Advanced Micro Devices Inc. (AMD
+
+GPU VRAM
+
+2048 MB
+
+Storage (HDD/SSD)
+
+Model #1 Name
+
+HS-SSD-E100 128G (FW: SN08979)
+
+Model #1 Capacity
+
+119.2 GiB (~130 GB)
+
+Model #1 Type
+
+Fixed, SSD - Bus: SATA (11)
+
+Model #2 Name
+
+Seagate ST1000DM003-9YN162 (FW: HP16)
+
+Model #2 Capacity
+
+931.5 GiB (~1000 GB)
+
+Model #2 Type
+
+Fixed - Bus: SATA (11)
+
+Model #3 Name
+
+Seagate ST\_M13FQBL (FW: 03061455)
+
+Model #3 Capacity
+
+3.9 GiB (~0 GB)
+
+Model #3 Type
+
+Fixed - Bus: SATA (11)
+
+Model #4 Name
+
+Western Digital WD Blue SN5000 1TB (FW: 291000WD)
+
+Model #4 Capacity
+
+931.5 GiB (~1000 GB)
+
+Model #4 Type
+
+Fixed, SSD - Bus: NVMe (17)
+
+Display
+
+Screen #1
+
+HKC-TV (HKC0000)
+
+Screen #1 Spec
+
+0 inches (0 cm) / 1366 x 768 pixels @ 50-76 Hz
+
+Screen #2
+
+HKC-TV (HKC0000)
+
+Screen #2 Spec
+
+0 inches (0 cm) / 1366 x 768 pixels @ 50-76 Hz
+
+Miscellaneous
+
+Windows Version
+
+Microsoft Windows 11 Enterprise Edition (x64)
+
+CPU-Z Version
+
+2.19.0 (64 bit)

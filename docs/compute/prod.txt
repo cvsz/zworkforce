@@ -1,0 +1,549 @@
+[Skip to content](https://valid.cpuid.com/2maza5w9#main-content)
+
+Dump \[2maza5w9\] Submitted by POLICEDBC-SEA - 2026-10-20 16:53
+
+Intel(R) Xeon(R) CPU E3-1225 v5 @ 3.30GHz
+
+3391.31 MHz
+
+Dell 07T4MC · 32 GB DDR4-2126 · NVIDIA GeForce 210
+
+Warning
+
+CPU-Z 3.01.0  
+Date: 2026-10-20 16:53  
+Type: Quick Check  
+Duration: 5 seconds
+
+System Analysis
+
+2 Warnings
+
+Warning
+
+Low Memory Frequency
+
+Your RAM is currently operating at a lower frequency than it was designed for. It is running at 2127.8 MT/s, while its rated speed is 3200 MT/s.
+
+This doesn’t cause issues, but you may miss out on some performance.
+
+Enabling the proper memory profile (XMP/EXPO/DOCP) in the BIOS usually restores the RAM to its intended speed. It’s optional, but adjusting this setting can help your system run a bit faster.
+
+Warning
+
+\[SMART\] High Load Cycle Count - WDC WD20EZRZ-00Z5HB0
+
+The drive WDC WD20EZRZ-00Z5HB0 has performed 378,711 head load/unload cycles, exceeding the 300,000-cycle rating typical for desktop hard drives.
+
+Some drives park their heads after only a few seconds of inactivity to save power, which can inflate this counter far beyond its design rating over the years. Exceeding the rating means the parking mechanism is past its validated wear envelope, not that failure is imminent.
+
+Keep backups of important data and monitor this drive's SMART attributes. If the counter grows quickly, the drive's idle-parking timer can often be relaxed with a manufacturer utility.
+
+01 Processor (CPU)
+
+Max. Frequency
+
+3393 MHz
+
+L3 Cache
+
+8 MB
+
+Peak temp
+
+52 °C
+
+0100 °C
+
+Power (TDP)
+
+41 W
+
+0100 W
+
+CPU Name
+
+Intel(R) Xeon(R) CPU E3-1225 v5 @ 3.30GHz
+
+Cores & Threads
+
+1 CPU | 4 Cores | 4 Threads
+
+Frequency
+
+3391.31 MHz (34 \* 99.74 MHz) - Max Turbo: 3392.63 MHz
+
+Multiplier
+
+Current: 34 | Min: 8 | Max: 37
+
+Architecture
+
+Skylake | Stepping: R0 | Technology: 14 nm
+
+CPUID / Ext.
+
+6.E.3 | 6.5E
+
+IA Extensions
+
+MMX, SSE, SSE2, SSE3, SSSE3, SSE4.1, SSE4.2, EM64T, AES, AVX, AVX2, FMA3, TSX
+
+L1 Data Cache
+
+4 x 32 KB (8-way, 64-byte line)
+
+L1 Instruction Cache
+
+4 x 32 KB (8-way, 64-byte line)
+
+L2 Cache
+
+4 x 256 KB (4-way, 64-byte line)
+
+L3 Cache
+
+8 MB (16-way, 64-byte line)
+
+Microcode
+
+Rev. 0xF0
+
+TDP
+
+80 W / PL1: 80 W / PL2: 100 W
+
+Temperature
+
+Current: 51°C | Max: 52°C | TjMax: 100°C
+
+Type
+
+Retail
+
+02 Motherboard
+
+Model
+
+Dell 07T4MC
+
+Socket
+
+LGA1151
+
+North Bridge
+
+Intel Skylake rev 07
+
+South Bridge
+
+Intel C236 rev 31
+
+BIOS
+
+Dell Inc. 1.15.0 (04/23/2024)
+
+03 Memory (RAM)
+
+Total Capacity
+
+32 GB
+
+Channels
+
+128 bits
+
+Dual Channel
+
+Effective Speed
+
+DDR4-2126
+
+1063 MHz
+
+Memory Slots (2 / 4)
+
+empty
+
+S0
+
+empty
+
+S1
+
+SK
+
+16 GB
+
+S2
+
+SK
+
+16 GB
+
+S3
+
+Total Size
+
+32768 MB (32 GB)
+
+Type
+
+Dual Channel (128 bit) DDR4-SDRAM
+
+Frequency
+
+[](https://valid.cpuid.com/2maza5w9#ct-diag "Warning")
+
+1063 MHz (DDR4-2126) - Ratio: 3:32
+
+Timings
+
+15-15-15-35-2 (tCAS-tRCD-tRP-tRAS-tRC)
+
+Slot #1 Module
+
+16 GB SK Hynix DDR4-3200 (WW30'25)
+
+Slot #2 Module
+
+16 GB SK Hynix DDR4-3200 (WW30'25)
+
+04 Graphic Card (GPU)
+
+GPU Clock
+
+135 MHz
+
+GPU VRAM
+
+1024 MB
+
+NVIDIA GeForce 210
+
+Peak GPU temp.
+
+42 °C
+
+0100 °C
+
+#1 NVIDIA GeForce 210
+
+Name
+
+NVIDIA GeForce 210 - Manufacturer: ASUS
+
+Freq.
+
+135 MHz
+
+Units
+
+Cores: 16
+
+VRAM
+
+1024 MB DDR3 (Qimonda) | 64-bit Bus @ 135 MHz
+
+Drivers
+
+NVIDIA GeForce Driver 342.01 | Version 21.21.13.4201 (11/14/2016)
+
+#2 Intel(R) HD Graphics P530
+
+Name
+
+Intel(R) HD Graphics P530 - Manufacturer: Dell
+
+VRAM
+
+128 MB
+
+Drivers
+
+Version 21.20.16.4821 (10/02/2017)
+
+05 Storage
+
+C:\\Samsung SSD 870 QVO 1TB (FW: SVQ01B6Q)
+
+84% usedTotal 931 GiB
+
+Name
+
+Samsung SSD 870 QVO 1TB (FW: SVQ01B6Q)
+
+Size
+
+931 GiB (~1000 GB)
+
+Type
+
+Fixed SSD - Bus: SATA
+
+Volume
+
+C:\\ - Size: 252.9GB (83.9% used) | 1 other volume found
+
+Run Time
+
+Power Cycles: 611 | Power-On: 6314 h (~263 days)
+
+Health
+
+Remaining Life: 98% | Media Errors: 0 | Temperature: 39°C
+
+F:\\WDC WD10EZEX-00BN5A0 (FW: 01.01A01)
+
+0% usedTotal 931 GiB
+
+Name
+
+WDC WD10EZEX-00BN5A0 (FW: 01.01A01)
+
+Size
+
+931 GiB (~1000 GB)
+
+Type
+
+Fixed - Bus: SATA
+
+Volume
+
+F:\\ - Size: 931.5GB (0% used)
+
+Run Time
+
+Power Cycles: 876 | Power-On: 6223 h (~259 days) | Load Cycles: 2,218
+
+Health
+
+Media Errors: 0 | Temperature: 30°C
+
+G:\\WDC WD20EZRZ-00Z5HB0 (FW: 80.00A80)
+
+56% usedTotal 1863 GiB
+
+Name
+
+WDC WD20EZRZ-00Z5HB0 (FW: 80.00A80)
+
+Size
+
+1863 GiB (~2000 GB)
+
+Type
+
+Fixed - Bus: SATA
+
+Volume
+
+G:\\ - Size: 299.9GB (56% used) | 2 other volume found
+
+Run Time
+
+Power Cycles: 335 | Power-On: 33882 h (~1412 days) | Load Cycles: 378,711
+
+Health
+
+[](https://valid.cpuid.com/2maza5w9#ct-diag "Warning")
+
+Media Errors: 0 | Temperature: 34°C
+
+06 Display
+
+#1 HKC-TV (W45'2016)
+
+Monitor
+
+HKC-TV (W45'2016)
+
+Specifications
+
+1366 x 768 pixels @ 50-76 Hz
+
+Current Mode
+
+1366 x 768 pixels | 59 Hz | On: Intel HD Graphics P530
+
+#2 HKC-TV (W13'2017)
+
+Monitor
+
+HKC-TV (W13'2017)
+
+Specifications
+
+1366 x 768 pixels @ 50-76 Hz
+
+Current Mode
+
+1366 x 768 pixels | 59 Hz | On: NVIDIA GeForce 210
+
+07 Software
+
+Boot Time
+
+115s
+
+View boot details
+
+BSOD Details
+
+0
+
+View crash reports
+
+WHEA
+
+0
+
+View error reports
+
+Drivers
+
+0
+
+View device problems
+
+Processes
+
+0
+
+View running
+
+Operating System
+
+Microsoft Windows 11 Enterprise Edition (x64) - 24H2 | Installed on 2025-09-13
+
+Security
+
+Secure Boot: Disabled | TPM: Enabled (V1.2 i/o)
+
+Features
+
+Code Integrity: Enabled | Fast Startup: Enabled
+
+Power Plan
+
+Balanced | 4 plans defined
+
+Antivirus
+
+Windows Defender: Enabled | Up to date
+
+Boot Time
+
+115 seconds (POST: 5 s. | Logon: 24 s. | Startup: 86 s.)
+
+Processes
+
+210 running processes
+
+CPU-Z Version
+
+3.01.0.x64
+
+CPU-Z SCREENSHOT Warning \[2maza5w9\]
+
+[![CPU-Z screenshot for 2maza5w9](https://valid.cpuid.com/cache/screenshot/2maza5w9.png)](https://valid.cpuid.com/search/2maza5w9 "Latest validations with this CPU")
+
+Tools
+
+Copy QR Code Archive PDF Support
+
+Forum Banner
+
+![](https://valid.cpuid.com/cache/banner/2maza5w9.png)
+
+\[url=https://valid.cpuid.com/2maza5w9\]\[img\]https://valid.cpuid.com/cache/banner/2maza5w9.png\[/img\]\[/url\]
+
+01 - Classic - 350 x 22 px 02 - Vintage - 350 x 22 px 03 - Black - 350 x 22 px 04 - nVidia - 350 x 22 px
+
+Share
+
+Share your validation on social networks
+
+Share… X Reddit Facebook WhatsApp
+
+Join us on Discord
+
+Need help or want to report a bug on the CPU-Z Validator? You can reach us on our Discord server.
+
+[Join our Discord](https://discord.gg/3RuC6K9CcR)
+
+×
+
+### Scan this QR code
+
+To open this page on your phone
+
+×
+
+### Previous validations from this PC
+
+×
+
+### Unexpected crashes (BSOD)
+
+No unexpected crashes (BSOD) recorded on this PC.
+
+×
+
+### Boot Time details
+
+POST (BIOS/UEFI)4.9 s
+
+Windows Logon24 s
+
+Kernel init141 ms
+
+Driver init257 ms
+
+Plug and Play init3.3 s
+
+Session manager init9.5 s
+
+User profile load3.2 s
+
+Other logon activity1.1 s
+
+Desktop init (Explorer)6.6 s
+
+Startup1 min 26 s
+
+Startup apps 21
+
+Total 1 min 55 s
+
+×
+
+### Hardware errors (WHEA)
+
+No hardware errors recorded in the Windows event log.
+
+×
+
+### Driver problems
+
+No driver problems detected.
+
+×
+
+### Flagged processes
+
+210 running processes, none flagged.
+
+×
+
+### Inform a support service
+
+If a partner support service is helping you with this PC, enter the service code they gave you to send them this validation. A valid service code is required.
+
+Service code 
+
+Send to Support
+
+You run a customer support service and want to join the program?  
+Contact us at [valid@cpuid.com](mailto:valid@cpuid.com).
