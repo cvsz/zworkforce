@@ -81,7 +81,10 @@ read_interval_days() {
     /^[[:space:]]*(export[[:space:]]+)?CLOUDFLARE_ROTATION_INTERVAL_DAYS[[:space:]]*=/ {
       sub(/^[^=]*=[[:space:]]*/, "", $0)
       gsub(/[[:space:]]+$/, "", $0)
-      gsub(/^['\"]|['\"]$/, "", $0)
+      if (substr($0, 1, 1) == "\"" || substr($0, 1, 1) == sprintf("%c", 39))
+        $0 = substr($0, 2)
+      if (substr($0, length($0), 1) == "\"" || substr($0, length($0), 1) == sprintf("%c", 39))
+        $0 = substr($0, 1, length($0) - 1)
       print $0
       exit
     }
@@ -98,7 +101,7 @@ mapfile -t CLOUDFLARE_SECRET_NAMES < <(
       key=$1
       sub(/^[[:space:]]*(export[[:space:]]+)?/, "", key)
       gsub(/[[:space:]]+$/, "", key)
-      if (key ~ /(_TOKEN|_KEY_ID|_SECRET|_PASSWORD)$/ || key ~ /_SECRET_/) print key
+      if (key ~ /(_TOKEN|_KEY_ID|_SECRET|_PASSWORD|_GLOBAL)$/ || key ~ /_SECRET_/) print key
     }
   ' "$ENV_FILE" | sort -u
 )
