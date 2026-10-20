@@ -19,6 +19,7 @@ CLOUDFLARE_API_TOKEN=api-value-must-not-print
 CLOUDFLARE_TUNNEL_TOKEN=tunnel-value-must-not-print
 CLOUDFLARE_ACCESS_KEY_ID=access-value-must-not-print
 CLOUDFLARE_SECRET_ACCESS_KEY=secret-value-must-not-print
+CLOUDFLARE_GLOBAL=global-key-must-not-print
 CLOUDFLARE_ROTATION_INTERVAL_DAYS=30
 """
         path = directory / ".env.cloudflare"
@@ -54,8 +55,10 @@ CLOUDFLARE_ROTATION_INTERVAL_DAYS=30
             self.assertIn("status=uninitialized", result.stdout)
             self.assertIn("CLOUDFLARE_API_TOKEN", result.stdout)
             self.assertIn("CLOUDFLARE_TUNNEL_TOKEN", result.stdout)
+            self.assertIn("CLOUDFLARE_GLOBAL", result.stdout)
             self.assertNotIn("api-value-must-not-print", result.stdout)
             self.assertNotIn("secret-value-must-not-print", result.stdout)
+            self.assertNotIn("global-key-must-not-print", result.stdout)
 
     def test_initialize_uses_env_mtime_and_sets_30_day_due_date(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -79,6 +82,28 @@ CLOUDFLARE_ROTATION_INTERVAL_DAYS=30
             )
             self.assertEqual(env_file.read_text(encoding="utf-8"), content)
             self.assertEqual(oct(state_file.stat().st_mode & 0o777), "0o600")
+
+    def test_status_parses_quoted_rotation_interval_without_awk_errors(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            env_file, content = self._env_file(directory)
+            env_file.write_text(
+                content.replace("CLOUDFLARE_ROTATION_INTERVAL_DAYS=30", "CLOUDFLARE_ROTATION_INTERVAL_DAYS='45'"),
+                encoding="utf-8",
+            )
+            state_file = directory / "rotation.json"
+
+            result = self._run(
+                "--status",
+                "--env-file",
+                str(env_file),
+                "--state-file",
+                str(state_file),
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stderr, "")
+            self.assertIn("interval_days=45", result.stdout)
 
     def test_execute_requires_explicit_approval(self):
         with tempfile.TemporaryDirectory() as tmp:
