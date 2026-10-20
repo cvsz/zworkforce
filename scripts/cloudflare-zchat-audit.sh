@@ -10,13 +10,24 @@ CADDY="${ZCHAT_CADDY:-http://127.0.0.1}"
 TUNNEL="${ZCHAT_TUNNEL:-zwslcore}"
 
 case "$HOSTNAME" in zchat.zeaz.dev) ;; *) echo "Unexpected hostname; refusing check" >&2; exit 2;; esac
-case "$ORIGIN" in http://127.0.0.1:* ) ;; *) echo "Origin must use loopback HTTP" >&2; exit 2;; esac
+if [[ "$ORIGIN" != "http://127.0.0.1" ]] &&
+  [[ ! "$ORIGIN" =~ ^http://127[.]0[.]0[.]1:([0-9]{1,5})$ ]]; then
+  echo "Origin must be loopback HTTP with an optional numeric port" >&2
+  exit 2
+fi
+if [[ "$ORIGIN" =~ :([0-9]+)$ ]]; then
+  origin_port="${BASH_REMATCH[1]}"
+  if ((10#$origin_port < 1 || 10#$origin_port > 65535)); then
+    echo "Origin port must be between 1 and 65535" >&2
+    exit 2
+  fi
+fi
 case "$CADDY" in http://127.0.0.1|http://127.0.0.1:80) ;; *) echo "Caddy must use local HTTP port 80" >&2; exit 2;; esac
 
 printf '%s\n' '=== ZChat route audit (read-only; no credentials printed) ==='
 printf 'Host: %s\nOrigin: %s\n' "$HOSTNAME" "$ORIGIN"
 if [[ -f "$MANIFEST" ]]; then
-  if grep -Eq "^[[:space:]]*-[[:space:]]*hostname:[[:space:]]*$HOSTNAME[[:space:]]*$" "$MANIFEST"; then
+  if grep -Eq "^[[:space:]]*-[[:space:]]*hostname:[[:space:]]*${HOSTNAME}[[:space:]]*$" "$MANIFEST"; then
     echo "GitOps tunnel manifest: hostname is declared"
   else
     echo "GitOps tunnel manifest: hostname is MISSING (configuration drift)"
