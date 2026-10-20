@@ -8,8 +8,6 @@
 
 "use strict";
 
-
-
 class DuplicateProviderError extends Error {
   constructor(id) {
     super(`AI provider '${id}' is already registered`);
@@ -37,7 +35,8 @@ class AIProviderRegistry {
    */
   register(provider) {
     const id = provider.capability.id;
-    if (!id) throw new TypeError("provider.capability.id must be a non-empty string");
+    if (!id)
+      throw new TypeError("provider.capability.id must be a non-empty string");
     if (this._providers.has(id)) throw new DuplicateProviderError(id);
     this._providers.set(id, provider);
   }
@@ -59,7 +58,9 @@ class AIProviderRegistry {
    * @returns {AIProvider[]}
    */
   findByType(type) {
-    return [...this._providers.values()].filter((p) => p.capability.types.includes(type));
+    return [...this._providers.values()].filter((p) =>
+      p.capability.types.includes(type),
+    );
   }
 
   /** @returns {string[]} All registered provider IDs. */
@@ -77,16 +78,25 @@ class AIProviderRegistry {
         try {
           return await p.health();
         } catch (err) {
-          return { providerId: p.capability.id, healthy: false, latencyMs: null, error: String(err.message) };
+          return {
+            providerId: p.capability.id,
+            healthy: false,
+            latencyMs: null,
+            error: String(err.message),
+          };
         }
-      })
+      }),
     );
-    return results.map((r) => (r.status === "fulfilled" ? r.value : { providerId: "unknown", healthy: false, error: r.reason?.message }));
+    return results.map((r) =>
+      r.status === "fulfilled"
+        ? r.value
+        : { providerId: "unknown", healthy: false, error: r.reason?.message },
+    );
   }
 }
 
 module.exports = {
   DuplicateProviderError,
   ProviderNotFoundError,
-  AIProviderRegistry
+  AIProviderRegistry,
 };

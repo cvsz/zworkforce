@@ -42,5 +42,8 @@
     "globals": "16.5.0",
     "prettier": "3.8.2"
   },
+  "overrides": {
+    "proxy-addr": "2.0.8"
+  },
   "packageManager": "npm@9.2.0"
 }
