@@ -201,7 +201,7 @@ CLOUDFLARE_ROTATION_INTERVAL_DAYS=30
         self.assertIn("OnUnitActiveSec=24h", timer)
         self.assertIn("Persistent=true", timer)
 
-    def test_account_token_hook_keeps_bearer_token_out_of_curl_arguments(self):
+    def test_account_token_hook_keeps_tokens_out_of_argv_and_preserves_recovery_copy(self):
         hook = ROOT / "scripts" / "cloudflare-rotation.d" / "10-account-api-token.sh"
         with tempfile.TemporaryDirectory() as tmp:
             directory = Path(tmp)
@@ -236,7 +236,9 @@ CLOUDFLARE_ROTATION_INTERVAL_DAYS=30
                 "record = {'args': args, 'auth': auth, 'mode': auth_path.stat().st_mode & 0o777}\n"
                 "with open(os.environ['CURL_RECORDS_FILE'], 'a', encoding='utf-8') as out: out.write(json.dumps(record) + '\\n')\n"
                 "url = args[-1]\n"
-                "if url.endswith('/tokens/verify') and 'runtime-secret-value' in auth: result = {'id': 'runtime-id', 'status': 'active'}\n"
+                "if url.endswith('/tokens/verify') and 'replacement-secret-value' in auth and os.environ.get('FAIL_NEW_TOKEN_VERIFY') == '1':\n"
+                "    print(json.dumps({'success': False, 'errors': [{'message': 'verification unavailable'}]})); sys.exit(0)\n"
+                "elif url.endswith('/tokens/verify') and 'runtime-secret-value' in auth: result = {'id': 'runtime-id', 'status': 'active'}\n"
                 "elif url.endswith('/tokens/verify') and 'bootstrap-secret-value' in auth: result = {'id': 'bootstrap-id', 'status': 'active'}\n"
                 "elif url.endswith('/tokens/runtime-id/value'): result = 'replacement-secret-value'\n"
                 "elif url.endswith('/tokens/verify'): result = {'id': 'runtime-id', 'status': 'active'}\n"
@@ -254,6 +256,30 @@ CLOUDFLARE_ROTATION_INTERVAL_DAYS=30
                     "CLOUDFLARE_API_ROOT": "https://api.cloudflare.test/client/v4",
                     "CURL_RECORDS_FILE": str(records_file),
                 }
+            )
+
+            env_file.write_text(
+                "CLOUDFLARE_API_TOKEN=runtime-secret-value\n"
+                "CLOUDFLARE_API_TOKEN=duplicate-value\n"
+                "CLOUDFLARE_ACCOUNT_ID=account-id\n"
+                "CLOUDFLARE_TUNNEL_ID=tunnel-id\n",
+                encoding="utf-8",
+            )
+            duplicate = subprocess.run(
+                ["bash", str(hook), str(env_file)],
+                check=False,
+                capture_output=True,
+                text=True,
+                env=run_env,
+            )
+            self.assertNotEqual(duplicate.returncode, 0)
+            self.assertIn("exactly one CLOUDFLARE_API_TOKEN assignment", duplicate.stderr)
+            self.assertFalse(records_file.exists(), "preflight must fail before any Cloudflare API call")
+            env_file.write_text(
+                "CLOUDFLARE_API_TOKEN=runtime-secret-value\n"
+                "CLOUDFLARE_ACCOUNT_ID=account-id\n"
+                "CLOUDFLARE_TUNNEL_ID=tunnel-id\n",
+                encoding="utf-8",
             )
 
             result = subprocess.run(
@@ -277,6 +303,36 @@ CLOUDFLARE_ROTATION_INTERVAL_DAYS=30
             self.assertEqual(records[2]["auth"], "Authorization: Bearer bootstrap-secret-value")
             self.assertFalse(any(Path(arg[1:]).exists() for record in records for arg in record["args"] if arg.startswith("@")))
             self.assertIn("CLOUDFLARE_API_TOKEN=replacement-secret-value", env_file.read_text())
+            self.assertEqual(list(output_dir.glob(".account-api-token-recovery.*")), [])
+
+            # Simulate a transient verification failure after Cloudflare has
+            # already invalidated the old value. The replacement must remain
+            # recoverable without being printed or passed in process arguments.
+            env_file.write_text(
+                "CLOUDFLARE_API_TOKEN=runtime-secret-value\n"
+                "CLOUDFLARE_ACCOUNT_ID=account-id\n"
+                "CLOUDFLARE_TUNNEL_ID=tunnel-id\n",
+                encoding="utf-8",
+            )
+            fail_env = run_env.copy()
+            fail_env["FAIL_NEW_TOKEN_VERIFY"] = "1"
+            failed = subprocess.run(
+                ["bash", str(hook), str(env_file)],
+                check=False,
+                capture_output=True,
+                text=True,
+                env=fail_env,
+            )
+            self.assertNotEqual(failed.returncode, 0)
+            self.assertNotIn("replacement-secret-value", failed.stdout + failed.stderr)
+            self.assertIn("replacement token saved in mode-0600 recovery file", failed.stderr)
+            recovery_files = list(output_dir.glob(".account-api-token-recovery.*"))
+            self.assertEqual(len(recovery_files), 1)
+            recovery_file = recovery_files[0]
+            self.assertEqual(recovery_file.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(recovery_file.read_text(), "CLOUDFLARE_API_TOKEN=replacement-secret-value\n")
+            self.assertEqual(env_file.read_text().splitlines()[0], "CLOUDFLARE_API_TOKEN=runtime-secret-value")
+            self.assertFalse(any(Path(arg[1:]).exists() for record in [json.loads(line) for line in records_file.read_text().splitlines()] for arg in record["args"] if arg.startswith("@")))
 
 
 if __name__ == "__main__":

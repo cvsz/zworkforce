@@ -11,9 +11,15 @@ BOOTSTRAP_ENV_FILE="${ROTATION_BOOTSTRAP_ENV_FILE:-$HOME/.config/zworkforce/clou
 OUT_DIR="${ROTATION_OUT_DIR:-$ROOT/output/cloudflare-rotation}"
 API_ROOT="${CLOUDFLARE_API_ROOT:-https://api.cloudflare.com/client/v4}"
 active_header_file=""
+env_tmp=""
+recovery_file=""
+recovery_has_token=0
 
 fail() {
   printf 'cloudflare account-token rotation: %s\n' "$1" >&2
+  if (( recovery_has_token == 1 )) && [[ -n "$recovery_file" && -f "$recovery_file" ]]; then
+    printf 'cloudflare account-token rotation: replacement token saved in mode-0600 recovery file: %s\n' "$recovery_file" >&2
+  fi
   exit "${2:-1}"
 }
 
@@ -22,7 +28,17 @@ cleanup_header() {
     rm -f -- "$active_header_file"
   fi
 }
-trap cleanup_header EXIT
+
+cleanup() {
+  cleanup_header
+  if [[ -n "$env_tmp" && -e "$env_tmp" ]]; then
+    rm -f -- "$env_tmp"
+  fi
+  if (( recovery_has_token == 0 )) && [[ -n "$recovery_file" && -e "$recovery_file" ]]; then
+    rm -f -- "$recovery_file"
+  fi
+}
+trap cleanup EXIT
 
 require_secret_file() {
   local path="$1" label="$2" mode
@@ -65,6 +81,22 @@ bootstrap_token="$(read_env_value CLOUDFLARE_ROTATION_BOOTSTRAP_TOKEN "$BOOTSTRA
 [[ "$runtime_token" != "$bootstrap_token" ]] || {
   fail "bootstrap and runtime tokens must be different; refusing self-rotation"
 }
+
+# Validate every local persistence prerequisite before the remote token is
+# rolled. Cloudflare invalidates the previous value immediately after a roll.
+token_assignment_count="$(awk '
+  /^[[:space:]]*(export[[:space:]]+)?CLOUDFLARE_API_TOKEN[[:space:]]*=/ { count++ }
+  END { print count + 0 }
+' "$ENV_FILE")"
+[[ "$token_assignment_count" == 1 ]] || fail "environment file must contain exactly one CLOUDFLARE_API_TOKEN assignment"
+env_dir="$(dirname "$ENV_FILE")"
+env_tmp="$(mktemp "$env_dir/.env.cloudflare.rotation.XXXXXX")"
+chmod 600 "$env_tmp"
+umask 077
+mkdir -p "$OUT_DIR"
+chmod 700 "$OUT_DIR"
+recovery_file="$(mktemp "$OUT_DIR/.account-api-token-recovery.XXXXXX")"
+chmod 600 "$recovery_file"
 
 api_get() {
   local token="$1" path="$2" response header_file
@@ -118,6 +150,12 @@ bootstrap_id="$(printf '%s' "$bootstrap_verify" | jq -er '.result.id')" || fail 
 rolled="$(api_roll "$bootstrap_token" "/accounts/$account_id/tokens/$runtime_id/value")"
 [[ "$(printf '%s' "$rolled" | jq -r '.success // false')" == true ]] || fail "Cloudflare did not roll the runtime token"
 new_token="$(printf '%s' "$rolled" | jq -er '.result')" || fail "Cloudflare returned no replacement token"
+[[ "$new_token" != *$'\r'* && "$new_token" != *$'\n'* ]] || fail "Cloudflare returned invalid replacement-token characters"
+
+# Save the rotated value before any further API call can fail. If verification
+# or local replacement fails, the operator can recover from this private file.
+recovery_has_token=1
+printf 'CLOUDFLARE_API_TOKEN=%s\n' "$new_token" > "$recovery_file" || fail "could not persist replacement token recovery file"
 
 new_verify="$(api_get "$new_token" "/accounts/$account_id/tokens/verify")"
 [[ "$(printf '%s' "$new_verify" | jq -r '.success // false')" == true ]] || fail "replacement token verification failed"
@@ -126,16 +164,6 @@ new_verify="$(api_get "$new_token" "/accounts/$account_id/tokens/verify")"
 
 tunnel_status="$(api_get "$new_token" "/accounts/$account_id/cfd_tunnel/$tunnel_id")"
 [[ "$(printf '%s' "$tunnel_status" | jq -r '.success // false')" == true ]] || fail "replacement token cannot read the configured tunnel"
-
-env_dir="$(dirname "$ENV_FILE")"
-env_tmp="$(mktemp "$env_dir/.env.cloudflare.rotation.XXXXXX")"
-cleanup() {
-  cleanup_header
-  if [[ -n "${env_tmp:-}" && -e "$env_tmp" ]]; then
-    rm -f -- "$env_tmp"
-  fi
-}
-trap cleanup EXIT
 
 awk '
   BEGIN { count=0; if ((getline replacement < "/dev/fd/3") <= 0) exit 18 }
@@ -150,10 +178,10 @@ awk '
 chmod 600 "$env_tmp"
 mv -f "$env_tmp" "$ENV_FILE"
 env_tmp=""
+rm -f -- "$recovery_file" || fail "token installed but recovery-file cleanup failed"
+recovery_file=""
+recovery_has_token=0
 
-umask 077
-mkdir -p "$OUT_DIR"
-chmod 700 "$OUT_DIR"
 evidence="$OUT_DIR/account-api-token-$(date -u +%Y%m%dT%H%M%SZ).json"
 jq -n \
   --arg token_id "$runtime_id" \
