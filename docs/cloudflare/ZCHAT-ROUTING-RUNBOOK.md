@@ -20,7 +20,7 @@ Run in the actual origin host environment:
 bash scripts/cloudflare-zchat-audit.sh
 ```
 
-The script is **read-only** and prints HTTP status codes rather than response bodies. It never reads token files, creates DNS records, restarts cloudflared, reloads Caddy, or mutates production infrastructure.
+The script is **read-only** and prints HTTP status codes rather than response bodies. By default it does not invoke `cloudflared` or use its stored credentials. To explicitly include active connector details, set `ZCHAT_INCLUDE_TUNNEL_INFO=1`; `cloudflared tunnel info` may use the configured account certificate. That inventory reports connectors, not remote-managed published routes. The script creates no DNS records, restarts no services, and mutates no production infrastructure. See [Cloudflare tunnel permissions](https://developers.cloudflare.com/tunnel/features/locally-managed-tunnels/tunnel-permissions/) and [useful tunnel commands](https://developers.cloudflare.com/tunnel/features/locally-managed-tunnels/tunnel-useful-commands/) for credential scope and command behavior.
 
 ## Promotion gates
 

@@ -8,6 +8,7 @@ MANIFEST="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/deploy/cloudflare/tun
 ORIGIN="${ZCHAT_ORIGIN:-http://127.0.0.1:8000}"
 CADDY="${ZCHAT_CADDY:-http://127.0.0.1}"
 TUNNEL="${ZCHAT_TUNNEL:-zwslcore}"
+INCLUDE_TUNNEL_INFO="${ZCHAT_INCLUDE_TUNNEL_INFO:-0}"
 
 case "$HOSTNAME" in zchat.zeaz.dev) ;; *) echo "Unexpected hostname; refusing check" >&2; exit 2;; esac
 if [[ "$ORIGIN" != "http://127.0.0.1" ]] &&
@@ -23,6 +24,7 @@ if [[ "$ORIGIN" =~ :([0-9]+)$ ]]; then
   fi
 fi
 case "$CADDY" in http://127.0.0.1|http://127.0.0.1:80) ;; *) echo "Caddy must use local HTTP port 80" >&2; exit 2;; esac
+case "$INCLUDE_TUNNEL_INFO" in 0|1) ;; *) echo "ZCHAT_INCLUDE_TUNNEL_INFO must be 0 or 1" >&2; exit 2;; esac
 
 printf '%s\n' '=== ZChat route audit (read-only; no credentials printed) ==='
 printf 'Host: %s\nOrigin: %s\n' "$HOSTNAME" "$ORIGIN"
@@ -42,9 +44,13 @@ if [[ -f "$CADDYFILE" ]]; then
 else
   echo "Caddyfile: not accessible"
 fi
-if command -v cloudflared >/dev/null 2>&1; then
-  echo "=== Tunnel inventory ==="
-  cloudflared tunnel info "$TUNNEL" 2>&1 | sed -E 's/(token|secret|password|credential)[=:][^[:space:]]+/\1=[REDACTED]/Ig' || true
+if [[ "$INCLUDE_TUNNEL_INFO" == 1 ]]; then
+  if command -v cloudflared >/dev/null 2>&1; then
+    echo "=== Tunnel connector inventory (cloudflared credentials may be used) ==="
+    cloudflared tunnel info "$TUNNEL" 2>&1 | sed -E 's/(token|secret|password|credential)[=:][^[:space:]]+/\1=[REDACTED]/Ig' || true
+  else
+    echo "Tunnel inventory: cloudflared is unavailable"
+  fi
 fi
 
 request() {
