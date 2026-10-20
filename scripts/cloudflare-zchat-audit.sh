@@ -47,7 +47,12 @@ fi
 if [[ "$INCLUDE_TUNNEL_INFO" == 1 ]]; then
   if command -v cloudflared >/dev/null 2>&1; then
     echo "=== Tunnel connector inventory (cloudflared credentials may be used) ==="
-    cloudflared tunnel info "$TUNNEL" 2>&1 | sed -E 's/(token|secret|password|credential)[=:][^[:space:]]+/\1=[REDACTED]/Ig' || true
+    # Suppress free-form provider output to avoid leaking secrets from errors.
+    if cloudflared tunnel info "$TUNNEL" >/dev/null 2>&1; then
+      echo "Tunnel inventory: query succeeded (details suppressed)"
+    else
+      echo "Tunnel inventory: query failed (details suppressed)"
+    fi
   else
     echo "Tunnel inventory: cloudflared is unavailable"
   fi
