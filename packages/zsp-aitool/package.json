@@ -68,10 +68,10 @@
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "@next/env": "^15.5.18",
-    "next": "^16.3.8",
+    "next": "^16.4.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "zod": "^3.23.8"
+    "zod": "^4.6.0"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.1",
@@ -82,7 +82,7 @@
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.19",
     "eslint": "^8.57.0",
-    "eslint-config-next": "15.5.18",
+    "eslint-config-next": "16.4.1",
     "jsdom": "^25.0.1",
     "postcss": "8.5.23",
     "prisma": "^5.22.0",
