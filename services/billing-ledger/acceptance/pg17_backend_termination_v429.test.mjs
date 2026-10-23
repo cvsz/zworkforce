@@ -15,6 +15,9 @@ for (const [name, expected] of Object.entries({
 })) {
   if (process.env[name] !== expected) throw new Error(`Disposable-only admission refused: ${name}`);
 }
+if (!/^[0-9a-f]{12,64}$/.test(String(process.env.POSTGRES_TEST_CONTAINER_ID || ''))) {
+  throw new Error('Disposable PostgreSQL container attestation required');
+}
 if (!process.env.PG_TEST_PASSWORD || !/^\d+$/.test(String(process.env.PGPORT || '5432'))) {
   throw new Error('Disposable PostgreSQL credentials/port required');
 }
