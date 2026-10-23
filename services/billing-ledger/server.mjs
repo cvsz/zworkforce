@@ -41,8 +41,8 @@ function requireString(value, name) {
   return value.trim();
 }
 
-// Financial usage counts must not be inferred from booleans, arrays, objects,
-// exponent/hex strings, or whitespace. Preserve canonical decimal strings.
+// ห้ามแปลง Token Counts จาก boolean, array, object, exponent/hex หรือ whitespace โดยอัตโนมัติ
+// อนุญาตเฉพาะตัวเลขและ canonical decimal strings เพื่อรักษาความถูกต้องของ Financial Usage
 function normalizeUsageTokens(value) {
   if (value === undefined || value === null) return 0;
   if (typeof value === "number") return value;
