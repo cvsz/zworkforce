@@ -69,6 +69,8 @@ export class PgFinancialStore {
     if (tenant !== claimedTenant) throw new PgFinancialStoreError('Tenant authorization mismatch', 403);
     const client = await this.pool.connect();
     let started = false;
+    let discardConnection = false;
+    let commitAttempted = false;
     try {
       await client.query('BEGIN');
       started = true;
@@ -92,16 +94,19 @@ export class PgFinancialStore {
       }
       await client.query("SELECT set_config('zeaz.tenant_id', $1, true)", [tenant]);
       const result = await action(client, tenant);
+      commitAttempted = true;
       await client.query('COMMIT');
       return result;
     } catch (error) {
+      // A failed BEGIN/COMMIT or ROLLBACK leaves the session state uncertain.
+      if (!started || commitAttempted) discardConnection = true;
       if (started) {
-        try { await client.query('ROLLBACK'); } catch { /* Preserve the original failure. */ }
+        try { await client.query('ROLLBACK'); } catch { discardConnection = true; }
       }
       if (error?.code === '23505') throw new PgFinancialStoreError('Conflicting financial identity', 409);
       throw error;
     } finally {
-      client.release();
+      client.release(discardConnection ? new Error('Financial transaction session state uncertain') : undefined);
     }
   }
 
