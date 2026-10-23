@@ -30,8 +30,23 @@ function safeCount(value, name, min = 0) {
   if (!Number.isSafeInteger(value) || value < min) throw new PgFinancialStoreError(`Invalid ${name}`);
 }
 function dateString(value, name) {
-  if (typeof value !== 'string' || !Number.isFinite(Date.parse(value))) throw new PgFinancialStoreError(`Invalid ${name}`);
-  return new Date(value).toISOString();
+  // Financial timestamps must have an explicit timezone and a valid calendar date.
+  // Restrict fractions to milliseconds to avoid silently discarding precision.
+  const match = typeof value === 'string' &&
+    /^(\d{4})-(\d{2})-(\d{2})T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d{1,3})?(Z|([+-])(0\d|1[0-4]):([0-5]\d))$/.exec(value);
+  if (!match) throw new PgFinancialStoreError(`Invalid ${name}`);
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (month < 1 || month > 12 || day < 1 || day > daysInMonth[month - 1] ||
+      (match[5] && Number(match[6]) === 14 && Number(match[7]) !== 0)) {
+    throw new PgFinancialStoreError(`Invalid ${name}`);
+  }
+  const epoch = Date.parse(value);
+  if (!Number.isFinite(epoch)) throw new PgFinancialStoreError(`Invalid ${name}`);
+  return new Date(epoch).toISOString();
 }
 function asDate(value) { return value instanceof Date ? value.toISOString() : new Date(value).toISOString(); }
 function usageRow(row) {
