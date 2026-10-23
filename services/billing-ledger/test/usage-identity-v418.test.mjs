@@ -64,7 +64,7 @@ test('direct invoice store rejects missing tenant and request idempotency identi
       (error) => error instanceof BillingLedgerError && error.status === 400);
   }
   assert.equal(store.invoiceIntents.size, 0);
-  const accepted = await store.createInvoiceIntent({ tenant_id: 'tenant-a', idempotency_key: 'key', intent_id: 'intent-a' });
+  const accepted = await store.createInvoiceIntent({ tenant_id: 'tenant-a', idempotency_key: 'key', intent_id: 'intent-a', amount_minor: 100 });
   assert.equal(accepted.intent_id, 'intent-a');
   assert.equal(store.invoiceIntents.size, 1);
 });
