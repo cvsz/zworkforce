@@ -68,9 +68,9 @@ export class MemoryLedgerStore {
     return { duplicate: false, record };
   }
 
-  async setCredits(tenantId, amount) {
-    this.credits.set(tenantId, Number(amount));
-    return { tenant_id: tenantId, credits: this.credits.get(tenantId) };
+  async setCredits() {
+    // No authorized credit-write contract exists, including for in-process callers.
+    throw new BillingLedgerError("Credit writes require independent approval", 503);
   }
 
   async createInvoiceIntent(intent) {
@@ -93,8 +93,9 @@ export class BillingLedger {
     return this.store.recordUsage(record);
   }
 
-  async setCredits(input) {
-    return this.store.setCredits(requireString(input.tenant_id, "tenant_id"), Number(input.credits));
+  async setCredits() {
+    // Never delegate an unapproved credit mutation to an injected store.
+    throw new BillingLedgerError("Credit writes require independent approval", 503);
   }
 
   async createInvoiceIntent(input) {
