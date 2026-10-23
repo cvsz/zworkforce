@@ -112,10 +112,17 @@ export class BillingLedger {
   }
 }
 
+// Emergency containment until trusted tenant authorization and durable idempotency are enforced.
+const blockedFinancialMutations = new Set(["/v1/usage", "/v1/credits", "/v1/invoice-intents"]);
+
 export function createBillingLedgerServer({ env = process.env, ledger = new BillingLedger() } = {}) {
   return createServer(async (request, response) => {
     if (request.method === "GET" && request.url === "/health") return send(response, 200, { status: "ok", service: "billing-ledger", wallet_authority: false, card_data: false });
     if (!authorized(request, env)) return send(response, 401, { error: "Unauthorized" });
+    if (request.method === "POST" && blockedFinancialMutations.has(request.url)) {
+      response.setHeader("Cache-Control", "no-store");
+      return send(response, 503, { error: "Financial mutations disabled pending tenant-bound authorization and durable idempotency" });
+    }
 
     try {
       if (request.method === "POST" && request.url === "/v1/usage") {
