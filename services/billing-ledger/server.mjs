@@ -41,6 +41,15 @@ function requireString(value, name) {
   return value.trim();
 }
 
+// Financial usage counts must not be inferred from booleans, arrays, objects,
+// exponent/hex strings, or whitespace. Preserve canonical decimal strings.
+function normalizeUsageTokens(value) {
+  if (value === undefined || value === null) return 0;
+  if (typeof value === "number") return value;
+  if (typeof value === "string" && /^(?:0|[1-9][0-9]*)$/.test(value)) return Number(value);
+  throw new BillingLedgerError("usage tokens must be non-negative safe integers");
+}
+
 function normalizeUsage(input) {
   return {
     event_type: "ai.usage.recorded.v1",
@@ -50,8 +59,8 @@ function normalizeUsage(input) {
     tenant_id: requireString(input.tenant_id, "tenant_id"),
     subject_id: input.subject_id ? requireString(input.subject_id, "subject_id") : "unknown",
     model: requireString(input.model || "unknown", "model"),
-    input_tokens: Number(input.input_tokens ?? 0),
-    output_tokens: Number(input.output_tokens ?? 0),
+    input_tokens: normalizeUsageTokens(input.input_tokens),
+    output_tokens: normalizeUsageTokens(input.output_tokens),
     recorded_at: input.recorded_at || new Date().toISOString(),
   };
 }
