@@ -33,7 +33,9 @@ different tenant cannot return another tenant's record or invoice intent.
   `BillingLedger` and direct `MemoryLedgerStore` boundaries. Unsafe, missing,
   fractional, non-finite, negative and zero values fail with 400 before
   idempotency lookup or mutation. The ledger retains valid numeric-string
-  normalization; direct store calls require numeric values. This change does
+  normalization for canonical decimal-integer strings only; booleans, arrays, objects,
+  hexadecimal/exponent forms and whitespace-padded strings are rejected; direct
+  store calls require numeric values. This change does
   not authorize payment execution or address same-key conflicting-payload replay.
 - This is **not** authorization to enable payments, credits, or invoices.
 
