@@ -142,6 +142,10 @@ export class MemoryLedgerStore {
       }
       return structuredClone(existing);
     }
+    // This store creates intents only; settlement state requires a separate authorized workflow.
+    if (intent.status !== undefined && intent.status !== "requires_payment_processor") {
+      throw new BillingLedgerError("invoice intent status must be requires_payment_processor");
+    }
     this.invoiceIntents.set(key, structuredClone(intent));
     return structuredClone(intent);
   }
