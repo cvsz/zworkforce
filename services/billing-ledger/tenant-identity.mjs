@@ -45,6 +45,7 @@ export function createFinancialTenantResolver({ issuer, audience, getJwks, looku
         !claims || typeof claims !== 'object' || Array.isArray(claims)) throw deny();
 
     const seconds = Math.floor(now() / 1000);
+    if (!Number.isSafeInteger(seconds) || seconds < 0) throw new FinancialIdentityError('Clock unavailable', 503);
     const { iss, aud, sub, tenant_id: tenant, exp, iat, nbf, scope } = claims;
     if (iss !== issuer || !(aud === audience || (Array.isArray(aud) && aud.length > 0 && aud.every(value => stringId(value, 256)) && aud.includes(audience))) ||
         !stringId(sub) || !stringId(tenant) || !Number.isSafeInteger(exp) ||
