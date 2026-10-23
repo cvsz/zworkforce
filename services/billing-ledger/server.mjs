@@ -55,6 +55,17 @@ function normalizeUsage(input) {
   };
 }
 
+function normalizeInvoiceMinorUnits(value) {
+  // Only canonical decimal integer strings may be coerced; never coerce booleans or objects.
+  if (typeof value === "number") {
+    if (Number.isSafeInteger(value) && value > 0) return value;
+  } else if (typeof value === "string" && /^[0-9]+$/.test(value)) {
+    const amount = Number(value);
+    if (Number.isSafeInteger(amount) && amount > 0) return amount;
+  }
+  throw new BillingLedgerError("amount_minor must be a positive safe integer");
+}
+
 export class MemoryLedgerStore {
   constructor() {
     this.records = new Map();
@@ -92,6 +103,9 @@ export class MemoryLedgerStore {
   async createInvoiceIntent(intent) {
     const tenantId = requireString(intent?.tenant_id, "tenant_id");
     const requestKey = requireString(intent?.idempotency_key, "idempotency_key");
+    if (!Number.isSafeInteger(intent.amount_minor) || intent.amount_minor <= 0) {
+      throw new BillingLedgerError("amount_minor must be a positive safe integer");
+    }
     const key = JSON.stringify([tenantId, requestKey]);
     if (this.invoiceIntents.has(key)) return this.invoiceIntents.get(key);
     this.invoiceIntents.set(key, structuredClone(intent));
@@ -126,11 +140,11 @@ export class BillingLedger {
       idempotency_key: requireString(input.idempotency_key, "idempotency_key"),
       tenant_id: requireString(input.tenant_id, "tenant_id"),
       currency: requireString(input.currency, "currency").toUpperCase(),
-      amount_minor: Number(input.amount_minor),
+      amount_minor: normalizeInvoiceMinorUnits(input.amount_minor),
       status: "requires_payment_processor",
       created_at: this.now(),
     };
-    if (!Number.isInteger(intent.amount_minor) || intent.amount_minor <= 0) throw new BillingLedgerError("amount_minor must be a positive integer");
+    if (!Number.isSafeInteger(intent.amount_minor) || intent.amount_minor <= 0) throw new BillingLedgerError("amount_minor must be a positive safe integer");
     return this.store.createInvoiceIntent(intent);
   }
 }
