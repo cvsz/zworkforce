@@ -12,8 +12,9 @@ response remains 503.
 
 - A new PostgreSQL 17 service is created by the GitHub-hosted job.
 - The runner verifies the Docker service identity, disposable label, expected
-  database, major version, and absence of the financial schema **before**
-  executing any SQL.
+  database, major version, and absence of user-defined schemas, public
+  relations/functions/types, and non-default extensions **before** executing
+  any SQL. A missing financial schema alone is not proof of an empty database.
 - Tenant-scoped uniqueness, RLS reads/writes, initial invoice status,
   JavaScript safe-integer range, transactional audit insert, append-only audit,
   rollback, and competing inserts are exercised with synthetic records.
@@ -35,6 +36,19 @@ response remains 503.
    deployment or production database change.
 
 ## Reproduce (isolated CI only)
+
+Run the offline no-Docker preflight regressions first:
+
+```bash
+bash -n scripts/financial-pg17-disposable-admission.sh
+python3 -m unittest discover -s scripts/tests -p 'test_financial_pg17_preflight.py' -v
+```
+
+The tests use a fake Docker executable and **never execute SQL**. The
+real SQL contract must be verified separately by hosted PostgreSQL CI.
+The disposable label and environment flag are defense-in-depth preflight
+checks, not cryptographic identity attestation or permission to run against
+any existing database.
 
 Run `Financial PostgreSQL 17 Disposable Admission` against the exact PR
 commit in GitHub Actions. The script refuses execution unless it receives an
