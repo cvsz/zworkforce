@@ -60,6 +60,7 @@ jobs:
         shell: bash
         env:
           Z_FINANCIAL_PG17_REAL_DRIVER: "true"
+          Z_FINANCIAL_PG17_BACKEND_TERMINATION: "true"
           POSTGRES_TEST_CONTAINER_ID: ${{ job.services.postgres.id }}
           PGHOST: "127.0.0.1"
           PGPORT: "5432"
@@ -76,7 +77,7 @@ jobs:
           export PG_TEST_PASSWORD
           docker exec -i "$POSTGRES_TEST_CONTAINER_ID" psql -X -v ON_ERROR_STOP=1 -U postgres -d zeaz_financial_acceptance \
             -c "ALTER ROLE zeaz_financial_app_test PASSWORD '$PG_TEST_PASSWORD';" >/dev/null
-          node --test services/billing-ledger/acceptance/pg17_real_driver_v427.test.mjs services/billing-ledger/acceptance/pg17_commit_ack_fault_v428.test.mjs
+          node --test services/billing-ledger/acceptance/pg17_real_driver_v427.test.mjs services/billing-ledger/acceptance/pg17_commit_ack_fault_v428.test.mjs services/billing-ledger/acceptance/pg17_backend_termination_v429.test.mjs
       - name: Run in-process financial regression contracts
         shell: bash
         run: |
