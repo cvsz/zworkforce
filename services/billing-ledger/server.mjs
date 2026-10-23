@@ -68,6 +68,11 @@ export class MemoryLedgerStore {
     const tenantId = requireString(record?.tenant_id, "tenant_id");
     const requestKey = requireString(record?.idempotency_key, "idempotency_key");
     const usageId = requireString(record?.usage_id, "usage_id");
+    // Direct-store callers bypass BillingLedger normalization; reject unsafe raw counts.
+    if (!Number.isSafeInteger(record.input_tokens) || record.input_tokens < 0 ||
+        !Number.isSafeInteger(record.output_tokens) || record.output_tokens < 0) {
+      throw new BillingLedgerError("usage tokens must be non-negative safe integers");
+    }
     const key = JSON.stringify([tenantId, requestKey]);
     if (this.records.has(key)) return { duplicate: true, record: this.records.get(key) };
     const usageKey = JSON.stringify([tenantId, usageId]);
