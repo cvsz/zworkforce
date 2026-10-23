@@ -24,9 +24,9 @@ tenants remain isolated.
 - A repeated `usage_id` under a different request key within one tenant is
   rejected with `409`; the original record and identity index are preserved.
   Another tenant may reuse the same `usage_id` independently.
-- Replays with the same tenant/request key but conflicting payloads retain the
-  legacy duplicate behavior. Full semantic replay-conflict detection is a
-  separate admission gate; invoice intents still lack this conflict check.
+- Same-tenant idempotency replays with changed financial business fields return
+  409; exact semantic replays remain idempotent. Server-generated metadata is
+  excluded from replay comparison.
 - In-process usage token counts must be non-negative safe integers. Non-finite,
   fractional, and unsafe counts fail with 400 before any record or identity-index
   mutation. The direct `MemoryLedgerStore.recordUsage()` boundary requires numeric
@@ -36,8 +36,10 @@ tenants remain isolated.
   `BillingLedger` and direct `MemoryLedgerStore` boundaries. Unsafe, missing,
   fractional, non-finite, negative and zero values fail with 400 before
   idempotency lookup or mutation. The ledger retains valid numeric-string
-  normalization; direct store calls require numeric values. This change does
-  not authorize payment execution or address same-key conflicting-payload replay.
+  normalization for canonical decimal-integer strings only; booleans, arrays,
+  objects, hexadecimal/exponent forms and whitespace-padded strings are rejected;
+  direct store calls require numeric values. This change does not authorize
+  payment execution.
 - This is **not** authorization to enable payments, credits, or invoices.
 
 ## Verification

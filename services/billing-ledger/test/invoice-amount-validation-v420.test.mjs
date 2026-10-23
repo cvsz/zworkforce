@@ -32,7 +32,7 @@ test("direct invoice store validates malformed replays before returning stored i
 
 test("ledger rejects unsafe invoice amounts and retains valid numeric string compatibility", async () => {
   const ledger = new BillingLedger({ idGenerator: () => "intent-a", now: () => "2026-10-23T00:00:00.000Z" });
-  for (const amount_minor of [NaN, Infinity, -Infinity, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, "NaN", "Infinity"]) {
+  for (const amount_minor of [NaN, Infinity, -Infinity, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, "NaN", "Infinity", true, false, [100], {}, "0x10", "1e2", " 100 ", "+100", "100.0"]) {
     await assert.rejects(ledger.createInvoiceIntent({ ...valid, amount_minor }), isBadRequest);
   }
   assert.equal(ledger.store.invoiceIntents.size, 0);
