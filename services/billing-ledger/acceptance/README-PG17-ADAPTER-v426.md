@@ -60,3 +60,22 @@ evidence **only if the exact-head hosted job succeeds**.
 
 Close the draft PR or revert the scoped feature-branch commits. No existing
 production database schema, endpoint, secret, or deployment is changed.
+
+## Connection pool cleanup safety (v427 candidate)
+
+The adapter discards a pooled client when BEGIN fails, COMMIT reports an
+uncertain outcome, or ROLLBACK fails. Normal commits and successfully rolled-back
+application errors may reuse their connections. Discarding an uncertain client
+prevents a potentially open transaction, active runtime role, or tenant-local
+session context from crossing requests. The original transaction error is
+preserved for the caller. The Node PostgreSQL driver supports `client.release(error)`
+to remove a failed connection from the pool.
+
+Regression: `node --test services/billing-ledger/test/pg-store-connection-release-v427.test.mjs`.
+These tests use a fake pool; real PostgreSQL connection-pool reuse, network
+fault injection, crash/restart, and production identity acceptance remain
+mandatory external gates. Financial HTTP writes remain disabled (503).
+
+Rollback: revert only this cleanup hardening on a non-production feature
+branch after review; never enable financial mutations or restore unsafe pooled
+session reuse in production.
