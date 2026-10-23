@@ -22,3 +22,24 @@ Rollback: revert this patch only in an isolated development checkout; do not
 restore the vulnerable HTTP mutation routes in production. If containment
 causes operational issues, keep the financial endpoints disabled and roll back
 only unrelated changes.
+
+## Strict service Authorization scheme
+
+Authenticated service calls must use `Authorization: Bearer <token>`. The
+scheme is case-insensitive and may contain multiple separating spaces, but a
+bare token, Basic/Token scheme, tab separator, or appended second credential
+returns 401. Token comparison remains length-checked and timing-safe. Missing
+service credentials fail closed. This deliberately removes nonstandard bare
+token compatibility; callers must use the documented Bearer format.
+
+Verify the HTTP contract with:
+
+```bash
+node --check services/billing-ledger/server.mjs
+node --test services/billing-ledger/test/*.test.mjs
+```
+
+Rollback only the Bearer parsing change on a development branch if a verified
+compatibility issue requires it. Never remove financial HTTP containment or
+enable financial writes as part of rollback. Downstream stacked billing PRs
+must be reconciled with this branch before admission.
