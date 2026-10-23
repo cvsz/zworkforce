@@ -18,9 +18,11 @@ function send(response, status, body) {
 }
 
 function authorized(request, env) {
-  const supplied = request.headers.authorization?.replace(/^Bearer\s+/i, "");
+  // Accept the Bearer scheme only; never treat a raw secret or another scheme as authorized.
+  const match = /^Bearer +(\S+)$/i.exec(request.headers.authorization ?? "");
   const expected = env.Z_PLATFORM_SERVICE_TOKEN;
-  if (!supplied || !expected) return false;
+  if (!match || typeof expected !== "string" || !expected) return false;
+  const supplied = match[1];
   const a = Buffer.from(supplied);
   const b = Buffer.from(expected);
   return a.length === b.length && timingSafeEqual(a, b);
