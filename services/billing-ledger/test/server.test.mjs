@@ -27,9 +27,10 @@ test("records usage idempotently", async () => {
   assert.equal(second.record.output_tokens, 4);
 });
 
-test("creates credits and invoice intents without wallet authority", async () => {
+test("rejects credit mutations while retaining synthetic invoice intent contract", async () => {
   const ledger = new BillingLedger({ idGenerator: () => "intent-1", now: () => "2026-07-14T00:00:00.000Z" });
-  assert.deepEqual(await ledger.setCredits({ tenant_id: "tenant-1", credits: 100 }), { tenant_id: "tenant-1", credits: 100 });
+  await assert.rejects(ledger.setCredits({ tenant_id: "tenant-1", credits: 100 }), error => error.status === 503);
+  assert.equal(ledger.store.credits.size, 0);
   assert.deepEqual(await ledger.createInvoiceIntent({ tenant_id: "tenant-1", idempotency_key: "invoice-1", currency: "usd", amount_minor: 500 }), {
     intent_id: "intent-1",
     idempotency_key: "invoice-1",
