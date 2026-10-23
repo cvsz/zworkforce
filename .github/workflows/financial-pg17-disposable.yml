@@ -1,0 +1,62 @@
+name: Financial PostgreSQL 17 Disposable Admission
+
+on:
+  pull_request:
+    paths:
+      - "services/billing-ledger/**"
+      - "scripts/financial-pg17-disposable-admission.sh"
+      - ".github/workflows/financial-pg17-disposable.yml"
+  push:
+    branches: [main]
+    paths:
+      - "services/billing-ledger/**"
+      - "scripts/financial-pg17-disposable-admission.sh"
+      - ".github/workflows/financial-pg17-disposable.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  pg17-disposable-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: zeaz_financial_acceptance
+          POSTGRES_PASSWORD: ${{ github.run_id }}-${{ github.sha }}
+        options: >-
+          --label zeaz.financial.acceptance=disposable
+          --health-cmd "pg_isready -U postgres -d zeaz_financial_acceptance"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout exact candidate without persistent credentials
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Check script syntax and fail-closed preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/financial-pg17-disposable-admission.sh
+          python3 -m unittest discover -s scripts/tests -p 'test_financial_pg17_preflight.py' -v
+          set +e
+          env -u POSTGRES_TEST_CONTAINER_ID -u Z_FINANCIAL_PG17_DISPOSABLE_ATTESTED bash scripts/financial-pg17-disposable-admission.sh >/dev/null 2>&1
+          rc=$?
+          set -e
+          test "$rc" -eq 3
+      - name: Run real PostgreSQL 17 RLS, audit, and concurrency acceptance
+        shell: bash
+        env:
+          POSTGRES_TEST_CONTAINER_ID: ${{ job.services.postgres.id }}
+          Z_FINANCIAL_PG17_DISPOSABLE_ATTESTED: "true"
+        run: bash scripts/financial-pg17-disposable-admission.sh
+      - name: Run in-process financial regression contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check services/billing-ledger/server.mjs
+          node --test services/billing-ledger/test/*.test.mjs
