@@ -24,6 +24,9 @@ different tenant cannot return another tenant's record or invoice intent.
 - Replays with the same tenant/request key but conflicting payloads retain the
   legacy duplicate behavior. Full semantic replay-conflict detection is a
   separate admission gate; invoice intents still lack this conflict check.
+- In-process usage token counts must be non-negative safe integers. Non-finite,
+  fractional, and unsafe counts fail with 400 before any record or identity-index
+  mutation; zero and valid integral numeric-string inputs remain supported.
 - This is **not** authorization to enable payments, credits, or invoices.
 
 ## Verification
