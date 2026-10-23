@@ -6,8 +6,11 @@ This corrective change applies to the existing in-process `MemoryLedgerStore`
 only. Both usage records and invoice intents now index idempotency entries by
 `JSON.stringify([tenant_id, idempotency_key])` rather than a global key.
 Structured tuple encoding prevents delimiter collisions. A replay within the
-same tenant retains the prior duplicate response behavior; the same key in a
-different tenant cannot return another tenant's record or invoice intent.
+same tenant returns the original response only when financial business fields
+match. A changed usage identity, token count, model, subject, invoice amount,
+currency or status returns 409 without modifying the original record. Generated
+timestamps and invoice IDs are excluded from semantic comparison. Different
+tenants remain isolated.
 
 ## Security boundaries
 
@@ -58,3 +61,10 @@ required. Before any financial write admission, implement trusted tenant
 identity, per-tenant authorization, durable PostgreSQL transactions with
 uniqueness constraints, payload conflict handling, concurrency/restart tests,
 independent security review, and external production evidence.
+
+## Semantic replay hardening (draft)
+
+- Same-key conflicting financial payloads return HTTP-style 409 at the in-process store boundary; exact replays remain idempotent.
+- Replay comparison excludes only generated metadata: usage `recorded_at`, invoice `intent_id` and `created_at`.
+- Returned records are defensive clones, so callers cannot mutate the in-memory financial ledger by editing a replay result.
+- The HTTP financial mutation endpoints remain disabled (503). These checks are **not** durable or authenticated tenant authorization and do not permit payment execution.

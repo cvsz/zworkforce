@@ -17,10 +17,11 @@ test("usage idempotency keys are isolated by trusted ledger tenant field", async
   assert.equal(b.record.tenant_id, "tenant-b");
   assert.equal(b.record.input_tokens, 7);
   assert.equal(store.records.size, 2);
-  const replay = await ledger.recordUsage(usage("tenant-a", "shared-key", "usage-a-replay", 99));
+  const replay = await ledger.recordUsage(usage("tenant-a", "shared-key", "usage-a", 2));
   assert.equal(replay.duplicate, true);
   assert.equal(replay.record.tenant_id, "tenant-a");
   assert.equal(replay.record.input_tokens, 2);
+  await assert.rejects(ledger.recordUsage(usage("tenant-a", "shared-key", "usage-a-replay", 99)), error => error.status === 409);
 });
 
 test("invoice intent replay is isolated by tenant and preserves same-tenant idempotency", async () => {
@@ -32,12 +33,13 @@ test("invoice intent replay is isolated by tenant and preserves same-tenant idem
   });
   const a = await ledger.createInvoiceIntent(input("tenant-a", 100));
   const b = await ledger.createInvoiceIntent(input("tenant-b", 900));
-  const replay = await ledger.createInvoiceIntent(input("tenant-a", 500));
+  const replay = await ledger.createInvoiceIntent(input("tenant-a", 100));
   assert.equal(a.tenant_id, "tenant-a");
   assert.equal(b.tenant_id, "tenant-b");
   assert.notEqual(a.intent_id, b.intent_id);
   assert.equal(b.amount_minor, 900);
   assert.deepEqual(replay, a);
+  await assert.rejects(ledger.createInvoiceIntent(input("tenant-a", 500)), error => error.status === 409);
   assert.equal(store.invoiceIntents.size, 2);
 });
 

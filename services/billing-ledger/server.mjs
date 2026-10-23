@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 
 const defaultHost = process.env.HOST || "127.0.0.1";
 const defaultPort = Number(process.env.PORT || 8700);
@@ -55,6 +56,18 @@ function normalizeUsage(input) {
   };
 }
 
+// Idempotency compares business semantics, not server-generated metadata.
+// Unknown payload fields are compared as well: changed financial data must fail closed.
+function sameFinancialSemantics(existing, incoming, ignoredFields) {
+  const semantic = (value) => Object.fromEntries(
+    Object.entries(value).filter(([field]) => !ignoredFields.has(field)),
+  );
+  return isDeepStrictEqual(semantic(existing), semantic(incoming));
+}
+
+const usageMetadata = new Set(["recorded_at"]);
+const invoiceMetadata = new Set(["intent_id", "created_at"]);
+
 export class MemoryLedgerStore {
   constructor() {
     this.records = new Map();
@@ -74,14 +87,20 @@ export class MemoryLedgerStore {
       throw new BillingLedgerError("usage tokens must be non-negative safe integers");
     }
     const key = JSON.stringify([tenantId, requestKey]);
-    if (this.records.has(key)) return { duplicate: true, record: this.records.get(key) };
+    if (this.records.has(key)) {
+      const existing = this.records.get(key);
+      if (!sameFinancialSemantics(existing, record, usageMetadata)) {
+        throw new BillingLedgerError("Conflicting usage idempotency replay", 409);
+      }
+      return { duplicate: true, record: structuredClone(existing) };
+    }
     const usageKey = JSON.stringify([tenantId, usageId]);
     if (this.usageIdentity.has(usageKey)) {
       throw new BillingLedgerError("Usage identity already recorded under another request key", 409);
     }
     this.records.set(key, structuredClone(record));
     this.usageIdentity.set(usageKey, key);
-    return { duplicate: false, record };
+    return { duplicate: false, record: structuredClone(record) };
   }
 
   async setCredits() {
@@ -96,9 +115,15 @@ export class MemoryLedgerStore {
       throw new BillingLedgerError("amount_minor must be a positive safe integer");
     }
     const key = JSON.stringify([tenantId, requestKey]);
-    if (this.invoiceIntents.has(key)) return this.invoiceIntents.get(key);
+    if (this.invoiceIntents.has(key)) {
+      const existing = this.invoiceIntents.get(key);
+      if (!sameFinancialSemantics(existing, intent, invoiceMetadata)) {
+        throw new BillingLedgerError("Conflicting invoice idempotency replay", 409);
+      }
+      return structuredClone(existing);
+    }
     this.invoiceIntents.set(key, structuredClone(intent));
-    return intent;
+    return structuredClone(intent);
   }
 }
 
