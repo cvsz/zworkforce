@@ -71,3 +71,27 @@ independent security review, and external production evidence.
 - Replay comparison excludes only generated metadata: usage `recorded_at`, invoice `intent_id` and `created_at`.
 - Returned records are defensive clones, so callers cannot mutate the in-memory financial ledger by editing a replay result.
 - The HTTP financial mutation endpoints remain disabled (503). These checks are **not** durable or authenticated tenant authorization and do not permit payment execution.
+
+## Initial invoice status boundary (v423 draft)
+
+The direct `MemoryLedgerStore.createInvoiceIntent()` boundary rejects an explicitly
+supplied initial `status` other than `requires_payment_processor` with 400,
+before inserting any new invoice intent. A caller cannot mint a new `paid`,
+`succeeded`, `refunded`, or `canceled` intent through this create-only API.
+Existing same-key conflicting replays retain the established 409 contract.
+For backward compatibility, direct-store callers may omit `status`; the
+`BillingLedger` facade always creates `requires_payment_processor` intents.
+
+This is a defense-in-depth guard on a **process-local, unauthenticated** store.
+It is not proof of payment, not a settlement state machine, and not an
+authorization to enable financial HTTP writes (which remain 503).
+
+Verify with:
+```bash
+node --check services/billing-ledger/server.mjs
+node --test services/billing-ledger/test/*.test.mjs
+git diff --check
+```
+
+Rollback only in an isolated development branch by reverting the v423 commits.
+Do not enable payment execution or remove HTTP containment during rollback.
