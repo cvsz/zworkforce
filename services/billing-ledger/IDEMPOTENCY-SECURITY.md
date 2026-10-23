@@ -29,6 +29,12 @@ different tenant cannot return another tenant's record or invoice intent.
   mutation. The direct `MemoryLedgerStore.recordUsage()` boundary requires numeric
   safe integers and rejects missing counts and numeric strings; `BillingLedger`
   continues to normalize valid integral numeric strings before delegation.
+- Invoice-intent `amount_minor` must be a positive JavaScript safe integer at both the
+  `BillingLedger` and direct `MemoryLedgerStore` boundaries. Unsafe, missing,
+  fractional, non-finite, negative and zero values fail with 400 before
+  idempotency lookup or mutation. The ledger retains valid numeric-string
+  normalization; direct store calls require numeric values. This change does
+  not authorize payment execution or address same-key conflicting-payload replay.
 - This is **not** authorization to enable payments, credits, or invoices.
 
 ## Verification
