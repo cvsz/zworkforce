@@ -17,8 +17,12 @@ different tenant cannot return another tenant's record or invoice intent.
   **not authenticated** by this change.
 - Storage remains process-local and non-durable. No restart, multi-process,
   or concurrent PostgreSQL transactional idempotency guarantee is provided.
-- Replays with the same tenant/key but conflicting payloads retain the
-  legacy duplicate behavior. Conflict detection is a separate admission gate.
+- A repeated `usage_id` under a different request key within one tenant is
+  rejected with `409`; the original record and identity index are preserved.
+  Another tenant may reuse the same `usage_id` independently.
+- Replays with the same tenant/request key but conflicting payloads retain the
+  legacy duplicate behavior. Full semantic replay-conflict detection is a
+  separate admission gate; invoice intents still lack this conflict check.
 - This is **not** authorization to enable payments, credits, or invoices.
 
 ## Verification
@@ -30,8 +34,9 @@ git diff --check
 ```
 
 Regression coverage includes cross-tenant usage and invoice key reuse,
-same-tenant replay compatibility, delimiter collision resistance, and HTTP
-mutation containment. Hosted CI must run on the exact candidate SHA.
+same-tenant replay compatibility, delimiter collision resistance, duplicate
+usage-identity rejection, direct-store identity validation, and HTTP mutation
+containment. Hosted CI must run on the exact candidate SHA.
 
 ## Rollback and admission
 
