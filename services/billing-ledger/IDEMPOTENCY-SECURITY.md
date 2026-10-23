@@ -27,12 +27,7 @@ tenants remain isolated.
 - Same-tenant idempotency replays with changed financial business fields return
   409; exact semantic replays remain idempotent. Server-generated metadata is
   excluded from replay comparison.
-- การ Normalize Token Counts ที่ `BillingLedger` ยอมรับเฉพาะ numeric safe integers
-  ที่ไม่ติดลบ หรือ canonical decimal-integer strings เช่น `"0"` และ `"42"`
-  เท่านั้น ค่า boolean, array, object, hexadecimal, exponent, signed/padded,
-  fractional และ strings ที่มี whitespace จะถูกปฏิเสธด้วย 400 ก่อน Idempotency
-  Lookup ส่วน omitted/null ยังคงใช้ค่าเริ่มต้นเป็นศูนย์เพื่อรักษา Compatibility
-  และ Direct-Store Calls ยังต้องส่ง numeric safe integers เท่านั้น
+- Ledger-level token normalization accepts non-negative numeric safe integers or canonical decimal-integer strings (e.g., `"0"`, `"42"`). Boolean, array, object, hexadecimal, exponent, signed/padded, fractional, and whitespace-containing strings are rejected with 400 before idempotency lookup. Omitted/null token counts retain the legacy zero default; direct-store calls require numeric safe integers.
 - In-process usage token counts must be non-negative safe integers. Non-finite,
   fractional, and unsafe counts fail with 400 before any record or identity-index
   mutation. The direct `MemoryLedgerStore.recordUsage()` boundary requires numeric
@@ -42,7 +37,7 @@ tenants remain isolated.
   `BillingLedger` and direct `MemoryLedgerStore` boundaries. Unsafe, missing,
   fractional, non-finite, negative and zero values fail with 400 before
   idempotency lookup or mutation. The ledger retains valid numeric-string
-  normalization for canonical decimal-integer strings only; booleans, arrays,
+  normalization for canonical decimal-integer strings only (`"100"` accepted; `"0100"` rejected); booleans, arrays,
   objects, hexadecimal/exponent forms and whitespace-padded strings are rejected;
   direct store calls require numeric values. This change does not authorize
   payment execution.
