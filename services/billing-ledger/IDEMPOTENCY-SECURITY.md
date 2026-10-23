@@ -26,7 +26,9 @@ different tenant cannot return another tenant's record or invoice intent.
   separate admission gate; invoice intents still lack this conflict check.
 - In-process usage token counts must be non-negative safe integers. Non-finite,
   fractional, and unsafe counts fail with 400 before any record or identity-index
-  mutation; zero and valid integral numeric-string inputs remain supported.
+  mutation. The direct `MemoryLedgerStore.recordUsage()` boundary requires numeric
+  safe integers and rejects missing counts and numeric strings; `BillingLedger`
+  continues to normalize valid integral numeric strings before delegation.
 - This is **not** authorization to enable payments, credits, or invoices.
 
 ## Verification
