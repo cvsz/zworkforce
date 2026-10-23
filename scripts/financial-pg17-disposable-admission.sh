@@ -14,8 +14,28 @@ db_env="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$
 grep -Fxq 'POSTGRES_DB=zeaz_financial_acceptance' <<< "$db_env" || { echo 'Untrusted database' >&2; exit 3; }
 version="$(docker exec "$container" psql -X -U postgres -d zeaz_financial_acceptance -Atqc 'SHOW server_version_num')"
 [[ "$version" =~ ^17[0-9]{4}$ ]] || { echo 'PostgreSQL major version mismatch' >&2; exit 3; }
-existing="$(docker exec "$container" psql -X -U postgres -d zeaz_financial_acceptance -Atqc "SELECT count(*) FROM pg_namespace WHERE nspname='zeaz_financial'")"
-[[ "$existing" == "0" ]] || { echo 'Acceptance database is not empty' >&2; exit 3; }
+# A missing zeaz_financial schema does not imply an empty database. Refuse any
+# pre-existing user schema, public relation/function/type, or user extension.
+existing="$(docker exec "$container" psql -X -U postgres -d zeaz_financial_acceptance -Atqc "
+SELECT (
+  EXISTS (
+    SELECT 1 FROM pg_namespace
+    WHERE nspname !~ '^pg_' AND nspname NOT IN ('public', 'information_schema')
+  ) OR EXISTS (
+    SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+  ) OR EXISTS (
+    SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+  ) OR EXISTS (
+    SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'public'
+  ) OR EXISTS (
+    SELECT 1 FROM pg_extension WHERE extname <> 'plpgsql'
+  )
+)::int;
+")"
+[[ "$existing" == "0" ]] || { echo 'Acceptance database contains pre-existing user objects' >&2; exit 3; }
 for file in services/billing-ledger/migrations/0001_financial_pg17_disposable.sql services/billing-ledger/acceptance/pg17_disposable_contract.sql; do
   docker exec -i "$container" psql -X -v ON_ERROR_STOP=1 -U postgres -d zeaz_financial_acceptance < "$root/$file" >/dev/null
 done
