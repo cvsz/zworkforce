@@ -69,7 +69,7 @@ function normalizeInvoiceMinorUnits(value) {
   // Only canonical decimal integer strings may be coerced; never coerce booleans or objects.
   if (typeof value === "number") {
     if (Number.isSafeInteger(value) && value > 0) return value;
-  } else if (typeof value === "string" && /^[0-9]+$/.test(value)) {
+  } else if (typeof value === "string" && /^(?:0|[1-9][0-9]*)$/.test(value)) {
     const amount = Number(value);
     if (Number.isSafeInteger(amount) && amount > 0) return amount;
   }
