@@ -27,18 +27,22 @@ async function readBoundedJson(response, maxBytes) {
       !/^application\/(?:json|jwk-set\+json)(?:\s*;|\s*$)/i.test(response.headers?.get?.('content-type') || '') ||
       !response.body || typeof response.body.getReader !== 'function') throw unavailable();
   const reader = response.body.getReader();
+  let complete = false;
   let length = 0;
   const chunks = [];
   try {
     while (true) {
       const { value, done } = await reader.read();
-      if (done) break;
+      if (done) { complete = true; break; }
       if (!(value instanceof Uint8Array)) throw unavailable();
       length += value.byteLength;
       if (length > maxBytes) throw unavailable();
       chunks.push(value);
     }
   } finally {
+    if (!complete) {
+      try { await reader.cancel(); } catch { /* Request may already be aborted. */ }
+    }
     reader.releaseLock();
   }
   const decoded = new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks));
