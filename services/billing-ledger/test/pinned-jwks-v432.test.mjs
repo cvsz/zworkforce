@@ -102,6 +102,21 @@ test('rejects oversized, malformed, duplicate, non-JSON and error responses', as
   }
 });
 
+test('cancels oversized response streams to bound resource consumption', async () => {
+  let canceled = false;
+  const oversized = {
+    status: 200,
+    headers: { get: () => 'application/json' },
+    body: new ReadableStream({
+      start(controller) { controller.enqueue(bytes('a'.repeat(5000))); },
+      cancel() { canceled = true; },
+    }),
+  };
+  const h = setup({ maxBytes: 4096, fetchFn: async () => oversized });
+  await assert.rejects(h.provider(), e => e.status === 503);
+  assert.equal(canceled, true);
+});
+
 test('fails closed on invalid clock, backwards clock and configuration bounds', async () => {
   let time = 100000;
   const h = setup({ now: () => time });
