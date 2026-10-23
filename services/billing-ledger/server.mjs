@@ -49,8 +49,8 @@ function normalizeUsage(input) {
     tenant_id: requireString(input.tenant_id, "tenant_id"),
     subject_id: input.subject_id ? requireString(input.subject_id, "subject_id") : "unknown",
     model: requireString(input.model || "unknown", "model"),
-    input_tokens: Number(input.input_tokens || 0),
-    output_tokens: Number(input.output_tokens || 0),
+    input_tokens: Number(input.input_tokens ?? 0),
+    output_tokens: Number(input.output_tokens ?? 0),
     recorded_at: input.recorded_at || new Date().toISOString(),
   };
 }
@@ -103,7 +103,10 @@ export class BillingLedger {
 
   async recordUsage(input) {
     const record = normalizeUsage({ ...input, recorded_at: input.recorded_at || this.now() });
-    if (record.input_tokens < 0 || record.output_tokens < 0) throw new BillingLedgerError("usage tokens must be non-negative");
+    if (!Number.isSafeInteger(record.input_tokens) || record.input_tokens < 0 ||
+        !Number.isSafeInteger(record.output_tokens) || record.output_tokens < 0) {
+      throw new BillingLedgerError("usage tokens must be non-negative safe integers");
+    }
     return this.store.recordUsage(record);
   }
 
