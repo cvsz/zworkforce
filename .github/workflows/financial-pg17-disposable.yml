@@ -23,6 +23,8 @@ jobs:
     services:
       postgres:
         image: postgres:17-alpine
+        ports:
+          - 5432:5432
         env:
           POSTGRES_DB: zeaz_financial_acceptance
           POSTGRES_PASSWORD: ${{ github.run_id }}-${{ github.sha }}
@@ -54,6 +56,27 @@ jobs:
           POSTGRES_TEST_CONTAINER_ID: ${{ job.services.postgres.id }}
           Z_FINANCIAL_PG17_DISPOSABLE_ATTESTED: "true"
         run: bash scripts/financial-pg17-disposable-admission.sh
+      - name: Exercise real node-postgres driver with disposable least-privilege login
+        shell: bash
+        env:
+          Z_FINANCIAL_PG17_REAL_DRIVER: "true"
+          POSTGRES_TEST_CONTAINER_ID: ${{ job.services.postgres.id }}
+          PGHOST: "127.0.0.1"
+          PGPORT: "5432"
+          PGDATABASE: "zeaz_financial_acceptance"
+          PGUSER: "zeaz_financial_app_test"
+        run: |
+          set -euo pipefail
+          [[ "$POSTGRES_TEST_CONTAINER_ID" =~ ^[0-9a-f]{12,64}$ ]]
+          # Test-only package: no production adapter wiring or lifecycle scripts.
+          npm --prefix services/billing-ledger install --no-save --ignore-scripts --no-package-lock --workspaces=false pg@8.23.1
+          test "$(node -p "require('./services/billing-ledger/node_modules/pg/package.json').version")" = "8.23.1"
+          PG_TEST_PASSWORD="$(openssl rand -hex 32)"
+          echo "::add-mask::$PG_TEST_PASSWORD"
+          export PG_TEST_PASSWORD
+          docker exec -i "$POSTGRES_TEST_CONTAINER_ID" psql -X -v ON_ERROR_STOP=1 -U postgres -d zeaz_financial_acceptance \
+            -c "ALTER ROLE zeaz_financial_app_test PASSWORD '$PG_TEST_PASSWORD';" >/dev/null
+          node --test services/billing-ledger/acceptance/pg17_real_driver_v427.test.mjs services/billing-ledger/acceptance/pg17_commit_ack_fault_v428.test.mjs
       - name: Run in-process financial regression contracts
         shell: bash
         run: |
