@@ -27,6 +27,12 @@ tenants remain isolated.
 - Same-tenant idempotency replays with changed financial business fields return
   409; exact semantic replays remain idempotent. Server-generated metadata is
   excluded from replay comparison.
+- Ledger-level token normalization now accepts only non-negative numeric safe integers
+  or canonical decimal-integer strings (for example, `"0"` and `"42"`).
+  Boolean, array, object, hexadecimal, exponent, signed, padded, fractional,
+  and whitespace-containing inputs fail with 400 before idempotency lookup.
+  Omitted/null counts retain the previous zero default. Direct-store calls
+  continue to require numeric safe integers.
 - In-process usage token counts must be non-negative safe integers. Non-finite,
   fractional, and unsafe counts fail with 400 before any record or identity-index
   mutation. The direct `MemoryLedgerStore.recordUsage()` boundary requires numeric
