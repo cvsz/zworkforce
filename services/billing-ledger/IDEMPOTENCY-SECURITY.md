@@ -13,6 +13,7 @@ different tenant cannot return another tenant's record or invoice intent.
 
 - Financial HTTP mutation routes remain disabled (authenticated HTTP 503).
 - Direct credit writes remain disabled (503).
+- Direct invoice-intent store calls reject missing tenant and idempotency identities.
 - Tenant IDs are still supplied by callers of the in-process API; they are
   **not authenticated** by this change.
 - Storage remains process-local and non-durable. No restart, multi-process,

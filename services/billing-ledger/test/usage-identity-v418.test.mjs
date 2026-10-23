@@ -54,3 +54,17 @@ test('duplicate usage conflict leaves original immutable and does not corrupt in
   assert.deepEqual(replay.record, original.record);
   assert.equal(store.records.size, 1);
 });
+
+test('direct invoice store rejects missing tenant and request idempotency identity', async () => {
+  const store = new MemoryLedgerStore();
+  for (const bad of [null, {}, { tenant_id: 'tenant-a' },
+    { tenant_id: '', idempotency_key: 'key' },
+    { tenant_id: 'tenant-a', idempotency_key: ' ' }]) {
+    await assert.rejects(store.createInvoiceIntent(bad),
+      (error) => error instanceof BillingLedgerError && error.status === 400);
+  }
+  assert.equal(store.invoiceIntents.size, 0);
+  const accepted = await store.createInvoiceIntent({ tenant_id: 'tenant-a', idempotency_key: 'key', intent_id: 'intent-a' });
+  assert.equal(accepted.intent_id, 'intent-a');
+  assert.equal(store.invoiceIntents.size, 1);
+});

@@ -85,7 +85,9 @@ export class MemoryLedgerStore {
   }
 
   async createInvoiceIntent(intent) {
-    const key = JSON.stringify([intent.tenant_id, intent.idempotency_key]);
+    const tenantId = requireString(intent?.tenant_id, "tenant_id");
+    const requestKey = requireString(intent?.idempotency_key, "idempotency_key");
+    const key = JSON.stringify([tenantId, requestKey]);
     if (this.invoiceIntents.has(key)) return this.invoiceIntents.get(key);
     this.invoiceIntents.set(key, structuredClone(intent));
     return intent;
