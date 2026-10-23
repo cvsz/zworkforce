@@ -92,6 +92,9 @@ export class MemoryLedgerStore {
   async createInvoiceIntent(intent) {
     const tenantId = requireString(intent?.tenant_id, "tenant_id");
     const requestKey = requireString(intent?.idempotency_key, "idempotency_key");
+    if (!Number.isSafeInteger(intent.amount_minor) || intent.amount_minor <= 0) {
+      throw new BillingLedgerError("amount_minor must be a positive safe integer");
+    }
     const key = JSON.stringify([tenantId, requestKey]);
     if (this.invoiceIntents.has(key)) return this.invoiceIntents.get(key);
     this.invoiceIntents.set(key, structuredClone(intent));
@@ -130,7 +133,7 @@ export class BillingLedger {
       status: "requires_payment_processor",
       created_at: this.now(),
     };
-    if (!Number.isInteger(intent.amount_minor) || intent.amount_minor <= 0) throw new BillingLedgerError("amount_minor must be a positive integer");
+    if (!Number.isSafeInteger(intent.amount_minor) || intent.amount_minor <= 0) throw new BillingLedgerError("amount_minor must be a positive safe integer");
     return this.store.createInvoiceIntent(intent);
   }
 }
