@@ -21,10 +21,11 @@ test("records usage idempotently", async () => {
   const ledger = new BillingLedger({ now: () => "2026-07-14T00:00:00.000Z" });
   const input = { usage_id: "usage-1", idempotency_key: "idem-1", tenant_id: "tenant-1", model: "hf:test", input_tokens: 3, output_tokens: 4 };
   const first = await ledger.recordUsage(input);
-  const second = await ledger.recordUsage({ ...input, output_tokens: 99 });
+  const second = await ledger.recordUsage(input);
   assert.equal(first.duplicate, false);
   assert.equal(second.duplicate, true);
   assert.equal(second.record.output_tokens, 4);
+  await assert.rejects(ledger.recordUsage({ ...input, output_tokens: 99 }), error => error.status === 409);
 });
 
 test("rejects credit mutations while retaining synthetic invoice intent contract", async () => {
