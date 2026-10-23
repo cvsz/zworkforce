@@ -65,11 +65,14 @@ for (const kind of ['usage', 'invoice']) {
     const control = newPool();
     let killed = 0;
     let discarded = 0;
+    const backendErrors = [];
     try {
       const faultPool = {
         async connect() {
           const client = await pool.connect();
           const pid = (await client.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+          // node-postgres emits an error event as well as rejecting the pending query.
+          client.on('error', error => backendErrors.push(error));
           return {
             async query(sql, params) {
               if (sql === 'COMMIT' && killed === 0) {
@@ -90,6 +93,8 @@ for (const kind of ['usage', 'invoice']) {
       await assert.rejects(invoke(storeFor(faultPool), payload));
       assert.equal(killed, 1, 'only the intended backend must be terminated');
       assert.equal(discarded, 1, 'uncertain connection must not re-enter pool');
+      assert.ok(backendErrors.every(error => /terminat|connection/i.test(error.message)),
+        'unexpected driver errors must not be hidden');
       await pool.end();
       pool = newPool();
       const store = storeFor(pool);
