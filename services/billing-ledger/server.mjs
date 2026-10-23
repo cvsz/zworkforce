@@ -18,9 +18,11 @@ function send(response, status, body) {
 }
 
 function authorized(request, env) {
-  const supplied = request.headers.authorization?.replace(/^Bearer\s+/i, "");
+  // Accept the Bearer scheme only; never treat a raw secret or another scheme as authorized.
+  const match = /^Bearer +(\S+)$/i.exec(request.headers.authorization ?? "");
   const expected = env.Z_PLATFORM_SERVICE_TOKEN;
-  if (!supplied || !expected) return false;
+  if (!match || typeof expected !== "string" || !expected) return false;
+  const supplied = match[1];
   const a = Buffer.from(supplied);
   const b = Buffer.from(expected);
   return a.length === b.length && timingSafeEqual(a, b);
@@ -68,9 +70,9 @@ export class MemoryLedgerStore {
     return { duplicate: false, record };
   }
 
-  async setCredits(tenantId, amount) {
-    this.credits.set(tenantId, Number(amount));
-    return { tenant_id: tenantId, credits: this.credits.get(tenantId) };
+  async setCredits() {
+    // No authorized credit-write contract exists, including for in-process callers.
+    throw new BillingLedgerError("Credit writes require independent approval", 503);
   }
 
   async createInvoiceIntent(intent) {
@@ -93,8 +95,9 @@ export class BillingLedger {
     return this.store.recordUsage(record);
   }
 
-  async setCredits(input) {
-    return this.store.setCredits(requireString(input.tenant_id, "tenant_id"), Number(input.credits));
+  async setCredits() {
+    // Never delegate an unapproved credit mutation to an injected store.
+    throw new BillingLedgerError("Credit writes require independent approval", 503);
   }
 
   async createInvoiceIntent(input) {
@@ -112,10 +115,17 @@ export class BillingLedger {
   }
 }
 
+// Emergency containment until trusted tenant authorization and durable idempotency are enforced.
+const blockedFinancialMutations = new Set(["/v1/usage", "/v1/credits", "/v1/invoice-intents"]);
+
 export function createBillingLedgerServer({ env = process.env, ledger = new BillingLedger() } = {}) {
   return createServer(async (request, response) => {
     if (request.method === "GET" && request.url === "/health") return send(response, 200, { status: "ok", service: "billing-ledger", wallet_authority: false, card_data: false });
     if (!authorized(request, env)) return send(response, 401, { error: "Unauthorized" });
+    if (request.method === "POST" && blockedFinancialMutations.has(request.url)) {
+      response.setHeader("Cache-Control", "no-store");
+      return send(response, 503, { error: "Financial mutations disabled pending tenant-bound authorization and durable idempotency" });
+    }
 
     try {
       if (request.method === "POST" && request.url === "/v1/usage") {

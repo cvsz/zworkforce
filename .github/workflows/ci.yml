@@ -427,3 +427,21 @@ jobs:
           PY
           test ! -e .github/workflows/v3-rematerialize.yml
           test ! -e .github/workflows/v3-materialize.yml
+
+  billing-ledger:
+    name: Billing ledger security contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Validate billing ledger syntax
+        run: node --check services/billing-ledger/server.mjs
+      - name: Test billing ledger contracts
+        run: node --test services/billing-ledger/test/*.test.mjs
