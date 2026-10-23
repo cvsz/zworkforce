@@ -58,14 +58,24 @@ function normalizeUsage(input) {
 export class MemoryLedgerStore {
   constructor() {
     this.records = new Map();
+    this.usageIdentity = new Map();
     this.credits = new Map();
     this.invoiceIntents = new Map();
   }
 
   async recordUsage(record) {
-    const key = JSON.stringify([record.tenant_id, record.idempotency_key]);
+    // Enforce both request idempotency and the event identity within one tenant.
+    const tenantId = requireString(record?.tenant_id, "tenant_id");
+    const requestKey = requireString(record?.idempotency_key, "idempotency_key");
+    const usageId = requireString(record?.usage_id, "usage_id");
+    const key = JSON.stringify([tenantId, requestKey]);
     if (this.records.has(key)) return { duplicate: true, record: this.records.get(key) };
+    const usageKey = JSON.stringify([tenantId, usageId]);
+    if (this.usageIdentity.has(usageKey)) {
+      throw new BillingLedgerError("Usage identity already recorded under another request key", 409);
+    }
     this.records.set(key, structuredClone(record));
+    this.usageIdentity.set(usageKey, key);
     return { duplicate: false, record };
   }
 
