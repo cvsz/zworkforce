@@ -15,7 +15,16 @@ REVOKE ALL ON zeaz_financial.membership_revocation_audit FROM PUBLIC;
 
 CREATE ROLE zeaz_financial_membership_revoker
   NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-GRANT USAGE ON SCHEMA zeaz_financial TO zeaz_financial_membership_revoker;
+CREATE ROLE zeaz_financial_membership_revocation_definer
+  NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+GRANT USAGE ON SCHEMA zeaz_financial
+  TO zeaz_financial_membership_revoker, zeaz_financial_membership_revocation_definer;
+GRANT SELECT (subject_id, tenant_id, active, revoked_at)
+  ON zeaz_financial.tenant_memberships TO zeaz_financial_membership_revocation_definer;
+GRANT UPDATE (active, revoked_at, updated_at)
+  ON zeaz_financial.tenant_memberships TO zeaz_financial_membership_revocation_definer;
+GRANT SELECT, INSERT ON zeaz_financial.membership_revocation_audit
+  TO zeaz_financial_membership_revocation_definer;
 
 CREATE FUNCTION zeaz_financial.revoke_billing_membership(
   p_request_id text, p_subject text, p_tenant text, p_reason text
@@ -70,6 +79,9 @@ BEGIN
 END
 $function$;
 
+-- SECURITY DEFINER must not run as the postgres superuser.
+ALTER FUNCTION zeaz_financial.revoke_billing_membership(text, text, text, text)
+  OWNER TO zeaz_financial_membership_revocation_definer;
 REVOKE ALL ON FUNCTION zeaz_financial.revoke_billing_membership(text, text, text, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION zeaz_financial.revoke_billing_membership(text, text, text, text)
   TO zeaz_financial_membership_revoker;
