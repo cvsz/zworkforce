@@ -47,7 +47,11 @@ export function createFinancialTenantResolver({ issuer, audience, getJwks, looku
     const seconds = Math.floor(now() / 1000);
     if (!Number.isSafeInteger(seconds) || seconds < 0) throw new FinancialIdentityError('Clock unavailable', 503);
     const { iss, aud, sub, tenant_id: tenant, exp, iat, nbf, scope } = claims;
-    if (iss !== issuer || !(aud === audience || (Array.isArray(aud) && aud.length > 0 && aud.every(value => stringId(value, 256)) && aud.includes(audience))) ||
+    // A token addressed to multiple services is ambiguous for billing. Until
+    // an issuer-specific authorized-party contract exists, require exactly one
+    // audience to prevent cross-service token substitution.
+    const exactAudience = aud === audience || (Array.isArray(aud) && aud.length === 1 && aud[0] === audience);
+    if (iss !== issuer || !exactAudience ||
         !stringId(sub) || !stringId(tenant) || !Number.isSafeInteger(exp) ||
         !Number.isSafeInteger(iat) || !Number.isSafeInteger(nbf) ||
         exp <= seconds || iat > seconds + 30 || nbf > seconds + 30 ||
