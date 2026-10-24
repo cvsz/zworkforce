@@ -87,3 +87,43 @@ jobs:
           set -euo pipefail
           node --check services/billing-ledger/pg-membership.mjs
           node --test services/billing-ledger/test/pg-membership-v433.test.mjs
+
+      - name: Verify audited revocation lifecycle and rollback
+        shell: bash
+        env:
+          POSTGRES_TEST_CONTAINER_ID: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          [[ "$POSTGRES_TEST_CONTAINER_ID" =~ ^[0-9a-f]{12,64}$ ]]
+          for file in \
+            services/billing-ledger/migrations/0003_financial_membership_audit_disposable.sql \
+            services/billing-ledger/acceptance/pg17_membership_revocation_audit_v434.sql; do
+            docker exec -i "$POSTGRES_TEST_CONTAINER_ID" psql -X -v ON_ERROR_STOP=1 \
+              -U postgres -d zeaz_financial_acceptance < "$file"
+          done
+
+      - name: Verify concurrent revocation and audit cardinality with real PostgreSQL driver
+        shell: bash
+        env:
+          POSTGRES_TEST_CONTAINER_ID: ${{ job.services.postgres.id }}
+          Z_FINANCIAL_PG17_REAL_DRIVER: "true"
+          PGHOST: "127.0.0.1"
+          PGPORT: "5432"
+          PGDATABASE: "zeaz_financial_acceptance"
+          PG_REVOKER_USER: "zeaz_financial_membership_revoker_app_test"
+        run: |
+          set -euo pipefail
+          [[ "$POSTGRES_TEST_CONTAINER_ID" =~ ^[0-9a-f]{12,64}$ ]]
+          docker exec -i "$POSTGRES_TEST_CONTAINER_ID" psql -X -v ON_ERROR_STOP=1 \
+            -U postgres -d zeaz_financial_acceptance < \
+            services/billing-ledger/acceptance/pg17_membership_revocation_concurrency_setup_v434.sql
+          PG_REVOKER_TEST_PASSWORD="$(openssl rand -hex 32)"
+          echo "::add-mask::$PG_REVOKER_TEST_PASSWORD"
+          export PG_REVOKER_TEST_PASSWORD
+          docker exec -i "$POSTGRES_TEST_CONTAINER_ID" psql -X -v ON_ERROR_STOP=1 \
+            -U postgres -d zeaz_financial_acceptance \
+            -c "ALTER ROLE zeaz_financial_membership_revoker_app_test PASSWORD '$PG_REVOKER_TEST_PASSWORD';" >/dev/null
+          node --test services/billing-ledger/acceptance/pg17_membership_revocation_concurrency_v434.test.mjs
+          docker exec -i "$POSTGRES_TEST_CONTAINER_ID" psql -X -v ON_ERROR_STOP=1 \
+            -U postgres -d zeaz_financial_acceptance < \
+            services/billing-ledger/acceptance/pg17_membership_revocation_concurrency_verify_v434.sql
