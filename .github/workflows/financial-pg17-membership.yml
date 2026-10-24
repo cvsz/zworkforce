@@ -87,3 +87,17 @@ jobs:
           set -euo pipefail
           node --check services/billing-ledger/pg-membership.mjs
           node --test services/billing-ledger/test/pg-membership-v433.test.mjs
+
+      - name: Verify audited revocation lifecycle and rollback
+        shell: bash
+        env:
+          POSTGRES_TEST_CONTAINER_ID: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          [[ "$POSTGRES_TEST_CONTAINER_ID" =~ ^[0-9a-f]{12,64}$ ]]
+          for file in \
+            services/billing-ledger/migrations/0003_financial_membership_audit_disposable.sql \
+            services/billing-ledger/acceptance/pg17_membership_revocation_audit_v434.sql; do
+            docker exec -i "$POSTGRES_TEST_CONTAINER_ID" psql -X -v ON_ERROR_STOP=1 \
+              -U postgres -d zeaz_financial_acceptance < "$file"
+          done
