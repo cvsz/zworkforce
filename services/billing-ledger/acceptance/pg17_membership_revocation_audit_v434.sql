@@ -4,6 +4,30 @@ CREATE ROLE zeaz_financial_membership_revoker_app_test
   LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 GRANT zeaz_financial_membership_revoker TO zeaz_financial_membership_revoker_app_test;
 
+-- The SECURITY DEFINER must not inherit postgres superuser privileges.
+DO $test$
+BEGIN
+  IF (SELECT pg_get_userbyid(p.proowner)
+      FROM pg_proc AS p
+      WHERE p.oid = 'zeaz_financial.revoke_billing_membership(text,text,text,text)'::regprocedure)
+       IS DISTINCT FROM 'zeaz_financial_membership_revocation_definer' THEN
+    RAISE EXCEPTION 'Revocation function has an unsafe owner';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles
+      WHERE rolname = 'zeaz_financial_membership_revocation_definer'
+        AND NOT rolsuper AND NOT rolbypassrls AND NOT rolcanlogin
+        AND NOT rolcreaterole AND NOT rolcreatedb) THEN
+    RAISE EXCEPTION 'Revocation definer must be unprivileged';
+  END IF;
+  IF has_table_privilege('zeaz_financial_membership_revocation_definer',
+      'zeaz_financial.membership_revocation_audit', 'DELETE')
+     OR has_table_privilege('zeaz_financial_membership_revocation_definer',
+      'zeaz_financial.tenant_memberships', 'DELETE') THEN
+    RAISE EXCEPTION 'Revocation definer can delete evidence';
+  END IF;
+END
+$test$;
+
 SET SESSION AUTHORIZATION zeaz_financial_membership_revoker_app_test;
 DO $test$
 DECLARE
