@@ -95,4 +95,15 @@ BEGIN
   END IF;
 END
 $test$;
+-- The existing membership reader must observe revocation immediately.
+SET SESSION AUTHORIZATION zeaz_financial_membership_app_test;
+DO $test$
+BEGIN
+  IF (SELECT count(*) FROM zeaz_financial.lookup_billing_membership(
+      'subject-c', 'tenant-c') WHERE membership_active) <> 0 THEN
+    RAISE EXCEPTION 'Membership reader observed stale authorization';
+  END IF;
+END
+$test$;
+RESET SESSION AUTHORIZATION;
 SELECT 'PG17_AUDITED_MEMBERSHIP_REVOCATION_ACCEPTANCE_PASS' AS result;
