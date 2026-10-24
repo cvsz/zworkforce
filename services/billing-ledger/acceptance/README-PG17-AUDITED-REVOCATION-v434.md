@@ -12,7 +12,9 @@ identity authority, customer migration, revocation API, or financial release.
   `zeaz_financial.revoke_billing_membership(request_id, subject, tenant, reason)`.
   It is a bounded `SECURITY DEFINER` function with a fixed `search_path`,
   parameter validation, a transaction-scoped replay lock, and exact tenant/subject
-  matching. Its `session_user` is recorded as the audit actor; no actor value
+  matching. The definer is a dedicated NOLOGIN, non-superuser role with
+  column-limited membership SELECT/UPDATE and audit SELECT/INSERT, not the
+  postgres superuser. Its `session_user` is recorded as the audit actor; no actor value
   can be supplied by an untrusted request.
 - The membership update and append-only-to-app audit insertion are atomic.
   A repeated identical request ID returns `false` without a second event.
