@@ -37,6 +37,12 @@ PostgreSQL 17 container. The SQL acceptance asserts:
    cross-tenant modification.
 4. Transaction rollback removes both membership mutation and audit event.
 
+The same workflow also runs two real `node-postgres` concurrency scenarios:
+identical request IDs must yield exactly one new mutation, and two different
+request IDs racing to revoke one membership must yield one success and one
+fail-closed rejection. A PostgreSQL-side check asserts one audit row per
+membership. The driver uses a random disposable-only revoker password.
+
 A green CI run proves only these disposable contracts. It does not establish
 a production operator identity, revocation SLA, WORM/off-host audit retention,
 customer IdP integration, cross-service propagation, HA, PITR or DR.
