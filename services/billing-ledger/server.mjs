@@ -120,20 +120,33 @@ const blockedFinancialMutations = new Set(["/v1/usage", "/v1/credits", "/v1/invo
 
 export function createBillingLedgerServer({ env = process.env, ledger = new BillingLedger() } = {}) {
   return createServer(async (request, response) => {
-    if (request.method === "GET" && request.url === "/health") return send(response, 200, { status: "ok", service: "billing-ledger", wallet_authority: false, card_data: false });
+    let pathname;
+    try {
+      const target = new URL(request.url ?? "/", "http://localhost");
+      if (target.origin !== "http://localhost") {
+        response.setHeader("Cache-Control", "no-store");
+        return send(response, 400, { error: "Invalid request target" });
+      }
+      pathname = target.pathname;
+    } catch {
+      response.setHeader("Cache-Control", "no-store");
+      return send(response, 400, { error: "Invalid request target" });
+    }
+
+    if (request.method === "GET" && pathname === "/health") return send(response, 200, { status: "ok", service: "billing-ledger", wallet_authority: false, card_data: false });
     if (!authorized(request, env)) return send(response, 401, { error: "Unauthorized" });
-    if (request.method === "POST" && blockedFinancialMutations.has(request.url)) {
+    if (request.method === "POST" && blockedFinancialMutations.has(pathname)) {
       response.setHeader("Cache-Control", "no-store");
       return send(response, 503, { error: "Financial mutations disabled pending tenant-bound authorization and durable idempotency" });
     }
 
     try {
-      if (request.method === "POST" && request.url === "/v1/usage") {
+      if (request.method === "POST" && pathname === "/v1/usage") {
         const result = await ledger.recordUsage(await readJson(request));
         return send(response, result.duplicate ? 200 : 201, result);
       }
-      if (request.method === "POST" && request.url === "/v1/credits") return send(response, 200, await ledger.setCredits(await readJson(request)));
-      if (request.method === "POST" && request.url === "/v1/invoice-intents") return send(response, 201, await ledger.createInvoiceIntent(await readJson(request)));
+      if (request.method === "POST" && pathname === "/v1/credits") return send(response, 200, await ledger.setCredits(await readJson(request)));
+      if (request.method === "POST" && pathname === "/v1/invoice-intents") return send(response, 201, await ledger.createInvoiceIntent(await readJson(request)));
       return send(response, 404, { error: "Not found" });
     } catch (error) {
       return send(response, error instanceof BillingLedgerError ? error.status : 400, { error: error.message || "Request failed" });
