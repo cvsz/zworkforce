@@ -410,6 +410,29 @@ CLOUDFLARE_ROTATION_INTERVAL_DAYS=30
             self.assertFalse(any(Path(arg[1:]).exists() for record in [json.loads(line) for line in records_file.read_text().splitlines()] for arg in record["args"] if arg.startswith("@")))
 
 
+            # Simulate recovery-copy verification failure after the remote roll.
+            recovery_file.unlink()
+            cmp_shim = shim_dir / "cmp"
+            cmp_shim.write_text("#!/usr/bin/env bash\nexit 1\n", encoding="utf-8")
+            os.chmod(cmp_shim, 0o700)
+            persistence_env = run_env.copy()
+            persistence_env.pop("FAIL_NEW_TOKEN_VERIFY", None)
+            persistence_failure = subprocess.run(
+                ["bash", str(hook), str(env_file)],
+                check=False,
+                capture_output=True,
+                text=True,
+                env=persistence_env,
+            )
+            self.assertNotEqual(persistence_failure.returncode, 0)
+            self.assertIn("recovery persistence could not be verified", persistence_failure.stderr)
+            self.assertIn("manual bootstrap recovery is required", persistence_failure.stderr)
+            self.assertNotIn("replacement token saved in mode-0600 recovery file", persistence_failure.stderr)
+            self.assertNotIn("replacement-secret-value", persistence_failure.stdout + persistence_failure.stderr)
+            self.assertEqual(list(output_dir.glob(".account-api-token-recovery.*")), [])
+            self.assertEqual(env_file.read_text().splitlines()[0], "CLOUDFLARE_API_TOKEN=runtime-secret-value")
+
+
     def test_execute_surfaces_recovery_path_without_leaking_secret(self):
         with tempfile.TemporaryDirectory() as tmp:
             directory = Path(tmp)
