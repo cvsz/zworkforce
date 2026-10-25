@@ -17,7 +17,10 @@ _SIGNATURE_RE = re.compile(r"^sha256=[0-9a-f]{64}$")
 _DELIVERY_RE = re.compile(r"^[A-Fa-f0-9-]{16,128}$")
 _ALLOWED_EVENTS = {"pull_request", "check_suite", "check_run"}
 _PR_ACTIONS = {"opened", "reopened", "ready_for_review", "synchronize"}
-_CHECK_ACTIONS = {"requested", "rerequested", "completed"}
+_EVENT_ACTIONS = {
+    "check_suite": {"requested", "rerequested", "completed"},
+    "check_run": {"created", "rerequested", "completed"},
+}
 
 
 class GitHubWebhookError(ValueError):
@@ -76,7 +79,7 @@ def parse_delivery(
     action = payload.get("action", "")
     if not isinstance(action, str):
         raise GitHubWebhookError("invalid webhook action")
-    allowed_actions = _PR_ACTIONS if event == "pull_request" else _CHECK_ACTIONS
+    allowed_actions = _PR_ACTIONS if event == "pull_request" else _EVENT_ACTIONS[event]
     if action not in allowed_actions:
         raise GitHubWebhookError("unsupported webhook action")
 
