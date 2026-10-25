@@ -59,3 +59,28 @@ test("unrecognized authenticated route remains 404", async () => {
   });
   assert.equal(result.status, 404);
 });
+
+for (const path of routes) {
+  test(`authenticated ${path} with query parameters remains contained`, async () => {
+    const ledger = new Proxy({}, { get() { throw new Error("Financial mutation executed"); } });
+    const result = await request(createBillingLedgerServer({ env, ledger }), `${path}?probe=1`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ tenant_id: "attacker-controlled", amount_minor: 123 }),
+    });
+    assert.equal(result.status, 503);
+    assert.equal(result.cacheControl, "no-store");
+    assert.match(result.body.error, /disabled/);
+  });
+}
+
+test("absolute-form request targets are rejected without invoking the ledger", async () => {
+  const ledger = new Proxy({}, { get() { throw new Error("Financial mutation executed"); } });
+  const result = await request(createBillingLedgerServer({ env, ledger }), "http://evil.example/v1/usage", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ tenant_id: "attacker-controlled", amount_minor: 123 }),
+  });
+  assert.equal(result.status, 400);
+  assert.equal(result.cacheControl, "no-store");
+});
