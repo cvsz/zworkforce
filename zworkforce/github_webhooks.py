@@ -38,7 +38,7 @@ class GitHubWebhookDelivery:
 
 def verify_signature(secret: str, raw_body: bytes, signature_header: str) -> bool:
     """Verify X-Hub-Signature-256 against exact raw request bytes."""
-    if not isinstance(secret, str) or not secret or not isinstance(raw_body, bytes):
+    if not isinstance(secret, str) or not secret.strip() or not isinstance(raw_body, bytes):
         return False
     if not isinstance(signature_header, str) or not _SIGNATURE_RE.fullmatch(signature_header):
         return False
