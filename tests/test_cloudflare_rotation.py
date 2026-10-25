@@ -240,7 +240,6 @@ CLOUDFLARE_ROTATION_INTERVAL_DAYS=30
             ]
             first = subprocess.Popen(
                 ["bash", str(SCRIPT), *execute_args],
-                check=False,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
