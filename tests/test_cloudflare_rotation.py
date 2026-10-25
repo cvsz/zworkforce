@@ -410,5 +410,75 @@ CLOUDFLARE_ROTATION_INTERVAL_DAYS=30
             self.assertFalse(any(Path(arg[1:]).exists() for record in [json.loads(line) for line in records_file.read_text().splitlines()] for arg in record["args"] if arg.startswith("@")))
 
 
+    def test_execute_surfaces_recovery_path_without_leaking_secret(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            env_file, _ = self._env_file(directory)
+            state_file = directory / "rotation.json"
+            hook_dir = directory / "hooks"
+            out_dir = directory / "rotation-output"
+            hook_dir.mkdir()
+            recovery_file = out_dir / ".account-api-token-recovery.test"
+            hook = hook_dir / "10-failing-rotation.sh"
+            hook.write_text(
+                "#!/usr/bin/env bash\\n"
+                "set -Eeuo pipefail\\n"
+                "printf 'CLOUDFLARE_API_TOKEN=%s\\\\n' \"$RECOVERY_TOKEN\" > \"$RECOVERY_FILE\"\\n"
+                "chmod 600 \"$RECOVERY_FILE\"\\n"
+                "printf 'cloudflare account-token rotation: replacement token saved in mode-0600 recovery file: %s\\\\n' \"$RECOVERY_FILE\" >&2\\n"
+                "printf 'sensitive-provider-diagnostic-must-not-leak\\\\n' >&2\\n"
+                "exit 1\\n",
+                encoding="utf-8",
+            )
+            os.chmod(hook, 0o700)
+
+            initialized = self._run(
+                "--initialize",
+                "--env-file",
+                str(env_file),
+                "--state-file",
+                str(state_file),
+            )
+            self.assertEqual(initialized.returncode, 0, initialized.stderr)
+            state = json.loads(state_file.read_text(encoding="utf-8"))
+            state["next_rotation_epoch"] = 0
+            state_file.write_text(json.dumps(state), encoding="utf-8")
+
+            execute_env = os.environ.copy()
+            execute_env.update({
+                "ROTATION_APPROVED": "YES",
+                "RECOVERY_FILE": str(recovery_file),
+                "RECOVERY_TOKEN": "replacement-token-secret-must-not-leak",
+            })
+            result = self._run(
+                "--execute",
+                "--env-file",
+                str(env_file),
+                "--state-file",
+                str(state_file),
+                "--hook-dir",
+                str(hook_dir),
+                "--out-dir",
+                str(out_dir),
+                env=execute_env,
+            )
+
+            self.assertEqual(result.returncode, 5)
+            self.assertIn(str(recovery_file), result.stderr)
+            self.assertIn("replacement token saved in mode-0600 recovery file", result.stderr)
+            self.assertIn("hook failed: 10-failing-rotation.sh", result.stderr)
+            self.assertNotIn("replacement-token-secret-must-not-leak", result.stdout + result.stderr)
+            self.assertNotIn("sensitive-provider-diagnostic-must-not-leak", result.stdout + result.stderr)
+            self.assertTrue(recovery_file.is_file())
+            self.assertEqual(recovery_file.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(
+                recovery_file.read_text(encoding="utf-8"),
+                "CLOUDFLARE_API_TOKEN=replacement-token-secret-must-not-leak\\n",
+            )
+            updated_state = json.loads(state_file.read_text(encoding="utf-8"))
+            self.assertEqual(updated_state["next_rotation_epoch"], 0)
+            self.assertEqual(list(out_dir.glob(".rotation-hook-stderr.*")), [])
+
+
 if __name__ == "__main__":
     unittest.main()
