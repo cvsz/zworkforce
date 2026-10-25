@@ -31,3 +31,7 @@ Cloudflare tunnel-token rotation is separate from account API-token rotation.
 Use Cloudflare's supported tunnel-token rotation procedure, update every
 connector replica, restart them, verify the tunnel and public routes, and only
 then revoke the old token. Do not add an unreviewed dashboard automation hook.
+
+## Concurrency safety
+
+The outer `rotate-cloudflare-secrets.sh` runner serializes `--initialize` and `--execute` using a private lock file derived from `ROTATION_STATE_FILE`. Concurrent state mutations fail closed. Do not delete the lock file while a rotation process may be active.

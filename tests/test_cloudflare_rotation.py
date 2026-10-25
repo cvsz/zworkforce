@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -192,6 +193,81 @@ CLOUDFLARE_ROTATION_INTERVAL_DAYS=30
             )
             self.assertTrue((out_dir / "hook.verified").exists())
             self.assertNotIn("api-value-must-not-print", result.stdout + result.stderr)
+
+    def test_execute_rejects_concurrent_rotation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            env_file, _ = self._env_file(directory)
+            state_file = directory / "rotation.json"
+            hook_dir = directory / "hooks"
+            out_dir = directory / "rotation-output"
+            hook_dir.mkdir()
+            hook = hook_dir / "01-slow.sh"
+            hook.write_text(
+                "#!/usr/bin/env bash\\n"
+                "set -Eeuo pipefail\\n"
+                "touch \\"$ROTATION_OUT_DIR/hook.started\\"\\n"
+                "sleep 1.5\\n"
+                "printf 'run\\\\n' >> \\"$ROTATION_OUT_DIR/hook-runs\\"\\n",
+                encoding="utf-8",
+            )
+            os.chmod(hook, 0o700)
+
+            initialized = self._run(
+                "--initialize",
+                "--env-file",
+                str(env_file),
+                "--state-file",
+                str(state_file),
+            )
+            self.assertEqual(initialized.returncode, 0, initialized.stderr)
+            state = json.loads(state_file.read_text(encoding="utf-8"))
+            state["next_rotation_epoch"] = 0
+            state_file.write_text(json.dumps(state), encoding="utf-8")
+
+            execute_env = os.environ.copy()
+            execute_env["ROTATION_APPROVED"] = "YES"
+            execute_args = [
+                "--execute",
+                "--env-file",
+                str(env_file),
+                "--state-file",
+                str(state_file),
+                "--hook-dir",
+                str(hook_dir),
+                "--out-dir",
+                str(out_dir),
+            ]
+            first = subprocess.Popen(
+                ["bash", str(SCRIPT), *execute_args],
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                env=execute_env,
+            )
+            started = out_dir / "hook.started"
+            deadline = time.monotonic() + 5
+            while not started.exists() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            self.assertTrue(started.exists(), "first invocation should enter the provider hook")
+
+            second = subprocess.run(
+                ["bash", str(SCRIPT), *execute_args],
+                check=False,
+                capture_output=True,
+                text=True,
+                env=execute_env,
+                timeout=3,
+            )
+            self.assertEqual(second.returncode, 6, second.stderr)
+            self.assertIn("another rotation operation is already in progress", second.stderr)
+
+            first_stdout, first_stderr = first.communicate(timeout=5)
+            self.assertEqual(first.returncode, 0, first_stderr or first_stdout)
+            self.assertEqual((out_dir / "hook-runs").read_text().splitlines(), ["run"])
+            lock_file = Path(f"{state_file}.lock")
+            self.assertEqual(lock_file.stat().st_mode & 0o777, 0o600)
 
     def test_systemd_timer_is_daily_due_check_with_30_day_state(self):
         service = SERVICE.read_text(encoding="utf-8")

@@ -11,6 +11,7 @@ STATE_FILE="${ROTATION_STATE_FILE:-$ROOT/.rotation/cloudflare-rotation.json}"
 HOOK_DIR="${ROTATION_HOOK_DIR:-$ROOT/scripts/cloudflare-rotation.d}"
 OUT_DIR="${ROTATION_OUT_DIR:-$ROOT/output/cloudflare-rotation}"
 ACTION=status
+rotation_lock_fd=""
 
 usage() {
   cat <<'USAGE'
@@ -152,6 +153,28 @@ write_state() {
   mv -f "$temp_file" "$STATE_FILE"
 }
 
+
+acquire_rotation_lock() {
+  local state_dir lock_file mode
+  state_dir="$(dirname "$STATE_FILE")"
+  [[ ! -L "$state_dir" ]] || fail "rotation state directory must not be a symlink" 4
+  if [[ ! -d "$state_dir" ]]; then
+    mkdir -p "$state_dir" || fail "could not create rotation state directory" 4
+    chmod 700 "$state_dir"
+  fi
+  [[ -d "$state_dir" && ! -L "$state_dir" ]] || fail "rotation state directory must be a real directory" 4
+  mode="$(stat -c '%a' "$state_dir")"
+  (( (8#$mode & 8#077) == 0 )) || fail "rotation state directory must be mode 700 or stricter" 4
+  command -v flock >/dev/null 2>&1 || fail "flock is required for exclusive rotation" 4
+
+  lock_file="${STATE_FILE}.lock"
+  [[ ! -L "$lock_file" ]] || fail "rotation lock file must not be a symlink" 4
+  umask 077
+  exec {rotation_lock_fd}>"$lock_file"
+  chmod 600 "$lock_file"
+  flock -n "$rotation_lock_fd" || fail "another rotation operation is already in progress" 6
+}
+
 print_inventory() {
   printf 'env_file=%s\n' "$ENV_FILE"
   printf 'interval_days=%s\n' "$INTERVAL_DAYS"
@@ -164,6 +187,7 @@ print_inventory() {
 
 case "$ACTION" in
   initialize)
+    acquire_rotation_lock
     last_epoch="$(stat -c '%Y' "$ENV_FILE")"
     write_state "$last_epoch" "$((last_epoch + INTERVAL_SECONDS))" "env-file-mtime"
     printf 'status=initialized\nlast_rotation_epoch=%s\nnext_rotation_epoch=%s\n' \
@@ -189,6 +213,7 @@ case "$ACTION" in
     [[ -f "$STATE_FILE" && ! -L "$STATE_FILE" ]] || {
       fail "rotation is not initialized; run --initialize first" 4
     }
+    acquire_rotation_lock
     now="$(date +%s)"
     next_epoch="$(state_value next_rotation_epoch)"
     (( now >= next_epoch )) || {
