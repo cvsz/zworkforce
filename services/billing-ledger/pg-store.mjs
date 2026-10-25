@@ -41,7 +41,8 @@ function dateString(value, name) {
   const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
   const daysInMonth = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
   if (month < 1 || month > 12 || day < 1 || day > daysInMonth[month - 1] ||
-      (match[5] && Number(match[6]) === 14 && Number(match[7]) !== 0)) {
+      (match[5] && Number(match[6]) === 14 && Number(match[7]) !== 0) ||
+      (match[5] === '-' && Number(match[6]) === 0 && Number(match[7]) === 0)) {
     throw new PgFinancialStoreError(`Invalid ${name}`);
   }
   const epoch = Date.parse(value);
