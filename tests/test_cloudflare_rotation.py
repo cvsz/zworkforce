@@ -421,13 +421,13 @@ CLOUDFLARE_ROTATION_INTERVAL_DAYS=30
             recovery_file = out_dir / ".account-api-token-recovery.test"
             hook = hook_dir / "10-failing-rotation.sh"
             hook.write_text(
-                "#!/usr/bin/env bash\\n"
-                "set -Eeuo pipefail\\n"
-                "printf 'CLOUDFLARE_API_TOKEN=%s\\\\n' \"$RECOVERY_TOKEN\" > \"$RECOVERY_FILE\"\\n"
-                "chmod 600 \"$RECOVERY_FILE\"\\n"
-                "printf 'cloudflare account-token rotation: replacement token saved in mode-0600 recovery file: %s\\\\n' \"$RECOVERY_FILE\" >&2\\n"
-                "printf 'sensitive-provider-diagnostic-must-not-leak\\\\n' >&2\\n"
-                "exit 1\\n",
+                "#!/usr/bin/env bash\n"
+                "set -Eeuo pipefail\n"
+                "printf 'CLOUDFLARE_API_TOKEN=%s\\n' \"$RECOVERY_TOKEN\" > \"$RECOVERY_FILE\"\n"
+                "chmod 600 \"$RECOVERY_FILE\"\n"
+                "printf 'cloudflare account-token rotation: replacement token saved in mode-0600 recovery file: %s\\n' \"$RECOVERY_FILE\" >&2\n"
+                "printf 'sensitive-provider-diagnostic-must-not-leak\\n' >&2\n"
+                "exit 1\n",
                 encoding="utf-8",
             )
             os.chmod(hook, 0o700)
@@ -473,7 +473,7 @@ CLOUDFLARE_ROTATION_INTERVAL_DAYS=30
             self.assertEqual(recovery_file.stat().st_mode & 0o777, 0o600)
             self.assertEqual(
                 recovery_file.read_text(encoding="utf-8"),
-                "CLOUDFLARE_API_TOKEN=replacement-token-secret-must-not-leak\\n",
+                "CLOUDFLARE_API_TOKEN=replacement-token-secret-must-not-leak\n",
             )
             updated_state = json.loads(state_file.read_text(encoding="utf-8"))
             self.assertEqual(updated_state["next_rotation_epoch"], 0)
