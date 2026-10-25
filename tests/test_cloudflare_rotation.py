@@ -204,11 +204,11 @@ CLOUDFLARE_ROTATION_INTERVAL_DAYS=30
             hook_dir.mkdir()
             hook = hook_dir / "01-slow.sh"
             hook.write_text(
-                "#!/usr/bin/env bash\\n"
-                "set -Eeuo pipefail\\n"
-                "touch \\"$ROTATION_OUT_DIR/hook.started\\"\\n"
-                "sleep 1.5\\n"
-                "printf 'run\\\\n' >> \\"$ROTATION_OUT_DIR/hook-runs\\"\\n",
+                "#!/usr/bin/env bash\n"
+                "set -Eeuo pipefail\n"
+                "touch \"$ROTATION_OUT_DIR/hook.started\"\n"
+                "sleep 1.5\n"
+                "printf 'run\\n' >> \"$ROTATION_OUT_DIR/hook-runs\"\n",
                 encoding="utf-8",
             )
             os.chmod(hook, 0o700)
