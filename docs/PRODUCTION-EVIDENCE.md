@@ -71,12 +71,14 @@ outbox-A                 outbox-B
 | Candidate version | `3.0.4` corrective candidate (provisional) |
 | Governing release authority | `v3.0.3` remains authoritative in `ROADMAP.md`, `planning/exec-planning-zwf.md`, and `planning/RELEASE-SCOPE-STATUS.md`; this ledger does not authorize a v3.0.4 release |
 | Corrective code base | `f935a5f472b942f29cc83279f75ed14bae7c3761` — PR #181 merge commit containing the v3.0.4 production-image / HA verifier correction |
-| Current `main` after forward work | `2182129723d1a856546c45274308e1da2873f5bb` — PR #185 merge; this is post-candidate drift and is not covered by the earlier `f935a5f…` release evidence |
+| Main SHA observed before this evidence update (2026-10-26 03:33:52 +07:00) | `823ba0e0f87f64d48a567cdd78b6ee85df7326be` — read-only GitHub API `compare(main...main)` observation. The previously recorded SHA `2182129723d1a856546c45274308e1da2873f5bb` is stale relative to the branch observed at this timestamp. This is a source-baseline observation only, not external release evidence. |
 | Final release candidate SHA | _PENDING — re-freeze an exact `main` SHA only after governing release authority explicitly transitions to v3.0.4_ |
 | Release tag | _NOT AUTHORIZED_ |
 | Corrective local image digest | `sha256:a6341d3c4e1a1fb502b5e60a64c38b094daaa7202da84e4221ba8c6cd1b39971` — local candidate metadata only; immutable GHCR publication pending |
 | Corrective image tar digest | `sha256:c664fb3410e0dd30c9de118b84d7dc4eb8229e9d6ae54643f63175e7c91284bf` — operator-reported transfer artifact metadata; not a durable verifier run record |
 | Python artifact checksums | _PENDING tag-driven release workflow_ |
+
+The SHA above is the exact `main` baseline observed before this documentation-only branch was created. It is not the post-merge `main` SHA and is not a release candidate. After this PR merges, re-read `main`, freeze a new exact candidate SHA, and evaluate every required repository and external gate against that candidate.
 
 Any merge after `f935a5f…`, including this evidence update itself, creates post-candidate drift. Before any immutable `v3.0.4` promotion, the resulting exact `main` SHA must be frozen and all required repository and external gates must be evaluated against that exact candidate.
 
