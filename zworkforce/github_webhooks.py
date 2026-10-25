@@ -38,7 +38,7 @@ class GitHubWebhookDelivery:
 
 def verify_signature(secret: str, raw_body: bytes, signature_header: str) -> bool:
     """Verify X-Hub-Signature-256 against exact raw request bytes."""
-    if not secret or not isinstance(raw_body, bytes):
+    if not isinstance(secret, str) or not secret or not isinstance(raw_body, bytes):
         return False
     if not isinstance(signature_header, str) or not _SIGNATURE_RE.fullmatch(signature_header):
         return False
@@ -58,13 +58,13 @@ def parse_delivery(
     max_body_bytes: int = 1_048_576,
 ) -> GitHubWebhookDelivery:
     """Authenticate and validate a supported webhook without side effects."""
-    if not isinstance(max_body_bytes, int) or max_body_bytes < 1:
+    if isinstance(max_body_bytes, bool) or not isinstance(max_body_bytes, int) or max_body_bytes < 1:
         raise GitHubWebhookError("invalid webhook body limit")
     if not isinstance(raw_body, bytes) or len(raw_body) > max_body_bytes:
         raise GitHubWebhookError("webhook body is invalid or too large")
     if not isinstance(delivery_id, str) or not _DELIVERY_RE.fullmatch(delivery_id):
         raise GitHubWebhookError("invalid webhook delivery ID")
-    if event not in _ALLOWED_EVENTS:
+    if not isinstance(event, str) or event not in _ALLOWED_EVENTS:
         raise GitHubWebhookError("unsupported webhook event")
     if not verify_signature(secret, raw_body, signature_header):
         raise GitHubWebhookError("invalid webhook signature")
