@@ -30,6 +30,7 @@ for (const timestamp of [
   '2026-10-24',
   '2026-10-24T12:00:00.123456Z',
   '2026-10-24T12:00:00+14:30',
+  '2026-10-24T12:00:00-00:00',
   '2026-13-24T12:00:00.000Z',
 ]) {
   test(`rejects invalid usage and invoice timestamp before database access: ${timestamp}`, async () => {
