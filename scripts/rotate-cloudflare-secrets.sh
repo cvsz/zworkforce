@@ -12,6 +12,14 @@ HOOK_DIR="${ROTATION_HOOK_DIR:-$ROOT/scripts/cloudflare-rotation.d}"
 OUT_DIR="${ROTATION_OUT_DIR:-$ROOT/output/cloudflare-rotation}"
 ACTION=status
 rotation_lock_fd=""
+hook_stderr_file=""
+
+cleanup() {
+  if [[ -n "$hook_stderr_file" && -e "$hook_stderr_file" ]]; then
+    rm -f -- "$hook_stderr_file"
+  fi
+}
+trap cleanup EXIT
 
 usage() {
   cat <<'USAGE'
@@ -231,11 +239,24 @@ case "$ACTION" in
     for hook in "${hooks[@]}"; do
       hook_name="$(basename "$hook")"
       printf 'running_hook=%s\n' "$hook_name"
+      hook_stderr_file="$(mktemp "$OUT_DIR/.rotation-hook-stderr.XXXXXX")"
+      chmod 600 "$hook_stderr_file"
       if ! ROTATION_ENV_FILE="$ENV_FILE" ROTATION_OUT_DIR="$OUT_DIR" \
-        "$hook" "$ENV_FILE" >/dev/null 2>&1; then
+        "$hook" "$ENV_FILE" >/dev/null 2>"$hook_stderr_file"; then
+        # Forward only the documented recovery-path record. Never echo raw
+        # provider-hook stderr, which may contain sensitive diagnostics.
+        while IFS= read -r line; do
+          case "$line" in
+            "cloudflare account-token rotation: replacement token saved in mode-0600 recovery file: "*)
+              printf '%s\n' "$line" >&2
+              ;;
+          esac
+        done < "$hook_stderr_file"
         printf 'cloudflare rotation: hook failed: %s\n' "$hook_name" >&2
         exit 5
       fi
+      rm -f -- "$hook_stderr_file"
+      hook_stderr_file=""
     done
 
     write_state "$now" "$((now + INTERVAL_SECONDS))" "approved-hook-execution"
