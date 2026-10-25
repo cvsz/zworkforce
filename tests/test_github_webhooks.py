@@ -43,6 +43,33 @@ class GitHubWebhookTests(unittest.TestCase):
         self.assertFalse(verify_signature("", body, signed(body)))
         self.assertFalse(verify_signature(SECRET, body, "sha1=" + "0" * 40))
 
+    def test_verify_signature_rejects_non_string_secret(self):
+        body = pr_payload()
+        self.assertFalse(verify_signature(123, body, signed(body)))
+
+    def test_rejects_non_string_event(self):
+        body = pr_payload()
+        with self.assertRaisesRegex(GitHubWebhookError, "unsupported webhook event"):
+            parse_delivery(
+                delivery_id=DELIVERY_ID,
+                event=[],
+                raw_body=body,
+                signature_header=signed(body),
+                secret=SECRET,
+            )
+
+    def test_rejects_boolean_body_limit(self):
+        body = pr_payload()
+        with self.assertRaisesRegex(GitHubWebhookError, "body limit"):
+            parse_delivery(
+                delivery_id=DELIVERY_ID,
+                event="pull_request",
+                raw_body=body,
+                signature_header=signed(body),
+                secret=SECRET,
+                max_body_bytes=True,
+            )
+
     def test_parse_valid_pull_request_delivery(self):
         body = pr_payload()
         delivery = parse_delivery(
