@@ -51,8 +51,8 @@ function normalizeUsage(input) {
     tenant_id: requireString(input.tenant_id, "tenant_id"),
     subject_id: input.subject_id ? requireString(input.subject_id, "subject_id") : "unknown",
     model: requireString(input.model || "unknown", "model"),
-    input_tokens: Number(input.input_tokens || 0),
-    output_tokens: Number(input.output_tokens || 0),
+    input_tokens: Number(input.input_tokens ?? 0),
+    output_tokens: Number(input.output_tokens ?? 0),
     recorded_at: input.recorded_at || new Date().toISOString(),
   };
 }
@@ -60,13 +60,29 @@ function normalizeUsage(input) {
 export class MemoryLedgerStore {
   constructor() {
     this.records = new Map();
+    this.usageIdentity = new Map();
     this.credits = new Map();
     this.invoiceIntents = new Map();
   }
 
   async recordUsage(record) {
-    if (this.records.has(record.idempotency_key)) return { duplicate: true, record: this.records.get(record.idempotency_key) };
-    this.records.set(record.idempotency_key, structuredClone(record));
+    // Enforce both request idempotency and the event identity within one tenant.
+    const tenantId = requireString(record?.tenant_id, "tenant_id");
+    const requestKey = requireString(record?.idempotency_key, "idempotency_key");
+    const usageId = requireString(record?.usage_id, "usage_id");
+    // Direct-store callers bypass BillingLedger normalization; reject unsafe raw counts.
+    if (!Number.isSafeInteger(record.input_tokens) || record.input_tokens < 0 ||
+        !Number.isSafeInteger(record.output_tokens) || record.output_tokens < 0) {
+      throw new BillingLedgerError("usage tokens must be non-negative safe integers");
+    }
+    const key = JSON.stringify([tenantId, requestKey]);
+    if (this.records.has(key)) return { duplicate: true, record: this.records.get(key) };
+    const usageKey = JSON.stringify([tenantId, usageId]);
+    if (this.usageIdentity.has(usageKey)) {
+      throw new BillingLedgerError("Usage identity already recorded under another request key", 409);
+    }
+    this.records.set(key, structuredClone(record));
+    this.usageIdentity.set(usageKey, key);
     return { duplicate: false, record };
   }
 
@@ -76,8 +92,11 @@ export class MemoryLedgerStore {
   }
 
   async createInvoiceIntent(intent) {
-    if (this.invoiceIntents.has(intent.idempotency_key)) return this.invoiceIntents.get(intent.idempotency_key);
-    this.invoiceIntents.set(intent.idempotency_key, structuredClone(intent));
+    const tenantId = requireString(intent?.tenant_id, "tenant_id");
+    const requestKey = requireString(intent?.idempotency_key, "idempotency_key");
+    const key = JSON.stringify([tenantId, requestKey]);
+    if (this.invoiceIntents.has(key)) return this.invoiceIntents.get(key);
+    this.invoiceIntents.set(key, structuredClone(intent));
     return intent;
   }
 }
@@ -91,7 +110,10 @@ export class BillingLedger {
 
   async recordUsage(input) {
     const record = normalizeUsage({ ...input, recorded_at: input.recorded_at || this.now() });
-    if (record.input_tokens < 0 || record.output_tokens < 0) throw new BillingLedgerError("usage tokens must be non-negative");
+    if (!Number.isSafeInteger(record.input_tokens) || record.input_tokens < 0 ||
+        !Number.isSafeInteger(record.output_tokens) || record.output_tokens < 0) {
+      throw new BillingLedgerError("usage tokens must be non-negative safe integers");
+    }
     return this.store.recordUsage(record);
   }
 
