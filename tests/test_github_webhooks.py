@@ -47,6 +47,11 @@ class GitHubWebhookTests(unittest.TestCase):
         body = pr_payload()
         self.assertFalse(verify_signature(123, body, signed(body)))
 
+    def test_verify_signature_rejects_whitespace_only_secret(self):
+        body = pr_payload()
+        signature = "sha256=" + hmac.new(b"   ", body, hashlib.sha256).hexdigest()
+        self.assertFalse(verify_signature("   ", body, signature))
+
     def test_rejects_non_string_event(self):
         body = pr_payload()
         with self.assertRaisesRegex(GitHubWebhookError, "unsupported webhook event"):
