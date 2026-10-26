@@ -12,6 +12,11 @@ def build_trade_plan(payload: TradePlanRequest) -> TradePlanResponse:
 
     entry_low = max(0.00000001, support * 1.005)
     entry_high = min(price, support * 1.03)
+    entry_zone_valid = entry_low <= entry_high and (payload.support is None or payload.support < price)
+    if not entry_zone_valid:
+        # Keep the response well-formed, but block entries when support geometry is invalid.
+        entry_low = price
+        entry_high = price
     stop = max(0.00000001, support * (1 - atr_fraction * 0.75))
     dca = [
         round(max(0.00000001, entry_low * 0.97), 12),
@@ -33,6 +38,8 @@ def build_trade_plan(payload: TradePlanRequest) -> TradePlanResponse:
 
     verdict = TradeVerdict.WAIT
     reasons = ["trade plan is a deterministic risk simulation, not an automatic order"]
+    if not entry_zone_valid:
+        reasons.append("invalid support/price geometry; simulated entry is blocked")
 
     intel = payload.intelligence
     if intel:
@@ -46,6 +53,7 @@ def build_trade_plan(payload: TradePlanRequest) -> TradePlanResponse:
             intel.scores.opportunity >= 65
             and intel.scores.risk < 55
             and intel.scores.confidence >= 50
+            and entry_zone_valid
             and entry_low <= price <= entry_high * 1.02
         ):
             verdict = TradeVerdict.ENTER
