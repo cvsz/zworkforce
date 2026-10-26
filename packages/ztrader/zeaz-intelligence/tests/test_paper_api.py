@@ -228,3 +228,21 @@ def test_paper_api_requires_tenant_header(tmp_path, monkeypatch):
         },
     )
     assert response.status_code == 422
+
+def test_wallets_api_returns_422_for_invalid_transfer_data():
+    client = TestClient(api.app)
+    token = {"symbol": "T", "chain": "solana"}
+    invalid_transfers = [
+        ({"wallet": "x", "direction": "unknown", "usd_value": 10},
+         "unsupported wallet transfer direction"),
+        ({"wallet": "x", "direction": "buy", "usd_value": -1},
+         "usd_value must be non-negative"),
+    ]
+
+    for transfer, expected_detail in invalid_transfers:
+        response = client.post(
+            "/v1/wallets/analyze",
+            json={"token": token, "transfers": [transfer]},
+        )
+        assert response.status_code == 422
+        assert expected_detail in response.json()["detail"]
