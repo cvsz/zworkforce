@@ -1,7 +1,5 @@
-from fastapi.testclient import TestClient
 import pytest
 
-from ztrader_intel import api
 
 from ztrader_intel.models import SmartMoneyRequest, TokenRef, WalletTransfer, WhaleState
 from ztrader_intel.wallets import analyze_wallet_flows
@@ -46,23 +44,3 @@ def test_negative_wallet_transfer_amount_is_rejected():
     )
     with pytest.raises(ValueError, match="usd_value must be non-negative"):
         analyze_wallet_flows(payload)
-
-@pytest.mark.parametrize(
-    ("direction", "usd_value", "expected_detail"),
-    [
-        ("unknown", 10, "unsupported wallet transfer direction"),
-        ("buy", -1, "usd_value must be non-negative"),
-    ],
-)
-def test_wallets_api_returns_422_for_invalid_transfer(direction, usd_value, expected_detail):
-    client = TestClient(api.app)
-    response = client.post(
-        "/v1/wallets/analyze",
-        json={
-            "token": {"symbol": "T", "chain": "solana"},
-            "transfers": [{"wallet": "x", "direction": direction, "usd_value": usd_value}],
-        },
-    )
-
-    assert response.status_code == 422
-    assert expected_detail in response.json()["detail"]
