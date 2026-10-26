@@ -150,7 +150,7 @@ test("ledger client errors remain 400 without exposing upstream details", async 
 
 test("ledger timeout maps to retryable 503 without retrying", async () => {
   let calls = 0;
-  const timeoutEnv = { ...env, Z_PLATFORM_BILLING_LEDGER_TIMEOUT_MS: "25" };
+  const timeoutEnv = { ...env, Z_PLATFORM_BILLING_LEDGER_TIMEOUT_MS: "100" };
   const response = await request(
     createZWalletServer({
       env: timeoutEnv,
