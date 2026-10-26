@@ -193,23 +193,35 @@ async def policy_evaluate(payload: IntelligenceResponse):
 
 
 @app.post("/v1/paper/accounts", response_model=PaperAccount, status_code=201)
-async def paper_account_create(payload: PaperAccountCreate):
-    return paper_store.create_account(payload)
+async def paper_account_create(
+    payload: PaperAccountCreate,
+    tenant_id: Annotated[str, Header(alias="X-Tenant-ID")],
+):
+    try:
+        return paper_store.create_account(payload, tenant_id)
+    except PaperTradingError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.get("/v1/paper/accounts/{account_id}", response_model=PaperAccount)
-async def paper_account_get(account_id: str):
+async def paper_account_get(
+    account_id: str,
+    tenant_id: Annotated[str, Header(alias="X-Tenant-ID")],
+):
     try:
-        return paper_store.get_account(account_id)
+        return paper_store.get_account(account_id, tenant_id)
     except PaperTradingError as exc:
         status = 404 if "account not found" in str(exc) else 422
         raise HTTPException(status_code=status, detail=str(exc)) from exc
 
 
 @app.post("/v1/paper/orders", response_model=PaperOrder, status_code=201)
-async def paper_order_submit(payload: PaperOrderRequest):
+async def paper_order_submit(
+    payload: PaperOrderRequest,
+    tenant_id: Annotated[str, Header(alias="X-Tenant-ID")],
+):
     try:
-        return paper_store.submit_order(payload)
+        return paper_store.submit_order(payload, tenant_id)
     except PaperTradingError as exc:
         status = 404 if "account not found" in str(exc) else (
             409 if "idempotency_key" in str(exc) else 422
@@ -220,10 +232,11 @@ async def paper_order_submit(payload: PaperOrderRequest):
 @app.get("/v1/paper/accounts/{account_id}/orders", response_model=list[PaperOrder])
 async def paper_orders_list(
     account_id: str,
+    tenant_id: Annotated[str, Header(alias="X-Tenant-ID")],
     limit: int = Query(default=100, ge=1, le=1000),
 ):
     try:
-        return paper_store.list_orders(account_id, limit=limit)
+        return paper_store.list_orders(account_id, tenant_id, limit=limit)
     except PaperTradingError as exc:
         status = 404 if "account not found" in str(exc) else 422
         raise HTTPException(status_code=status, detail=str(exc)) from exc
