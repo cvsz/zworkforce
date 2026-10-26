@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import secrets
 from typing import Annotated
@@ -94,6 +95,68 @@ def _integration_token(
 
 
 IntegrationToken = Annotated[str, Depends(_integration_token)]
+
+
+def _paper_tenant_scope(
+    tenant_id: Annotated[str, Header(alias="X-Tenant-ID")],
+    tenant_token: Annotated[str | None, Header(alias="X-Paper-Tenant-Token")] = None,
+) -> str:
+    raw_tokens = os.getenv("ZTRADER_PAPER_TENANT_TOKENS", "").strip()
+    if not raw_tokens:
+        raise HTTPException(status_code=503, detail="paper trading tenant authentication is not configured")
+
+    try:
+        tenant_tokens = json.loads(raw_tokens)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="paper trading tenant authentication configuration is invalid",
+        ) from exc
+
+    if not isinstance(tenant_tokens, dict) or not tenant_tokens:
+        raise HTTPException(
+            status_code=503,
+            detail="paper trading tenant authentication configuration is invalid",
+        )
+
+    for configured_tenant, token in tenant_tokens.items():
+        if (
+            not isinstance(configured_tenant, str)
+            or not configured_tenant
+            or configured_tenant != configured_tenant.strip().lower()
+            or not isinstance(token, str)
+            or len(token) < 32
+        ):
+            raise HTTPException(
+                status_code=503,
+                detail="paper trading tenant authentication configuration is invalid",
+            )
+
+    configured_tokens = list(tenant_tokens.values())
+    if len(set(configured_tokens)) != len(configured_tokens):
+        raise HTTPException(
+            status_code=503,
+            detail="paper trading tenant authentication configuration is invalid",
+        )
+
+    service_token = os.getenv("ZTRADER_INTEL_SERVICE_TOKEN", "").strip()
+    if service_token and any(secrets.compare_digest(token, service_token) for token in configured_tokens):
+        raise HTTPException(
+            status_code=503,
+            detail="paper trading tenant authentication configuration is invalid",
+        )
+
+    normalized_tenant_id = tenant_id.strip().lower()
+    expected_token = tenant_tokens.get(normalized_tenant_id)
+    if (
+        not normalized_tenant_id
+        or not isinstance(expected_token, str)
+        or not tenant_token
+        or not secrets.compare_digest(tenant_token, expected_token)
+    ):
+        raise HTTPException(status_code=401, detail="invalid paper trading tenant credentials")
+
+    return normalized_tenant_id
 
 
 def _verify_advisory_scope(
@@ -194,7 +257,8 @@ async def policy_evaluate(payload: IntelligenceResponse):
 @app.post("/v1/paper/accounts", response_model=PaperAccount, status_code=201)
 async def paper_account_create(
     payload: PaperAccountCreate,
-    tenant_id: Annotated[str, Header(alias="X-Tenant-ID")],
+    _service_token: IntegrationToken,
+    tenant_id: Annotated[str, Depends(_paper_tenant_scope)],
 ):
     try:
         return paper_store.create_account(payload, tenant_id)
@@ -205,7 +269,8 @@ async def paper_account_create(
 @app.get("/v1/paper/accounts/{account_id}", response_model=PaperAccount)
 async def paper_account_get(
     account_id: str,
-    tenant_id: Annotated[str, Header(alias="X-Tenant-ID")],
+    _service_token: IntegrationToken,
+    tenant_id: Annotated[str, Depends(_paper_tenant_scope)],
 ):
     try:
         return paper_store.get_account(account_id, tenant_id)
@@ -217,7 +282,8 @@ async def paper_account_get(
 @app.post("/v1/paper/orders", response_model=PaperOrder, status_code=201)
 async def paper_order_submit(
     payload: PaperOrderRequest,
-    tenant_id: Annotated[str, Header(alias="X-Tenant-ID")],
+    _service_token: IntegrationToken,
+    tenant_id: Annotated[str, Depends(_paper_tenant_scope)],
 ):
     try:
         return paper_store.submit_order(payload, tenant_id)
@@ -231,7 +297,8 @@ async def paper_order_submit(
 @app.get("/v1/paper/accounts/{account_id}/orders", response_model=list[PaperOrder])
 async def paper_orders_list(
     account_id: str,
-    tenant_id: Annotated[str, Header(alias="X-Tenant-ID")],
+    _service_token: IntegrationToken,
+    tenant_id: Annotated[str, Depends(_paper_tenant_scope)],
     limit: int = Query(default=100, ge=1, le=1000),
 ):
     try:

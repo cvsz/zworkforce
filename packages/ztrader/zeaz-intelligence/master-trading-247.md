@@ -47,14 +47,16 @@ Paper broker คำนวณ fill จาก `reference_price` ที่ caller �
 
 ## 3. API
 
-ทุก request ต้องส่ง header `X-Tenant-ID` ให้ตรงกับ tenant ที่สร้างบัญชี
+ทุก request ต้องส่ง service credential (`Authorization: Bearer <ZTRADER_INTEL_SERVICE_TOKEN>` หรือ `X-API-Key`), `X-Tenant-ID` และ `X-Paper-Tenant-Token` ที่ผูกกับ tenant ใน `ZTRADER_PAPER_TENANT_TOKENS`. ห้ามถือว่า `X-Tenant-ID` เพียงอย่างเดียวเป็น authentication; token map ต้องใช้ token แบบสุ่มที่ไม่ซ้ำกันและยาวอย่างน้อย 32 ตัวอักษร. หาก config หายหรือผิดรูปแบบ endpoint ต้องปฏิเสธคำขอ.
 
 ### สร้างบัญชีจำลอง
 
 ```bash
 curl -X POST http://127.0.0.1:8218/v1/paper/accounts \
   -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer ${ZTRADER_INTEL_SERVICE_TOKEN}" \
   -H 'X-Tenant-ID: demo-tenant' \
+  -H "X-Paper-Tenant-Token: ${PAPER_TENANT_TOKEN}" \
   -d '{"initial_cash_usd": 10000}'
 ```
 
@@ -65,7 +67,9 @@ curl -X POST http://127.0.0.1:8218/v1/paper/accounts \
 ```bash
 curl -X POST http://127.0.0.1:8218/v1/paper/orders \
   -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer ${ZTRADER_INTEL_SERVICE_TOKEN}" \
   -H 'X-Tenant-ID: demo-tenant' \
+  -H "X-Paper-Tenant-Token: ${PAPER_TENANT_TOKEN}" \
   -d '{
     "account_id": "REPLACE_WITH_ACCOUNT_ID",
     "symbol": "DEMO",
@@ -86,7 +90,7 @@ curl -X POST http://127.0.0.1:8218/v1/paper/orders \
 - `GET /v1/paper/accounts/{account_id}`
 - `GET /v1/paper/accounts/{account_id}/orders?limit=100`
 
-ทั้งสอง endpoint ต้องส่ง `X-Tenant-ID` เหมือนตอนสร้างบัญชี
+ทั้งสอง endpoint ต้องส่ง service credential, tenant-bound token และ `X-Tenant-ID` เดิมเหมือนตอนสร้างบัญชี; tenant token ที่ไม่ตรงกับ tenant ต้องถูกปฏิเสธ.
 
 ## 4. บัญชีและการคำนวณ
 

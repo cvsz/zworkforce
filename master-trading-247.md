@@ -124,6 +124,7 @@ Live:
 - Agents never receive exchange private keys or withdrawal authority.
 - Separate judgment, policy, risk, and broker permissions.
 - Enforce tenant isolation, scoped authorization, and audit correlation.
+- Paper Trading endpoints require service authentication plus a unique tenant-bound token; `X-Tenant-ID` alone is never authentication.
 - Treat external market data and token metadata as untrusted input.
 - Require human approval for sensitive policy changes.
 
