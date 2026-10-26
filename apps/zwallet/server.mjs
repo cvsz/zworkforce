@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 
 const defaultHost = process.env.HOST || "127.0.0.1";
 const defaultPort = Number(process.env.PORT || 3040);
+const MAX_REQUEST_BODY_BYTES = 64 * 1024;
 
 class LedgerUnavailableError extends Error {
   constructor() {
@@ -18,6 +19,13 @@ class AdapterInputError extends Error {
   }
 }
 
+class RequestTooLargeError extends Error {
+  constructor() {
+    super("Request body too large");
+    this.name = "RequestTooLargeError";
+  }
+}
+
 function send(response, status, body) {
   response.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
@@ -27,9 +35,21 @@ function send(response, status, body) {
 }
 
 async function readJson(request) {
-  let text = "";
-  for await (const chunk of request) text += chunk;
-  return text.trim() ? JSON.parse(text) : {};
+  const chunks = [];
+  let bytes = 0;
+  for await (const chunk of request) {
+    const data = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    bytes += data.length;
+    if (bytes > MAX_REQUEST_BODY_BYTES) throw new RequestTooLargeError();
+    chunks.push(data);
+  }
+  const text = Buffer.concat(chunks).toString("utf8");
+  if (!text.trim()) return {};
+  const value = JSON.parse(text);
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new AdapterInputError("JSON body must be an object");
+  }
+  return value;
 }
 
 function ledgerUrl(env, path) {
@@ -38,7 +58,20 @@ function ledgerUrl(env, path) {
   return base + path;
 }
 
+function ledgerTimeoutMs(env) {
+  const raw = env.Z_PLATFORM_BILLING_LEDGER_TIMEOUT_MS;
+  if (raw === undefined || raw === "") return 5000;
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value < 100 || value > 30000) {
+    throw new LedgerUnavailableError();
+  }
+  return value;
+}
+
 async function forwardLedger(path, input, env, fetchImpl) {
+  if (input === null || typeof input !== "object" || Array.isArray(input)) {
+    throw new AdapterInputError("JSON body must be an object");
+  }
   const token = env.Z_PLATFORM_SERVICE_TOKEN;
   if (!token) throw new LedgerUnavailableError();
   const forbidden = ["wallet_signature", "card_number", "kyc_payload", "mpc_share", "swap_route"];
@@ -48,12 +81,14 @@ async function forwardLedger(path, input, env, fetchImpl) {
     }
   }
 
+  const timeoutMs = ledgerTimeoutMs(env);
   let result;
   try {
     result = await fetchImpl(ledgerUrl(env, path), {
       method: "POST",
       headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
       body: JSON.stringify(input),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch {
     throw new LedgerUnavailableError();
@@ -96,6 +131,9 @@ export function createZWalletServer({ env = process.env, fetchImpl = fetch } = {
     } catch (error) {
       if (error instanceof LedgerUnavailableError) {
         return send(response, 503, { error: "Billing ledger unavailable" });
+      }
+      if (error instanceof RequestTooLargeError) {
+        return send(response, 413, { error: "Request body too large" });
       }
       if (error instanceof AdapterInputError) {
         return send(response, 400, { error: error.message });
