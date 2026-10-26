@@ -1,12 +1,9 @@
-from __future__ import annotations
-
 import json
 
 from fastapi.testclient import TestClient
 
 from ztrader_intel import api
 from ztrader_intel.paper_trading import PaperTradingStore
-
 
 SERVICE_TOKEN = "service-test-token-for-paper-api-32-characters"
 TENANT_TOKENS = {
