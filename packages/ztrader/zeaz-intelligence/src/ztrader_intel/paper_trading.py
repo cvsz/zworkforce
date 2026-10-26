@@ -178,6 +178,13 @@ class PaperTradingStore:
         with self._lock, self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
             try:
+                account = conn.execute(
+                    "SELECT * FROM paper_accounts WHERE account_id = ? AND tenant_id = ?",
+                    (request.account_id, tenant_id),
+                ).fetchone()
+                if account is None:
+                    raise PaperTradingError("paper account not found")
+
                 existing = conn.execute(
                     "SELECT * FROM paper_orders WHERE account_id = ? AND idempotency_key = ?",
                     (request.account_id, request.idempotency_key),
@@ -189,14 +196,6 @@ class PaperTradingStore:
                         )
                     conn.commit()
                     return self._order_from_row(existing)
-
-                account = conn.execute(
-                    "SELECT * FROM paper_accounts WHERE account_id = ? AND tenant_id = ?",
-                    (request.account_id, tenant_id),
-                ).fetchone()
-                if account is None:
-                    raise PaperTradingError("paper account not found")
-
                 position = conn.execute(
                     "SELECT * FROM paper_positions WHERE account_id = ? AND symbol = ? AND chain = ?",
                     (request.account_id, request.symbol, request.chain),
