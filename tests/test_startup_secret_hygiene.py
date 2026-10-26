@@ -22,7 +22,11 @@ class StartupSecretHygieneTests(unittest.TestCase):
 
     def test_enabled_voice_requires_a_provisioned_minimum_length_token(self):
         script = START_SCRIPT.read_text(encoding="utf-8")
-        self.assertIn('[[ "${ZWORKFORCE_ZARVIS_VOICE_ENABLED,,}" =~ ^(1|true|yes|on)$ ]]', script)
+        enabled_guard = (
+            '[[ "${ZWORKFORCE_ZARVIS_VOICE_ENABLED,,}" =~ '
+            "^(1|true|yes|on)$ ]]"
+        )
+        self.assertIn(enabled_guard, script)
         self.assertIn("${#ZWORKFORCE_ZARVIS_VOICE_SERVICE_TOKEN} -lt 32", script)
         self.assertIn("no default token is provided", script)
         self.assertIn("exit 1", script)
