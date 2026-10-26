@@ -1,6 +1,5 @@
 import pytest
 
-
 from ztrader_intel.models import SmartMoneyRequest, TokenRef, WalletTransfer, WhaleState
 from ztrader_intel.wallets import analyze_wallet_flows
 
