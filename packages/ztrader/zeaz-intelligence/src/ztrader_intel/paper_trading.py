@@ -137,7 +137,7 @@ class PaperTradingStore:
                 """
             )
 
-    def create_account(self, request: PaperAccountCreate, tenant_id: str) -> PaperAccount:
+    def create_account(self, request: PaperAccountCreate, tenant_id: str = "local") -> PaperAccount:
         if not tenant_id.strip():
             raise PaperTradingError("tenant_id is required")
         import uuid
@@ -161,7 +161,7 @@ class PaperTradingStore:
         ).encode("utf-8")
         return hashlib.sha256(encoded).hexdigest()
 
-    def submit_order(self, request: PaperOrderRequest, tenant_id: str) -> PaperOrder:
+    def submit_order(self, request: PaperOrderRequest, tenant_id: str = "local") -> PaperOrder:
         import uuid
 
         fill_price = request.reference_price * (
@@ -285,7 +285,7 @@ class PaperTradingStore:
             created_at=row["created_at"],
         )
 
-    def list_orders(self, account_id: str, tenant_id: str, limit: int = 100) -> list[PaperOrder]:
+    def list_orders(self, account_id: str, tenant_id: str = "local", limit: int = 100) -> list[PaperOrder]:
         if not 1 <= limit <= 1000:
             raise PaperTradingError("limit must be between 1 and 1000")
         with self._lock, self._connect() as conn:
@@ -300,7 +300,7 @@ class PaperTradingStore:
             ).fetchall()
         return [self._order_from_row(row) for row in rows]
 
-    def get_account(self, account_id: str, tenant_id: str) -> PaperAccount:
+    def get_account(self, account_id: str, tenant_id: str = "local") -> PaperAccount:
         with self._lock, self._connect() as conn:
             account = conn.execute(
                 "SELECT * FROM paper_accounts WHERE account_id = ? AND tenant_id = ?", (account_id, tenant_id)
