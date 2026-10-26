@@ -22,3 +22,25 @@ def test_smart_money_accumulation():
     assert result.state == WhaleState.ACCUMULATING
     assert result.smart_money_net_usd == 10000
     assert result.new_smart_money_entries == 1
+
+
+import pytest
+
+
+@pytest.mark.parametrize("direction", ["unknown", "", "purchase", "sell-side"])
+def test_unknown_wallet_direction_is_rejected(direction):
+    payload = SmartMoneyRequest(
+        token=TokenRef(symbol="T", chain="solana"),
+        transfers=[WalletTransfer(wallet="x", direction=direction, usd_value=10)],
+    )
+    with pytest.raises(ValueError, match="unsupported wallet transfer direction"):
+        analyze_wallet_flows(payload)
+
+
+def test_negative_wallet_transfer_amount_is_rejected():
+    payload = SmartMoneyRequest(
+        token=TokenRef(symbol="T", chain="solana"),
+        transfers=[WalletTransfer(wallet="x", direction="buy", usd_value=-1)],
+    )
+    with pytest.raises(ValueError, match="usd_value must be non-negative"):
+        analyze_wallet_flows(payload)
