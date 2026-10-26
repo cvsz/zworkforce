@@ -1,3 +1,5 @@
+import pytest
+
 from ztrader_intel.models import SmartMoneyRequest, TokenRef, WalletTransfer, WhaleState
 from ztrader_intel.wallets import analyze_wallet_flows
 
@@ -22,9 +24,6 @@ def test_smart_money_accumulation():
     assert result.state == WhaleState.ACCUMULATING
     assert result.smart_money_net_usd == 10000
     assert result.new_smart_money_entries == 1
-
-
-import pytest
 
 
 @pytest.mark.parametrize("direction", ["unknown", "", "purchase", "sell-side"])
