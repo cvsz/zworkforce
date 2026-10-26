@@ -70,3 +70,26 @@ def test_paper_api_rejects_oversell(tmp_path, monkeypatch):
     assert buy.status_code == 201
     assert sell.status_code == 422
     assert client.get(f"/v1/paper/accounts/{account_id}", headers={"X-Tenant-ID": "tenant-a"}).json()["positions"][0]["quantity"] == 1
+
+
+def test_paper_api_denies_cross_tenant_account_access(tmp_path, monkeypatch):
+    monkeypatch.setattr(api, "paper_store", PaperTradingStore(str(tmp_path / "tenant-paper.db")))
+    client = TestClient(api.app)
+    response = client.post(
+        "/v1/paper/accounts",
+        json={"initial_cash_usd": 100},
+        headers={"X-Tenant-ID": "tenant-a"},
+    )
+    account_id = response.json()["account_id"]
+    result = client.get(
+        f"/v1/paper/accounts/{account_id}",
+        headers={"X-Tenant-ID": "tenant-b"},
+    )
+    assert result.status_code == 404
+
+
+def test_paper_api_requires_tenant_header(tmp_path, monkeypatch):
+    monkeypatch.setattr(api, "paper_store", PaperTradingStore(str(tmp_path / "header-paper.db")))
+    client = TestClient(api.app)
+    response = client.post("/v1/paper/accounts", json={"initial_cash_usd": 100})
+    assert response.status_code == 422
