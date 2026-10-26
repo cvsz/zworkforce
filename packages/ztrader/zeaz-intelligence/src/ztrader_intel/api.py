@@ -37,6 +37,14 @@ from .models import (
 )
 from .narrative import attention_velocity
 from .policy import execution_policy
+from .paper_trading import (
+    PaperAccount,
+    PaperAccountCreate,
+    PaperOrder,
+    PaperOrderRequest,
+    PaperTradingError,
+    PaperTradingStore,
+)
 from .polymarket.arbitrage import detect_complement_arbitrage
 from .polymarket.models import ArbitrageOpportunity, ArbitrageRequest
 from .portfolio import build_portfolio
@@ -63,6 +71,7 @@ app = FastAPI(
 )
 Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 store = AnalysisStore()
+paper_store = PaperTradingStore()
 
 
 def _integration_token(
@@ -181,6 +190,43 @@ async def alerts_evaluate(payload: AlertRequest):
 async def policy_evaluate(payload: IntelligenceResponse):
     return execution_policy(payload)
 
+
+
+@app.post("/v1/paper/accounts", response_model=PaperAccount, status_code=201)
+async def paper_account_create(payload: PaperAccountCreate):
+    return paper_store.create_account(payload)
+
+
+@app.get("/v1/paper/accounts/{account_id}", response_model=PaperAccount)
+async def paper_account_get(account_id: str):
+    try:
+        return paper_store.get_account(account_id)
+    except PaperTradingError as exc:
+        status = 404 if "account not found" in str(exc) else 422
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
+
+
+@app.post("/v1/paper/orders", response_model=PaperOrder, status_code=201)
+async def paper_order_submit(payload: PaperOrderRequest):
+    try:
+        return paper_store.submit_order(payload)
+    except PaperTradingError as exc:
+        status = 404 if "account not found" in str(exc) else (
+            409 if "idempotency_key" in str(exc) else 422
+        )
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
+
+
+@app.get("/v1/paper/accounts/{account_id}/orders", response_model=list[PaperOrder])
+async def paper_orders_list(
+    account_id: str,
+    limit: int = Query(default=100, ge=1, le=1000),
+):
+    try:
+        return paper_store.list_orders(account_id, limit=limit)
+    except PaperTradingError as exc:
+        status = 404 if "account not found" in str(exc) else 422
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
 
 @app.get("/v1/history/{symbol}")
 async def history(
