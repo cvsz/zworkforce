@@ -53,6 +53,10 @@ Trade-plan simulation:
 - POST /v1/discover/live
 - POST /v1/wallets/analyze
 - POST /v1/trade-plan
+- POST /v1/paper/accounts
+- GET /v1/paper/accounts/{account_id}
+- POST /v1/paper/orders
+- GET /v1/paper/accounts/{account_id}/orders
 - POST /v1/portfolio
 - POST /v1/backtest
 - POST /v1/alerts/evaluate
@@ -115,3 +119,21 @@ data -> intelligence -> risk/confidence policy
 ```
 
 This sidecar never enables live execution by itself.
+
+
+## Paper Trading (จำลองคำสั่งเท่านั้น)
+
+แพ็กเกจมี SQLite-backed paper ledger สำหรับบัญชีจำลอง, simulated fills, cash/position accounting, fees, slippage, realized/unrealized PnL และ order history โดยไม่มีการเชื่อมต่อ exchange และไม่มี live execution. ทุก endpoint ของ Paper Trading ต้องระบุ `X-Tenant-ID`; header นี้เป็น scope marker ไม่ใช่การยืนยันตัวตนด้วยตัวเอง
+
+สร้างบัญชีจำลอง:
+
+```bash
+curl -X POST http://127.0.0.1:8218/v1/paper/accounts \
+  -H 'Content-Type: application/json' \
+  -H 'X-Tenant-ID: demo-tenant' \
+  -d '{"initial_cash_usd": 10000}'
+```
+
+ส่งคำสั่งจำลองต้องระบุ `account_id`, `symbol`, `chain`, `side`, `quantity`, `reference_price` และ `idempotency_key`. ค่า fee/slippage ใช้หน่วย basis points. ระบบปฏิเสธ BUY ที่เงินไม่พอ, SELL เกิน position และการ reuse idempotency key กับ payload อื่น
+
+รายละเอียดขอบเขต, ข้อจำกัดและตัวอย่างครบถ้วนอยู่ที่ [master-trading-247.md](master-trading-247.md). Live execution remains disabled.
