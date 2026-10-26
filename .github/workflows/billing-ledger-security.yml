@@ -1,0 +1,37 @@
+name: Billing Ledger Security
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "services/billing-ledger/**"
+      - ".github/workflows/billing-ledger-security.yml"
+  pull_request:
+    paths:
+      - "services/billing-ledger/**"
+      - ".github/workflows/billing-ledger-security.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: billing-ledger-security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: "22"
+      - name: Validate billing ledger syntax
+        run: node --check services/billing-ledger/server.mjs
+      - name: Run billing ledger contract and containment tests
+        run: node --test services/billing-ledger/test/*.test.mjs
