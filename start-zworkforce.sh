@@ -22,5 +22,9 @@ fi
 export ZWORKFORCE_ZARVIS_VOICE_WS_ALLOWLIST="${ZWORKFORCE_ZARVIS_VOICE_WS_ALLOWLIST:-ws://127.0.0.1:8450,ws://127.0.0.1:8765,wss://voice.zarvis.zeaz.dev,wss://zai.zeaz.dev}"
 export ZWORKFORCE_ZARVIS_VOICE_MODEL="${ZWORKFORCE_ZARVIS_VOICE_MODEL:-qwen3:8b}"
 
-echo "Starting zWorkforce with Z.A.R.V.I.S. Voice Enabled..."
+if [[ "$ZWORKFORCE_ZARVIS_VOICE_ENABLED" == "true" ]]; then
+  echo "Starting zWorkforce with Z.A.R.V.I.S. Voice Enabled..."
+else
+  echo "Starting zWorkforce with Z.A.R.V.I.S. Voice Disabled..."
+fi
 exec python3 -m zworkforce.cli serve
