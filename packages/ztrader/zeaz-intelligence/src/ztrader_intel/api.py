@@ -220,7 +220,10 @@ async def discover_live(payload: LiveDiscoveryRequest):
 
 @app.post("/v1/wallets/analyze", response_model=SmartMoneyResponse)
 async def wallets_analyze(payload: SmartMoneyRequest):
-    return analyze_wallet_flows(payload)
+    try:
+        return analyze_wallet_flows(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.post("/v1/trade-plan", response_model=TradePlanResponse)
