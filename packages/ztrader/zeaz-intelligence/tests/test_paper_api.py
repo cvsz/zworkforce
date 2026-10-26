@@ -30,7 +30,7 @@ def test_paper_api_creates_account_and_submits_idempotent_order(tmp_path, monkey
         "idempotency_key": "api-order-key-0001",
     }
     first = client.post("/v1/paper/orders", json=payload, headers={"X-Tenant-ID": "tenant-a"})
-    retry = client.post("/v1/paper/orders", json=payload)
+    retry = client.post("/v1/paper/orders", json=payload, headers={"X-Tenant-ID": "tenant-a"})
     assert first.status_code == 201
     assert retry.status_code == 201
     assert first.json()["order_id"] == retry.json()["order_id"]
@@ -69,4 +69,4 @@ def test_paper_api_rejects_oversell(tmp_path, monkeypatch):
     )
     assert buy.status_code == 201
     assert sell.status_code == 422
-    assert client.get(f"/v1/paper/accounts/{account_id}").json()["positions"][0]["quantity"] == 1
+    assert client.get(f"/v1/paper/accounts/{account_id}", headers={"X-Tenant-ID": "tenant-a"}).json()["positions"][0]["quantity"] == 1
