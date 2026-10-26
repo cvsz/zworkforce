@@ -97,6 +97,7 @@ class PaperTradingStore:
                 """
                 CREATE TABLE IF NOT EXISTS paper_accounts (
                     account_id TEXT PRIMARY KEY,
+                    tenant_id TEXT NOT NULL,
                     initial_cash REAL NOT NULL CHECK(initial_cash > 0),
                     cash REAL NOT NULL CHECK(cash >= -0.00000001),
                     realized_pnl REAL NOT NULL DEFAULT 0,
@@ -136,18 +137,20 @@ class PaperTradingStore:
                 """
             )
 
-    def create_account(self, request: PaperAccountCreate) -> PaperAccount:
+    def create_account(self, request: PaperAccountCreate, tenant_id: str) -> PaperAccount:
+        if not tenant_id.strip():
+            raise PaperTradingError("tenant_id is required")
         import uuid
 
         account_id = uuid.uuid4().hex
         with self._lock, self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
             conn.execute(
-                "INSERT INTO paper_accounts(account_id, initial_cash, cash) VALUES (?, ?, ?)",
-                (account_id, request.initial_cash_usd, request.initial_cash_usd),
+                "INSERT INTO paper_accounts(account_id, tenant_id, initial_cash, cash) VALUES (?, ?, ?, ?)",
+                (account_id, tenant_id, request.initial_cash_usd, request.initial_cash_usd),
             )
             conn.commit()
-        return self.get_account(account_id)
+        return self.get_account(account_id, tenant_id)
 
     @staticmethod
     def _request_hash(request: PaperOrderRequest) -> str:
@@ -158,7 +161,7 @@ class PaperTradingStore:
         ).encode("utf-8")
         return hashlib.sha256(encoded).hexdigest()
 
-    def submit_order(self, request: PaperOrderRequest) -> PaperOrder:
+    def submit_order(self, request: PaperOrderRequest, tenant_id: str) -> PaperOrder:
         import uuid
 
         fill_price = request.reference_price * (
@@ -188,8 +191,8 @@ class PaperTradingStore:
                     return self._order_from_row(existing)
 
                 account = conn.execute(
-                    "SELECT * FROM paper_accounts WHERE account_id = ?",
-                    (request.account_id,),
+                    "SELECT * FROM paper_accounts WHERE account_id = ? AND tenant_id = ?",
+                    (request.account_id, tenant_id),
                 ).fetchone()
                 if account is None:
                     raise PaperTradingError("paper account not found")
@@ -283,12 +286,12 @@ class PaperTradingStore:
             created_at=row["created_at"],
         )
 
-    def list_orders(self, account_id: str, limit: int = 100) -> list[PaperOrder]:
+    def list_orders(self, account_id: str, tenant_id: str, limit: int = 100) -> list[PaperOrder]:
         if not 1 <= limit <= 1000:
             raise PaperTradingError("limit must be between 1 and 1000")
         with self._lock, self._connect() as conn:
             account = conn.execute(
-                "SELECT 1 FROM paper_accounts WHERE account_id = ?", (account_id,)
+                "SELECT 1 FROM paper_accounts WHERE account_id = ? AND tenant_id = ?", (account_id, tenant_id)
             ).fetchone()
             if account is None:
                 raise PaperTradingError("paper account not found")
@@ -298,10 +301,10 @@ class PaperTradingStore:
             ).fetchall()
         return [self._order_from_row(row) for row in rows]
 
-    def get_account(self, account_id: str) -> PaperAccount:
+    def get_account(self, account_id: str, tenant_id: str) -> PaperAccount:
         with self._lock, self._connect() as conn:
             account = conn.execute(
-                "SELECT * FROM paper_accounts WHERE account_id = ?", (account_id,)
+                "SELECT * FROM paper_accounts WHERE account_id = ? AND tenant_id = ?", (account_id, tenant_id)
             ).fetchone()
             if account is None:
                 raise PaperTradingError("paper account not found")
