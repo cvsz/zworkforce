@@ -136,6 +136,13 @@ class PaperTradingStore:
                     ON paper_orders(account_id, created_at DESC);
                 """
             )
+            account_columns = {
+                row["name"] for row in conn.execute("PRAGMA table_info(paper_accounts)")
+            }
+            if "tenant_id" not in account_columns:
+                conn.execute(
+                    "ALTER TABLE paper_accounts ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'local'"
+                )
 
     def create_account(self, request: PaperAccountCreate, tenant_id: str = "local") -> PaperAccount:
         if not tenant_id.strip():
