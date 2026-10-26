@@ -14,7 +14,7 @@ def build_trade_plan(payload: TradePlanRequest) -> TradePlanResponse:
     entry_high = min(price, support * 1.03)
     entry_zone_valid = entry_low <= entry_high and (payload.support is None or payload.support < price)
     if not entry_zone_valid:
-        # Keep the response well-formed, but block entries when support geometry is invalid.
+        # คงรูปแบบ response ให้ถูกต้อง แต่ปิดกั้น entry เมื่อ support/price ไม่สอดคล้องกัน
         entry_low = price
         entry_high = price
     stop = max(0.00000001, support * (1 - atr_fraction * 0.75))
