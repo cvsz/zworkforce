@@ -36,7 +36,6 @@ from .models import (
     WatchlistEntry,
 )
 from .narrative import attention_velocity
-from .policy import execution_policy
 from .paper_trading import (
     PaperAccount,
     PaperAccountCreate,
@@ -45,6 +44,7 @@ from .paper_trading import (
     PaperTradingError,
     PaperTradingStore,
 )
+from .policy import execution_policy
 from .polymarket.arbitrage import detect_complement_arbitrage
 from .polymarket.models import ArbitrageOpportunity, ArbitrageRequest
 from .portfolio import build_portfolio
@@ -191,7 +191,6 @@ async def policy_evaluate(payload: IntelligenceResponse):
     return execution_policy(payload)
 
 
-
 @app.post("/v1/paper/accounts", response_model=PaperAccount, status_code=201)
 async def paper_account_create(
     payload: PaperAccountCreate,
@@ -240,6 +239,7 @@ async def paper_orders_list(
     except PaperTradingError as exc:
         status = 404 if "account not found" in str(exc) else 422
         raise HTTPException(status_code=status, detail=str(exc)) from exc
+
 
 @app.get("/v1/history/{symbol}")
 async def history(
