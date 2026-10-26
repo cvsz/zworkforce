@@ -147,6 +147,116 @@ test("ledger client errors remain 400 without exposing upstream details", async 
   assert.equal(response.headers.get("cache-control"), "no-store");
 });
 
+
+test("ledger timeout maps to retryable 503 without retrying", async () => {
+  let calls = 0;
+  const timeoutEnv = { ...env, Z_PLATFORM_BILLING_LEDGER_TIMEOUT_MS: "25" };
+  const response = await request(
+    createZWalletServer({
+      env: timeoutEnv,
+      fetchImpl: async (_url, options) => {
+        calls += 1;
+        await new Promise((resolve, reject) => {
+          const abort = () => reject(options.signal.reason);
+          if (options.signal.aborted) abort();
+          else options.signal.addEventListener("abort", abort, { once: true });
+        });
+      },
+    }),
+    "/api/invoice-intents",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tenant_id: "tenant-1", idempotency_key: "invoice-timeout", currency: "USD", amount_minor: 500 }),
+    },
+  );
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { error: "Billing ledger unavailable" });
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(calls, 1);
+});
+
+test("invalid timeout configuration fails closed without calling upstream", async () => {
+  let calls = 0;
+  const response = await request(
+    createZWalletServer({
+      env: { ...env, Z_PLATFORM_BILLING_LEDGER_TIMEOUT_MS: "invalid" },
+      fetchImpl: async () => {
+        calls += 1;
+        return Response.json({});
+      },
+    }),
+    "/api/credits",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tenant_id: "tenant-1", idempotency_key: "credit-timeout-invalid", amount_minor: 100 }),
+    },
+  );
+
+  assert.equal(response.status, 503);
+  assert.equal(calls, 0);
+});
+
+test("non-object JSON is rejected before upstream access", async () => {
+  let calls = 0;
+  const response = await request(
+    createZWalletServer({
+      env,
+      fetchImpl: async () => {
+        calls += 1;
+        return Response.json({});
+      },
+    }),
+    "/api/invoice-intents",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "null",
+    },
+  );
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "JSON body must be an object" });
+  assert.equal(calls, 0);
+});
+
+test("oversized request bodies are rejected before upstream access", async () => {
+  let calls = 0;
+  const response = await request(
+    createZWalletServer({
+      env,
+      fetchImpl: async () => {
+        calls += 1;
+        return Response.json({});
+      },
+    }),
+    "/api/invoice-intents",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ payload: "x".repeat(64 * 1024) }),
+    },
+  );
+
+  assert.equal(response.status, 413);
+  assert.deepEqual(await response.json(), { error: "Request body too large" });
+  assert.equal(calls, 0);
+});
+
+test("direct adapter calls reject non-object input", async () => {
+  let calls = 0;
+  await assert.rejects(
+    createInvoiceIntent(null, env, async () => {
+      calls += 1;
+      return Response.json({});
+    }),
+    /JSON body must be an object/,
+  );
+  assert.equal(calls, 0);
+});
+
 test("adapter rejects signing, card, KYC, MPC, and swap payloads", async () => {
   await assert.rejects(
     createInvoiceIntent({ tenant_id: "tenant-1", idempotency_key: "invoice-1", currency: "USD", amount_minor: 500, wallet_signature: "nope" }, env, async () => Response.json({})),
