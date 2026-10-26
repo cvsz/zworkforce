@@ -210,17 +210,17 @@ class PaperTradingStore:
 
                 if request.side == "buy":
                     total_cost = notional + fee
-                    if total_cost > account["cash"] + 1e-9:
+                    if total_cost > account["cash"]:
                         raise PaperTradingError("insufficient paper cash for notional plus fee")
                     old_qty = float(position["quantity"]) if position else 0.0
                     old_cost = float(position["average_cost"]) if position else 0.0
                     new_qty = old_qty + request.quantity
                     new_avg = (old_qty * old_cost + total_cost) / new_qty
-                    new_cash = float(account["cash"]) - total_cost
+                    new_cash = max(0.0, float(account["cash"]) - total_cost)
                     realized_delta = 0.0
                 else:
                     old_qty = float(position["quantity"]) if position else 0.0
-                    if request.quantity > old_qty + 1e-9:
+                    if request.quantity > old_qty:
                         raise PaperTradingError("insufficient position quantity to sell")
                     old_cost = float(position["average_cost"]) if position else 0.0
                     new_qty = max(0.0, old_qty - request.quantity)
