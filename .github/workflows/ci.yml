@@ -210,6 +210,23 @@ jobs:
               json.loads(p.read_text())
           PY
 
+  zwallet-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - name: Validate ZWallet adapter and HTTP contract tests
+        run: |
+          node --check apps/zwallet/server.mjs
+          node --test apps/zwallet/test/server.test.mjs
+
   zchat-contract:
     runs-on: ubuntu-latest
     timeout-minutes: 10
