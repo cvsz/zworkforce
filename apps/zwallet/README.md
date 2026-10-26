@@ -25,3 +25,9 @@ It forwards credits and invoice-intent requests to `services/billing-ledger` onl
 ## Validation
 
 Run `npm test` to verify the adapter rejects wallet signing, card, KYC, MPC, and swap payloads and preserves the retryable 503 contract.
+
+
+## Resource limits and timeouts
+- The adapter accepts JSON object request bodies up to 64 KiB; larger bodies return HTTP 413 before any Billing Ledger request.
+- Billing Ledger calls use a 5-second timeout by default. Operators may set `Z_PLATFORM_BILLING_LEDGER_TIMEOUT_MS` to an integer from 100 through 30000. Invalid values fail closed with HTTP 503.
+- A timeout returns the same generic, non-cacheable HTTP 503 as other upstream availability failures. It does not prove whether a financial mutation committed; reconcile with the same durable idempotency key before retrying.
