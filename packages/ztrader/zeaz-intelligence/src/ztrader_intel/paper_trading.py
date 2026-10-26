@@ -71,11 +71,11 @@ class PaperAccount(BaseModel):
 
 
 class PaperTradingError(ValueError):
-    """A simulated order failed a deterministic paper-trading validation."""
+    """คำสั่งจำลองไม่ผ่านการตรวจสอบตามกฎ Paper Trading"""
 
 
 class PaperTradingStore:
-    """SQLite-backed paper broker. This class never calls an external venue."""
+    """Paper broker ที่เก็บ ledger ใน SQLite และไม่เรียกใช้ venue ภายนอก"""
 
     def __init__(self, path: str | None = None) -> None:
         configured = path or os.getenv("ZTRADER_PAPER_DB", "./data/ztrader_paper.db")
