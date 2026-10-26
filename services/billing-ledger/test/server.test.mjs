@@ -27,9 +27,10 @@ test("records usage idempotently", async () => {
   assert.equal(second.record.output_tokens, 4);
 });
 
-test("creates credits and invoice intents without wallet authority", async () => {
+test("rejects credit mutations while retaining synthetic invoice intent contract", async () => {
   const ledger = new BillingLedger({ idGenerator: () => "intent-1", now: () => "2026-07-14T00:00:00.000Z" });
-  assert.deepEqual(await ledger.setCredits({ tenant_id: "tenant-1", credits: 100 }), { tenant_id: "tenant-1", credits: 100 });
+  await assert.rejects(ledger.setCredits({ tenant_id: "tenant-1", credits: 100 }), error => error.status === 503);
+  assert.equal(ledger.store.credits.size, 0);
   assert.deepEqual(await ledger.createInvoiceIntent({ tenant_id: "tenant-1", idempotency_key: "invoice-1", currency: "usd", amount_minor: 500 }), {
     intent_id: "intent-1",
     idempotency_key: "invoice-1",
@@ -49,17 +50,19 @@ test("HTTP routes require service auth and expose no wallet/card authority", asy
   assert.equal(unauthorized.status, 401);
 });
 
-test("HTTP usage endpoint returns duplicate on repeated idempotency key", async () => {
-  const server = createBillingLedgerServer({ env, ledger: new BillingLedger({ now: () => "2026-07-14T00:00:00.000Z" }) });
+test("HTTP usage endpoint fails closed without modifying the ledger", async () => {
+  const ledger = new BillingLedger({ now: () => "2026-07-14T00:00:00.000Z" });
+  const server = createBillingLedgerServer({ env, ledger });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const { port } = server.address();
   try {
     const payload = { usage_id: "usage-1", idempotency_key: "idem-1", tenant_id: "tenant-1", model: "hf:test" };
     const first = await fetch(`http://127.0.0.1:${port}/v1/usage`, { method: "POST", headers, body: JSON.stringify(payload) });
     const second = await fetch(`http://127.0.0.1:${port}/v1/usage`, { method: "POST", headers, body: JSON.stringify(payload) });
-    assert.equal(first.status, 201);
-    assert.equal(second.status, 200);
-    assert.equal((await second.json()).duplicate, true);
+    assert.equal(first.status, 503);
+    assert.equal(second.status, 503);
+    assert.equal(first.headers.get("cache-control"), "no-store");
+    assert.equal(ledger.store.records.size, 0);
   } finally {
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
