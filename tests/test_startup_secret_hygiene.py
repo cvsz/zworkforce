@@ -10,7 +10,7 @@ START_SCRIPT = ROOT / "start-zworkforce.sh"
 
 
 class StartupSecretHygieneTests(unittest.TestCase):
-    def run_start_script(self, overrides=None, *, xtrace=False):
+    def run_start_script(self, overrides=None, *, xtrace=False, voice_enabled="true"):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)
             script = temp_root / "start-zworkforce.sh"
@@ -26,7 +26,10 @@ class StartupSecretHygieneTests(unittest.TestCase):
             env = os.environ.copy()
             env.pop("ZWORKFORCE_ZARVIS_VOICE_SERVICE_TOKEN", None)
             env.pop("Z_PLATFORM_SERVICE_TOKEN", None)
-            env["ZWORKFORCE_ZARVIS_VOICE_ENABLED"] = "true"
+            if voice_enabled is None:
+                env.pop("ZWORKFORCE_ZARVIS_VOICE_ENABLED", None)
+            else:
+                env["ZWORKFORCE_ZARVIS_VOICE_ENABLED"] = voice_enabled
             env["PATH"] = f"{bin_dir}{os.pathsep}{env.get('PATH', '')}"
             if overrides:
                 env.update(overrides)
@@ -54,6 +57,12 @@ class StartupSecretHygieneTests(unittest.TestCase):
             'ZWORKFORCE_ZARVIS_VOICE_SERVICE_TOKEN:-${Z_PLATFORM_SERVICE_TOKEN:-}',
             script,
         )
+
+    def test_voice_defaults_disabled_when_not_configured(self):
+        result = self.run_start_script(voice_enabled=None)
+        self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+        self.assertIn("Voice Disabled", result.stdout)
+        self.assertNotIn("must be provisioned", result.stderr)
 
     def test_enabled_voice_requires_a_provisioned_token_at_runtime(self):
         result = self.run_start_script()
