@@ -57,9 +57,15 @@ class StartupSecretHygieneTests(unittest.TestCase):
         self.assertIn("must be provisioned", result.stderr)
         self.assertNotIn("Starting zWorkforce", result.stdout)
 
-    def test_whitespace_only_and_short_tokens_are_rejected(self):
-        for token in (" " * 40, "x" * 31):
-            with self.subTest(token_length=len(token)):
+    def test_tokens_with_fewer_than_32_non_whitespace_characters_are_rejected(self):
+        tokens = (
+            " " * 40,
+            "x" * 31,
+            "x" * 31 + " ",
+            "x" * 16 + "\t" + "x" * 15,
+        )
+        for token in tokens:
+            with self.subTest(token_length=len(token), non_whitespace=sum(not c.isspace() for c in token)):
                 result = self.run_start_script(
                     {"ZWORKFORCE_ZARVIS_VOICE_SERVICE_TOKEN": token}
                 )
