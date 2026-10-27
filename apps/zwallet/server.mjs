@@ -88,6 +88,7 @@ async function forwardLedger(path, input, env, fetchImpl) {
       method: "POST",
       headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
       body: JSON.stringify(input),
+      redirect: "error",
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch {
@@ -95,7 +96,11 @@ async function forwardLedger(path, input, env, fetchImpl) {
   }
 
   if (!result.ok) {
-    if (result.status >= 500 || result.status === 429) throw new LedgerUnavailableError();
+    // Redirects are never followed for financial mutations. Treat any 3xx
+    // response as an upstream protocol/availability failure, not client input.
+    if ((result.status >= 300 && result.status < 400) || result.status >= 500 || result.status === 429) {
+      throw new LedgerUnavailableError();
+    }
     throw new AdapterInputError("Billing ledger rejected the request");
   }
 
