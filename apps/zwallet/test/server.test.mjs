@@ -37,3 +37,37 @@ test("adapter rejects signing, card, KYC, MPC, and swap payloads", async () => {
     /wallet_signature is not accepted/,
   );
 });
+
+test("financial HTTP mutation routes fail closed before parsing or forwarding", async () => {
+  let calls = 0;
+  const paths = [
+    "/api/invoice-intents?tenant_id=tenant-a",
+    "/api/credits?tenant_id=tenant-b",
+  ];
+
+  for (const path of paths) {
+    const response = await request(
+      createZWalletServer({
+        env,
+        fetchImpl: async () => {
+          calls += 1;
+          return Response.json({});
+        },
+      }),
+      path,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "not-json",
+      },
+    );
+
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), {
+      error: "Financial mutations disabled pending tenant-bound authorization and durable idempotency",
+    });
+    assert.equal(response.headers.get("cache-control"), "no-store");
+  }
+
+  assert.equal(calls, 0);
+});
