@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import hashlib
-import json
-import os
+import re
 import shutil
 import subprocess
 import uuid
+from pathlib import Path
 from typing import Any
 
 
@@ -100,11 +100,39 @@ class MockAudioProviderAdapter(BaseProviderAdapter):
 
 
 class VideoEditingPipeline:
-    """Automated FFmpeg video editor and technical media QA validator."""
+    """Create an honest, offline synthetic storyboard sample with FFmpeg."""
 
-    def __init__(self, output_dir: str = "/tmp/zeazverse/renders"):
-        self.output_dir = output_dir
-        os.makedirs(self.output_dir, exist_ok=True)
+    MAX_SCENES = 30
+    MAX_DURATION_SECONDS = 300.0
+    COLORS = ("0x160D2B", "0x10202C", "0x17142F", "0x2B102D", "0x07152A")
+
+    def __init__(self, output_dir: str | Path = "/tmp/zeazverse/renders"):
+        self.output_dir = Path(output_dir).expanduser().resolve()
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def _vtt_timestamp(seconds: float) -> str:
+        millis = round(seconds * 1000)
+        hours, millis = divmod(millis, 3_600_000)
+        minutes, millis = divmod(millis, 60_000)
+        whole_seconds, millis = divmod(millis, 1000)
+        return f"{hours:02d}:{minutes:02d}:{whole_seconds:02d}.{millis:03d}"
+
+    @staticmethod
+    def _caption(scene: dict[str, Any]) -> str:
+        dialogue = scene.get("dialogue")
+        if dialogue is None:
+            dialogue = scene.get("dialogue_json")
+        if isinstance(dialogue, str):
+            try:
+                import json
+                dialogue = json.loads(dialogue)
+            except (ValueError, TypeError):
+                dialogue = {}
+        if not isinstance(dialogue, dict):
+            return ""
+        text = dialogue.get("text_en") or dialogue.get("text") or ""
+        return re.sub(r"[\r\n]+", " ", str(text)).replace("-->", "—>").strip()[:500]
 
     def render_episode(
         self,
@@ -113,75 +141,95 @@ class VideoEditingPipeline:
         seo_metadata: dict[str, Any],
         subtitles_srt: str | None = None,
     ) -> dict[str, Any]:
-        """Assembles scenes and verifies media specifications (1080x1920, 30fps, H.264, AAC)."""
-        render_id = f"render_{uuid.uuid4().hex[:12]}"
-        total_duration = sum(s.get("time_end_seconds", 5.0) - s.get("time_start_seconds", 0.0) for s in scenes)
-        if total_duration <= 0:
-            total_duration = 30.0
+        """Render a real MP4 of abstract scene cards and dialogue captions.
 
-        target_mp4 = os.path.join(self.output_dir, f"{episode_id}_{render_id}.mp4")
-        target_vtt = os.path.join(self.output_dir, f"{episode_id}_{render_id}.vtt")
+        This is a technical sample only: it does not generate idol imagery,
+        animation, voice, or music and must not be treated as a finished episode.
+        """
+        if not isinstance(scenes, list) or not scenes or len(scenes) > self.MAX_SCENES:
+            raise ZeazverseProviderError(f"render requires 1..{self.MAX_SCENES} scenes")
+        normalized = []
+        for scene in sorted(scenes, key=lambda item: float(item.get("time_start_seconds", 0))):
+            start = float(scene.get("time_start_seconds", 0))
+            end = float(scene.get("time_end_seconds", 0))
+            if start < 0 or end <= start:
+                raise ZeazverseProviderError("render scene time range is invalid")
+            normalized.append((scene, start, end))
+        total_duration = max(end for _, _, end in normalized)
+        if total_duration > self.MAX_DURATION_SECONDS:
+            raise ZeazverseProviderError("render exceeds the 300 second limit")
+        previous_end = 0.0
+        for _, start, end in normalized:
+            if abs(start - previous_end) > 0.001:
+                raise ZeazverseProviderError("render scenes must be contiguous and start at zero")
+            previous_end = end
 
-        # Generate a real test video with ffmpeg if available, otherwise synthetic mock
         ffmpeg_bin = shutil.which("ffmpeg")
-        if ffmpeg_bin:
-            try:
-                # Build a 1-second 1080x1920 test video with silent audio for testing ffmpeg pipeline
-                cmd = [
-                    ffmpeg_bin,
-                    "-y",
-                    "-f",
-                    "lavfi",
-                    "-i",
-                    "color=c=0x070B1D:s=1080x1920:d=1:r=30",
-                    "-f",
-                    "lavfi",
-                    "-i",
-                    "anullsrc=r=44100:cl=stereo",
-                    "-t",
-                    "1",
-                    "-c:v",
-                    "libx264",
-                    "-pix_fmt",
-                    "yuv420p",
-                    "-c:a",
-                    "aac",
-                    target_mp4,
-                ]
-                subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-            except Exception:
-                with open(target_mp4, "wb") as f:
-                    f.write(b"\x00\x00\x00\x1cftypisom\x00\x00\x02\x00isomiso2mp41")
-        else:
-            with open(target_mp4, "wb") as f:
-                f.write(b"\x00\x00\x00\x1cftypisom\x00\x00\x02\x00isomiso2mp41")
+        if not ffmpeg_bin:
+            raise ZeazverseProviderError("FFmpeg is required to render a valid MP4 sample")
+        render_id = f"render_{uuid.uuid4().hex[:12]}"
+        safe_episode_id = re.sub(r"[^a-zA-Z0-9_-]", "_", episode_id)[:80] or "episode"
+        target_mp4 = self.output_dir / f"{safe_episode_id}_{render_id}.mp4"
+        target_vtt = self.output_dir / f"{safe_episode_id}_{render_id}.vtt"
+        temporary_mp4 = target_mp4.with_name(f"{target_mp4.stem}.tmp.mp4")
 
-        with open(target_vtt, "w", encoding="utf-8") as f:
-            f.write("WEBVTT\n\n00:00:00.000 --> 00:00:03.000\nWelcome to ZEAZVERSE.\n")
+        command = [ffmpeg_bin, "-nostdin", "-hide_banner", "-loglevel", "error", "-y"]
+        filters = []
+        for index, (_, start, end) in enumerate(normalized):
+            duration = end - start
+            color = self.COLORS[index % len(self.COLORS)]
+            command.extend(["-f", "lavfi", "-i", f"color=c={color}:s=720x1280:r=30:d={duration:.3f}"])
+            filters.append(f"[{index}:v]setpts=PTS-STARTPTS[v{index}]")
+        audio_index = len(normalized)
+        command.extend(["-f", "lavfi", "-i", f"anullsrc=r=44100:cl=stereo:d={total_duration:.3f}"])
+        concat_inputs = "".join(f"[v{i}]" for i in range(len(normalized)))
+        filters.append(f"{concat_inputs}concat=n={len(normalized)}:v=1:a=0,format=yuv420p[vout]")
+        command.extend([
+            "-filter_complex", ";".join(filters), "-map", "[vout]", "-map", f"{audio_index}:a:0",
+            "-t", f"{total_duration:.3f}", "-r", "30", "-c:v", "libx264", "-preset", "veryfast",
+            "-crf", "28", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k",
+            "-movflags", "+faststart", str(temporary_mp4),
+        ])
+        try:
+            subprocess.run(command, check=True, capture_output=True, text=True, timeout=180)
+            if not temporary_mp4.is_file() or temporary_mp4.stat().st_size < 1024:
+                raise ZeazverseProviderError("FFmpeg returned without a usable media file")
+            temporary_mp4.replace(target_mp4)
+        except (subprocess.SubprocessError, OSError) as exc:
+            temporary_mp4.unlink(missing_ok=True)
+            raise ZeazverseProviderError("FFmpeg failed to produce the MP4 sample") from exc
 
-        with open(target_mp4, "rb") as f:
-            out_sha = hashlib.sha256(f.read()).hexdigest()
+        cues = []
+        for scene, start, end in normalized:
+            caption = self._caption(scene)
+            if caption:
+                cues.append(f"{self._vtt_timestamp(start)} --> {self._vtt_timestamp(end)}\n{caption}")
+        target_vtt.write_text("WEBVTT\n\n" + "\n\n".join(cues) + ("\n" if cues else ""), encoding="utf-8")
+        digest = hashlib.sha256(target_mp4.read_bytes()).hexdigest()
 
         return {
             "render_id": render_id,
-            "status": "completed",
-            "output_video_uri": target_mp4,
-            "output_sha256": out_sha,
-            "subtitles_vtt_uri": target_vtt,
-            "thumbnail_uri": f"storage://zeazverse/thumbnails/{episode_id}_thumb.jpg",
+            "status": "synthetic_sample",
+            "render_kind": "abstract_storyboard_sample",
+            "provider": "ffmpeg_local",
+            "external_media_generated": False,
+            "output_video_uri": str(target_mp4),
+            "output_sha256": digest,
+            "subtitles_vtt_uri": str(target_vtt),
             "duration_seconds": total_duration,
-            "format": "1080x1920",
+            "format": "720x1280",
             "fps": 30,
             "codec": "h264",
             "audio_codec": "aac",
-            "validation_status": "passed",
+            "validation_status": "encoded",
+            "visual_review_required": True,
             "validation_report": {
-                "media_check": "passed",
-                "width": 1080,
-                "height": 1920,
+                "media_check": "ffmpeg_exit_zero_and_nonempty_file",
+                "width": 720,
+                "height": 1280,
                 "aspect_ratio": "9:16",
                 "fps": 30,
                 "video_stream": "h264",
-                "audio_stream": "aac_stereo",
+                "audio_stream": "aac_stereo_silence",
             },
         }
