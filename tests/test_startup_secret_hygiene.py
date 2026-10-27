@@ -10,7 +10,7 @@ START_SCRIPT = ROOT / "start-zworkforce.sh"
 
 
 class StartupSecretHygieneTests(unittest.TestCase):
-    def run_start_script(self, overrides=None):
+    def run_start_script(self, overrides=None, *, xtrace=False):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)
             script = temp_root / "start-zworkforce.sh"
@@ -31,8 +31,12 @@ class StartupSecretHygieneTests(unittest.TestCase):
             if overrides:
                 env.update(overrides)
 
+            command = ["bash"]
+            if xtrace:
+                command.append("-x")
+            command.append(str(script))
             return subprocess.run(
-                ["bash", str(script)],
+                command,
                 check=False,
                 capture_output=True,
                 text=True,
@@ -92,6 +96,16 @@ class StartupSecretHygieneTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
         self.assertIn("Voice Enabled", result.stdout)
+
+    def test_shell_xtrace_does_not_log_provisioned_token(self):
+        token = "synthetic-xtrace-secret-" + ("c" * 40)
+        result = self.run_start_script(
+            {"ZWORKFORCE_ZARVIS_VOICE_SERVICE_TOKEN": token},
+            xtrace=True,
+        )
+        self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+        self.assertNotIn(token, result.stdout)
+        self.assertNotIn(token, result.stderr)
 
     def test_legacy_environment_token_remains_backward_compatible(self):
         token = "legacy-synthetic-token-" + ("b" * 40)
