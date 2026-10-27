@@ -25,7 +25,7 @@ class ZarvisVoiceTests(unittest.TestCase):
         values = {
             "enabled": True,
             "gateway_url": "http://voice-gateway:8450",
-            "service_token": "server-secret-token",
+            "service_token": "synthetic-voice-service-token-for-tests-000000000000",
             "websocket_allowlist": ("wss://voice.example.com",),
             "model": "voice-local",
             "timeout_seconds": 2.0,
@@ -37,7 +37,7 @@ class ZarvisVoiceTests(unittest.TestCase):
         service = ZarvisVoiceService(self.config())
         snapshot = service.snapshot()
         rendered = json.dumps(snapshot)
-        self.assertNotIn("server-secret-token", rendered)
+        self.assertNotIn("synthetic-voice-service-token-for-tests-000000000000", rendered)
         self.assertNotIn("voice-gateway:8450", rendered)
         self.assertTrue(snapshot["enabled"])
         self.assertEqual(snapshot["websocket_origins"], ["wss://voice.example.com"])
@@ -64,7 +64,7 @@ class ZarvisVoiceTests(unittest.TestCase):
             request_id="request-1",
         )
         self.assertEqual(captured["url"], "http://voice-gateway:8450/v1/voice/tickets")
-        self.assertEqual(captured["headers"]["Authorization"], "Bearer server-secret-token")
+        self.assertEqual(captured["headers"]["Authorization"], "Bearer synthetic-voice-service-token-for-tests-000000000000")
         self.assertEqual(captured["headers"]["X-tenant-id"], "default")
         self.assertEqual(captured["headers"]["X-subject-id"], "bootstrap-test:operator")
         self.assertEqual(captured["body"], {"model": "voice-local"})
@@ -93,6 +93,15 @@ class ZarvisVoiceTests(unittest.TestCase):
         self.assertEqual(ctx.exception.status, 503)
         self.assertEqual(ctx.exception.code, "voice_disabled")
 
+    def test_enabled_service_rejects_short_or_whitespace_service_tokens(self):
+        for token in ("short-token", "x" * 31, " " * 40, "\\t" * 40):
+            with self.subTest(token_length=len(token)):
+                with self.assertRaisesRegex(ValueError, "at least 32 non-whitespace characters"):
+                    ZarvisVoiceService(self.config(service_token=token))
+
+        # The boundary is inclusive: 32 non-whitespace characters are accepted.
+        ZarvisVoiceService(self.config(service_token="x" * 32))
+
     def test_upstream_http_error_does_not_reflect_upstream_body(self):
         def opener(request, timeout):
             raise urllib.error.HTTPError(
@@ -112,7 +121,7 @@ class ZarvisVoiceTests(unittest.TestCase):
     def test_rejects_upstream_payload_that_echoes_service_token(self):
         def opener(request, timeout):
             return FakeResponse({
-                "ticket": "server-secret-token",
+                "ticket": "synthetic-voice-service-token-for-tests-000000000000",
                 "expires_at": "2026-08-15T00:01:00.000Z",
                 "websocket_url": "wss://voice.example.com/v1/realtime",
             })
@@ -121,7 +130,7 @@ class ZarvisVoiceTests(unittest.TestCase):
         with self.assertRaises(ZarvisVoiceError) as ctx:
             service.issue_session(tenant_id="default", subject_id="user", request_id="request-5")
         self.assertEqual(ctx.exception.code, "voice_gateway_invalid_response")
-        self.assertNotIn("server-secret-token", str(ctx.exception))
+        self.assertNotIn("synthetic-voice-service-token-for-tests-000000000000", str(ctx.exception))
 
     def test_issue_session_result_never_contains_token_or_authorization_keys(self):
         def opener(request, timeout):
@@ -139,7 +148,7 @@ class ZarvisVoiceTests(unittest.TestCase):
         self.assertNotIn("service_token", rendered)
         self.assertNotIn("Authorization", rendered)
         self.assertNotIn("Bearer", rendered)
-        self.assertNotIn("server-secret-token", rendered)
+        self.assertNotIn("synthetic-voice-service-token-for-tests-000000000000", rendered)
         self.assertEqual(set(result), {"ticket", "expires_at", "websocket_url", "ticket_transport", "model", "transport"})
 
 
@@ -159,7 +168,7 @@ class ZarvisVoiceApiTests(unittest.TestCase):
             ZarvisVoiceConfig(
                 enabled=True,
                 gateway_url="http://voice-gateway:8450",
-                service_token="server-secret-token",
+                service_token="synthetic-voice-service-token-for-tests-000000000000",
                 websocket_allowlist=("wss://voice.example.com",),
                 model="voice-local",
                 timeout_seconds=2.0,
@@ -203,7 +212,7 @@ class ZarvisVoiceApiTests(unittest.TestCase):
         rendered = json.dumps(data)
         self.assertNotIn("service_token", rendered)
         self.assertNotIn("Authorization", rendered)
-        self.assertNotIn("server-secret-token", rendered)
+        self.assertNotIn("synthetic-voice-service-token-for-tests-000000000000", rendered)
         self.assertEqual(set(data), {"ticket", "expires_at", "websocket_url", "ticket_transport", "model", "transport"})
         self.assertEqual(data["ticket"], "signed-ticket")
 
@@ -214,7 +223,7 @@ class ZarvisVoiceApiTests(unittest.TestCase):
 
         def echoing_opener(request, timeout):
             return FakeResponse({
-                "ticket": "server-secret-token",
+                "ticket": "synthetic-voice-service-token-for-tests-000000000000",
                 "expires_at": "2026-08-15T00:01:00.000Z",
                 "websocket_url": "wss://voice.example.com/v1/realtime",
             })
@@ -225,7 +234,7 @@ class ZarvisVoiceApiTests(unittest.TestCase):
         self.assertEqual(ctx.exception.code, 502)
         body = json.loads(ctx.exception.read().decode("utf-8"))
         self.assertEqual(body["error"]["code"], "voice_gateway_invalid_response")
-        self.assertNotIn("server-secret-token", json.dumps(body))
+        self.assertNotIn("synthetic-voice-service-token-for-tests-000000000000", json.dumps(body))
 
 
 if __name__ == "__main__":
