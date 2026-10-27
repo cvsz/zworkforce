@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createServer } from "node:http";
 import test from "node:test";
 
 import { createInvoiceIntent, createZWalletServer } from "../server.mjs";
@@ -60,33 +61,50 @@ test("maps ledger 503 to a generic retryable response without leaking or retryin
   assert.equal(calls.length, 1);
 });
 
-test("rejects ledger redirects without following them or leaking redirect details", async () => {
-  const calls = [];
-  const response = await request(
-    createZWalletServer({
-      env,
-      fetchImpl: async (url, options) => {
-        calls.push({ url, options });
-        assert.equal(options.redirect, "error");
-        return new Response(null, {
-          status: 302,
-          headers: { Location: "https://unexpected.example/collect" },
-        });
-      },
-    }),
-    "/api/invoice-intents",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tenant_id: "tenant-1", idempotency_key: "invoice-redirect", currency: "USD", amount_minor: 500 }),
-    },
-  );
+test("native fetch rejects ledger redirects without forwarding the financial request", async () => {
+  let forwardedRequests = 0;
+  const receiver = createServer((_request, response) => {
+    forwardedRequests += 1;
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end("{}");
+  });
+  const ledger = createServer((_request, response) => {
+    const receiverUrl = `http://127.0.0.1:${receiver.address().port}/collect`;
+    response.writeHead(302, { Location: receiverUrl });
+    response.end();
+  });
 
-  assert.equal(response.status, 503);
-  assert.deepEqual(await response.json(), { error: "Billing ledger unavailable" });
-  assert.equal(response.headers.get("cache-control"), "no-store");
-  assert.equal(response.headers.get("location"), null);
-  assert.equal(calls.length, 1);
+  await new Promise((resolve) => receiver.listen(0, "127.0.0.1", resolve));
+  await new Promise((resolve) => ledger.listen(0, "127.0.0.1", resolve));
+  try {
+    const localEnv = {
+      ...env,
+      Z_PLATFORM_BILLING_LEDGER_URL: `http://127.0.0.1:${ledger.address().port}`,
+    };
+    const response = await request(
+      createZWalletServer({ env: localEnv }),
+      "/api/invoice-intents",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenant_id: "tenant-1", idempotency_key: "invoice-redirect", currency: "USD", amount_minor: 500 }),
+      },
+    );
+
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), { error: "Billing ledger unavailable" });
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.equal(forwardedRequests, 0);
+  } finally {
+    await Promise.all(
+      [ledger, receiver].map(
+        (server) =>
+          new Promise((resolve, reject) =>
+            server.close((error) => (error ? reject(error) : resolve())),
+          ),
+      ),
+    );
+  }
 });
 
 test("maps transport failure to generic 503 and makes exactly one attempt", async () => {
