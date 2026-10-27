@@ -158,3 +158,16 @@ def test_sqlite_backup_restore_preserves_paper_ledger(tmp_path):
     assert restored_account.positions[0].quantity == pytest.approx(2)
     assert len(restored.list_orders(account.account_id)) == 1
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_paper_models_reject_non_finite_numeric_inputs(value):
+    with pytest.raises(ValueError):
+        PaperAccountCreate(initial_cash_usd=value)
+    with pytest.raises(ValueError):
+        _order("account-id", quantity=value)
+    with pytest.raises(ValueError):
+        _order("account-id", price=value)
+    with pytest.raises(ValueError):
+        _order("account-id", fee_bps=value)
+    with pytest.raises(ValueError):
+        _order("account-id", slippage_bps=value)
+
