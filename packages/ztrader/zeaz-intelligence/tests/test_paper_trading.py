@@ -135,3 +135,26 @@ def test_unknown_account_is_rejected(tmp_path):
 
     with pytest.raises(PaperTradingError, match="account not found"):
         store.submit_order(_order("missing-account"))
+
+
+def test_sqlite_backup_restore_preserves_paper_ledger(tmp_path):
+    import sqlite3
+
+    db_path = tmp_path / "paper.db"
+    backup_path = tmp_path / "paper.backup.db"
+    store = PaperTradingStore(str(db_path))
+    account = store.create_account(PaperAccountCreate(initial_cash_usd=250))
+    store.submit_order(_order(account.account_id, quantity=2, price=5))
+
+    with sqlite3.connect(db_path) as source, sqlite3.connect(backup_path) as destination:
+        source.backup(destination)
+
+    with sqlite3.connect(backup_path) as backup:
+        assert backup.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
+
+    restored = PaperTradingStore(str(backup_path))
+    restored_account = restored.get_account(account.account_id)
+    assert restored_account.cash_usd == pytest.approx(239.99)
+    assert restored_account.positions[0].quantity == pytest.approx(2)
+    assert len(restored.list_orders(account.account_id)) == 1
+
