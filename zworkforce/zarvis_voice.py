@@ -90,7 +90,7 @@ class ZarvisVoiceService:
             raise ValueError("Z.A.R.V.I.S. voice is enabled but the voice gateway URL is missing")
         if self.config.enabled and not self.config.service_token:
             raise ValueError("Z.A.R.V.I.S. voice is enabled but the voice service token is missing")
-        if self.config.enabled and len(self.config.service_token.strip()) < 32:
+        if self.config.enabled and sum(not char.isspace() for char in self.config.service_token) < 32:
             raise ValueError(
                 "Z.A.R.V.I.S. voice service token must contain at least 32 non-whitespace characters"
             )
