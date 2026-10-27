@@ -20,7 +20,8 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
   constructor(options = {}) {
     super("youtube", options);
     this.verifyPublicationApproval = options.verifyPublicationApproval || null;
-    this.finalizePublicationApproval = options.finalizePublicationApproval || null;
+    this.finalizePublicationApproval =
+      options.finalizePublicationApproval || null;
     this.apiUrl = "https://www.googleapis.com/youtube/v3";
     this.uploadUrl = "https://www.googleapis.com/upload/youtube/v3/videos";
   }
@@ -54,11 +55,15 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
 
   async publish(credentials, publication) {
     if (publication.privacyStatus && publication.privacyStatus !== "private") {
-      throw new Error("YouTube uploads must start private; publication requires separate human approval");
+      throw new Error(
+        "YouTube uploads must start private; publication requires separate human approval",
+      );
     }
     for (const field of ["madeForKids", "containsSyntheticMedia"]) {
       if (typeof publication[field] !== "boolean") {
-        throw new Error(`YouTube upload requires an explicit boolean ${field} disclosure`);
+        throw new Error(
+          `YouTube upload requires an explicit boolean ${field} disclosure`,
+        );
       }
     }
     const media = publication.media;
@@ -110,21 +115,36 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
   }
 
   async setVisibility(credentials, publicationId, approval) {
-    if (!approval || approval.approved !== true || approval.videoId !== publicationId ||
-        !approval.approverId || !approval.auditId || !approval.expectedEtag) {
-      throw new Error("A bound, auditable human approval is required for YouTube visibility changes");
+    if (
+      !approval ||
+      approval.approved !== true ||
+      approval.videoId !== publicationId ||
+      !approval.approverId ||
+      !approval.auditId ||
+      !approval.expectedEtag
+    ) {
+      throw new Error(
+        "A bound, auditable human approval is required for YouTube visibility changes",
+      );
     }
-    if (approval.privacyStatus !== "public" && approval.privacyStatus !== "unlisted") {
+    if (
+      approval.privacyStatus !== "public" &&
+      approval.privacyStatus !== "unlisted"
+    ) {
       throw new Error("Unsupported approved visibility");
     }
-    if (typeof this.verifyPublicationApproval !== "function" ||
-        await this.verifyPublicationApproval(approval) !== true) {
+    if (
+      typeof this.verifyPublicationApproval !== "function" ||
+      (await this.verifyPublicationApproval(approval)) !== true
+    ) {
       throw new Error("Canonical server-side approval verification failed");
     }
     // Fail fast before any external mutation: without a wired finalizer
     // a published video would be left unaudited and replayable.
     if (typeof this.finalizePublicationApproval !== "function") {
-      throw new Error("A publication finalizer is required for YouTube visibility changes");
+      throw new Error(
+        "A publication finalizer is required for YouTube visibility changes",
+      );
     }
     // P1: read current status first so videos.update does not reset other
     // mutable status fields (license, embeddable, selfDeclaredMadeForKids).
@@ -134,19 +154,31 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
     // changes the ETag and invalidates it.
     let confirmed;
     if (current.publication?.etag === approval.expectedEtag) {
-      confirmed = await this.reconcileTransition(credentials, publicationId, approval, current);
-    } else if (current.publication?.status?.privacyStatus === approval.privacyStatus) {
+      confirmed = await this.reconcileTransition(
+        credentials,
+        publicationId,
+        approval,
+        current,
+      );
+    } else if (
+      current.publication?.status?.privacyStatus === approval.privacyStatus
+    ) {
       // Recovery path: our PUT may have landed while confirmation or
       // finalization failed. The video is already at the approved
       // visibility, so reconcile and finalize instead of mutating again.
       // The audit records the actual current state, including its ETag.
       confirmed = current;
     } else {
-      throw new Error("Stale approval: video revision changed since human approval");
+      throw new Error(
+        "Stale approval: video revision changed since human approval",
+      );
     }
     // P2: consumption/finalization happens only after a confirmed mutation.
     await this.finalizePublicationApproval(approval, confirmed.publication);
-    return { publication: confirmed.publication, rateLimit: standardRateLimit(confirmed.rateLimitHeaders || {}) };
+    return {
+      publication: confirmed.publication,
+      rateLimit: standardRateLimit(confirmed.rateLimitHeaders || {}),
+    };
   }
 
   async reconcileTransition(credentials, publicationId, approval, current) {
@@ -159,8 +191,13 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
     // P2: guard the read-modify-write with the resource ETag so a
     // concurrent Studio/API edit is not silently overwritten.
     const headers = this.bearer(credentials?.accessToken);
-    if (current.publication?.etag) headers["If-Match"] = current.publication.etag;
-    const response = await this.guardedUpdate(headers, publicationId, nextStatus);
+    if (current.publication?.etag)
+      headers["If-Match"] = current.publication.etag;
+    const response = await this.guardedUpdate(
+      headers,
+      publicationId,
+      nextStatus,
+    );
     // Reconcile: confirm YouTube applied the visibility change before any
     // single-use approval is consumed, keeping retries safe.
     let confirmed;
@@ -168,11 +205,15 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
       confirmed = await this.status(credentials, publicationId);
     } catch (error) {
       if (error?.response?.status === 412 || error?.status === 412) {
-        throw new Error("YouTube status changed concurrently; retry the approved transition");
+        throw new Error(
+          "YouTube status changed concurrently; retry the approved transition",
+        );
       }
       throw error;
     }
-    if (confirmed.publication?.status?.privacyStatus !== approval.privacyStatus) {
+    if (
+      confirmed.publication?.status?.privacyStatus !== approval.privacyStatus
+    ) {
       throw new Error("YouTube did not confirm the approved visibility change");
     }
     confirmed.publication.rateLimitHeaders = response.headers;
@@ -190,7 +231,9 @@ class YouTubePublishingProvider extends HttpPublishingProvider {
       });
     } catch (error) {
       if (error?.status === 412 || error?.response?.status === 412) {
-        throw new Error("YouTube status changed concurrently; retry the approved transition");
+        throw new Error(
+          "YouTube status changed concurrently; retry the approved transition",
+        );
       }
       throw error;
     }

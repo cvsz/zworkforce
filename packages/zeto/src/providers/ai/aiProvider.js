@@ -92,7 +92,12 @@ class FakeAIProvider extends AIProvider {
    * @param {boolean} [opts.healthy=true]
    * @param {string|null} [opts.raiseOn=null] - Throw on generate if set
    */
-  constructor({ id = "fake", types = ["image", "text"], healthy = true, raiseOn = null } = {}) {
+  constructor({
+    id = "fake",
+    types = ["image", "text"],
+    healthy = true,
+    raiseOn = null,
+  } = {}) {
     super();
     this._id = id;
     this._types = types;
@@ -114,7 +119,9 @@ class FakeAIProvider extends AIProvider {
 
   async generate(request) {
     if (this._raiseOn) throw new Error(this._raiseOn);
-    const hash = Buffer.from(request.prompt ?? "").toString("base64").slice(0, 16);
+    const hash = Buffer.from(request.prompt ?? "")
+      .toString("base64")
+      .slice(0, 16);
     return {
       type: request.type,
       providerId: this._id,
@@ -143,5 +150,5 @@ class FakeAIProvider extends AIProvider {
 
 module.exports = {
   AIProvider,
-  FakeAIProvider
+  FakeAIProvider,
 };

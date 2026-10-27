@@ -6,7 +6,11 @@
 const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
 const { FakeAIProvider } = require("../src/providers/ai/aiProvider.js");
-const { AIProviderRegistry, DuplicateProviderError, ProviderNotFoundError } = require("../src/providers/ai/aiProviderRegistry.js");
+const {
+  AIProviderRegistry,
+  DuplicateProviderError,
+  ProviderNotFoundError,
+} = require("../src/providers/ai/aiProviderRegistry.js");
 
 describe("FakeAIProvider", () => {
   it("returns generation result for image", async () => {
@@ -20,7 +24,10 @@ describe("FakeAIProvider", () => {
 
   it("throws when raiseOn is set", async () => {
     const p = new FakeAIProvider({ raiseOn: "backend down" });
-    await assert.rejects(() => p.generate({ type: "text", prompt: "hi" }), /backend down/);
+    await assert.rejects(
+      () => p.generate({ type: "text", prompt: "hi" }),
+      /backend down/,
+    );
   });
 
   it("reports healthy status", async () => {
@@ -58,7 +65,10 @@ describe("AIProviderRegistry", () => {
   it("throws DuplicateProviderError on collision", () => {
     const r = new AIProviderRegistry();
     r.register(new FakeAIProvider({ id: "dup" }));
-    assert.throws(() => r.register(new FakeAIProvider({ id: "dup" })), DuplicateProviderError);
+    assert.throws(
+      () => r.register(new FakeAIProvider({ id: "dup" })),
+      DuplicateProviderError,
+    );
   });
 
   it("throws ProviderNotFoundError for missing id", () => {
