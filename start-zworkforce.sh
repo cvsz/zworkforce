@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Disable xtrace before reading local environment files or handling credentials.
+# This prevents `bash -x start-zworkforce.sh` from echoing secret assignments.
+set +x
 set -e
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
