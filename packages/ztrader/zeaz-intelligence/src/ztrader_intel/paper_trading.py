@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class PaperAccountCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    initial_cash_usd: float = Field(gt=0, le=1_000_000_000)
+    initial_cash_usd: float = Field(gt=0, le=1_000_000_000, allow_inf_nan=False)
 
 
 class PaperOrderRequest(BaseModel):
@@ -24,10 +24,10 @@ class PaperOrderRequest(BaseModel):
     symbol: str = Field(min_length=1, max_length=64)
     chain: str = Field(min_length=1, max_length=64)
     side: Literal["buy", "sell"]
-    quantity: float = Field(gt=0, le=1_000_000_000)
-    reference_price: float = Field(gt=0, le=1_000_000_000)
-    fee_bps: float = Field(default=10, ge=0, le=1_000)
-    slippage_bps: float = Field(default=5, ge=0, le=1_000)
+    quantity: float = Field(gt=0, le=1_000_000_000, allow_inf_nan=False)
+    reference_price: float = Field(gt=0, le=1_000_000_000, allow_inf_nan=False)
+    fee_bps: float = Field(default=10, ge=0, le=1_000, allow_inf_nan=False)
+    slippage_bps: float = Field(default=5, ge=0, le=1_000, allow_inf_nan=False)
     idempotency_key: str = Field(min_length=8, max_length=128)
 
 
