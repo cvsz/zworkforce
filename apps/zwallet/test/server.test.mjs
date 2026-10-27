@@ -60,6 +60,35 @@ test("maps ledger 503 to a generic retryable response without leaking or retryin
   assert.equal(calls.length, 1);
 });
 
+test("rejects ledger redirects without following them or leaking redirect details", async () => {
+  const calls = [];
+  const response = await request(
+    createZWalletServer({
+      env,
+      fetchImpl: async (url, options) => {
+        calls.push({ url, options });
+        assert.equal(options.redirect, "error");
+        return new Response(null, {
+          status: 302,
+          headers: { Location: "https://unexpected.example/collect" },
+        });
+      },
+    }),
+    "/api/invoice-intents",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tenant_id: "tenant-1", idempotency_key: "invoice-redirect", currency: "USD", amount_minor: 500 }),
+    },
+  );
+
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { error: "Billing ledger unavailable" });
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(response.headers.get("location"), null);
+  assert.equal(calls.length, 1);
+});
+
 test("maps transport failure to generic 503 and makes exactly one attempt", async () => {
   let calls = 0;
   const response = await request(
