@@ -94,7 +94,7 @@ class ZarvisVoiceTests(unittest.TestCase):
         self.assertEqual(ctx.exception.code, "voice_disabled")
 
     def test_enabled_service_rejects_short_or_whitespace_service_tokens(self):
-        for token in ("short-token", "x" * 31, " " * 40, "\\t" * 40):
+        for token in ("short-token", "x" * 31, " " * 40, "\t" * 40):
             with self.subTest(token_length=len(token)):
                 with self.assertRaisesRegex(ValueError, "at least 32 non-whitespace characters"):
                     ZarvisVoiceService(self.config(service_token=token))
