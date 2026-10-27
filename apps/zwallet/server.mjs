@@ -5,7 +5,10 @@ const defaultHost = process.env.HOST || "127.0.0.1";
 const defaultPort = Number(process.env.PORT || 3040);
 
 function send(response, status, body) {
-  response.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
+  response.writeHead(status, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
   response.end(JSON.stringify(body));
 }
 
@@ -47,11 +50,32 @@ export async function setCredits(input, env = process.env, fetchImpl = fetch) {
 export function createZWalletServer({ env = process.env, fetchImpl = fetch } = {}) {
   return createServer(async (request, response) => {
     try {
-      if (request.method === "GET" && request.url === "/health") {
+      let pathname;
+      try {
+        const target = new URL(request.url ?? "/", "http://localhost");
+        if (target.origin !== "http://localhost") {
+          return send(response, 400, { error: "Invalid request target" });
+        }
+        pathname = target.pathname;
+      } catch {
+        return send(response, 400, { error: "Invalid request target" });
+      }
+
+      if (request.method === "GET" && pathname === "/health") {
         return send(response, 200, { status: "ok", service: "zwallet-adapter", ledger_configured: Boolean(env.Z_PLATFORM_BILLING_LEDGER_URL && env.Z_PLATFORM_SERVICE_TOKEN), wallet_authority: false, card_data: false });
       }
-      if (request.method === "POST" && request.url === "/api/invoice-intents") return send(response, 201, await createInvoiceIntent(await readJson(request), env, fetchImpl));
-      if (request.method === "POST" && request.url === "/api/credits") return send(response, 200, await setCredits(await readJson(request), env, fetchImpl));
+
+      // Emergency containment: the adapter has no caller-authenticated tenant
+      // context or durable operation-scoped idempotency contract yet.
+      if (
+        request.method === "POST" &&
+        (pathname === "/api/invoice-intents" || pathname === "/api/credits")
+      ) {
+        return send(response, 503, {
+          error: "Financial mutations disabled pending tenant-bound authorization and durable idempotency",
+        });
+      }
+
       return send(response, 404, { error: "Not found" });
     } catch (error) {
       return send(response, 400, { error: error.message || "Request failed" });
