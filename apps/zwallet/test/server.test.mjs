@@ -61,6 +61,38 @@ test("maps ledger 503 to a generic retryable response without leaking or retryin
   assert.equal(calls.length, 1);
 });
 
+test("maps upstream authentication and timeout failures to generic 503 without retrying", async () => {
+  for (const status of [401, 403, 408]) {
+    let calls = 0;
+    const response = await request(
+      createZWalletServer({
+        env,
+        fetchImpl: async () => {
+          calls += 1;
+          return Response.json({ error: "private upstream diagnostics" }, { status });
+        },
+      }),
+      "/api/invoice-intents",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenant_id: "tenant-1",
+          idempotency_key: `invoice-upstream-${status}`,
+          currency: "USD",
+          amount_minor: 500,
+        }),
+      },
+    );
+
+    assert.equal(response.status, 503);
+    assert.deepEqual(await response.json(), { error: "Billing ledger unavailable" });
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.equal(response.headers.get("retry-after"), null);
+    assert.equal(calls, 1);
+  }
+});
+
 test("native fetch rejects ledger redirects without forwarding the financial request", async () => {
   let forwardedRequests = 0;
   const receiver = createServer((_request, response) => {
