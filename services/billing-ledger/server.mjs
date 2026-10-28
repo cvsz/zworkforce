@@ -196,14 +196,14 @@ export class BillingLedger {
       idempotency_key: requireString(payload.idempotency_key, "idempotency_key"),
       tenant_id: requireString(payload.tenant_id, "tenant_id"),
       currency: requireString(payload.currency, "currency").toUpperCase(),
-      amount_minor: Number(payload.amount_minor),
+      amount_minor: payload.amount_minor,
       status: "requires_payment_processor",
       created_at: this.now(),
     };
     if (!/^[A-Z]{3}$/.test(intent.currency)) {
       throw new BillingLedgerError("currency must be a three-letter ISO currency code");
     }
-    if (!Number.isSafeInteger(intent.amount_minor) || intent.amount_minor <= 0) {
+    if (typeof intent.amount_minor !== "number" || !Number.isSafeInteger(intent.amount_minor) || intent.amount_minor <= 0) {
       throw new BillingLedgerError("amount_minor must be a positive safe integer");
     }
     return this.store.createInvoiceIntent(intent);
@@ -299,6 +299,9 @@ async function startServer() {
       statement_timeout: 5000,
       query_timeout: 7000,
       application_name: "zeaz-billing-ledger",
+    });
+    pool.on("error", () => {
+      console.error("billing-ledger PostgreSQL pool reported an idle-client error");
     });
     ledger = new BillingLedger({ store: new PostgresLedgerStore({ pool }) });
   } else {
