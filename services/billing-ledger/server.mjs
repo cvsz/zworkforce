@@ -9,6 +9,7 @@ export class BillingLedgerError extends Error {
   constructor(message, status = 400) {
     super(message);
     this.status = status;
+    this.publicMessage = message;
   }
 }
 
@@ -126,13 +127,38 @@ export class MemoryLedgerStore {
   }
 }
 
-function requireDurableMutationStore(ledger, env, allowEphemeralStore) {
-  // Require both a test runtime and an explicit caller opt-in; NODE_ENV alone is not a safety boundary.
+function requireMutationAuthorization({ ledger, env, allowEphemeralStore, request, tenantId, operation }) {
+  // Memory writes are exclusively a test harness capability; NODE_ENV alone is not sufficient.
   if (
     ledger.store instanceof MemoryLedgerStore &&
-    !(env.NODE_ENV === "test" && allowEphemeralStore === true)
+    env.NODE_ENV === "test" &&
+    allowEphemeralStore === true
   ) {
+    return;
+  }
+
+  if (!ledger.store?.durable) {
     throw new BillingLedgerError("Persistent billing storage is not configured", 503);
+  }
+  if (env.Z_BILLING_LEDGER_ENABLE_MUTATIONS !== "true") {
+    throw new BillingLedgerError("Billing mutations are disabled by the release gate", 503);
+  }
+  if (env.Z_BILLING_LEDGER_TENANT_AUTHZ_MODE !== "trusted-gateway") {
+    throw new BillingLedgerError("Trusted tenant authorization is not configured", 503);
+  }
+
+  const assertedTenant = request.headers["x-authenticated-tenant"];
+  if (typeof assertedTenant !== "string" || assertedTenant.trim() !== tenantId) {
+    throw new BillingLedgerError("Tenant authorization failed", 403);
+  }
+
+  // This legacy setter has neither operation idempotency nor an append-only audit
+  // contract. Do not enable it through the generic billing mutation release gate.
+  if (operation === "credits") {
+    throw new BillingLedgerError(
+      "Credit mutations are disabled pending an append-only audited adjustment contract",
+      503,
+    );
   }
 }
 
@@ -185,34 +211,104 @@ export function createBillingLedgerServer({
   allowEphemeralStore = false,
 } = {}) {
   return createServer(async (request, response) => {
-    if (request.method === "GET" && request.url === "/health") return send(response, 200, { status: "ok", service: "billing-ledger", wallet_authority: false, card_data: false });
+    if (request.method === "GET" && request.url === "/health") {
+      return send(response, 200, {
+        status: "ok",
+        service: "billing-ledger",
+        wallet_authority: false,
+        card_data: false,
+      });
+    }
+
+    if (request.method === "GET" && request.url === "/ready") {
+      if (!ledger.store?.durable || typeof ledger.store.assertReady !== "function") {
+        return send(response, 503, { status: "not_ready", reason: "durable storage unavailable" });
+      }
+      try {
+        await ledger.store.assertReady();
+        return send(response, 200, { status: "ready", service: "billing-ledger", persistence: "postgresql" });
+      } catch {
+        return send(response, 503, { status: "not_ready", reason: "durable storage unavailable" });
+      }
+    }
+
     if (!authorized(request, env)) return send(response, 401, { error: "Unauthorized" });
 
     try {
       if (request.method === "POST" && request.url === "/v1/usage") {
-        requireDurableMutationStore(ledger, env, allowEphemeralStore);
-        const result = await ledger.recordUsage(await readJson(request));
+        const input = requireObjectPayload(await readJson(request), "Usage");
+        const tenantId = requireString(input.tenant_id, "tenant_id");
+        requireMutationAuthorization({ ledger, env, allowEphemeralStore, request, tenantId, operation: "usage" });
+        const result = await ledger.recordUsage(input);
         return send(response, result.duplicate ? 200 : 201, result);
       }
+
       if (request.method === "POST" && request.url === "/v1/credits") {
-        requireDurableMutationStore(ledger, env, allowEphemeralStore);
-        return send(response, 200, await ledger.setCredits(await readJson(request)));
+        const input = requireObjectPayload(await readJson(request), "Credits");
+        const tenantId = requireString(input.tenant_id, "tenant_id");
+        requireMutationAuthorization({ ledger, env, allowEphemeralStore, request, tenantId, operation: "credits" });
+        return send(response, 200, await ledger.setCredits(input));
       }
+
       if (request.method === "POST" && request.url === "/v1/invoice-intents") {
-        requireDurableMutationStore(ledger, env, allowEphemeralStore);
-        return send(response, 201, await ledger.createInvoiceIntent(await readJson(request)));
+        const input = requireObjectPayload(await readJson(request), "Invoice intent");
+        const tenantId = requireString(input.tenant_id, "tenant_id");
+        requireMutationAuthorization({ ledger, env, allowEphemeralStore, request, tenantId, operation: "invoice-intent" });
+        return send(response, 201, await ledger.createInvoiceIntent(input));
       }
+
       return send(response, 404, { error: "Not found" });
     } catch (error) {
       if (error instanceof BillingLedgerError) {
-        return send(response, error.status, { error: error.message });
+        return send(response, error.status, { error: error.publicMessage });
       }
-      // Do not expose database, adapter, or runtime exception details to callers.
+      if (error && Number.isInteger(error.status) && error.status >= 400 && error.status <= 599 &&
+          typeof error.publicMessage === "string") {
+        return send(response, error.status, { error: error.publicMessage });
+      }
+      // Never expose database, adapter, or runtime exception details to callers.
       return send(response, 500, { error: "Internal server error" });
     }
   });
 }
 
+async function startServer() {
+  let ledger = new BillingLedger();
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (databaseUrl) {
+    if (process.env.Z_BILLING_LEDGER_REQUIRE_TLS === "true") {
+      const parsed = new URL(databaseUrl);
+      if (parsed.searchParams.get("sslmode") !== "verify-full") {
+        throw new Error("Remote database TLS verification is required");
+      }
+    }
+
+    const { Pool } = await import("pg");
+    const { PostgresLedgerStore } = await import("./postgres-store.mjs");
+    const pool = new Pool({
+      connectionString: databaseUrl,
+      max: 10,
+      connectionTimeoutMillis: 3000,
+      idleTimeoutMillis: 30000,
+      statement_timeout: 5000,
+      query_timeout: 7000,
+      application_name: "zeaz-billing-ledger",
+    });
+    ledger = new BillingLedger({ store: new PostgresLedgerStore({ pool }) });
+  } else {
+    console.warn("billing-ledger has no DATABASE_URL; mutation routes will fail closed");
+  }
+
+  const server = createBillingLedgerServer({ ledger });
+  server.listen(defaultPort, defaultHost, () => {
+    console.log("billing-ledger listening on " + defaultHost + ":" + defaultPort);
+  });
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  createBillingLedgerServer().listen(defaultPort, defaultHost, () => console.log("billing-ledger listening on http://" + defaultHost + ":" + defaultPort));
+  startServer().catch(() => {
+    console.error("billing-ledger startup failed; check database configuration without printing credentials");
+    process.exitCode = 1;
+  });
 }
