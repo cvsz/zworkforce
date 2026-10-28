@@ -56,7 +56,8 @@ def validate() -> list[str]:
         for key in ("name", "version", "status"):
             if not isinstance(release.get(key), str) or not release[key].strip():
                 errors.append(f"manifest.release.{key} must be a non-empty string")
-        if release.get("status") not in {"candidate", "verified", "blocked", "released"}:
+        status = release.get("status")
+        if not isinstance(status, str) or status not in {"candidate", "verified", "blocked", "released"}:
             errors.append("manifest.release.status has an unsupported value")
 
     agents_value = manifest.get("agents", [])
