@@ -17,6 +17,17 @@ async function request(server, path, options = {}) {
 
 const headers = { Authorization: "Bearer service-token", "Content-Type": "application/json" };
 
+test("bounds HTTP parser, request, socket, and keep-alive timeouts", () => {
+  const server = createBillingLedgerServer({ env });
+
+  assert.equal(server.headersTimeout, 10_000);
+  assert.equal(server.requestTimeout, 30_000);
+  assert.equal(server.timeout, 30_000);
+  assert.equal(server.keepAliveTimeout, 5_000);
+  assert.equal(server.maxRequestsPerSocket, 1_000);
+  assert.equal(server.listenerCount("timeout"), 1);
+});
+
 test("records usage idempotently for the same tenant and payload", async () => {
   const ledger = new BillingLedger({ now: () => "2026-07-14T00:00:00.000Z" });
   const input = { usage_id: "usage-1", idempotency_key: "idem-1", tenant_id: "tenant-1", model: "hf:test", input_tokens: 3, output_tokens: 4 };
