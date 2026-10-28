@@ -113,7 +113,7 @@ def validate_catalog_for_install() -> None:
     validator.SKILL_DIR = SKILLS
     errors = validator.validate()
     if errors:
-        raise ValueError("catalog validation failed:\\n- " + "\\n- ".join(errors))
+        raise ValueError("catalog validation failed:\n- " + "\n- ".join(errors))
 
 
 def main() -> int:
