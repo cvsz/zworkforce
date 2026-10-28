@@ -49,10 +49,13 @@ test("HTTP routes require service auth and expose no wallet/card authority", asy
   assert.equal(unauthorized.status, 401);
 });
 
-test("memory-backed mutation routes fail closed when NODE_ENV is unset or production", async () => {
+test("memory-backed mutation routes fail closed without explicit opt-in", async () => {
   const runtimes = [
     { name: "unset", env: { Z_PLATFORM_SERVICE_TOKEN: "service-token" } },
+    { name: "development without opt-in", env: { ...env, NODE_ENV: "development" } },
+    { name: "test without opt-in", env: { ...env, NODE_ENV: "test" } },
     { name: "production", env: { ...env, NODE_ENV: "production" } },
+    { name: "production with opt-in", env: { ...env, NODE_ENV: "production" }, allowEphemeralStore: true },
   ];
   const mutations = [
     {
@@ -70,24 +73,72 @@ test("memory-backed mutation routes fail closed when NODE_ENV is unset or produc
     const ledger = new BillingLedger();
     for (const mutation of mutations) {
       const response = await request(
-        createBillingLedgerServer({ env: runtime.env, ledger }),
+        createBillingLedgerServer({
+          env: runtime.env,
+          ledger,
+          allowEphemeralStore: runtime.allowEphemeralStore ?? false,
+        }),
         mutation.path,
         { method: "POST", headers, body: JSON.stringify(mutation.body) },
       );
-      assert.equal(response.status, 503, `${runtime.name} runtime must reject ${mutation.path}`);
+      assert.equal(response.status, 503, `${runtime.name} must reject ${mutation.path}`);
       assert.deepEqual(await response.json(), {
         error: "Persistent billing storage is not configured",
       });
     }
 
-    assert.equal(ledger.store.records.size, 0, `${runtime.name} runtime wrote usage records`);
-    assert.equal(ledger.store.credits.size, 0, `${runtime.name} runtime wrote credits`);
-    assert.equal(ledger.store.invoiceIntents.size, 0, `${runtime.name} runtime wrote invoice intents`);
+    assert.equal(ledger.store.records.size, 0, `${runtime.name} wrote usage records`);
+    assert.equal(ledger.store.credits.size, 0, `${runtime.name} wrote credits`);
+    assert.equal(ledger.store.invoiceIntents.size, 0, `${runtime.name} wrote invoice intents`);
+  }
+});
+
+test("explicit opt-in permits ephemeral mutations only in development and test", async () => {
+  const runtimes = [
+    { name: "development", env: { ...env, NODE_ENV: "development" } },
+    { name: "test", env: { ...env, NODE_ENV: "test" } },
+  ];
+  const mutations = [
+    {
+      path: "/v1/usage",
+      body: { usage_id: "usage-1", idempotency_key: "idem-1", tenant_id: "tenant-1", model: "test" },
+      expectedStatus: 201,
+    },
+    {
+      path: "/v1/credits",
+      body: { tenant_id: "tenant-1", credits: 100 },
+      expectedStatus: 200,
+    },
+    {
+      path: "/v1/invoice-intents",
+      body: { tenant_id: "tenant-1", idempotency_key: "invoice-1", currency: "usd", amount_minor: 500 },
+      expectedStatus: 201,
+    },
+  ];
+
+  for (const runtime of runtimes) {
+    const ledger = new BillingLedger({ idGenerator: () => "intent-1" });
+    for (const mutation of mutations) {
+      const response = await request(
+        createBillingLedgerServer({ env: runtime.env, ledger, allowEphemeralStore: true }),
+        mutation.path,
+        { method: "POST", headers, body: JSON.stringify(mutation.body) },
+      );
+      assert.equal(response.status, mutation.expectedStatus, `${runtime.name} should allow ${mutation.path}`);
+    }
+
+    assert.equal(ledger.store.records.size, 1);
+    assert.equal(ledger.store.credits.size, 1);
+    assert.equal(ledger.store.invoiceIntents.size, 1);
   }
 });
 
 test("HTTP usage endpoint returns duplicate on repeated idempotency key", async () => {
-  const server = createBillingLedgerServer({ env, ledger: new BillingLedger({ now: () => "2026-07-14T00:00:00.000Z" }) });
+  const server = createBillingLedgerServer({
+    env,
+    ledger: new BillingLedger({ now: () => "2026-07-14T00:00:00.000Z" }),
+    allowEphemeralStore: true,
+  });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const { port } = server.address();
   try {
