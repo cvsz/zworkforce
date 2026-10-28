@@ -144,5 +144,27 @@ class AgentSkillCatalogTests(unittest.TestCase):
             self.assertFalse((base / "escape.md").exists())
 
 
+    def test_validator_reports_malformed_manifest_shapes_without_crashing(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manifest = Path(temp_dir) / "manifest.json"
+            manifest.write_text(
+                json.dumps({
+                    "schema_version": "1.0.0",
+                    "release": [],
+                    "agents": [{"not": "a string"}],
+                    "skills": None,
+                    "policy": None,
+                }),
+                encoding="utf-8",
+            )
+            with patch.object(VALIDATOR, "MANIFEST", manifest):
+                errors = VALIDATOR.validate()
+
+        self.assertIn("manifest.release must be an object", errors)
+        self.assertIn("manifest.skills must be an array", errors)
+        self.assertIn("manifest.policy must be an object", errors)
+        self.assertTrue(any("invalid agent identifier" in error for error in errors))
+
+
 if __name__ == "__main__":
     unittest.main()
