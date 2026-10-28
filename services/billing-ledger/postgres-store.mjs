@@ -43,10 +43,37 @@ export class PostgresLedgerStore {
     // falsely keep a failed database marked ready after a connection loss.
     try {
       const { rows } = await this.pool.query(
-        "SELECT version FROM billing_schema_migrations WHERE version = $1",
+        `SELECT version,
+                to_regclass('billing_usage_records') IS NOT NULL AS usage_table_present,
+                to_regclass('billing_invoice_intents') IS NOT NULL AS invoice_table_present,
+                EXISTS (
+                  SELECT 1
+                    FROM pg_constraint
+                   WHERE conname = 'billing_usage_records_tenant_idempotency_pk'
+                     AND conrelid = to_regclass('billing_usage_records')
+                     AND contype = 'p'
+                ) AS usage_idempotency_pk_present,
+                EXISTS (
+                  SELECT 1
+                    FROM pg_constraint
+                   WHERE conname = 'billing_invoice_intents_tenant_idempotency_pk'
+                     AND conrelid = to_regclass('billing_invoice_intents')
+                     AND contype = 'p'
+                ) AS invoice_idempotency_pk_present
+           FROM billing_schema_migrations
+          WHERE version = $1`,
         [1],
       );
-      if (!rows?.length) throw storageUnavailable();
+      const schema = rows?.[0];
+      if (
+        !schema ||
+        schema.usage_table_present !== true ||
+        schema.invoice_table_present !== true ||
+        schema.usage_idempotency_pk_present !== true ||
+        schema.invoice_idempotency_pk_present !== true
+      ) {
+        throw storageUnavailable();
+      }
       return true;
     } catch {
       throw storageUnavailable();
