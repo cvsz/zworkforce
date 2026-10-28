@@ -115,7 +115,7 @@ class AgentSkillCatalogTests(unittest.TestCase):
             outside.mkdir()
             (outside / "example.md").write_text("not trusted source", encoding="utf-8")
             paths = self._prepare_installer(base)
-            source_root, agents, _, _, _ = paths
+            _, agents, _, _, _ = paths
             (agents / "example.md").unlink()
             agents.rmdir()
             try:
@@ -134,7 +134,7 @@ class AgentSkillCatalogTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             base = Path(temp_dir)
             paths = self._prepare_installer(base)
-            source_root, _, _, manifest, _ = paths
+            _, _, _, manifest, _ = paths
             manifest.write_text(json.dumps({"agents": ["../escape"], "skills": ["example-skill"]}), encoding="utf-8")
 
             result, error = self._run_installer(base / "target", paths)
