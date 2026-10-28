@@ -210,6 +210,23 @@ jobs:
               json.loads(p.read_text())
           PY
 
+  billing-ledger-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Validate billing-ledger syntax and idempotency/fail-closed contract
+        run: |
+          node --check services/billing-ledger/server.mjs
+          node --test services/billing-ledger/test/server.test.mjs
+
   zchat-contract:
     runs-on: ubuntu-latest
     timeout-minutes: 10
