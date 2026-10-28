@@ -1,0 +1,7 @@
+{
+  "schema_version": "1.0.0",
+  "release": {"name": "ZEAZ Enterprise Agents and Skills", "version": "1.0.0", "status": "candidate"},
+  "agents": ["orchestrator", "architect", "implementer", "researcher", "security-reviewer", "qa-engineer", "content-studio", "release-manager"],
+  "skills": ["zeaz-model-routing", "zeaz-prompt-engineering", "zeaz-context-engineering", "zeaz-token-cost", "zeaz-research-fact-check", "zeaz-code-review", "zeaz-security-threat-model", "zeaz-testing-evaluation", "zeaz-release-governance", "zeaz-devops-reliability", "zeaz-rag-chatbot", "zeaz-content-ebook", "zeaz-video-podcast", "zeaz-sop-proposal", "zeaz-automation-mcp"],
+  "policy": {"default_mutation": "deny", "human_approval_for_high_impact": true, "independent_review": true, "tenant_isolation": true}
+}
