@@ -188,6 +188,58 @@ test("HTTP usage endpoint returns duplicate on repeated idempotency key", async 
 });
 
 
+test("rejects non-JSON content types before any ledger mutation", async () => {
+  const ledger = new BillingLedger();
+  const response = await request(
+    createBillingLedgerServer({ env, ledger, allowEphemeralStore: true }),
+    "/v1/usage",
+    {
+      method: "POST",
+      headers: { Authorization: "Bearer service-token", "Content-Type": "text/plain" },
+      body: JSON.stringify({
+        usage_id: "usage-wrong-content-type",
+        idempotency_key: "idem-wrong-content-type",
+        tenant_id: "tenant-1",
+        model: "test",
+      }),
+    },
+  );
+
+  assert.equal(response.status, 415);
+  assert.deepEqual(await response.json(), {
+    error: "Content-Type must be application/json",
+  });
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(ledger.store.records.size, 0);
+});
+
+test("bounds request bodies by UTF-8 bytes rather than JavaScript string length", async () => {
+  const ledger = new BillingLedger();
+  const body = JSON.stringify({
+    usage_id: "usage-oversized",
+    idempotency_key: "idem-oversized",
+    tenant_id: "tenant-1",
+    model: "test",
+    padding: "é".repeat(33_000),
+  });
+  assert.ok(Buffer.byteLength(body, "utf8") > 64 * 1024);
+
+  const response = await request(
+    createBillingLedgerServer({ env, ledger, allowEphemeralStore: true }),
+    "/v1/usage",
+    {
+      method: "POST",
+      headers,
+      body,
+    },
+  );
+
+  assert.equal(response.status, 413);
+  assert.deepEqual(await response.json(), { error: "Request body is too large" });
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(ledger.store.records.size, 0);
+});
+
 test("invalid JSON is a generic client error and is never cacheable", async () => {
   const response = await request(
     createBillingLedgerServer({ env, ledger: new BillingLedger(), allowEphemeralStore: true }),
