@@ -48,13 +48,22 @@ def safe_source(path: Path) -> Path:
 def catalog_files() -> list[tuple[Path, Path]]:
     manifest_path = safe_source(MANIFEST)
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(manifest, dict):
+        raise ValueError("manifest must be a JSON object")
+    agents_value = manifest.get("agents")
+    skills_value = manifest.get("skills")
+    if not isinstance(agents_value, list):
+        raise ValueError("manifest.agents must be an array")
+    if not isinstance(skills_value, list):
+        raise ValueError("manifest.skills must be an array")
+
     result: list[tuple[Path, Path]] = []
-    for name in manifest["agents"]:
+    for name in agents_value:
         if not isinstance(name, str) or not NAME_RE.fullmatch(name):
             raise ValueError(f"invalid agent identifier: {name!r}")
         source = safe_source(AGENTS / f"{name}.md")
         result.append((source, Path("agents") / source.name))
-    for name in manifest["skills"]:
+    for name in skills_value:
         if not isinstance(name, str) or not NAME_RE.fullmatch(name):
             raise ValueError(f"invalid skill identifier: {name!r}")
         source = safe_source(SKILLS / name / "SKILL.md")
