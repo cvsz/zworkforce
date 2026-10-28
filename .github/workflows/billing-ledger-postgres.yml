@@ -72,10 +72,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          command -v pg_dump >/dev/null
-          command -v pg_restore >/dev/null
-          pg_dump --version
-          pg_restore --version
+          # Use PostgreSQL 17 client tools matching the PostgreSQL 17 service.
+          # The Ubuntu runner may carry an older pg_dump which refuses newer servers.
+          docker pull postgres:17-alpine
 
           # Seed synthetic data only. This job must never use a customer or production DSN.
           psql "$Z_BILLING_LEDGER_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
@@ -99,11 +98,17 @@ jobs:
           dump_path="$RUNNER_TEMP/billing-ledger-restore-drill.dump"
           restore_url="${Z_BILLING_LEDGER_TEST_DATABASE_URL%/billing_test}/billing_restore"
           started_ms="$(date +%s%3N)"
-          pg_dump "$Z_BILLING_LEDGER_TEST_DATABASE_URL" --format=custom --no-owner --no-privileges --file="$dump_path"
-          test -s "$dump_path"
-          pg_restore --list "$dump_path" >/dev/null
           psql "$Z_BILLING_LEDGER_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -c "CREATE DATABASE billing_restore"
-          pg_restore --dbname="$restore_url" --no-owner --no-privileges "$dump_path"
+          docker run --rm --network host \
+            --env Z_BILLING_LEDGER_TEST_DATABASE_URL \
+            --env restore_url \
+            --volume "$RUNNER_TEMP:/backup" \
+            postgres:17-alpine sh -euc '
+              pg_dump "$Z_BILLING_LEDGER_TEST_DATABASE_URL" --format=custom --no-owner --no-privileges --file=/backup/billing-ledger-restore-drill.dump
+              test -s /backup/billing-ledger-restore-drill.dump
+              pg_restore --list /backup/billing-ledger-restore-drill.dump >/dev/null
+              pg_restore --dbname="$restore_url" --no-owner --no-privileges /backup/billing-ledger-restore-drill.dump
+            '
 
           usage_rows="$(psql "$restore_url" -v ON_ERROR_STOP=1 -Atc "SELECT count(*) FROM billing_usage_records WHERE tenant_id='tenant-restore-drill' AND idempotency_key='restore-usage-key'")"
           invoice_rows="$(psql "$restore_url" -v ON_ERROR_STOP=1 -Atc "SELECT count(*) FROM billing_invoice_intents WHERE tenant_id='tenant-restore-drill' AND idempotency_key='restore-invoice-key' AND status='requires_payment_processor'")"
