@@ -43,6 +43,13 @@ async function readJson(request) {
   }
 }
 
+function requireObjectPayload(input, label) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new BillingLedgerError(`${label} payload must be an object`);
+  }
+  return input;
+}
+
 function requireString(value, name) {
   if (typeof value !== "string" || !value.trim()) throw new BillingLedgerError(`${name} is required`);
   return value.trim();
@@ -137,7 +144,8 @@ export class BillingLedger {
   }
 
   async recordUsage(input) {
-    const record = normalizeUsage({ ...input, recorded_at: input.recorded_at || this.now() });
+    const payload = requireObjectPayload(input, "Usage");
+    const record = normalizeUsage({ ...payload, recorded_at: payload.recorded_at || this.now() });
     if (!Number.isSafeInteger(record.input_tokens) || record.input_tokens < 0 ||
         !Number.isSafeInteger(record.output_tokens) || record.output_tokens < 0) {
       throw new BillingLedgerError("usage tokens must be non-negative safe integers");
@@ -146,11 +154,9 @@ export class BillingLedger {
   }
 
   async setCredits(input) {
-    if (!input || typeof input !== "object" || Array.isArray(input)) {
-      throw new BillingLedgerError("Credits payload must be an object");
-    }
-    const tenantId = requireString(input.tenant_id, "tenant_id");
-    const credits = input.credits;
+    const payload = requireObjectPayload(input, "Credits");
+    const tenantId = requireString(payload.tenant_id, "tenant_id");
+    const credits = payload.credits;
     if (!Number.isSafeInteger(credits) || credits < 0) {
       throw new BillingLedgerError("credits must be a non-negative safe integer");
     }
@@ -158,12 +164,13 @@ export class BillingLedger {
   }
 
   async createInvoiceIntent(input) {
+    const payload = requireObjectPayload(input, "Invoice intent");
     const intent = {
       intent_id: this.idGenerator(),
-      idempotency_key: requireString(input.idempotency_key, "idempotency_key"),
-      tenant_id: requireString(input.tenant_id, "tenant_id"),
-      currency: requireString(input.currency, "currency").toUpperCase(),
-      amount_minor: Number(input.amount_minor),
+      idempotency_key: requireString(payload.idempotency_key, "idempotency_key"),
+      tenant_id: requireString(payload.tenant_id, "tenant_id"),
+      currency: requireString(payload.currency, "currency").toUpperCase(),
+      amount_minor: Number(payload.amount_minor),
       status: "requires_payment_processor",
       created_at: this.now(),
     };
