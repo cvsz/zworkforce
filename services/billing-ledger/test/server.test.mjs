@@ -229,3 +229,29 @@ test("unexpected ledger exceptions are redacted and return HTTP 500", async () =
   assert.equal(response.headers.get("cache-control"), "no-store");
   assert.equal(JSON.stringify(body).includes(sensitiveMessage), false);
 });
+
+test("rejects non-object JSON payloads before mutating any HTTP ledger route", async () => {
+  const cases = [
+    { path: "/v1/usage", label: "Usage" },
+    { path: "/v1/credits", label: "Credits" },
+    { path: "/v1/invoice-intents", label: "Invoice intent" },
+  ];
+
+  for (const item of cases) {
+    const ledger = new BillingLedger();
+    const response = await request(
+      createBillingLedgerServer({ env, ledger, allowEphemeralStore: true }),
+      item.path,
+      { method: "POST", headers, body: "null" },
+    );
+
+    assert.equal(response.status, 400, item.path);
+    assert.deepEqual(await response.json(), {
+      error: `${item.label} payload must be an object`,
+    });
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.equal(ledger.store.records.size, 0);
+    assert.equal(ledger.store.credits.size, 0);
+    assert.equal(ledger.store.invoiceIntents.size, 0);
+  }
+});
