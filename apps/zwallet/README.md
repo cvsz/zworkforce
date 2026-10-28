@@ -35,7 +35,10 @@ The signature is calculated over this exact UTF-8 canonical string using `Z_PLAT
 POST
 <exact_path>
 <idempotency_key>
+<body_sha256_hex>
 ```
+
+Each line is separated by exactly one line-feed (`LF`, U+000A). `<body_sha256_hex>` is the lowercase SHA-256 digest of the exact UTF-8 HTTP body bytes sent to the adapter. The gateway must sign the same bytes it forwards; it must not parse and reserialize the body between signing and forwarding. The signature must not include literal backslash and `n` characters.
 
 Each line is separated by exactly one line-feed (`LF`, U+000A). The signature must not include literal backslash and `n` characters.
 
