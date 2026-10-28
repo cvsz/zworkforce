@@ -80,6 +80,15 @@ export class MemoryLedgerStore {
   }
 }
 
+function requireDurableMutationStore(ledger, env) {
+  if (
+    ledger.store instanceof MemoryLedgerStore &&
+    !["development", "test"].includes(env.NODE_ENV)
+  ) {
+    throw new BillingLedgerError("Persistent billing storage is not configured", 503);
+  }
+}
+
 export class BillingLedger {
   constructor({ store = new MemoryLedgerStore(), idGenerator = randomUUID, now = () => new Date().toISOString() } = {}) {
     this.store = store;
@@ -119,11 +128,18 @@ export function createBillingLedgerServer({ env = process.env, ledger = new Bill
 
     try {
       if (request.method === "POST" && request.url === "/v1/usage") {
+        requireDurableMutationStore(ledger, env);
         const result = await ledger.recordUsage(await readJson(request));
         return send(response, result.duplicate ? 200 : 201, result);
       }
-      if (request.method === "POST" && request.url === "/v1/credits") return send(response, 200, await ledger.setCredits(await readJson(request)));
-      if (request.method === "POST" && request.url === "/v1/invoice-intents") return send(response, 201, await ledger.createInvoiceIntent(await readJson(request)));
+      if (request.method === "POST" && request.url === "/v1/credits") {
+        requireDurableMutationStore(ledger, env);
+        return send(response, 200, await ledger.setCredits(await readJson(request)));
+      }
+      if (request.method === "POST" && request.url === "/v1/invoice-intents") {
+        requireDurableMutationStore(ledger, env);
+        return send(response, 201, await ledger.createInvoiceIntent(await readJson(request)));
+      }
       return send(response, 404, { error: "Not found" });
     } catch (error) {
       return send(response, error instanceof BillingLedgerError ? error.status : 400, { error: error.message || "Request failed" });
