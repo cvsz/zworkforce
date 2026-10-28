@@ -200,7 +200,12 @@ export class BillingLedger {
       status: "requires_payment_processor",
       created_at: this.now(),
     };
-    if (!Number.isInteger(intent.amount_minor) || intent.amount_minor <= 0) throw new BillingLedgerError("amount_minor must be a positive integer");
+    if (!/^[A-Z]{3}$/.test(intent.currency)) {
+      throw new BillingLedgerError("currency must be a three-letter ISO currency code");
+    }
+    if (!Number.isSafeInteger(intent.amount_minor) || intent.amount_minor <= 0) {
+      throw new BillingLedgerError("amount_minor must be a positive safe integer");
+    }
     return this.store.createInvoiceIntent(intent);
   }
 }
