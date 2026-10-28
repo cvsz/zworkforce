@@ -157,7 +157,13 @@ def validate() -> list[str]:
         "independent_review": True,
         "tenant_isolation": True,
     }.items():
-        if policy.get(key) != expected:
+        actual = policy.get(key)
+        # Python treats 1 == True; enforce JSON Schema's boolean type explicitly.
+        if isinstance(expected, bool):
+            valid = isinstance(actual, bool) and actual is expected
+        else:
+            valid = actual == expected
+        if not valid:
             errors.append(f"policy.{key} must equal {expected!r}")
     return errors
 
