@@ -7,6 +7,7 @@ on:
       - "deploy/cloudflare/tunnel-ingress.yml"
       - "scripts/verify-cme-production.py"
       - "tests/test_cme_production_verifier.py"
+      - "tests/test_cme_hostname_contract.py"
       - "scripts/cloudflare/reconcile-repo-sites.sh"
       - "docs/CME-PRODUCTION-OPERATOR.md"
       - ".github/workflows/cme-operator-contract.yml"
@@ -55,5 +56,7 @@ jobs:
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
         with:
           terraform_version: 1.13.3
+      - name: Test canonical CMe hostname contract
+        run: python3 tests/test_cme_hostname_contract.py
       - name: Terraform format
         run: terraform fmt -check infrastructure/terraform/cloudflare/cme.tf
