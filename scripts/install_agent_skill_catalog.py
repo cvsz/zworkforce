@@ -43,6 +43,32 @@ def catalog_files() -> list[tuple[Path, Path]]:
     return result
 
 
+def safe_destination(root: Path, relative: Path) -> Path:
+    """Reject path traversal, symlinked parents, and destinations outside root."""
+    if relative.is_absolute() or any(part in {"", ".", ".."} for part in relative.parts):
+        raise ValueError(f"invalid destination path: {relative}")
+
+    resolved_root = root.resolve()
+    destination = resolved_root / relative
+    current = resolved_root
+    for part in relative.parts[:-1]:
+        current = current / part
+        if current.is_symlink():
+            raise ValueError(f"refusing symlink destination directory: {current}")
+        if current.exists() and not current.is_dir():
+            raise ValueError(f"destination parent is not a directory: {current}")
+
+    if destination.is_symlink():
+        raise ValueError(f"refusing symlink destination: {destination}")
+    if destination.exists() and not destination.is_file():
+        raise ValueError(f"destination is not a regular file: {destination}")
+
+    resolved_parent = destination.parent.resolve()
+    if resolved_parent != resolved_root and resolved_root not in resolved_parent.parents:
+        raise ValueError(f"destination escapes target directory: {destination}")
+    return destination
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", type=Path, required=True, help="Destination directory")
@@ -56,16 +82,14 @@ def main() -> int:
     try:
         files = catalog_files()
         target = args.target.expanduser()
-        if target.exists() and target.is_symlink():
+        if target.is_symlink():
             raise ValueError("target directory must not be a symlink")
         resolved_target = target.resolve()
         if resolved_target == ROOT or ROOT in resolved_target.parents:
             raise ValueError("target must not be inside the source repository")
         conflicts = []
         for _, relative in files:
-            destination = resolved_target / relative
-            if destination.exists() and (destination.is_symlink() or not destination.is_file()):
-                raise ValueError(f"destination is not a regular file: {destination}")
+            destination = safe_destination(resolved_target, relative)
             if destination.exists() and not args.overwrite:
                 conflicts.append(str(destination))
         if conflicts:
@@ -84,10 +108,10 @@ def main() -> int:
 
         resolved_target.mkdir(parents=True, exist_ok=True)
         for source, relative in files:
-            destination = resolved_target / relative
+            destination = safe_destination(resolved_target, relative)
             destination.parent.mkdir(parents=True, exist_ok=True)
-            if destination.exists() and destination.is_symlink():
-                raise ValueError(f"refusing symlink destination: {destination}")
+            # Re-check after directory creation to catch pre-existing or raced symlink paths.
+            destination = safe_destination(resolved_target, relative)
             shutil.copyfile(source, destination)
         print(f"Installed {len(files)} files.")
         return 0
