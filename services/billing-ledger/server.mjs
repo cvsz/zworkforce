@@ -250,7 +250,7 @@ export function createBillingLedgerServer({
   ledger = new BillingLedger(),
   allowEphemeralStore = false,
 } = {}) {
-  return createServer(async (request, response) => {
+  const server = createServer(async (request, response) => {
     if (request.method === "GET" && request.url === "/health") {
       return send(response, 200, {
         status: "ok",
@@ -310,6 +310,16 @@ export function createBillingLedgerServer({
       return send(response, 500, { error: "Internal server error" });
     }
   });
+
+  // Bound slow/incomplete HTTP requests and idle keep-alive sockets. These
+  // limits complement the byte-bounded JSON reader; they do not replace
+  // gateway-level connection/rate limits.
+  server.headersTimeout = 10_000;
+  server.requestTimeout = 30_000;
+  server.keepAliveTimeout = 5_000;
+  server.maxRequestsPerSocket = 1_000;
+  server.setTimeout(30_000, (socket) => socket.destroy());
+  return server;
 }
 
 export function validateDatabaseTransport(databaseUrl, env = process.env) {
