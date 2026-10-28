@@ -277,17 +277,32 @@ export function createBillingLedgerServer({
   });
 }
 
+export function validateDatabaseTransport(databaseUrl, env = process.env) {
+  if (!databaseUrl) return;
+
+  let parsed;
+  try {
+    parsed = new URL(databaseUrl);
+  } catch {
+    throw new Error("Database URL is invalid");
+  }
+
+  const tlsRequired =
+    env.NODE_ENV === "production" ||
+    env.Z_BILLING_LEDGER_REQUIRE_TLS === "true" ||
+    env.Z_BILLING_LEDGER_ENABLE_MUTATIONS === "true";
+
+  if (tlsRequired && parsed.searchParams.get("sslmode") !== "verify-full") {
+    throw new Error("Database TLS verification is required");
+  }
+}
+
 async function startServer() {
   let ledger = new BillingLedger();
   const databaseUrl = process.env.DATABASE_URL;
 
   if (databaseUrl) {
-    if (process.env.Z_BILLING_LEDGER_REQUIRE_TLS === "true") {
-      const parsed = new URL(databaseUrl);
-      if (parsed.searchParams.get("sslmode") !== "verify-full") {
-        throw new Error("Remote database TLS verification is required");
-      }
-    }
+    validateDatabaseTransport(databaseUrl, process.env);
 
     const { Pool } = await import("pg");
     const { PostgresLedgerStore } = await import("./postgres-store.mjs");
