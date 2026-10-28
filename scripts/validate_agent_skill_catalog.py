@@ -43,6 +43,11 @@ def validate() -> list[str]:
     if not isinstance(manifest, dict):
         return ["manifest must be a JSON object"]
 
+    allowed_manifest_keys = {"schema_version", "release", "agents", "skills", "policy"}
+    unexpected_manifest_keys = sorted(set(manifest) - allowed_manifest_keys)
+    if unexpected_manifest_keys:
+        errors.append(f"manifest has unexpected properties: {unexpected_manifest_keys}")
+
     for key in ("schema_version", "release", "agents", "skills", "policy"):
         if key not in manifest:
             errors.append(f"manifest missing required key: {key}")
@@ -53,9 +58,16 @@ def validate() -> list[str]:
     if not isinstance(release, dict):
         errors.append("manifest.release must be an object")
     else:
+        allowed_release_keys = {"name", "version", "status"}
+        unexpected_release_keys = sorted(set(release) - allowed_release_keys)
+        if unexpected_release_keys:
+            errors.append(f"manifest.release has unexpected properties: {unexpected_release_keys}")
         for key in ("name", "version", "status"):
             if not isinstance(release.get(key), str) or not release[key].strip():
                 errors.append(f"manifest.release.{key} must be a non-empty string")
+        version = release.get("version")
+        if isinstance(version, str) and not re.fullmatch(r"[0-9]+\\.[0-9]+\\.[0-9]+", version):
+            errors.append("manifest.release.version must match 'X.Y.Z'")
         status = release.get("status")
         if not isinstance(status, str) or status not in {"candidate", "verified", "blocked", "released"}:
             errors.append("manifest.release.status has an unsupported value")
@@ -66,6 +78,8 @@ def validate() -> list[str]:
         agents: list[object] = []
     else:
         agents = agents_value
+        if not agents:
+            errors.append("manifest.agents must contain at least one item")
     seen_agents: set[str] = set()
     for name in agents:
         if isinstance(name, str):
@@ -79,6 +93,8 @@ def validate() -> list[str]:
         skills: list[object] = []
     else:
         skills = skills_value
+        if not skills:
+            errors.append("manifest.skills must contain at least one item")
     seen_skills: set[str] = set()
     for name in skills:
         if isinstance(name, str):
@@ -126,6 +142,15 @@ def validate() -> list[str]:
         policy: dict[str, object] = {}
     else:
         policy = policy_value
+        allowed_policy_keys = {
+            "default_mutation",
+            "human_approval_for_high_impact",
+            "independent_review",
+            "tenant_isolation",
+        }
+        unexpected_policy_keys = sorted(set(policy) - allowed_policy_keys)
+        if unexpected_policy_keys:
+            errors.append(f"manifest.policy has unexpected properties: {unexpected_policy_keys}")
     for key, expected in {
         "default_mutation": "deny",
         "human_approval_for_high_impact": True,
