@@ -66,14 +66,16 @@ export class PostgresLedgerStore {
     const fingerprint = stableFingerprint(record, ["recorded_at"]);
     const inserted = await this.#query(
       `INSERT INTO billing_usage_records
-         (tenant_id, idempotency_key, usage_id, payload_hash, record)
-       VALUES ($1, $2, $3, $4, $5::jsonb)
+         (tenant_id, idempotency_key, usage_id, input_tokens, output_tokens, payload_hash, record)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
        ON CONFLICT (tenant_id, idempotency_key) DO NOTHING
        RETURNING record`,
       [
         record.tenant_id,
         record.idempotency_key,
         record.usage_id,
+        record.input_tokens,
+        record.output_tokens,
         fingerprint,
         JSON.stringify(record),
       ],
