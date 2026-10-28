@@ -170,7 +170,15 @@ test("PostgreSQL readiness rechecks database connectivity instead of caching a s
     async query() {
       probes += 1;
       if (!online) throw new Error("synthetic database outage");
-      return { rows: [{ version: 1 }] };
+      return {
+        rows: [{
+          version: 1,
+          usage_table_present: true,
+          invoice_table_present: true,
+          usage_idempotency_pk_present: true,
+          invoice_idempotency_pk_present: true,
+        }],
+      };
     },
   };
   const store = new PostgresLedgerStore({ pool });
@@ -181,6 +189,32 @@ test("PostgreSQL readiness rechecks database connectivity instead of caching a s
   assert.equal(probes, 2);
 });
 
+
+test("PostgreSQL readiness fails closed when required schema objects or idempotency keys are missing", async () => {
+  const completeSchema = {
+    version: 1,
+    usage_table_present: true,
+    invoice_table_present: true,
+    usage_idempotency_pk_present: true,
+    invoice_idempotency_pk_present: true,
+  };
+
+  for (const missingField of [
+    "usage_table_present",
+    "invoice_table_present",
+    "usage_idempotency_pk_present",
+    "invoice_idempotency_pk_present",
+  ]) {
+    const store = new PostgresLedgerStore({
+      pool: {
+        async query() {
+          return { rows: [{ ...completeSchema, [missingField]: false }] };
+        },
+      },
+    });
+    await assert.rejects(store.assertReady(), (error) => error.status === 503);
+  }
+});
 
 test("production database startup requires verified TLS", () => {
   assert.throws(
