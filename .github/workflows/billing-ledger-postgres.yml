@@ -48,8 +48,11 @@ jobs:
         with:
           node-version: "24.22.1"
       - name: Install the committed dependency lockfile
-        working-directory: services/billing-ledger
         run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/services/billing-ledger"
+          test -f package.json
+          test -f package-lock.json
           npm ci --ignore-scripts --no-audit
           npm audit --omit=dev --audit-level=high
       - name: Validate JavaScript syntax
