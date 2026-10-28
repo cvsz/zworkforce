@@ -210,6 +210,26 @@ jobs:
               json.loads(p.read_text())
           PY
 
+  billing-ledger-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "24"
+      - name: Validate billing-ledger syntax and idempotency/fail-closed contract
+        run: |
+          node --check services/billing-ledger/server.mjs
+          node --test services/billing-ledger/test/server.test.mjs
+          grep -Fq 'allowEphemeralStore: true' services/billing-ledger/README.md
+          grep -Fq 'return HTTP 503' services/billing-ledger/README.md
+          grep -Fq 'durable PostgreSQL adapter' services/billing-ledger/README.md
+
   zchat-contract:
     runs-on: ubuntu-latest
     timeout-minutes: 10
