@@ -53,8 +53,9 @@ jobs:
           cd "$GITHUB_WORKSPACE/services/billing-ledger"
           test -f package.json
           test -f package-lock.json
-          npm ci --ignore-scripts --no-audit
-          npm audit --omit=dev --audit-level=high
+          # This package is nested under the root npm workspace; use its committed lockfile in isolation.
+          npm ci --workspaces=false --ignore-scripts --no-audit
+          npm audit --workspaces=false --omit=dev --audit-level=high
       - name: Validate JavaScript syntax
         run: |
           node --check services/billing-ledger/server.mjs
