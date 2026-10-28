@@ -143,7 +143,8 @@ test("unexpected ledger exceptions are redacted and return HTTP 500", async () =
   );
 
   assert.equal(response.status, 500);
-  assert.deepEqual(await response.json(), { error: "Internal server error" });
+  const body = await response.json();
+  assert.deepEqual(body, { error: "Internal server error" });
   assert.equal(response.headers.get("cache-control"), "no-store");
-  assert.equal(JSON.stringify(await response.clone().json()).includes(sensitiveMessage), false);
+  assert.equal(JSON.stringify(body).includes(sensitiveMessage), false);
 });
