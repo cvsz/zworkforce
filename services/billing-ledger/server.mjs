@@ -119,9 +119,12 @@ export class MemoryLedgerStore {
   }
 }
 
-function requireDurableMutationStore(ledger, env) {
-  // The ephemeral store is permitted only in test runs; development must use a durable adapter too.
-  if (ledger.store instanceof MemoryLedgerStore && env.NODE_ENV !== "test") {
+function requireDurableMutationStore(ledger, env, allowEphemeralStore) {
+  // Require both a test runtime and an explicit caller opt-in; NODE_ENV alone is not a safety boundary.
+  if (
+    ledger.store instanceof MemoryLedgerStore &&
+    !(env.NODE_ENV === "test" && allowEphemeralStore === true)
+  ) {
     throw new BillingLedgerError("Persistent billing storage is not configured", 503);
   }
 }
@@ -158,23 +161,27 @@ export class BillingLedger {
   }
 }
 
-export function createBillingLedgerServer({ env = process.env, ledger = new BillingLedger() } = {}) {
+export function createBillingLedgerServer({
+  env = process.env,
+  ledger = new BillingLedger(),
+  allowEphemeralStore = false,
+} = {}) {
   return createServer(async (request, response) => {
     if (request.method === "GET" && request.url === "/health") return send(response, 200, { status: "ok", service: "billing-ledger", wallet_authority: false, card_data: false });
     if (!authorized(request, env)) return send(response, 401, { error: "Unauthorized" });
 
     try {
       if (request.method === "POST" && request.url === "/v1/usage") {
-        requireDurableMutationStore(ledger, env);
+        requireDurableMutationStore(ledger, env, allowEphemeralStore);
         const result = await ledger.recordUsage(await readJson(request));
         return send(response, result.duplicate ? 200 : 201, result);
       }
       if (request.method === "POST" && request.url === "/v1/credits") {
-        requireDurableMutationStore(ledger, env);
+        requireDurableMutationStore(ledger, env, allowEphemeralStore);
         return send(response, 200, await ledger.setCredits(await readJson(request)));
       }
       if (request.method === "POST" && request.url === "/v1/invoice-intents") {
-        requireDurableMutationStore(ledger, env);
+        requireDurableMutationStore(ledger, env, allowEphemeralStore);
         return send(response, 201, await ledger.createInvoiceIntent(await readJson(request)));
       }
       return send(response, 404, { error: "Not found" });

@@ -88,11 +88,13 @@ test("HTTP routes require service auth and expose no wallet/card authority", asy
   assert.equal(unauthorized.status, 401);
 });
 
-test("memory-backed mutation routes fail closed outside the test runtime", async () => {
+test("memory-backed mutation routes require explicit test-only opt-in", async () => {
   const runtimes = [
-    { name: "unset", env: { Z_PLATFORM_SERVICE_TOKEN: "service-token" } },
-    { name: "production", env: { ...env, NODE_ENV: "production" } },
-    { name: "development", env: { ...env, NODE_ENV: "development" } },
+    { name: "unset", env: { Z_PLATFORM_SERVICE_TOKEN: "service-token" }, allowEphemeralStore: false },
+    { name: "production", env: { ...env, NODE_ENV: "production" }, allowEphemeralStore: false },
+    { name: "development", env: { ...env, NODE_ENV: "development" }, allowEphemeralStore: false },
+    { name: "test without explicit opt-in", env: { ...env, NODE_ENV: "test" }, allowEphemeralStore: false },
+    { name: "production with explicit opt-in", env: { ...env, NODE_ENV: "production" }, allowEphemeralStore: true },
   ];
   const mutations = [
     {
@@ -110,7 +112,11 @@ test("memory-backed mutation routes fail closed outside the test runtime", async
     for (const mutation of mutations) {
       const ledger = new BillingLedger();
       const response = await request(
-        createBillingLedgerServer({ env: runtime.env, ledger }),
+        createBillingLedgerServer({
+          env: runtime.env,
+          ledger,
+          allowEphemeralStore: runtime.allowEphemeralStore,
+        }),
         mutation.path,
         {
           method: "POST",
@@ -131,7 +137,11 @@ test("memory-backed mutation routes fail closed outside the test runtime", async
 });
 
 test("HTTP usage endpoint returns duplicate on repeated idempotency key", async () => {
-  const server = createBillingLedgerServer({ env, ledger: new BillingLedger({ now: () => "2026-07-14T00:00:00.000Z" }) });
+  const server = createBillingLedgerServer({
+    env,
+    ledger: new BillingLedger({ now: () => "2026-07-14T00:00:00.000Z" }),
+    allowEphemeralStore: true,
+  });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const { port } = server.address();
   try {
@@ -149,7 +159,7 @@ test("HTTP usage endpoint returns duplicate on repeated idempotency key", async 
 
 test("invalid JSON is a generic client error and is never cacheable", async () => {
   const response = await request(
-    createBillingLedgerServer({ env, ledger: new BillingLedger() }),
+    createBillingLedgerServer({ env, ledger: new BillingLedger(), allowEphemeralStore: true }),
     "/v1/usage",
     { method: "POST", headers, body: "{" },
   );

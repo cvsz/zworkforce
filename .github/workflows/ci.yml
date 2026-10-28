@@ -226,7 +226,7 @@ jobs:
         run: |
           node --check services/billing-ledger/server.mjs
           node --test services/billing-ledger/test/server.test.mjs
-          grep -Fq 'permitted only in automated test runs (`NODE_ENV=test`)' services/billing-ledger/README.md
+          grep -Fq 'allowEphemeralStore: true' services/billing-ledger/README.md
           grep -Fq 'return HTTP 503' services/billing-ledger/README.md
           grep -Fq 'durable PostgreSQL adapter' services/billing-ledger/README.md
 
