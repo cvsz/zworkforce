@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHmac } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { createServer } from "node:http";
 import test from "node:test";
 
@@ -12,9 +12,10 @@ const env = {
   Z_PLATFORM_TENANT_ASSERTION_SECRET: "synthetic-tenant-assertion-secret-with-32-bytes-minimum",
 };
 
-function tenantAssertionHeaders(input, path, signingEnv = env, nowMs = Date.now()) {
+function tenantAssertionHeaders(input, path, signingEnv = env, nowMs = Date.now(), rawBody = JSON.stringify(input)) {
   const timestamp = String(Math.floor(nowMs / 1000));
-  const canonical = [input.tenant_id, timestamp, "POST", path, input.idempotency_key].join("\n");
+  const bodySha256 = createHash("sha256").update(rawBody).digest("hex");
+  const canonical = [input.tenant_id, timestamp, "POST", path, input.idempotency_key, bodySha256].join("\n");
   return {
     "X-Authenticated-Tenant": input.tenant_id,
     "X-Tenant-Assertion-Timestamp": timestamp,
@@ -22,10 +23,11 @@ function tenantAssertionHeaders(input, path, signingEnv = env, nowMs = Date.now(
   };
 }
 
-function tenantAssertionRequestContext(input, path, signingEnv = env, nowMs = Date.now()) {
+function tenantAssertionRequestContext(input, path, signingEnv = env, nowMs = Date.now(), rawBody = JSON.stringify(input)) {
   return {
     method: "POST",
-    headers: Object.fromEntries(Object.entries(tenantAssertionHeaders(input, path, signingEnv, nowMs)).map(([name, value]) => [name.toLowerCase(), value])),
+    headers: Object.fromEntries(Object.entries(tenantAssertionHeaders(input, path, signingEnv, nowMs, rawBody)).map(([name, value]) => [name.toLowerCase(), value])),
+    bodySha256: createHash("sha256").update(rawBody).digest("hex"),
   };
 }
 
@@ -38,8 +40,9 @@ test("accepts the documented LF-delimited tenant assertion vector", async (t) =>
     headers: {
       "x-authenticated-tenant": "tenant-1",
       "x-tenant-assertion-timestamp": timestamp,
-      "x-tenant-assertion-signature": "b4e0e417732ad2c8ee71ccfdb037ec243a25388df8bc824fddc413ece98b9426",
+      "x-tenant-assertion-signature": "d99bbd21ed948b397a8f3e1518001cfe44eaba885e048bf284ec700af924d877",
     },
+    bodySha256: "9bce8ca807ffa54b0c617bc3d7f0ac0c9cf8ca4bfda4d2909fa746607e7c0fe1",
   };
   let calls = 0;
   const result = await createInvoiceIntent(input, env, async (_url, options) => {
@@ -58,7 +61,7 @@ async function request(server, path, options = {}) {
       const input = JSON.parse(fetchOptions.body);
       if (input && typeof input === "object" && !Array.isArray(input) && typeof input.tenant_id === "string" && typeof input.idempotency_key === "string") {
         const headers = new Headers(fetchOptions.headers || {});
-        for (const [name, value] of Object.entries(tenantAssertionHeaders(input, path))) {
+        for (const [name, value] of Object.entries(tenantAssertionHeaders(input, path, env, Date.now(), fetchOptions.body))) {
           if (!headers.has(name)) headers.set(name, value);
         }
         fetchOptions.headers = headers;
@@ -445,6 +448,30 @@ test("stale and tampered tenant assertions are rejected", async () => {
   const tamperedResponse = await request(createZWalletServer({ env, fetchImpl: async () => { calls += 1; return Response.json({}); } }), "/api/invoice-intents", { method: "POST", omitTenantAssertion: true, headers: { "Content-Type": "application/json", ...tampered }, body: JSON.stringify(input) });
   assert.equal(tamperedResponse.status, 403);
   assert.equal(calls, 0);
+});
+
+test("tenant assertion rejects a changed body even when tenant, path, timestamp and idempotency key are unchanged", async () => {
+  let upstreamCalls = 0;
+  const original = { tenant_id: "tenant-1", idempotency_key: "invoice-body-bound", currency: "USD", amount_minor: 500 };
+  const originalBody = JSON.stringify(original);
+  const signedHeaders = tenantAssertionHeaders(original, "/api/invoice-intents", env, Date.now(), originalBody);
+  const changed = { ...original, amount_minor: 5000 };
+  const response = await request(
+    createZWalletServer({ env, fetchImpl: async () => {
+      upstreamCalls += 1;
+      return Response.json({ intent_id: "should-not-exist" }, { status: 201 });
+    } }),
+    "/api/invoice-intents",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...signedHeaders },
+      body: JSON.stringify(changed),
+      omitTenantAssertion: true,
+    },
+  );
+  assert.equal(response.status, 403);
+  assert.deepEqual(await response.json(), { error: "Tenant authorization failed" });
+  assert.equal(upstreamCalls, 0);
 });
 
 test("missing or weak tenant assertion secret fails closed", async () => {
