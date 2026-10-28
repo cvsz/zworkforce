@@ -238,20 +238,22 @@ test("rejects non-object JSON payloads before mutating any HTTP ledger route", a
   ];
 
   for (const item of cases) {
-    const ledger = new BillingLedger();
-    const response = await request(
-      createBillingLedgerServer({ env, ledger, allowEphemeralStore: true }),
-      item.path,
-      { method: "POST", headers, body: "null" },
-    );
+    for (const body of ["null", "[]", '"primitive"', "7", "false"]) {
+      const ledger = new BillingLedger();
+      const response = await request(
+        createBillingLedgerServer({ env, ledger, allowEphemeralStore: true }),
+        item.path,
+        { method: "POST", headers, body },
+      );
 
-    assert.equal(response.status, 400, item.path);
-    assert.deepEqual(await response.json(), {
-      error: `${item.label} payload must be an object`,
-    });
-    assert.equal(response.headers.get("cache-control"), "no-store");
-    assert.equal(ledger.store.records.size, 0);
-    assert.equal(ledger.store.credits.size, 0);
-    assert.equal(ledger.store.invoiceIntents.size, 0);
+      assert.equal(response.status, 400, `${item.path} body=${body}`);
+      assert.deepEqual(await response.json(), {
+        error: `${item.label} payload must be an object`,
+      });
+      assert.equal(response.headers.get("cache-control"), "no-store");
+      assert.equal(ledger.store.records.size, 0);
+      assert.equal(ledger.store.credits.size, 0);
+      assert.equal(ledger.store.invoiceIntents.size, 0);
+    }
   }
 });
