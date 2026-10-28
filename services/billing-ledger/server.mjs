@@ -80,10 +80,11 @@ export class MemoryLedgerStore {
   }
 }
 
-function requireDurableMutationStore(ledger, env) {
+function requireDurableMutationStore(ledger, env, allowEphemeralStore) {
+  const permittedRuntime = ["development", "test"].includes(env.NODE_ENV);
   if (
     ledger.store instanceof MemoryLedgerStore &&
-    !["development", "test"].includes(env.NODE_ENV)
+    !(allowEphemeralStore === true && permittedRuntime)
   ) {
     throw new BillingLedgerError("Persistent billing storage is not configured", 503);
   }
@@ -121,23 +122,27 @@ export class BillingLedger {
   }
 }
 
-export function createBillingLedgerServer({ env = process.env, ledger = new BillingLedger() } = {}) {
+export function createBillingLedgerServer({
+  env = process.env,
+  ledger = new BillingLedger(),
+  allowEphemeralStore = false,
+} = {}) {
   return createServer(async (request, response) => {
     if (request.method === "GET" && request.url === "/health") return send(response, 200, { status: "ok", service: "billing-ledger", wallet_authority: false, card_data: false });
     if (!authorized(request, env)) return send(response, 401, { error: "Unauthorized" });
 
     try {
       if (request.method === "POST" && request.url === "/v1/usage") {
-        requireDurableMutationStore(ledger, env);
+        requireDurableMutationStore(ledger, env, allowEphemeralStore);
         const result = await ledger.recordUsage(await readJson(request));
         return send(response, result.duplicate ? 200 : 201, result);
       }
       if (request.method === "POST" && request.url === "/v1/credits") {
-        requireDurableMutationStore(ledger, env);
+        requireDurableMutationStore(ledger, env, allowEphemeralStore);
         return send(response, 200, await ledger.setCredits(await readJson(request)));
       }
       if (request.method === "POST" && request.url === "/v1/invoice-intents") {
-        requireDurableMutationStore(ledger, env);
+        requireDurableMutationStore(ledger, env, allowEphemeralStore);
         return send(response, 201, await ledger.createInvoiceIntent(await readJson(request)));
       }
       return send(response, 404, { error: "Not found" });
