@@ -57,8 +57,8 @@ function normalizeUsage(input) {
     tenant_id: requireString(input.tenant_id, "tenant_id"),
     subject_id: input.subject_id ? requireString(input.subject_id, "subject_id") : "unknown",
     model: requireString(input.model || "unknown", "model"),
-    input_tokens: Number(input.input_tokens || 0),
-    output_tokens: Number(input.output_tokens || 0),
+    input_tokens: input.input_tokens === undefined ? 0 : input.input_tokens,
+    output_tokens: input.output_tokens === undefined ? 0 : input.output_tokens,
     recorded_at: input.recorded_at || new Date().toISOString(),
   };
 }
@@ -138,12 +138,23 @@ export class BillingLedger {
 
   async recordUsage(input) {
     const record = normalizeUsage({ ...input, recorded_at: input.recorded_at || this.now() });
-    if (record.input_tokens < 0 || record.output_tokens < 0) throw new BillingLedgerError("usage tokens must be non-negative");
+    if (!Number.isSafeInteger(record.input_tokens) || record.input_tokens < 0 ||
+        !Number.isSafeInteger(record.output_tokens) || record.output_tokens < 0) {
+      throw new BillingLedgerError("usage tokens must be non-negative safe integers");
+    }
     return this.store.recordUsage(record);
   }
 
   async setCredits(input) {
-    return this.store.setCredits(requireString(input.tenant_id, "tenant_id"), Number(input.credits));
+    if (!input || typeof input !== "object" || Array.isArray(input)) {
+      throw new BillingLedgerError("Credits payload must be an object");
+    }
+    const tenantId = requireString(input.tenant_id, "tenant_id");
+    const credits = input.credits;
+    if (!Number.isSafeInteger(credits) || credits < 0) {
+      throw new BillingLedgerError("credits must be a non-negative safe integer");
+    }
+    return this.store.setCredits(tenantId, credits);
   }
 
   async createInvoiceIntent(input) {
