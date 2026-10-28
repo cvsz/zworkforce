@@ -17,14 +17,53 @@ async function request(server, path, options = {}) {
 
 const headers = { Authorization: "Bearer service-token", "Content-Type": "application/json" };
 
-test("records usage idempotently", async () => {
+test("records usage idempotently for the same tenant and payload", async () => {
   const ledger = new BillingLedger({ now: () => "2026-07-14T00:00:00.000Z" });
   const input = { usage_id: "usage-1", idempotency_key: "idem-1", tenant_id: "tenant-1", model: "hf:test", input_tokens: 3, output_tokens: 4 };
   const first = await ledger.recordUsage(input);
-  const second = await ledger.recordUsage({ ...input, output_tokens: 99 });
+  const second = await ledger.recordUsage(input);
   assert.equal(first.duplicate, false);
   assert.equal(second.duplicate, true);
   assert.equal(second.record.output_tokens, 4);
+});
+
+test("scopes usage idempotency by tenant and rejects changed-payload replay", async () => {
+  const ledger = new BillingLedger({ now: () => "2026-07-14T00:00:00.000Z" });
+  const input = { usage_id: "usage-1", idempotency_key: "shared-key", tenant_id: "tenant-1", model: "hf:test", input_tokens: 3, output_tokens: 4 };
+  const first = await ledger.recordUsage(input);
+  const otherTenant = await ledger.recordUsage({ ...input, tenant_id: "tenant-2" });
+  assert.equal(first.record.tenant_id, "tenant-1");
+  assert.equal(otherTenant.record.tenant_id, "tenant-2");
+  assert.equal(otherTenant.duplicate, false);
+
+  const replay = await ledger.recordUsage({ ...input, recorded_at: "2026-07-15T00:00:00.000Z" });
+  assert.equal(replay.duplicate, true);
+  assert.equal(replay.record.recorded_at, "2026-07-14T00:00:00.000Z");
+  await assert.rejects(
+    ledger.recordUsage({ ...input, output_tokens: 99 }),
+    (error) => error.status === 409,
+  );
+});
+
+test("scopes invoice idempotency by tenant and rejects amount conflicts", async () => {
+  let nextIntent = 0;
+  const ledger = new BillingLedger({
+    idGenerator: () => `intent-${++nextIntent}`,
+    now: () => "2026-07-14T00:00:00.000Z",
+  });
+  const input = { tenant_id: "tenant-1", idempotency_key: "invoice-key", currency: "usd", amount_minor: 500 };
+  const first = await ledger.createInvoiceIntent(input);
+  const replay = await ledger.createInvoiceIntent(input);
+  assert.equal(replay.intent_id, first.intent_id);
+
+  const otherTenant = await ledger.createInvoiceIntent({ ...input, tenant_id: "tenant-2" });
+  assert.notEqual(otherTenant.intent_id, first.intent_id);
+  assert.equal(otherTenant.tenant_id, "tenant-2");
+
+  await assert.rejects(
+    ledger.createInvoiceIntent({ ...input, amount_minor: 700 }),
+    (error) => error.status === 409,
+  );
 });
 
 test("creates credits and invoice intents without wallet authority", async () => {
