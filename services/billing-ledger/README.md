@@ -14,7 +14,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f services/billing-ledger/migrations/00
 
 The migration creates database-enforced (tenant_id, idempotency_key) primary keys, payload fingerprints, constrained invoice intent fields, and a schema-version marker. The insert is the atomic idempotency claim: concurrent duplicate requests cannot create two rows. Same-key/same-payload requests replay the stored object; same-key/different-payload requests return HTTP 409.
 
-Configure `DATABASE_URL` for the service. Set `Z_BILLING_LEDGER_REQUIRE_TLS=true` for remote database connections; with that setting, the URL must specify `sslmode=verify-full`. Connection and query timeouts are bounded. Do not put database credentials in logs or commit them to the repository.
+Configure `DATABASE_URL` for the service. Production startup and any enabled billing-mutation gate require `sslmode=verify-full`. `Z_BILLING_LEDGER_REQUIRE_TLS=true` also enforces this in non-production environments. Without verified TLS, startup fails closed before opening the PostgreSQL pool. Connection and query timeouts are bounded. Do not put database credentials in logs or commit them to the repository.
 
 - `GET /health` is a liveness endpoint only.
 - `GET /ready` returns 200 only when PostgreSQL is configured and schema version 1 is present; otherwise it returns 503.
