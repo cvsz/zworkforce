@@ -10,7 +10,7 @@ class SetupScriptTests(unittest.TestCase):
         script = (ROOT / "setup.sh").read_text(encoding="utf-8")
 
         self.assertIn('dirname -- "${BASH_SOURCE[0]}"', script)
-        self.assertIn('python3 -m pip install "$REPOSITORY_ROOT"', script)
+        self.assertIn('"$VENV_PYTHON" -m pip install "$REPOSITORY_ROOT"', script)
         self.assertNotIn("cd /workspace", script)
 
     def test_setup_installs_zarvis_from_frozen_lockfile(self):

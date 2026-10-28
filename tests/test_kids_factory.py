@@ -366,7 +366,7 @@ class KidsCampaignPipelineTests(unittest.TestCase):
         self.assertEqual(result["failed"], "render")
         self.assertIn("budget", result["error"])
         s, renders = self.req("/api/v1/kids/render-jobs?episode_id=bg-ep")
-        self.assertEqual(succeeds_or_empty(s, renders), True)
+        self.assertEqual(self.succeeds_or_empty(s, renders), True)
 
     def test_mcp_campaign_and_pipeline_tools(self):
         from zworkforce.mcp import _call_tool
@@ -389,6 +389,7 @@ class KidsCampaignPipelineTests(unittest.TestCase):
                        {"id": "nope", "brand_id": "mcp-brand", "name": "Nope"})
 
 
+    @staticmethod
     def succeeds_or_empty(status, renders):
         return status == 200 and len(renders["items"]) == 0
 
