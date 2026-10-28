@@ -13,7 +13,10 @@ export class BillingLedgerError extends Error {
 }
 
 function send(response, status, body) {
-  response.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
+  response.writeHead(status, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
   response.end(JSON.stringify(body));
 }
 
@@ -32,7 +35,12 @@ async function readJson(request) {
     text += chunk;
     if (text.length > 100000) throw new BillingLedgerError("Request body is too large", 413);
   }
-  return text.trim() ? JSON.parse(text) : {};
+  if (!text.trim()) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new BillingLedgerError("Invalid JSON body", 400);
+  }
 }
 
 function requireString(value, name) {
@@ -142,7 +150,11 @@ export function createBillingLedgerServer({ env = process.env, ledger = new Bill
       }
       return send(response, 404, { error: "Not found" });
     } catch (error) {
-      return send(response, error instanceof BillingLedgerError ? error.status : 400, { error: error.message || "Request failed" });
+      if (error instanceof BillingLedgerError) {
+        return send(response, error.status, { error: error.message });
+      }
+      // Do not expose database, adapter, or runtime exception details to callers.
+      return send(response, 500, { error: "Internal server error" });
     }
   });
 }
