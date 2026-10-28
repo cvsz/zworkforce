@@ -109,3 +109,54 @@ test("PostgreSQL invoice intents are durable and reject changed-payload replay",
     (error) => error.status === 409,
   );
 });
+
+test("PostgreSQL constraints reject negative usage counts and unsafe invoice amounts", {
+  skip: !databaseUrl,
+}, async (t) => {
+  const pool = new Pool({
+    connectionString: databaseUrl,
+    max: 2,
+    connectionTimeoutMillis: 3000,
+    statement_timeout: 5000,
+    query_timeout: 7000,
+    application_name: "billing-ledger-schema-constraints-test",
+  });
+  t.after(() => pool.end());
+
+  await assert.rejects(
+    pool.query(
+      `INSERT INTO billing_usage_records
+         (tenant_id, idempotency_key, usage_id, input_tokens, output_tokens, payload_hash, record)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)`,
+      [
+        `ci-${randomUUID()}`,
+        `invalid-usage-${randomUUID()}`,
+        `usage-${randomUUID()}`,
+        -1,
+        0,
+        "a".repeat(64),
+        JSON.stringify({ input_tokens: -1, output_tokens: 0 }),
+      ],
+    ),
+    (error) => error.code === "23514",
+  );
+
+  await assert.rejects(
+    pool.query(
+      `INSERT INTO billing_invoice_intents
+         (tenant_id, idempotency_key, intent_id, payload_hash, currency, amount_minor, status, intent)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)`,
+      [
+        `ci-${randomUUID()}`,
+        `invalid-invoice-${randomUUID()}`,
+        `intent-${randomUUID()}`,
+        "b".repeat(64),
+        "USD",
+        Number.MAX_SAFE_INTEGER + 1,
+        "requires_payment_processor",
+        JSON.stringify({ amount_minor: Number.MAX_SAFE_INTEGER + 1 }),
+      ],
+    ),
+    (error) => error.code === "23514",
+  );
+});
