@@ -203,17 +203,25 @@ test("invalid JSON is a generic client error and is never cacheable", async () =
 test("unexpected ledger exceptions are redacted and return HTTP 500", async () => {
   const sensitiveMessage = "database password=must-not-escape";
   const store = {
+    durable: true,
+    async assertReady() { return true; },
     async recordUsage() { throw new Error(sensitiveMessage); },
     async setCredits() { throw new Error(sensitiveMessage); },
     async createInvoiceIntent() { throw new Error(sensitiveMessage); },
   };
   const ledger = new BillingLedger({ store });
+  const durableEnv = {
+    ...env,
+    NODE_ENV: "production",
+    Z_BILLING_LEDGER_ENABLE_MUTATIONS: "true",
+    Z_BILLING_LEDGER_TENANT_AUTHZ_MODE: "trusted-gateway",
+  };
   const response = await request(
-    createBillingLedgerServer({ env, ledger }),
+    createBillingLedgerServer({ env: durableEnv, ledger }),
     "/v1/usage",
     {
       method: "POST",
-      headers,
+      headers: { ...headers, "X-Authenticated-Tenant": "tenant-test" },
       body: JSON.stringify({
         usage_id: "usage-internal-error",
         idempotency_key: "idem-internal-error",
