@@ -5,11 +5,11 @@ Release 1.0.0. Status: candidate pending exact-head CI, independent review, and 
 ## Summary
 This candidate consolidates the agent/skill architecture discussed for ZEAZDEV and the guide topics visible in this conversation: model selection, prompt/context engineering, token cost and caching, research, iterative ebook and video/podcast workflows, marketing, SOP/proposal, RAG/chatbots, automation, security, QA, and release governance.
 
-It provides 8 agent profiles and 15 reusable skills. These are portable Markdown contracts; they do not register executable agents, grant tool access, provision workers, call external providers, or deploy infrastructure.
+It provides 8 agent profiles and 16 reusable skills. These are portable Markdown contracts; they do not register executable agents, grant tool access, provision workers, call external providers, or deploy infrastructure.
 
 ## Catalog
 Agents: Orchestrator, Architect, Implementer, Researcher, Security Reviewer, QA Engineer, Content Studio, Release Manager.
-Skills: Model Routing, Prompt Engineering, Context Engineering, Token Cost, Research/Fact Checking, Code Review, Security Threat Modeling, Testing/Evaluation, Release Governance, DevOps/Reliability, RAG/Chatbot, Ebook, Video/Podcast, SOP/Proposal, Automation/MCP.
+Skills: Model Routing, Prompt Engineering, Context Engineering, Token Cost, Research/Fact Checking, Code Review, Security Threat Modeling, Testing/Evaluation, Release Governance, DevOps/Reliability, RAG/Chatbot, Ebook, Video/Podcast, SOP/Proposal, Automation/MCP, Global Engineering workflow.
 
 ## Runtime contract
 The existing zWorkforce control plane remains authoritative for tenant-scoped identities/RBAC, durable job lifecycle/idempotency, tool grants, budgets, sandboxing, policy decisions, human approval, audit events, and provider secrets. Do not add parallel schedulers, authorization authorities, credential stores, or audit systems. Runtime registration, immutable skill pinning, tenant allowlists, UI configuration, and tool capability binding require separate implementation and tests.
