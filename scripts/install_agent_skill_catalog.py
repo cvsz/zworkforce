@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -17,28 +18,49 @@ MANIFEST = ROOT / "configs" / "agent-skill-release-manifest.json"
 AGENTS = ROOT / ".agents" / "agents"
 SKILLS = ROOT / ".agents" / "skills"
 SCHEMA = ROOT / "schemas" / "agent-skill-release-manifest.schema.json"
+NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+
+
+def safe_source(path: Path) -> Path:
+    """Require source files to be regular files under ROOT with no symlinked path components."""
+    root = ROOT.resolve()
+    absolute_path = path.absolute()
+    try:
+        relative = absolute_path.relative_to(root)
+    except ValueError as exc:
+        raise ValueError(f"source path escapes repository: {path}") from exc
+
+    current = root
+    for part in relative.parts:
+        current = current / part
+        if current.is_symlink():
+            raise ValueError(f"refusing symlink source path: {current}")
+
+    resolved = absolute_path.resolve()
+    if resolved == root or root not in resolved.parents:
+        raise ValueError(f"source path escapes repository: {path}")
+    if not resolved.is_file():
+        raise ValueError(f"source is not a regular file: {path}")
+    return resolved
 
 
 def catalog_files() -> list[tuple[Path, Path]]:
-    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    manifest_path = safe_source(MANIFEST)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     result: list[tuple[Path, Path]] = []
     for name in manifest["agents"]:
-        if not isinstance(name, str) or "/" in name or "\\" in name or name in {".", ".."}:
+        if not isinstance(name, str) or not NAME_RE.fullmatch(name):
             raise ValueError(f"invalid agent identifier: {name!r}")
-        source = AGENTS / f"{name}.md"
-        if not source.is_file() or source.is_symlink():
-            raise ValueError(f"agent source missing or unsafe: {source}")
+        source = safe_source(AGENTS / f"{name}.md")
         result.append((source, Path("agents") / source.name))
     for name in manifest["skills"]:
-        if not isinstance(name, str) or "/" in name or "\\" in name or name in {".", ".."}:
+        if not isinstance(name, str) or not NAME_RE.fullmatch(name):
             raise ValueError(f"invalid skill identifier: {name!r}")
-        source = SKILLS / name / "SKILL.md"
-        if not source.is_file() or source.is_symlink():
-            raise ValueError(f"skill source missing or unsafe: {source}")
+        source = safe_source(SKILLS / name / "SKILL.md")
         result.append((source, Path("skills") / name / "SKILL.md"))
     result.extend([
-        (MANIFEST, Path("manifest.json")),
-        (SCHEMA, Path("manifest.schema.json")),
+        (manifest_path, Path("manifest.json")),
+        (safe_source(SCHEMA), Path("manifest.schema.json")),
     ])
     return result
 
