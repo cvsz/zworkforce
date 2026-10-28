@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { BillingLedger, createBillingLedgerServer } from "../server.mjs";
 
-const env = { Z_PLATFORM_SERVICE_TOKEN: "service-token" };
+const env = { NODE_ENV: "test", Z_PLATFORM_SERVICE_TOKEN: "service-token" };
 
 async function request(server, path, options = {}) {
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -47,6 +47,47 @@ test("HTTP routes require service auth and expose no wallet/card authority", asy
 
   const unauthorized = await request(createBillingLedgerServer({ env }), "/v1/usage", { method: "POST", body: "{}" });
   assert.equal(unauthorized.status, 401);
+});
+
+test("memory-backed mutation routes fail closed when NODE_ENV is unset or production", async () => {
+  const runtimes = [
+    { name: "unset", env: { Z_PLATFORM_SERVICE_TOKEN: "service-token" } },
+    { name: "production", env: { ...env, NODE_ENV: "production" } },
+  ];
+  const mutations = [
+    {
+      path: "/v1/usage",
+      body: { usage_id: "usage-1", idempotency_key: "idem-1", tenant_id: "tenant-1", model: "test" },
+    },
+    { path: "/v1/credits", body: { tenant_id: "tenant-1", credits: 100 } },
+    {
+      path: "/v1/invoice-intents",
+      body: { tenant_id: "tenant-1", idempotency_key: "invoice-1", currency: "USD", amount_minor: 100 },
+    },
+  ];
+
+  for (const runtime of runtimes) {
+    for (const mutation of mutations) {
+      const ledger = new BillingLedger();
+      const response = await request(
+        createBillingLedgerServer({ env: runtime.env, ledger }),
+        mutation.path,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify(mutation.body),
+        },
+      );
+
+      assert.equal(response.status, 503, `${runtime.name}: ${mutation.path}`);
+      assert.deepEqual(await response.json(), {
+        error: "Persistent billing storage is not configured",
+      });
+      assert.equal(ledger.store.records.size, 0);
+      assert.equal(ledger.store.credits.size, 0);
+      assert.equal(ledger.store.invoiceIntents.size, 0);
+    }
+  }
 });
 
 test("HTTP usage endpoint returns duplicate on repeated idempotency key", async () => {
