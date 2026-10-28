@@ -45,7 +45,7 @@ async function readJson(request) {
   if (typeof rawContentLength === "string") {
     const normalizedLength = rawContentLength.trim();
     const declaredLength = Number(normalizedLength);
-    if (!/^\\d+$/.test(normalizedLength) || !Number.isSafeInteger(declaredLength) || declaredLength < 0) {
+    if (!/^\d+$/.test(normalizedLength) || !Number.isSafeInteger(declaredLength) || declaredLength < 0) {
       request.resume();
       throw new BillingLedgerError("Invalid Content-Length", 400);
     }
