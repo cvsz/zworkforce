@@ -1,0 +1,65 @@
+name: Billing Ledger PostgreSQL Integration
+
+on:
+  pull_request:
+    paths:
+      - "services/billing-ledger/**"
+      - ".github/workflows/billing-ledger-postgres.yml"
+  push:
+    branches: [main]
+    paths:
+      - "services/billing-ledger/**"
+      - ".github/workflows/billing-ledger-postgres.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: billing-ledger-postgres-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  postgres-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: billing_test
+          POSTGRES_PASSWORD: billing_test
+          POSTGRES_DB: billing_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U billing_test -d billing_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 15
+    env:
+      Z_BILLING_LEDGER_TEST_DATABASE_URL: postgresql://billing_test:billing_test@127.0.0.1:5432/billing_test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "24"
+      - name: Resolve and install pinned service dependencies
+        working-directory: services/billing-ledger
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm ci --ignore-scripts --no-audit
+      - name: Validate JavaScript syntax
+        run: |
+          node --check services/billing-ledger/server.mjs
+          node --check services/billing-ledger/postgres-store.mjs
+          node --check services/billing-ledger/test/postgres-store.test.mjs
+      - name: Apply additive schema to disposable PostgreSQL
+        run: |
+          psql "$Z_BILLING_LEDGER_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f services/billing-ledger/migrations/001_durable_billing_ledger.sql
+          psql "$Z_BILLING_LEDGER_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -c "SELECT version FROM billing_schema_migrations ORDER BY version"
+      - name: Run in-memory and PostgreSQL contract tests
+        run: npm test --prefix services/billing-ledger
