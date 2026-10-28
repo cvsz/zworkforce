@@ -121,7 +121,7 @@ class StartupSecretHygieneTests(unittest.TestCase):
     def test_shell_xtrace_does_not_log_token_loaded_from_env_file(self):
         token = "synthetic-env-file-token-" + ("d" * 40)
         result = self.run_start_script(
-            env_file_content=f"ZWORKFORCE_ZARVIS_VOICE_SERVICE_TOKEN='{token}'\\n",
+            env_file_content=f"ZWORKFORCE_ZARVIS_VOICE_SERVICE_TOKEN='{token}'\n",
             xtrace=True,
         )
         self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
