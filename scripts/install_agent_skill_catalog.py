@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+"""Safely install the declarative ZEAZ agent/skill catalog.
+
+Dry-run is the default. Files are copied only when --apply is supplied.
+Existing destination files are never overwritten unless --overwrite is also set.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import shutil
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+MANIFEST = ROOT / "configs" / "agent-skill-release-manifest.json"
+AGENTS = ROOT / ".agents" / "agents"
+SKILLS = ROOT / ".agents" / "skills"
+SCHEMA = ROOT / "schemas" / "agent-skill-release-manifest.schema.json"
+
+
+def catalog_files() -> list[tuple[Path, Path]]:
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    result: list[tuple[Path, Path]] = []
+    for name in manifest["agents"]:
+        if not isinstance(name, str) or "/" in name or "\\" in name or name in {".", ".."}:
+            raise ValueError(f"invalid agent identifier: {name!r}")
+        source = AGENTS / f"{name}.md"
+        if not source.is_file() or source.is_symlink():
+            raise ValueError(f"agent source missing or unsafe: {source}")
+        result.append((source, Path("agents") / source.name))
+    for name in manifest["skills"]:
+        if not isinstance(name, str) or "/" in name or "\\" in name or name in {".", ".."}:
+            raise ValueError(f"invalid skill identifier: {name!r}")
+        source = SKILLS / name / "SKILL.md"
+        if not source.is_file() or source.is_symlink():
+            raise ValueError(f"skill source missing or unsafe: {source}")
+        result.append((source, Path("skills") / name / "SKILL.md"))
+    result.extend([
+        (MANIFEST, Path("manifest.json")),
+        (SCHEMA, Path("manifest.schema.json")),
+    ])
+    return result
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--target", type=Path, required=True, help="Destination directory")
+    parser.add_argument("--apply", action="store_true", help="Write files; otherwise only print the plan")
+    parser.add_argument("--overwrite", action="store_true", help="Allow replacing existing regular files; requires --apply")
+    args = parser.parse_args()
+
+    if args.overwrite and not args.apply:
+        parser.error("--overwrite requires --apply")
+
+    try:
+        files = catalog_files()
+        target = args.target.expanduser()
+        if target.exists() and target.is_symlink():
+            raise ValueError("target directory must not be a symlink")
+        resolved_target = target.resolve()
+        if resolved_target == ROOT or ROOT in resolved_target.parents:
+            raise ValueError("target must not be inside the source repository")
+        conflicts = []
+        for _, relative in files:
+            destination = resolved_target / relative
+            if destination.exists() and (destination.is_symlink() or not destination.is_file()):
+                raise ValueError(f"destination is not a regular file: {destination}")
+            if destination.exists() and not args.overwrite:
+                conflicts.append(str(destination))
+        if conflicts:
+            print("Installation blocked: destination files already exist (use --overwrite with --apply to replace):", file=sys.stderr)
+            for item in conflicts:
+                print(f"- {item}", file=sys.stderr)
+            return 2
+
+        print(f"Mode: {'APPLY' if args.apply else 'DRY-RUN'}")
+        print(f"Target: {resolved_target}")
+        for source, relative in files:
+            print(f"{'COPY' if args.apply else 'WOULD COPY'} {source.relative_to(ROOT)} -> {relative}")
+        if not args.apply:
+            print("Dry-run only; rerun with --apply to write files.")
+            return 0
+
+        resolved_target.mkdir(parents=True, exist_ok=True)
+        for source, relative in files:
+            destination = resolved_target / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            if destination.exists() and destination.is_symlink():
+                raise ValueError(f"refusing symlink destination: {destination}")
+            shutil.copyfile(source, destination)
+        print(f"Installed {len(files)} files.")
+        return 0
+    except (OSError, ValueError, KeyError, json.JSONDecodeError) as exc:
+        print(f"Installation failed: {exc}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
