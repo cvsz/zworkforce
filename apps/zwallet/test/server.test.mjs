@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { request as nodeRequest } from "node:http";
 import test from "node:test";
 
 import { createInvoiceIntent, createZWalletServer } from "../server.mjs";
@@ -10,6 +11,41 @@ async function request(server, path, options = {}) {
   const { port } = server.address();
   try {
     return await fetch(`http://127.0.0.1:${port}${path}`, options);
+  } finally {
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
+}
+
+async function requestRawTarget(server, target, options = {}) {
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address();
+  try {
+    return await new Promise((resolve, reject) => {
+      const outgoing = nodeRequest(
+        {
+          hostname: "127.0.0.1",
+          port,
+          method: options.method || "GET",
+          path: target,
+          headers: options.headers || {},
+        },
+        (incoming) => {
+          const chunks = [];
+          incoming.on("data", (chunk) => chunks.push(chunk));
+          incoming.on("end", () => {
+            const body = Buffer.concat(chunks).toString("utf8");
+            resolve({
+              status: incoming.statusCode,
+              headers: incoming.headers,
+              json: () => JSON.parse(body),
+            });
+          });
+        },
+      );
+      outgoing.on("error", reject);
+      if (options.body !== undefined) outgoing.write(options.body);
+      outgoing.end();
+    });
   } finally {
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
@@ -69,5 +105,29 @@ test("financial HTTP mutation routes fail closed before parsing or forwarding", 
     assert.equal(response.headers.get("cache-control"), "no-store");
   }
 
+  assert.equal(calls, 0);
+});
+
+test("adapter rejects absolute-form request targets before financial mutation routing", async () => {
+  let calls = 0;
+  const response = await requestRawTarget(
+    createZWalletServer({
+      env,
+      fetchImpl: async () => {
+        calls += 1;
+        return Response.json({});
+      },
+    }),
+    "http://attacker.example/api/credits",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "not-json",
+    },
+  );
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(response.json(), { error: "Invalid request target" });
+  assert.equal(response.headers["cache-control"], "no-store");
   assert.equal(calls, 0);
 });
