@@ -221,13 +221,26 @@ variable "manage_tunnel_config" {
   description = "Only true after importing and reviewing the current remote tunnel ingress."
 }
 
+variable "cme_access_allowed_emails" {
+  type        = set(string)
+  description = "Exact CMe production operators allowed through Cloudflare Access."
+
+  validation {
+    condition = length(var.cme_access_allowed_emails) > 0 && alltrue([
+      for email in var.cme_access_allowed_emails :
+      can(regex("^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$", lower(email)))
+    ])
+    error_message = "cme_access_allowed_emails must contain at least one valid CMe operator email."
+  }
+}
+
 variable "cmeerp_hostname" {
   type        = string
   default     = "cme.zeaz.dev"
-  description = "Public hostname for the CME Pro ERP web application."
+  description = "Canonical public hostname for the CMe production application."
   validation {
-    condition     = endswith(lower(var.cmeerp_hostname), ".${lower(var.zone_name)}")
-    error_message = "cmeerp_hostname must be a subdomain of zone_name."
+    condition     = var.cmeerp_hostname == "cme.zeaz.dev"
+    error_message = "cmeerp_hostname must be cme.zeaz.dev to match the CMe DNS, Access, and tunnel-ingress contract."
   }
 }
 
