@@ -36,23 +36,21 @@ export class PostgresLedgerStore {
       throw new TypeError("PostgresLedgerStore requires a PostgreSQL pool");
     }
     this.pool = pool;
-    this.readyPromise = null;
   }
 
   async assertReady() {
-    if (!this.readyPromise) {
-      this.readyPromise = this.pool
-        .query("SELECT version FROM billing_schema_migrations WHERE version = $1", [1])
-        .then(({ rows }) => {
-          if (!rows?.length) throw storageUnavailable();
-          return true;
-        })
-        .catch(() => {
-          this.readyPromise = null;
-          throw storageUnavailable();
-        });
+    // Probe the database on every readiness request; a cached success would
+    // falsely keep a failed database marked ready after a connection loss.
+    try {
+      const { rows } = await this.pool.query(
+        "SELECT version FROM billing_schema_migrations WHERE version = $1",
+        [1],
+      );
+      if (!rows?.length) throw storageUnavailable();
+      return true;
+    } catch {
+      throw storageUnavailable();
     }
-    return this.readyPromise;
   }
 
   async #query(sql, params) {
