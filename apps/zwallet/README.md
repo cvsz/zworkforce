@@ -30,8 +30,14 @@ For each POST, the trusted gateway must send:
 The signature is calculated over this exact UTF-8 canonical string using `Z_PLATFORM_TENANT_ASSERTION_SECRET`:
 
 ```text
-<tenant_id>\n<timestamp>\nPOST\n<exact_path>\n<idempotency_key>
+<tenant_id>
+<timestamp>
+POST
+<exact_path>
+<idempotency_key>
 ```
+
+Each line is separated by exactly one line-feed (`LF`, U+000A). The signature must not include literal backslash and `n` characters.
 
 The exact path is `/api/invoice-intents` or `/api/credits`. The timestamp must be within 60 seconds of adapter time. The adapter compares signatures in constant time and forwards a newly constructed `X-Authenticated-Tenant` header only after verification; it does not trust a caller-supplied tenant header by itself. The gateway must keep the assertion secret private and restrict network access so untrusted clients cannot call the adapter directly.
 
