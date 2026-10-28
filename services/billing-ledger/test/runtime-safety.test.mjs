@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { BillingLedger, createBillingLedgerServer } from "../server.mjs";
+import { PostgresLedgerStore } from "../postgres-store.mjs";
 
 const serviceToken = "synthetic-service-token";
 const headers = {
@@ -150,5 +151,32 @@ test("invoice intent validates currency and safe integer amounts before store ca
     }),
     (error) => error.status === 400,
   );
+  await assert.rejects(
+    ledger.createInvoiceIntent({
+      tenant_id: "tenant-1",
+      idempotency_key: "string-amount",
+      currency: "USD",
+      amount_minor: "100",
+    }),
+    (error) => error.status === 400,
+  );
   assert.equal(store.calls.invoices, 0);
+});
+
+test("PostgreSQL readiness rechecks database connectivity instead of caching a stale success", async () => {
+  let online = true;
+  let probes = 0;
+  const pool = {
+    async query() {
+      probes += 1;
+      if (!online) throw new Error("synthetic database outage");
+      return { rows: [{ version: 1 }] };
+    },
+  };
+  const store = new PostgresLedgerStore({ pool });
+
+  assert.equal(await store.assertReady(), true);
+  online = false;
+  await assert.rejects(store.assertReady(), (error) => error.status === 503);
+  assert.equal(probes, 2);
 });
