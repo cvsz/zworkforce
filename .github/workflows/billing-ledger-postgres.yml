@@ -21,7 +21,7 @@ concurrency:
 jobs:
   postgres-integration:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:17-alpine
@@ -63,7 +63,63 @@ jobs:
           node --check services/billing-ledger/test/postgres-store.test.mjs
       - name: Apply additive schema to disposable PostgreSQL
         run: |
+          set -euo pipefail
           psql "$Z_BILLING_LEDGER_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f services/billing-ledger/migrations/001_durable_billing_ledger.sql
           psql "$Z_BILLING_LEDGER_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -c "SELECT version FROM billing_schema_migrations ORDER BY version"
       - name: Run in-memory and PostgreSQL contract tests
         run: npm test --prefix services/billing-ledger
+      - name: Exercise disposable PostgreSQL backup and restore
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v pg_dump >/dev/null
+          command -v pg_restore >/dev/null
+          pg_dump --version
+          pg_restore --version
+
+          # Seed synthetic data only. This job must never use a customer or production DSN.
+          psql "$Z_BILLING_LEDGER_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          INSERT INTO billing_usage_records
+            (tenant_id, idempotency_key, usage_id, input_tokens, output_tokens, payload_hash, record)
+          VALUES
+            ('tenant-restore-drill', 'restore-usage-key', 'usage-restore-drill', 1, 2,
+             repeat('a', 64),
+             jsonb_build_object('tenant_id', 'tenant-restore-drill', 'usage_id', 'usage-restore-drill'))
+          ON CONFLICT (tenant_id, idempotency_key) DO NOTHING;
+
+          INSERT INTO billing_invoice_intents
+            (tenant_id, idempotency_key, intent_id, payload_hash, currency, amount_minor, status, intent)
+          VALUES
+            ('tenant-restore-drill', 'restore-invoice-key', 'invoice-restore-drill', repeat('b', 64),
+             'THB', 125, 'requires_payment_processor',
+             jsonb_build_object('tenant_id', 'tenant-restore-drill', 'intent_id', 'invoice-restore-drill'))
+          ON CONFLICT (tenant_id, idempotency_key) DO NOTHING;
+          SQL
+
+          dump_path="$RUNNER_TEMP/billing-ledger-restore-drill.dump"
+          restore_url="${Z_BILLING_LEDGER_TEST_DATABASE_URL%/billing_test}/billing_restore"
+          started_ms="$(date +%s%3N)"
+          pg_dump "$Z_BILLING_LEDGER_TEST_DATABASE_URL" --format=custom --no-owner --no-privileges --file="$dump_path"
+          test -s "$dump_path"
+          pg_restore --list "$dump_path" >/dev/null
+          psql "$Z_BILLING_LEDGER_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -c "CREATE DATABASE billing_restore"
+          pg_restore --dbname="$restore_url" --no-owner --no-privileges "$dump_path"
+
+          usage_rows="$(psql "$restore_url" -v ON_ERROR_STOP=1 -Atc "SELECT count(*) FROM billing_usage_records WHERE tenant_id='tenant-restore-drill' AND idempotency_key='restore-usage-key'")"
+          invoice_rows="$(psql "$restore_url" -v ON_ERROR_STOP=1 -Atc "SELECT count(*) FROM billing_invoice_intents WHERE tenant_id='tenant-restore-drill' AND idempotency_key='restore-invoice-key' AND status='requires_payment_processor'")"
+          schema_rows="$(psql "$restore_url" -v ON_ERROR_STOP=1 -Atc "SELECT count(*) FROM billing_schema_migrations WHERE version=1")"
+          usage_pk="$(psql "$restore_url" -v ON_ERROR_STOP=1 -Atc "SELECT count(*) FROM pg_constraint WHERE conname='billing_usage_records_tenant_idempotency_pk'")"
+          invoice_pk="$(psql "$restore_url" -v ON_ERROR_STOP=1 -Atc "SELECT count(*) FROM pg_constraint WHERE conname='billing_invoice_intents_tenant_idempotency_pk'")"
+          test "$usage_rows" = "1"
+          test "$invoice_rows" = "1"
+          test "$schema_rows" = "1"
+          test "$usage_pk" = "1"
+          test "$invoice_pk" = "1"
+          elapsed_ms="$(( $(date +%s%3N) - started_ms ))"
+          echo "disposable_ci_restore_drill=PASS"
+          echo "restored_usage_rows=$usage_rows"
+          echo "restored_invoice_rows=$invoice_rows"
+          echo "restored_schema_version_rows=$schema_rows"
+          echo "restored_tenant_idempotency_constraints=2"
+          echo "disposable_ci_restore_elapsed_ms=$elapsed_ms"
+          echo "::notice::Elapsed time is a disposable CI smoke metric, not production RTO/RPO evidence."
