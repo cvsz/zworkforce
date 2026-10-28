@@ -101,7 +101,7 @@ jobs:
           psql "$Z_BILLING_LEDGER_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -c "CREATE DATABASE billing_restore"
           docker run --rm --network host \
             --env Z_BILLING_LEDGER_TEST_DATABASE_URL \
-            --env restore_url \
+            --env "restore_url=$restore_url" \
             --volume "$RUNNER_TEMP:/backup" \
             postgres:17-alpine sh -euc '
               pg_dump "$Z_BILLING_LEDGER_TEST_DATABASE_URL" --format=custom --no-owner --no-privileges --file=/backup/billing-ledger-restore-drill.dump
