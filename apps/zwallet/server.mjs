@@ -98,7 +98,7 @@ async function forwardLedger(path, input, env, fetchImpl) {
   if (!result.ok) {
     // Redirects are never followed for financial mutations. Treat any 3xx
     // response as an upstream protocol/availability failure, not client input.
-    if ((result.status >= 300 && result.status < 400) || result.status >= 500 || result.status === 429) {
+    if ((result.status >= 300 && result.status < 400) || result.status >= 500 || result.status === 429 || result.status === 401 || result.status === 403 || result.status === 408) {
       throw new LedgerUnavailableError();
     }
     throw new AdapterInputError("Billing ledger rejected the request");
