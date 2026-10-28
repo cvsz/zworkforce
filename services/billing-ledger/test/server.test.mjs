@@ -66,6 +66,37 @@ test("scopes invoice idempotency by tenant and rejects amount conflicts", async 
   );
 });
 
+test("rejects invalid usage token counts before mutating the store", async () => {
+  const ledger = new BillingLedger();
+  const base = { usage_id: "usage-invalid", idempotency_key: "usage-invalid", tenant_id: "tenant-1", model: "test" };
+  for (const field of ["input_tokens", "output_tokens"]) {
+    for (const value of [-1, 1.5, Number.MAX_SAFE_INTEGER + 1, Number.NaN, Number.POSITIVE_INFINITY, "3", null]) {
+      await assert.rejects(
+        ledger.recordUsage({ ...base, [field]: value }),
+        (error) => error.status === 400,
+        `${field}=${String(value)} must be rejected`,
+      );
+    }
+  }
+  assert.equal(ledger.store.records.size, 0);
+});
+
+test("rejects invalid credit amounts before mutating the store", async () => {
+  const ledger = new BillingLedger();
+  for (const credits of [-1, 1.5, Number.MAX_SAFE_INTEGER + 1, Number.NaN, Number.POSITIVE_INFINITY, "100", null, undefined]) {
+    await assert.rejects(
+      ledger.setCredits({ tenant_id: "tenant-1", credits }),
+      (error) => error.status === 400,
+      `credits=${String(credits)} must be rejected`,
+    );
+  }
+  assert.equal(ledger.store.credits.size, 0);
+  assert.deepEqual(await ledger.setCredits({ tenant_id: "tenant-1", credits: 0 }), {
+    tenant_id: "tenant-1",
+    credits: 0,
+  });
+});
+
 test("creates credits and invoice intents without wallet authority", async () => {
   const ledger = new BillingLedger({ idGenerator: () => "intent-1", now: () => "2026-07-14T00:00:00.000Z" });
   assert.deepEqual(await ledger.setCredits({ tenant_id: "tenant-1", credits: 100 }), { tenant_id: "tenant-1", credits: 100 });
