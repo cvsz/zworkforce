@@ -14,7 +14,7 @@ const env = {
 
 function tenantAssertionHeaders(input, path, signingEnv = env, nowMs = Date.now()) {
   const timestamp = String(Math.floor(nowMs / 1000));
-  const canonical = [input.tenant_id, timestamp, "POST", path, input.idempotency_key].join("\\n");
+  const canonical = [input.tenant_id, timestamp, "POST", path, input.idempotency_key].join("\n");
   return {
     "X-Authenticated-Tenant": input.tenant_id,
     "X-Tenant-Assertion-Timestamp": timestamp,
@@ -28,6 +28,28 @@ function tenantAssertionRequestContext(input, path, signingEnv = env, nowMs = Da
     headers: Object.fromEntries(Object.entries(tenantAssertionHeaders(input, path, signingEnv, nowMs)).map(([name, value]) => [name.toLowerCase(), value])),
   };
 }
+
+test("accepts the documented LF-delimited tenant assertion vector", async (t) => {
+  const timestamp = "1793232000";
+  t.mock.method(Date, "now", () => Number(timestamp) * 1000);
+  const input = { tenant_id: "tenant-1", idempotency_key: "invoice-vector", currency: "USD", amount_minor: 500 };
+  const requestContext = {
+    method: "POST",
+    headers: {
+      "x-authenticated-tenant": "tenant-1",
+      "x-tenant-assertion-timestamp": timestamp,
+      "x-tenant-assertion-signature": "b4e0e417732ad2c8ee71ccfdb037ec243a25388df8bc824fddc413ece98b9426",
+    },
+  };
+  let calls = 0;
+  const result = await createInvoiceIntent(input, env, async (_url, options) => {
+    calls += 1;
+    assert.equal(options.headers["X-Authenticated-Tenant"], "tenant-1");
+    return Response.json({ intent_id: "intent-vector" }, { status: 201 });
+  }, requestContext);
+  assert.deepEqual(result, { intent_id: "intent-vector" });
+  assert.equal(calls, 1);
+});
 
 async function request(server, path, options = {}) {
   const { omitTenantAssertion = false, ...fetchOptions } = options;
