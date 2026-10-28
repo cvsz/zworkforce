@@ -63,17 +63,40 @@ function normalizeUsage(input) {
   };
 }
 
+function idempotencyScopeKey(tenantId, idempotencyKey) {
+  return JSON.stringify([tenantId, idempotencyKey]);
+}
+
+function stableFingerprint(value, excludedKeys = []) {
+  const stable = Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => !excludedKeys.includes(key))
+      .sort(([left], [right]) => left.localeCompare(right)),
+  );
+  return JSON.stringify(stable);
+}
+
 export class MemoryLedgerStore {
   constructor() {
     this.records = new Map();
+    this.recordFingerprints = new Map();
     this.credits = new Map();
     this.invoiceIntents = new Map();
+    this.invoiceIntentFingerprints = new Map();
   }
 
   async recordUsage(record) {
-    if (this.records.has(record.idempotency_key)) return { duplicate: true, record: this.records.get(record.idempotency_key) };
-    this.records.set(record.idempotency_key, structuredClone(record));
-    return { duplicate: false, record };
+    const key = idempotencyScopeKey(record.tenant_id, record.idempotency_key);
+    const fingerprint = stableFingerprint(record, ["recorded_at"]);
+    if (this.records.has(key)) {
+      if (this.recordFingerprints.get(key) !== fingerprint) {
+        throw new BillingLedgerError("Idempotency key conflicts with an existing request", 409);
+      }
+      return { duplicate: true, record: structuredClone(this.records.get(key)) };
+    }
+    this.records.set(key, structuredClone(record));
+    this.recordFingerprints.set(key, fingerprint);
+    return { duplicate: false, record: structuredClone(record) };
   }
 
   async setCredits(tenantId, amount) {
@@ -82,9 +105,17 @@ export class MemoryLedgerStore {
   }
 
   async createInvoiceIntent(intent) {
-    if (this.invoiceIntents.has(intent.idempotency_key)) return this.invoiceIntents.get(intent.idempotency_key);
-    this.invoiceIntents.set(intent.idempotency_key, structuredClone(intent));
-    return intent;
+    const key = idempotencyScopeKey(intent.tenant_id, intent.idempotency_key);
+    const fingerprint = stableFingerprint(intent, ["intent_id", "created_at"]);
+    if (this.invoiceIntents.has(key)) {
+      if (this.invoiceIntentFingerprints.get(key) !== fingerprint) {
+        throw new BillingLedgerError("Idempotency key conflicts with an existing request", 409);
+      }
+      return structuredClone(this.invoiceIntents.get(key));
+    }
+    this.invoiceIntents.set(key, structuredClone(intent));
+    this.invoiceIntentFingerprints.set(key, fingerprint);
+    return structuredClone(intent);
   }
 }
 
