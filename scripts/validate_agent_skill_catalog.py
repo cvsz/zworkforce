@@ -66,7 +66,7 @@ def validate() -> list[str]:
             if not isinstance(release.get(key), str) or not release[key].strip():
                 errors.append(f"manifest.release.{key} must be a non-empty string")
         version = release.get("version")
-        if isinstance(version, str) and not re.fullmatch(r"[0-9]+\\.[0-9]+\\.[0-9]+", version):
+        if isinstance(version, str) and not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
             errors.append("manifest.release.version must match 'X.Y.Z'")
         status = release.get("status")
         if not isinstance(status, str) or status not in {"candidate", "verified", "blocked", "released"}:
