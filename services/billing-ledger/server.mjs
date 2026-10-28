@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const defaultHost = process.env.HOST || "127.0.0.1";
 const defaultPort = Number(process.env.PORT || 8700);
+const MAX_REQUEST_BODY_BYTES = 64 * 1024;
 
 export class BillingLedgerError extends Error {
   constructor(message, status = 400) {
@@ -31,11 +32,45 @@ function authorized(request, env) {
 }
 
 async function readJson(request) {
-  let text = "";
-  for await (const chunk of request) {
-    text += chunk;
-    if (text.length > 100000) throw new BillingLedgerError("Request body is too large", 413);
+  const rawContentType = request.headers["content-type"];
+  const mediaType = typeof rawContentType === "string"
+    ? rawContentType.split(";", 1)[0].trim().toLowerCase()
+    : "";
+  if (mediaType !== "application/json") {
+    request.resume();
+    throw new BillingLedgerError("Content-Type must be application/json", 415);
   }
+
+  const rawContentLength = request.headers["content-length"];
+  if (typeof rawContentLength === "string") {
+    const normalizedLength = rawContentLength.trim();
+    const declaredLength = Number(normalizedLength);
+    if (!/^\\d+$/.test(normalizedLength) || !Number.isSafeInteger(declaredLength) || declaredLength < 0) {
+      request.resume();
+      throw new BillingLedgerError("Invalid Content-Length", 400);
+    }
+    if (declaredLength > MAX_REQUEST_BODY_BYTES) {
+      request.resume();
+      throw new BillingLedgerError("Request body is too large", 413);
+    }
+  }
+
+  const chunks = [];
+  let bytes = 0;
+  let tooLarge = false;
+  for await (const chunk of request) {
+    const data = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    bytes += data.byteLength;
+    if (bytes > MAX_REQUEST_BODY_BYTES) {
+      tooLarge = true;
+      chunks.length = 0;
+      continue;
+    }
+    if (!tooLarge) chunks.push(data);
+  }
+  if (tooLarge) throw new BillingLedgerError("Request body is too large", 413);
+
+  const text = Buffer.concat(chunks).toString("utf8");
   if (!text.trim()) return {};
   try {
     return JSON.parse(text);
