@@ -108,6 +108,41 @@ class AgentSkillCatalogTests(unittest.TestCase):
             self.assertIn("target directory must not be a symlink", error)
             self.assertEqual(list(outside.iterdir()), [])
 
+    def test_installer_rejects_symlinked_source_directory(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            base = Path(temp_dir)
+            outside = base / "outside"
+            outside.mkdir()
+            (outside / "example.md").write_text("not trusted source", encoding="utf-8")
+            paths = self._prepare_installer(base)
+            source_root, agents, _, _, _ = paths
+            (agents / "example.md").unlink()
+            agents.rmdir()
+            try:
+                agents.symlink_to(outside, target_is_directory=True)
+            except (OSError, NotImplementedError) as exc:
+                self.skipTest(f"directory symlinks are unavailable: {exc}")
+
+            target = base / "target"
+            result, error = self._run_installer(target, paths)
+
+            self.assertEqual(result, 1)
+            self.assertIn("symlink source path", error)
+            self.assertFalse(target.exists())
+
+    def test_installer_rejects_invalid_manifest_identifiers(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            base = Path(temp_dir)
+            paths = self._prepare_installer(base)
+            source_root, _, _, manifest, _ = paths
+            manifest.write_text(json.dumps({"agents": ["../escape"], "skills": ["example-skill"]}), encoding="utf-8")
+
+            result, error = self._run_installer(base / "target", paths)
+
+            self.assertEqual(result, 1)
+            self.assertIn("invalid agent identifier", error)
+            self.assertFalse((base / "escape.md").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
