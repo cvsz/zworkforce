@@ -190,5 +190,54 @@ class AgentSkillCatalogTests(unittest.TestCase):
         self.assertIn("manifest.release.status has an unsupported value", errors)
 
 
+
+    def test_validator_enforces_release_manifest_schema_constraints(self):
+        baseline = json.loads(VALIDATOR.MANIFEST.read_text(encoding="utf-8"))
+        cases = [
+            (
+                "invalid semantic version",
+                lambda manifest: manifest["release"].update(version="latest"),
+                "manifest.release.version must match 'X.Y.Z'",
+            ),
+            (
+                "unexpected top-level property",
+                lambda manifest: manifest.update(unexpected=True),
+                "manifest has unexpected properties",
+            ),
+            (
+                "unexpected release property",
+                lambda manifest: manifest["release"].update(unexpected=True),
+                "manifest.release has unexpected properties",
+            ),
+            (
+                "unexpected policy property",
+                lambda manifest: manifest["policy"].update(unexpected=True),
+                "manifest.policy has unexpected properties",
+            ),
+            (
+                "empty agents",
+                lambda manifest: manifest.update(agents=[]),
+                "manifest.agents must contain at least one item",
+            ),
+            (
+                "empty skills",
+                lambda manifest: manifest.update(skills=[]),
+                "manifest.skills must contain at least one item",
+            ),
+        ]
+
+        for label, mutate, expected_error in cases:
+            with self.subTest(case=label), tempfile.TemporaryDirectory() as temp_dir:
+                payload = json.loads(json.dumps(baseline))
+                mutate(payload)
+                manifest_path = Path(temp_dir) / "manifest.json"
+                manifest_path.write_text(json.dumps(payload), encoding="utf-8")
+                with patch.object(VALIDATOR, "MANIFEST", manifest_path):
+                    errors = VALIDATOR.validate()
+                self.assertTrue(
+                    any(expected_error in error for error in errors),
+                    f"{label}: expected {expected_error!r} in {errors!r}",
+                )
+
 if __name__ == "__main__":
     unittest.main()
