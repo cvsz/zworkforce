@@ -7,6 +7,7 @@ Existing destination files are never overwritten unless --overwrite is also set.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
 import shutil
@@ -91,6 +92,30 @@ def safe_destination(root: Path, relative: Path) -> Path:
     return destination
 
 
+
+def validate_catalog_for_install() -> None:
+    """Validate the manifest and referenced catalog files before any write."""
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    if isinstance(manifest, dict):
+        release = manifest.get("release")
+        if isinstance(release, dict) and release.get("status") == "blocked":
+            raise ValueError("refusing to install a blocked catalog release")
+
+    validator_path = Path(__file__).resolve().with_name("validate_agent_skill_catalog.py")
+    spec = importlib.util.spec_from_file_location("_agent_skill_catalog_validator", validator_path)
+    if spec is None or spec.loader is None:
+        raise ValueError("catalog validator could not be loaded")
+    validator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(validator)
+    validator.ROOT = ROOT
+    validator.MANIFEST = MANIFEST
+    validator.AGENT_DIR = AGENTS
+    validator.SKILL_DIR = SKILLS
+    errors = validator.validate()
+    if errors:
+        raise ValueError("catalog validation failed:\\n- " + "\\n- ".join(errors))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", type=Path, required=True, help="Destination directory")
@@ -103,6 +128,7 @@ def main() -> int:
 
     try:
         files = catalog_files()
+        validate_catalog_for_install()
         target = args.target.expanduser()
         if target.is_symlink():
             raise ValueError("target directory must not be a symlink")
