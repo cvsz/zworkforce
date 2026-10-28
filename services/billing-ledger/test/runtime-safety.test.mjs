@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { BillingLedger, createBillingLedgerServer } from "../server.mjs";
+import { BillingLedger, createBillingLedgerServer, validateDatabaseTransport } from "../server.mjs";
 import { PostgresLedgerStore } from "../postgres-store.mjs";
 
 const serviceToken = "synthetic-service-token";
@@ -179,4 +179,37 @@ test("PostgreSQL readiness rechecks database connectivity instead of caching a s
   online = false;
   await assert.rejects(store.assertReady(), (error) => error.status === 503);
   assert.equal(probes, 2);
+});
+
+
+test("production database startup requires verified TLS", () => {
+  assert.throws(
+    () => validateDatabaseTransport("postgresql://db.example:5432/billing", { NODE_ENV: "production" }),
+    /Database TLS verification is required/,
+  );
+  assert.doesNotThrow(() =>
+    validateDatabaseTransport(
+      "postgresql://db.example:5432/billing?sslmode=verify-full",
+      { NODE_ENV: "production" },
+    ),
+  );
+});
+
+test("enabled billing mutations require verified database TLS in every environment", () => {
+  assert.throws(
+    () => validateDatabaseTransport(
+      "postgresql://db.example:5432/billing",
+      { NODE_ENV: "test", Z_BILLING_LEDGER_ENABLE_MUTATIONS: "true" },
+    ),
+    /Database TLS verification is required/,
+  );
+});
+
+test("test diagnostics can use a local database without enabling mutations", () => {
+  assert.doesNotThrow(() =>
+    validateDatabaseTransport(
+      "postgresql://127.0.0.1:5432/billing",
+      { NODE_ENV: "test", Z_BILLING_LEDGER_ENABLE_MUTATIONS: "false" },
+    ),
+  );
 });
