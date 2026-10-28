@@ -237,10 +237,10 @@ variable "cme_access_allowed_emails" {
 variable "cmeerp_hostname" {
   type        = string
   default     = "cme.zeaz.dev"
-  description = "Public hostname for the CME Pro ERP web application."
+  description = "Canonical public hostname for the CMe production application."
   validation {
-    condition     = endswith(lower(var.cmeerp_hostname), ".${lower(var.zone_name)}")
-    error_message = "cmeerp_hostname must be a subdomain of zone_name."
+    condition     = var.cmeerp_hostname == "cme.zeaz.dev"
+    error_message = "cmeerp_hostname must be cme.zeaz.dev to match the CMe DNS, Access, and tunnel-ingress contract."
   }
 }
 
