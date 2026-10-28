@@ -22,9 +22,16 @@ The existing zWorkforce control plane remains authoritative for tenant-scoped id
 - Enforce least privilege, tenant isolation, secret redaction, budgets, timeouts, bounded retries, and idempotency.
 - Require exact-head CI, independent review, effective repository protection, provenance, rollback, and external evidence.
 
+## Installation
+The installer is dry-run by default and requires an explicit apply flag to write files. It refuses existing files unless overwrite is explicitly enabled.
+
+- Preview: python3 scripts/install_agent_skill_catalog.py --target /path/to/zeaz-catalog
+- Apply: python3 scripts/install_agent_skill_catalog.py --target /path/to/zeaz-catalog --apply
+- Replace files intentionally: add --overwrite only after reviewing the dry-run plan.
+
 ## Validation
 Run: python3 scripts/validate_agent_skill_catalog.py
-Run: python3 -m unittest tests.test_agent_skill_catalog -v
+Run: python3 -m unittest discover -s tests -p 'test_agent_skill_catalog.py' -v
 Run: python3 -m compileall -q scripts tests
 
 Repository-wide checks remain required: python3 -m compileall -q zworkforce tests; PYTHONPATH=. python3 -m unittest discover -s tests -v; zworkforce doctor. PostgreSQL/runtime changes require their additional integration checks.
