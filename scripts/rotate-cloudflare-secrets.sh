@@ -11,6 +11,15 @@ STATE_FILE="${ROTATION_STATE_FILE:-$ROOT/.rotation/cloudflare-rotation.json}"
 HOOK_DIR="${ROTATION_HOOK_DIR:-$ROOT/scripts/cloudflare-rotation.d}"
 OUT_DIR="${ROTATION_OUT_DIR:-$ROOT/output/cloudflare-rotation}"
 ACTION=status
+rotation_lock_fd=""
+hook_stderr_file=""
+
+cleanup() {
+  if [[ -n "$hook_stderr_file" && -e "$hook_stderr_file" ]]; then
+    rm -f -- "$hook_stderr_file"
+  fi
+}
+trap cleanup EXIT
 
 usage() {
   cat <<'USAGE'
@@ -81,7 +90,10 @@ read_interval_days() {
     /^[[:space:]]*(export[[:space:]]+)?CLOUDFLARE_ROTATION_INTERVAL_DAYS[[:space:]]*=/ {
       sub(/^[^=]*=[[:space:]]*/, "", $0)
       gsub(/[[:space:]]+$/, "", $0)
-      gsub(/^['\"]|['\"]$/, "", $0)
+      if (substr($0, 1, 1) == "\"" || substr($0, 1, 1) == sprintf("%c", 39))
+        $0 = substr($0, 2)
+      if (substr($0, length($0), 1) == "\"" || substr($0, length($0), 1) == sprintf("%c", 39))
+        $0 = substr($0, 1, length($0) - 1)
       print $0
       exit
     }
@@ -98,7 +110,7 @@ mapfile -t CLOUDFLARE_SECRET_NAMES < <(
       key=$1
       sub(/^[[:space:]]*(export[[:space:]]+)?/, "", key)
       gsub(/[[:space:]]+$/, "", key)
-      if (key ~ /(_TOKEN|_KEY_ID|_SECRET|_PASSWORD)$/ || key ~ /_SECRET_/) print key
+      if (key ~ /(_TOKEN|_KEY_ID|_SECRET|_PASSWORD|_GLOBAL)$/ || key ~ /_SECRET_/) print key
     }
   ' "$ENV_FILE" | sort -u
 )
@@ -149,6 +161,28 @@ write_state() {
   mv -f "$temp_file" "$STATE_FILE"
 }
 
+
+acquire_rotation_lock() {
+  local state_dir lock_file mode
+  state_dir="$(dirname "$STATE_FILE")"
+  [[ ! -L "$state_dir" ]] || fail "rotation state directory must not be a symlink" 4
+  if [[ ! -d "$state_dir" ]]; then
+    mkdir -p "$state_dir" || fail "could not create rotation state directory" 4
+    chmod 700 "$state_dir"
+  fi
+  [[ -d "$state_dir" && ! -L "$state_dir" ]] || fail "rotation state directory must be a real directory" 4
+  mode="$(stat -c '%a' "$state_dir")"
+  (( (8#$mode & 8#077) == 0 )) || fail "rotation state directory must be mode 700 or stricter" 4
+  command -v flock >/dev/null 2>&1 || fail "flock is required for exclusive rotation" 4
+
+  lock_file="${STATE_FILE}.lock"
+  [[ ! -L "$lock_file" ]] || fail "rotation lock file must not be a symlink" 4
+  umask 077
+  exec {rotation_lock_fd}>"$lock_file"
+  chmod 600 "$lock_file"
+  flock -n "$rotation_lock_fd" || fail "another rotation operation is already in progress" 6
+}
+
 print_inventory() {
   printf 'env_file=%s\n' "$ENV_FILE"
   printf 'interval_days=%s\n' "$INTERVAL_DAYS"
@@ -161,6 +195,7 @@ print_inventory() {
 
 case "$ACTION" in
   initialize)
+    acquire_rotation_lock
     last_epoch="$(stat -c '%Y' "$ENV_FILE")"
     write_state "$last_epoch" "$((last_epoch + INTERVAL_SECONDS))" "env-file-mtime"
     printf 'status=initialized\nlast_rotation_epoch=%s\nnext_rotation_epoch=%s\n' \
@@ -186,6 +221,7 @@ case "$ACTION" in
     [[ -f "$STATE_FILE" && ! -L "$STATE_FILE" ]] || {
       fail "rotation is not initialized; run --initialize first" 4
     }
+    acquire_rotation_lock
     now="$(date +%s)"
     next_epoch="$(state_value next_rotation_epoch)"
     (( now >= next_epoch )) || {
@@ -203,11 +239,24 @@ case "$ACTION" in
     for hook in "${hooks[@]}"; do
       hook_name="$(basename "$hook")"
       printf 'running_hook=%s\n' "$hook_name"
+      hook_stderr_file="$(mktemp "$OUT_DIR/.rotation-hook-stderr.XXXXXX")"
+      chmod 600 "$hook_stderr_file"
       if ! ROTATION_ENV_FILE="$ENV_FILE" ROTATION_OUT_DIR="$OUT_DIR" \
-        "$hook" "$ENV_FILE" >/dev/null 2>&1; then
+        "$hook" "$ENV_FILE" >/dev/null 2>"$hook_stderr_file"; then
+        # Forward only the documented recovery-path record. Never echo raw
+        # provider-hook stderr, which may contain sensitive diagnostics.
+        while IFS= read -r line; do
+          case "$line" in
+            "cloudflare account-token rotation: replacement token saved in mode-0600 recovery file: "*)
+              printf '%s\n' "$line" >&2
+              ;;
+          esac
+        done < "$hook_stderr_file"
         printf 'cloudflare rotation: hook failed: %s\n' "$hook_name" >&2
         exit 5
       fi
+      rm -f -- "$hook_stderr_file"
+      hook_stderr_file=""
     done
 
     write_state "$now" "$((now + INTERVAL_SECONDS))" "approved-hook-execution"

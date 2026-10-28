@@ -14,6 +14,14 @@ bootstrap token, rolls the runtime token through Cloudflare's official API,
 verifies the replacement and tunnel access, then atomically updates
 `CLOUDFLARE_API_TOKEN` in the operator file.
 
+Before making the remote change, the hook validates that the operator file has
+exactly one runtime-token assignment and prepares private temporary files. As
+soon as Cloudflare returns the rotated value, the hook stores a mode-0600
+recovery copy under `ROTATION_OUT_DIR` before making further API requests. If
+later verification or persistence fails, stderr reports the recovery-file
+path; use that assignment to recover `.env.cloudflare` securely, then remove
+the recovery file. A successful update removes the recovery copy.
+
 The bootstrap token must not be the same token as `CLOUDFLARE_API_TOKEN`.
 Keep it outside the repository and outside the runtime environment whenever
 possible. Do not revoke the bootstrap token until a replacement bootstrap
@@ -23,3 +31,7 @@ Cloudflare tunnel-token rotation is separate from account API-token rotation.
 Use Cloudflare's supported tunnel-token rotation procedure, update every
 connector replica, restart them, verify the tunnel and public routes, and only
 then revoke the old token. Do not add an unreviewed dashboard automation hook.
+
+## Concurrency safety
+
+The outer `rotate-cloudflare-secrets.sh` runner serializes `--initialize` and `--execute` using a private lock file derived from `ROTATION_STATE_FILE`. Concurrent state mutations fail closed. Do not delete the lock file while a rotation process may be active.

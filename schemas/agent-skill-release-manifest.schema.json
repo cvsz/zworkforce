@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ZEAZ Agent and Skill Release Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "release", "agents", "skills", "policy"],
+  "properties": {
+    "schema_version": {"type": "string", "const": "1.0.0"},
+    "release": {"type": "object", "additionalProperties": false, "required": ["name", "version", "status"], "properties": {
+      "name": {"type": "string", "minLength": 1},
+      "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+      "status": {"type": "string", "enum": ["candidate", "verified", "blocked", "released"]}
+    }},
+    "agents": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"}},
+    "skills": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"}},
+    "policy": {"type": "object", "additionalProperties": false, "required": ["default_mutation", "human_approval_for_high_impact", "independent_review", "tenant_isolation"], "properties": {
+      "default_mutation": {"type": "string", "const": "deny"},
+      "human_approval_for_high_impact": {"type": "boolean", "const": true},
+      "independent_review": {"type": "boolean", "const": true},
+      "tenant_isolation": {"type": "boolean", "const": true}
+    }}
+  }
+}

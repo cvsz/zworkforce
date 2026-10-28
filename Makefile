@@ -24,7 +24,7 @@ compile:
 	$(PYTHON) -m compileall -q zworkforce tests scripts
 
 test: compile
-	PYTHONPATH=. $(PYTHON) -m unittest discover -s tests -v
+	PYTHONPATH=. $(PYTHON) -m pytest -q tests
 
 doctor:
 	PYTHONPATH=. $(PYTHON) -m zworkforce doctor

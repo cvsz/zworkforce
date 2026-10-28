@@ -196,7 +196,7 @@ jobs:
       - name: Compile
         run: python -m compileall -q zworkforce tests scripts
       - name: Unit and integration tests
-        run: PYTHONPATH=. python -m unittest discover -s tests -v
+        run: PYTHONPATH=. python -m pytest -q tests
       - name: Doctor
         run: ZWORKFORCE_DATA_DIR=/tmp/zworkforce-ci ZWORKFORCE_WORKSPACE_ROOT=$PWD zworkforce doctor
       - name: CLI smoke
@@ -209,6 +209,32 @@ jobs:
           for p in pathlib.Path('examples').glob('*.json'):
               json.loads(p.read_text())
           PY
+
+  zchat-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: cvsz/zchat
+          ref: 057dcc7c7838c77064d04f53da21bd7b5ba09055
+          path: integration/zchat
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Install both contract implementations
+        run: python -m pip install --no-cache-dir '.[test]' './integration/zchat/control-server[test]'
+      - name: Exercise the ZChat HTTP and MCP contracts from zWorkforce
+        env:
+          ZCHAT_CONTROL_SERVER_SOURCE: ${{ github.workspace }}/integration/zchat/control-server
+          PYTHONPATH: .
+        run: python -m pytest -q tests/test_zchat_control_contract.py
 
   documentation-contract:
     runs-on: ubuntu-latest

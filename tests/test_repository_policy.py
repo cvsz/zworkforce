@@ -49,6 +49,7 @@ class RepositoryPolicyTests(unittest.TestCase):
             "container",
             "security-invariants",
             "documentation-contract",
+            "zchat-contract",
             "dependency-review",
             "build-test-package",
             "Analyze (python)",
@@ -64,6 +65,7 @@ class RepositoryPolicyTests(unittest.TestCase):
             "container:",
             "security-invariants:",
             "documentation-contract:",
+            "zchat-contract:",
         ]:
             with self.subTest(job=job):
                 self.assertIn(job, ci)
@@ -78,7 +80,9 @@ class RepositoryPolicyTests(unittest.TestCase):
         runbook = (ROOT / "docs" / "GITHUB-OPERATIONS.md").read_text(encoding="utf-8")
         self.assertIn("Request independent PR review", runbook)
         self.assertIn("pull_request_target:", workflow)
-        self.assertIn("types: [opened, reopened, ready_for_review]", workflow)
+        self.assertIn(
+            "types: [opened, reopened, ready_for_review, synchronize]", workflow
+        )
         self.assertIn("contents: read", workflow)
         self.assertIn("pull-requests: write", workflow)
         self.assertIn("github.event.pull_request.draft == false", workflow)
