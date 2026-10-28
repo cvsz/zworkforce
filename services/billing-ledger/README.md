@@ -17,7 +17,7 @@ The migration creates database-enforced (tenant_id, idempotency_key) primary key
 Configure `DATABASE_URL` for the service. Production startup and any enabled billing-mutation gate require `sslmode=verify-full`. `Z_BILLING_LEDGER_REQUIRE_TLS=true` also enforces this in non-production environments. Without verified TLS, startup fails closed before opening the PostgreSQL pool. Connection and query timeouts are bounded. Do not put database credentials in logs or commit them to the repository.
 
 - `GET /health` is a liveness endpoint only.
-- `GET /ready` returns 200 only when PostgreSQL is configured and schema version 1 is present; otherwise it returns 503.
+- `GET /ready` returns 200 only when PostgreSQL is reachable, schema version 1 is present, both ledger tables exist, and both tenant-scoped idempotency primary keys are present; otherwise it returns 503. This is a schema-admission check, not proof of production recovery or tenant isolation at the deployed gateway.
 - Without `DATABASE_URL`, the service can start for diagnostics but all production mutation routes fail closed.
 - Database errors are redacted from HTTP responses.
 
