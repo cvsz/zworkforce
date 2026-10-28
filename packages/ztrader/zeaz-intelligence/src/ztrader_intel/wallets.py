@@ -15,12 +15,19 @@ def analyze_wallet_flows(payload: SmartMoneyRequest) -> SmartMoneyResponse:
 
     for transfer in payload.transfers:
         direction = transfer.direction.strip().lower()
-        signed = transfer.usd_value if direction in {"buy", "in", "inflow"} else -transfer.usd_value
+        if transfer.usd_value < 0:
+            raise ValueError("usd_value must be non-negative")
+        if direction in {"buy", "in", "inflow"}:
+            signed = transfer.usd_value
+        elif direction in {"sell", "out", "outflow"}:
+            signed = -transfer.usd_value
+        else:
+            raise ValueError(f"unsupported wallet transfer direction: {transfer.direction!r}")
         net += signed
 
         if signed > 0:
             buyers.add(transfer.wallet)
-        else:
+        elif signed < 0:
             sellers.add(transfer.wallet)
 
         if transfer.is_known_smart_money:

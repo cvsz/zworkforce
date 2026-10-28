@@ -53,6 +53,10 @@ Trade-plan simulation:
 - POST /v1/discover/live
 - POST /v1/wallets/analyze
 - POST /v1/trade-plan
+- POST /v1/paper/accounts
+- GET /v1/paper/accounts/{account_id}
+- POST /v1/paper/orders
+- GET /v1/paper/accounts/{account_id}/orders
 - POST /v1/portfolio
 - POST /v1/backtest
 - POST /v1/alerts/evaluate
@@ -115,3 +119,25 @@ data -> intelligence -> risk/confidence policy
 ```
 
 This sidecar never enables live execution by itself.
+
+
+## Paper Trading (จำลองคำสั่งเท่านั้น)
+
+แพ็กเกจมี SQLite-backed paper ledger สำหรับบัญชีจำลอง, simulated fills, cash/position accounting, fees, slippage, realized/unrealized PnL และ order history โดยไม่มีการเชื่อมต่อ exchange และไม่มี live execution.
+
+ทุก endpoint ของ Paper Trading ต้องใช้ทั้ง service authentication (`Authorization: Bearer <ZTRADER_INTEL_SERVICE_TOKEN>` หรือ `X-API-Key`) และ tenant-bound token (`X-Paper-Tenant-Token`) ที่ตรงกับ tenant ใน `ZTRADER_PAPER_TENANT_TOKENS`. `X-Tenant-ID` เป็นเพียง scope selector ไม่ใช่ identity. Tenant tokens ต้องไม่ซ้ำกันและมีความยาวอย่างน้อย 32 ตัวอักษร; หาก config หายหรือไม่ถูกต้อง endpoint จะ fail closed.
+
+สร้างบัญชีจำลอง:
+
+```bash
+curl -X POST http://127.0.0.1:8218/v1/paper/accounts \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer ${ZTRADER_INTEL_SERVICE_TOKEN}" \
+  -H "X-Tenant-ID: ${PAPER_TENANT_ID}" \
+  -H "X-Paper-Tenant-Token: ${PAPER_TENANT_TOKEN}" \
+  -d '{"initial_cash_usd": 10000}'
+```
+
+ส่งคำสั่งจำลองต้องระบุ `account_id`, `symbol`, `chain`, `side`, `quantity`, `reference_price` และ `idempotency_key`. ค่า fee/slippage ใช้หน่วย basis points. ระบบปฏิเสธ BUY ที่เงินไม่พอ, SELL เกิน position และการ reuse idempotency key กับ payload อื่น
+
+รายละเอียดขอบเขต, ข้อจำกัดและตัวอย่างครบถ้วนอยู่ที่ [master-trading-247.md](master-trading-247.md). Live execution remains disabled.
