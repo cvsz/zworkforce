@@ -126,7 +126,7 @@ function requireTenantAdmission(request, input, path, env) {
     throw new AdapterAuthorizationError();
   }
 
-  const canonical = [tenantId, timestamp, request.method, path, idempotencyKey].join("\\n");
+  const canonical = [tenantId, timestamp, request.method, path, idempotencyKey].join("\n");
   const expected = createHmac("sha256", secret).update(canonical).digest();
   const supplied = Buffer.from(signature, "hex");
   if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) throw new AdapterAuthorizationError();
