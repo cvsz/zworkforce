@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 
@@ -51,13 +51,15 @@ async function readJson(request) {
     if (bytes > MAX_REQUEST_BODY_BYTES) throw new RequestTooLargeError();
     chunks.push(data);
   }
-  const text = Buffer.concat(chunks).toString("utf8");
-  if (!text.trim()) return {};
+  const body = Buffer.concat(chunks);
+  const text = body.toString("utf8");
+  const bodySha256 = createHash("sha256").update(body).digest("hex");
+  if (!text.trim()) return { value: {}, bodySha256 };
   const value = JSON.parse(text);
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     throw new AdapterInputError("JSON body must be an object");
   }
-  return value;
+  return { value, bodySha256 };
 }
 
 function ledgerUrl(env, path) {
@@ -118,7 +120,8 @@ function requireTenantAdmission(request, input, path, env) {
   if (
     !request || request.method !== "POST" || assertedTenant !== tenantId ||
     typeof timestamp !== "string" || !/^\d{10}$/.test(timestamp) ||
-    typeof signature !== "string" || !/^[a-f0-9]{64}$/.test(signature)
+    typeof signature !== "string" || !/^[a-f0-9]{64}$/.test(signature) ||
+    typeof request.bodySha256 !== "string" || !/^[a-f0-9]{64}$/.test(request.bodySha256)
   ) throw new AdapterAuthorizationError();
 
   const timestampSeconds = Number(timestamp);
@@ -126,7 +129,7 @@ function requireTenantAdmission(request, input, path, env) {
     throw new AdapterAuthorizationError();
   }
 
-  const canonical = [tenantId, timestamp, request.method, path, idempotencyKey].join("\n");
+  const canonical = [tenantId, timestamp, request.method, path, idempotencyKey, request.bodySha256].join("\n");
   const expected = createHmac("sha256", secret).update(canonical).digest();
   const supplied = Buffer.from(signature, "hex");
   if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) throw new AdapterAuthorizationError();
@@ -191,12 +194,14 @@ export function createZWalletServer({ env = process.env, fetchImpl = fetch } = {
         return send(response, 200, { status: "ok", service: "zwallet-adapter", ledger_configured: Boolean(env.Z_PLATFORM_BILLING_LEDGER_URL && env.Z_PLATFORM_SERVICE_TOKEN), wallet_authority: false, card_data: false });
       }
       if (request.method === "POST" && request.url === "/api/invoice-intents") {
-        const input = await readJson(request);
-        return send(response, 201, await createInvoiceIntent(input, env, fetchImpl, request));
+        const { value: input, bodySha256 } = await readJson(request);
+        const requestContext = { method: request.method, headers: request.headers, bodySha256 };
+        return send(response, 201, await createInvoiceIntent(input, env, fetchImpl, requestContext));
       }
       if (request.method === "POST" && request.url === "/api/credits") {
-        const input = await readJson(request);
-        return send(response, 200, await setCredits(input, env, fetchImpl, request));
+        const { value: input, bodySha256 } = await readJson(request);
+        const requestContext = { method: request.method, headers: request.headers, bodySha256 };
+        return send(response, 200, await setCredits(input, env, fetchImpl, requestContext));
       }
       return send(response, 404, { error: "Not found" });
     } catch (error) {
