@@ -166,5 +166,29 @@ class AgentSkillCatalogTests(unittest.TestCase):
         self.assertTrue(any("invalid agent identifier" in error for error in errors))
 
 
+    def test_validator_rejects_non_string_release_status_without_crashing(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manifest = Path(temp_dir) / "manifest.json"
+            manifest.write_text(
+                json.dumps({
+                    "schema_version": "1.0.0",
+                    "release": {"name": "catalog", "version": "1.0.0", "status": []},
+                    "agents": [],
+                    "skills": [],
+                    "policy": {
+                        "default_mutation": "deny",
+                        "human_approval_for_high_impact": True,
+                        "independent_review": True,
+                        "tenant_isolation": True,
+                    },
+                }),
+                encoding="utf-8",
+            )
+            with patch.object(VALIDATOR, "MANIFEST", manifest):
+                errors = VALIDATOR.validate()
+
+        self.assertIn("manifest.release.status has an unsupported value", errors)
+
+
 if __name__ == "__main__":
     unittest.main()
