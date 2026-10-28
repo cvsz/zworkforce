@@ -44,10 +44,30 @@ class AgentSkillCatalogTests(unittest.TestCase):
         agents.mkdir(parents=True)
         skills.mkdir(parents=True)
         schemas.mkdir(parents=True)
-        (agents / "example.md").write_text("# Example\n", encoding="utf-8")
-        (skills / "SKILL.md").write_text("# Example skill\n", encoding="utf-8")
+        (agents / "example.md").write_text(
+            "---\nname: zeaz-example\ndescription: Example agent\nversion: 1.0.0\n---\n# Example\n",
+            encoding="utf-8",
+        )
+        (skills / "SKILL.md").write_text(
+            "---\nname: example-skill\ndescription: Example skill\nversion: 1.0.0\n---\n# Example skill\n",
+            encoding="utf-8",
+        )
         manifest = source_root / "manifest-source.json"
-        manifest.write_text(json.dumps({"agents": ["example"], "skills": ["example-skill"]}), encoding="utf-8")
+        manifest.write_text(
+            json.dumps({
+                "schema_version": "1.0.0",
+                "release": {"name": "catalog", "version": "1.0.0", "status": "candidate"},
+                "agents": ["example"],
+                "skills": ["example-skill"],
+                "policy": {
+                    "default_mutation": "deny",
+                    "human_approval_for_high_impact": True,
+                    "independent_review": True,
+                    "tenant_isolation": True,
+                },
+            }),
+            encoding="utf-8",
+        )
         schema = schemas / "manifest.schema.json"
         schema.write_text("{}", encoding="utf-8")
         return source_root, agents, source_root / ".agents" / "skills", manifest, schema
@@ -128,6 +148,39 @@ class AgentSkillCatalogTests(unittest.TestCase):
 
             self.assertEqual(result, 1)
             self.assertIn("symlink source path", error)
+            self.assertFalse(target.exists())
+
+
+    def test_installer_rejects_invalid_manifest_version_before_writing(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            base = Path(temp_dir)
+            paths = self._prepare_installer(base)
+            _, _, _, manifest, _ = paths
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+            payload["release"]["version"] = "latest"
+            manifest.write_text(json.dumps(payload), encoding="utf-8")
+
+            target = base / "target"
+            result, error = self._run_installer(target, paths)
+
+            self.assertEqual(result, 1)
+            self.assertIn("manifest.release.version must match 'X.Y.Z'", error)
+            self.assertFalse(target.exists())
+
+    def test_installer_refuses_blocked_release_before_writing(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            base = Path(temp_dir)
+            paths = self._prepare_installer(base)
+            _, _, _, manifest, _ = paths
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+            payload["release"]["status"] = "blocked"
+            manifest.write_text(json.dumps(payload), encoding="utf-8")
+
+            target = base / "target"
+            result, error = self._run_installer(target, paths)
+
+            self.assertEqual(result, 1)
+            self.assertIn("refusing to install a blocked catalog release", error)
             self.assertFalse(target.exists())
 
     def test_installer_rejects_invalid_manifest_identifiers(self):
