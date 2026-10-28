@@ -151,6 +151,21 @@ class AgentSkillCatalogTests(unittest.TestCase):
             self.assertFalse(target.exists())
 
 
+
+    def test_installer_rejects_non_object_manifest_without_crashing(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            base = Path(temp_dir)
+            paths = self._prepare_installer(base)
+            _, _, _, manifest, _ = paths
+            manifest.write_text("[]", encoding="utf-8")
+
+            target = base / "target"
+            result, error = self._run_installer(target, paths)
+
+            self.assertEqual(result, 1)
+            self.assertIn("manifest must be a JSON object", error)
+            self.assertFalse(target.exists())
+
     def test_installer_rejects_invalid_manifest_version_before_writing(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             base = Path(temp_dir)
