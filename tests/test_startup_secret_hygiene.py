@@ -10,11 +10,13 @@ START_SCRIPT = ROOT / "start-zworkforce.sh"
 
 
 class StartupSecretHygieneTests(unittest.TestCase):
-    def run_start_script(self, overrides=None, *, xtrace=False, voice_enabled="true"):
+    def run_start_script(self, overrides=None, *, xtrace=False, voice_enabled="true", env_file_content=None):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)
             script = temp_root / "start-zworkforce.sh"
             script.write_text(START_SCRIPT.read_text(encoding="utf-8"), encoding="utf-8")
+            if env_file_content is not None:
+                (temp_root / ".env.ai").write_text(env_file_content, encoding="utf-8")
 
             # Intercept the final application launch so tests never start a service.
             bin_dir = temp_root / "bin"
@@ -113,6 +115,17 @@ class StartupSecretHygieneTests(unittest.TestCase):
             xtrace=True,
         )
         self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+        self.assertNotIn(token, result.stdout)
+        self.assertNotIn(token, result.stderr)
+
+    def test_shell_xtrace_does_not_log_token_loaded_from_env_file(self):
+        token = "synthetic-env-file-token-" + ("d" * 40)
+        result = self.run_start_script(
+            env_file_content=f"ZWORKFORCE_ZARVIS_VOICE_SERVICE_TOKEN='{token}'\\n",
+            xtrace=True,
+        )
+        self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+        self.assertIn("Voice Enabled", result.stdout)
         self.assertNotIn(token, result.stdout)
         self.assertNotIn(token, result.stderr)
 
