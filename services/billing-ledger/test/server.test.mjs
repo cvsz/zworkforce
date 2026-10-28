@@ -105,3 +105,45 @@ test("HTTP usage endpoint returns duplicate on repeated idempotency key", async 
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
 });
+
+
+test("invalid JSON is a generic client error and is never cacheable", async () => {
+  const response = await request(
+    createBillingLedgerServer({ env, ledger: new BillingLedger() }),
+    "/v1/usage",
+    { method: "POST", headers, body: "{" },
+  );
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "Invalid JSON body" });
+  assert.equal(response.headers.get("cache-control"), "no-store");
+});
+
+test("unexpected ledger exceptions are redacted and return HTTP 500", async () => {
+  const sensitiveMessage = "database password=must-not-escape";
+  const store = {
+    async recordUsage() { throw new Error(sensitiveMessage); },
+    async setCredits() { throw new Error(sensitiveMessage); },
+    async createInvoiceIntent() { throw new Error(sensitiveMessage); },
+  };
+  const ledger = new BillingLedger({ store });
+  const response = await request(
+    createBillingLedgerServer({ env, ledger }),
+    "/v1/usage",
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        usage_id: "usage-internal-error",
+        idempotency_key: "idem-internal-error",
+        tenant_id: "tenant-test",
+        model: "test",
+      }),
+    },
+  );
+
+  assert.equal(response.status, 500);
+  assert.deepEqual(await response.json(), { error: "Internal server error" });
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(JSON.stringify(await response.clone().json()).includes(sensitiveMessage), false);
+});
