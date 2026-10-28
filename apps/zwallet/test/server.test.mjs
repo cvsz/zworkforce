@@ -474,6 +474,26 @@ test("tenant assertion rejects a changed body even when tenant, path, timestamp 
   assert.equal(upstreamCalls, 0);
 });
 
+test("tenant assertion binds HTTP method and idempotency key", async () => {
+  let upstreamCalls = 0;
+  const input = { tenant_id: "tenant-1", idempotency_key: "invoice-bound-key", currency: "USD", amount_minor: 500 };
+  const context = tenantAssertionRequestContext(input, "/api/invoice-intents");
+  const fetchImpl = async () => {
+    upstreamCalls += 1;
+    return Response.json({ intent_id: "unexpected" }, { status: 201 });
+  };
+
+  await assert.rejects(
+    createInvoiceIntent(input, env, fetchImpl, { ...context, method: "PUT" }),
+    /Tenant authorization failed/,
+  );
+  await assert.rejects(
+    createInvoiceIntent({ ...input, idempotency_key: "invoice-substituted-key" }, env, fetchImpl, context),
+    /Tenant authorization failed/,
+  );
+  assert.equal(upstreamCalls, 0);
+});
+
 test("missing or weak tenant assertion secret fails closed", async () => {
   for (const secret of [undefined, "weak"]) {
     let calls = 0;
