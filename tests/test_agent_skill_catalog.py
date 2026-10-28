@@ -309,3 +309,52 @@ class AgentSkillCatalogTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_validator_rejects_unexpected_properties_at_all_schema_levels(self):
+        base = json.loads(VALIDATOR.MANIFEST.read_text(encoding="utf-8"))
+        mutations = [
+            (lambda value: value.update({"unexpected": True}), "manifest has unexpected properties"),
+            (lambda value: value["release"].update({"unexpected": True}), "manifest.release has unexpected properties"),
+            (lambda value: value["policy"].update({"unexpected": True}), "manifest.policy has unexpected properties"),
+        ]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manifest = Path(temp_dir) / "manifest.json"
+            for mutate, expected_error in mutations:
+                with self.subTest(expected_error=expected_error):
+                    payload = json.loads(json.dumps(base))
+                    mutate(payload)
+                    manifest.write_text(json.dumps(payload), encoding="utf-8")
+                    with patch.object(VALIDATOR, "MANIFEST", manifest):
+                        errors = VALIDATOR.validate()
+                    self.assertTrue(any(expected_error in error for error in errors), errors)
+
+    def test_validator_rejects_empty_agent_and_skill_arrays(self):
+        payload = json.loads(VALIDATOR.MANIFEST.read_text(encoding="utf-8"))
+        payload["agents"] = []
+        payload["skills"] = []
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manifest = Path(temp_dir) / "manifest.json"
+            manifest.write_text(json.dumps(payload), encoding="utf-8")
+            with patch.object(VALIDATOR, "MANIFEST", manifest):
+                errors = VALIDATOR.validate()
+        self.assertIn("manifest.agents must contain at least one item", errors)
+        self.assertIn("manifest.skills must contain at least one item", errors)
+
+    def test_validator_rejects_integer_values_for_boolean_policy_fields(self):
+        base = json.loads(VALIDATOR.MANIFEST.read_text(encoding="utf-8"))
+        fields = (
+            "human_approval_for_high_impact",
+            "independent_review",
+            "tenant_isolation",
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manifest = Path(temp_dir) / "manifest.json"
+            for field in fields:
+                with self.subTest(field=field):
+                    payload = json.loads(json.dumps(base))
+                    payload["policy"][field] = 1
+                    manifest.write_text(json.dumps(payload), encoding="utf-8")
+                    with patch.object(VALIDATOR, "MANIFEST", manifest):
+                        errors = VALIDATOR.validate()
+                    self.assertIn(f"policy.{field} must equal True", errors)
+
