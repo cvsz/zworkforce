@@ -9,7 +9,7 @@ import uuid
 from urllib.parse import urlsplit
 from typing import Any
 
-from .db_base import json_dumps, json_loads, utcnow
+from .db_base import json_dumps, json_loads
 
 RELEASE_GATE_EVALUATOR = "ARIN-Z/deterministic-v1"
 REQUIRED_RELEASE_GATES = {
@@ -367,6 +367,10 @@ class ReleaseGateMixin:
         if approval.get("gate_bundle_digest") != bundle_digest:
             return False
         expected_approver = _identity("ZWORKFORCE_RELEASE_INDEPENDENT_APPROVER", "policedbc")
+        configured_recorder = _identity("ZWORKFORCE_RELEASE_GATE_RECORDER", "arin-z")
+        configured_authority = _identity("ZWORKFORCE_RELEASE_AUTHORITY", "cvsz")
+        if expected_approver in {configured_recorder, configured_authority}:
+            return False
         if str(approval.get("approver", "")).casefold() != expected_approver:
             return False
         rows = evidence_rows if evidence_rows is not None else self._candidate_evidence_cursor(c, tenant_id, version, sha)
@@ -587,10 +591,19 @@ class ReleaseGateMixin:
                 latest_decision = snapshot["_decision_row"]
                 stored_decision = requested
                 reasons: list[str] = []
+                configured_recorder = _identity("ZWORKFORCE_RELEASE_GATE_RECORDER", "arin-z")
+                configured_authority = _identity("ZWORKFORCE_RELEASE_AUTHORITY", "cvsz")
                 if str(approver).casefold() != configured_approver:
                     reasons.append("approver identity is not the configured independent reviewer")
+                if len({configured_recorder, configured_approver, configured_authority}) != 3:
+                    reasons.append("configured recorder, approver, and release authority identities are not independent")
+                if str(approver).casefold() in {configured_recorder, configured_authority}:
+                    reasons.append("approver identity is not independent from recorder and release authority")
                 if expected_digest != snapshot["gate_bundle_digest"]:
                     reasons.append("approval request is bound to a stale gate bundle digest")
+                recorder_names = {str(row.get("recorded_by", "")).casefold() for row in snapshot["_all_evidence_rows"]}
+                if str(approver).casefold() in recorder_names:
+                    reasons.append("approver identity is also a gate-evidence recorder")
                 recorder_keys = {str(row.get("recorded_by_key_id", "")) for row in snapshot["_all_evidence_rows"]}
                 if approver_key_id in recorder_keys:
                     reasons.append("approver key is also a gate-evidence recorder key")
@@ -684,9 +697,18 @@ class ReleaseGateMixin:
                 ledger_result = self._verify_release_gate_ledger_cursor(c, tenant_id, version, sha)
                 audit_result = self._verify_audit_chain_cursor(c, tenant_id)
                 reasons: list[str] = []
+                configured_recorder = _identity("ZWORKFORCE_RELEASE_GATE_RECORDER", "arin-z")
+                configured_approver = _identity("ZWORKFORCE_RELEASE_INDEPENDENT_APPROVER", "policedbc")
 
                 if str(release_authority).casefold() != configured_authority:
                     reasons.append("release authority identity is not the configured authority")
+                if len({configured_recorder, configured_approver, configured_authority}) != 3:
+                    reasons.append("configured recorder, approver, and release authority identities are not independent")
+                recorder_names = {str(row.get("recorded_by", "")).casefold() for row in snapshot["_all_evidence_rows"]}
+                if str(release_authority).casefold() in recorder_names:
+                    reasons.append("release authority identity is also a gate-evidence recorder")
+                if approval and str(release_authority).casefold() == str(approval.get("approver", "")).casefold():
+                    reasons.append("release authority identity must be distinct from the independent approver")
                 if authority_key_id in all_recorders:
                     reasons.append("release authority key is also a gate-evidence recorder key")
                 if not snapshot["all_gates_pass"]:
@@ -883,8 +905,17 @@ class ReleaseGateMixin:
             if version == "3.0.4" and decision["rollback_target"] != "v3.0.3":
                 reasons.append("v3.0.4 rollback target is not v3.0.3")
             configured_authority = _identity("ZWORKFORCE_RELEASE_AUTHORITY", "cvsz")
+            configured_recorder = _identity("ZWORKFORCE_RELEASE_GATE_RECORDER", "arin-z")
+            configured_approver = _identity("ZWORKFORCE_RELEASE_INDEPENDENT_APPROVER", "policedbc")
             if str(decision["release_authority"]).casefold() != configured_authority:
                 reasons.append("release decision was not issued by the configured release authority")
+            if len({configured_recorder, configured_approver, configured_authority}) != 3:
+                reasons.append("configured recorder, approver, and release authority identities are not independent")
+            recorder_names = {str(row.get("recorded_by", "")).casefold() for row in snapshot["_all_evidence_rows"]}
+            if str(decision["release_authority"]).casefold() in recorder_names:
+                reasons.append("release authority identity is also a gate-evidence recorder")
+            if approval and str(decision["release_authority"]).casefold() == str(approval.get("approver", "")).casefold():
+                reasons.append("release authority identity is not distinct from the independent approver")
             recorder_keys = {str(row.get("recorded_by_key_id", "")) for row in snapshot["_all_evidence_rows"]}
             recorder_keys.discard("")
             if decision["authority_key_id"] in recorder_keys:
