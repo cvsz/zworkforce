@@ -89,7 +89,7 @@ zworkforce key-create --name cvsz --role operator --scopes release:decide
 zworkforce key-create --name release-gate-verifier --role viewer --scopes release:verify
 ```
 
-Provision these keys in the deployed zWorkforce database. Copy the returned ID for each of the first three keys into the corresponding server-side environment variable:
+Provision these keys in the deployed zWorkforce database through a protected operator procedure. The policedbc reviewer secret must be delivered only to the independent reviewer; cvsz must not retain or reuse it. Copy the returned ID for each of the first three keys into the corresponding server-side environment variable:
 
 - ARIN-Z key ID → ZWORKFORCE_RELEASE_GATE_RECORDER_KEY_ID
 - policedbc key ID → ZWORKFORCE_RELEASE_INDEPENDENT_APPROVER_KEY_ID
