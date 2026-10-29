@@ -9,6 +9,7 @@
 - Added the `zwf-api.zeaz.dev` API alias to the managed Cloudflare DNS and tunnel ingress configuration.
 - Aligned the HA PostgreSQL example with the zWorkforce release Supabase session pooler and hardened backup/restore DSN handling.
 - Records `v3.0.3` as the published predecessor; production promotion remains gated on the corrected image and external evidence.
+- Added the ARIN-Z exact-SHA Gate Ledger, deterministic Stages A–H evaluation, key-ID-pinned independent approval, hash-chain/audit-link verification, and fail-closed release/container publication checks; external evidence remains independently required.
 
 ## 3.0.3 — 2026-08-17
 
