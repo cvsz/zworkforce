@@ -102,11 +102,23 @@ function rejectForbiddenBillingFields(value) {
   }
 }
 
+const ALLOWED_INVOICE_INTENT_FIELDS = new Set([
+  "tenant_id",
+  "idempotency_key",
+  "currency",
+  "amount_minor",
+]);
+
 function validateAdapterInput(input) {
   if (input === null || typeof input !== "object" || Array.isArray(input)) {
     throw new AdapterInputError("JSON body must be an object");
   }
   rejectForbiddenBillingFields(input);
+  for (const key of Object.keys(input)) {
+    if (!ALLOWED_INVOICE_INTENT_FIELDS.has(key)) {
+      throw new AdapterInputError(key + " is not accepted by the audited adapter");
+    }
+  }
   return input;
 }
 
