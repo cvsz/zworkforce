@@ -115,6 +115,14 @@ export class BillingLedger {
 export function createBillingLedgerServer({ env = process.env, ledger = new BillingLedger() } = {}) {
   return createServer(async (request, response) => {
     if (request.method === "GET" && request.url === "/health") return send(response, 200, { status: "ok", service: "billing-ledger", wallet_authority: false, card_data: false });
+    if (request.method === "GET" && request.url === "/ready") {
+      const ephemeralStore = ledger.store instanceof MemoryLedgerStore;
+      const localMode = env.NODE_ENV === "development" || env.NODE_ENV === "test";
+      if (ephemeralStore && !localMode) {
+        return send(response, 503, { status: "not_ready", service: "billing-ledger", reason: "durable_store_required" });
+      }
+      return send(response, 200, { status: "ready", service: "billing-ledger" });
+    }
     if (!authorized(request, env)) return send(response, 401, { error: "Unauthorized" });
 
     // Never acknowledge financial mutations from process-local Maps in production.
