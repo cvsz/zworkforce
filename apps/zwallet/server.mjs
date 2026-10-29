@@ -12,6 +12,13 @@ class LedgerUnavailableError extends Error {
   }
 }
 
+class LedgerConflictError extends Error {
+  constructor() {
+    super("Billing request conflict");
+    this.name = "LedgerConflictError";
+  }
+}
+
 class AdapterInputError extends Error {
   constructor(message) {
     super(message);
@@ -96,6 +103,10 @@ async function forwardLedger(path, input, env, fetchImpl) {
   }
 
   if (!result.ok) {
+    if (result.status === 409) {
+      // Preserve the ledger's idempotency-conflict signal without exposing its body.
+      throw new LedgerConflictError();
+    }
     // Redirects are never followed for financial mutations. Treat any 3xx
     // response as an upstream protocol/availability failure, not client input.
     if ((result.status >= 300 && result.status < 400) || result.status >= 500 || result.status === 429 || result.status === 401 || result.status === 403 || result.status === 408) {
@@ -136,6 +147,9 @@ export function createZWalletServer({ env = process.env, fetchImpl = fetch } = {
     } catch (error) {
       if (error instanceof LedgerUnavailableError) {
         return send(response, 503, { error: "Billing ledger unavailable" });
+      }
+      if (error instanceof LedgerConflictError) {
+        return send(response, 409, { error: "Billing request conflict" });
       }
       if (error instanceof RequestTooLargeError) {
         return send(response, 413, { error: "Request body too large" });
