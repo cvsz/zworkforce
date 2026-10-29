@@ -437,6 +437,32 @@ test("tenant assertions must match the payload tenant and exact route", async ()
   assert.equal(calls, 0);
 });
 
+test("tenant admission rejects ASCII control characters in tenant IDs and idempotency keys", async () => {
+  let upstreamCalls = 0;
+  const cases = [
+    {
+      input: { tenant_id: "tenant-\\u0001", idempotency_key: "invoice-control-tenant", currency: "USD", amount_minor: 500 },
+      expected: /tenant_id is required/,
+    },
+    {
+      input: { tenant_id: "tenant-1", idempotency_key: "invoice-\\u007f", currency: "USD", amount_minor: 500 },
+      expected: /idempotency_key is required/,
+    },
+  ];
+
+  for (const { input, expected } of cases) {
+    const context = tenantAssertionRequestContext(input, "/api/invoice-intents");
+    await assert.rejects(
+      createInvoiceIntent(input, env, async () => {
+        upstreamCalls += 1;
+        return Response.json({ intent_id: "unexpected" });
+      }, context),
+      expected,
+    );
+  }
+  assert.equal(upstreamCalls, 0);
+});
+
 test("stale and tampered tenant assertions are rejected", async () => {
   const input = { tenant_id: "tenant-1", idempotency_key: "invoice-stale", currency: "USD", amount_minor: 500 };
   let calls = 0;
