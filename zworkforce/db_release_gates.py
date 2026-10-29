@@ -912,9 +912,15 @@ class ReleaseGateMixin:
         version = _release_version(release_version)
         sha = _candidate_sha(candidate_sha)
         with self.connection() as c:
-            snapshot = self._snapshot_cursor(c, tenant_id, version, sha)
-            ledger_result = self._verify_release_gate_ledger_cursor(c, tenant_id, version, sha)
-            audit_result = self._verify_audit_chain_cursor(c, tenant_id)
+            try:
+                self._begin_release_transaction(c, tenant_id)
+                snapshot = self._snapshot_cursor(c, tenant_id, version, sha)
+                ledger_result = self._verify_release_gate_ledger_cursor(c, tenant_id, version, sha)
+                audit_result = self._verify_audit_chain_cursor(c, tenant_id)
+                c.execute("COMMIT")
+            except Exception:
+                c.execute("ROLLBACK")
+                raise
 
         reasons: list[str] = []
         if not ledger_result["ok"]:
