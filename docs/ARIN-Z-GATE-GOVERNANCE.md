@@ -75,6 +75,17 @@ The hash chain detects changes and reordering, while ledger cross-checks detect 
 
 Create narrowly scoped API keys and store their one-time secrets outside the repository. The release workflow verifier key should be viewer with only release:verify. Do not use a wildcard scope for service identities.
 
+Example key creation commands for the default tenant (the CLI stores each one-time secret in a protected mode-0600 file and prints the file path):
+
+```bash
+zworkforce key-create --name arin-z --role operator --scopes release:record
+zworkforce key-create --name policedbc --role admin --scopes release:approve
+zworkforce key-create --name cvsz --role admin --scopes release:decide
+zworkforce key-create --name release-gate-verifier --role viewer --scopes release:verify
+```
+
+Provision these keys in the deployed zWorkforce database. The GitHub workflow secret must contain only the release-gate-verifier key; do not copy recorder, reviewer, or release-authority credentials into GitHub Actions.
+
 Example final approval request:
 
 ```json
