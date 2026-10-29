@@ -44,7 +44,7 @@ function listen(server) {
 }
 
 function close(server) {
-  if (!server.listening) return Promise.resolve();
+  if (!server || !server.listening) return Promise.resolve();
   return new Promise((resolveClose, reject) => {
     server.close((error) => (error ? reject(error) : resolveClose()));
   });
