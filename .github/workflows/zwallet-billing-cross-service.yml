@@ -15,9 +15,8 @@ concurrency:
 
 jobs:
   cross-service-contract:
-    # This evidence is intentionally bound to the reviewed ledger and adapter candidates.
-    # Update the pinned adapter SHA and branch guard when the candidate changes.
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'fix/billing-ledger-postgres-scope-20261030-run11-r2'
+    # Keep the adapter checkout pinned to the exact reviewed candidate SHA.
+    # Update this pin in a reviewed change when the adapter candidate changes or is superseded.
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
