@@ -222,7 +222,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           repository: cvsz/zchat
-          ref: 21e9577417e2465d3fa60aa516d97358e8d98482
+          ref: 057dcc7c7838c77064d04f53da21bd7b5ba09055
           path: integration/zchat
           persist-credentials: false
       - uses: actions/setup-python@v7
