@@ -100,7 +100,7 @@ class CatalogSchemaRegressionTests(unittest.TestCase):
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
         pattern = schema["properties"]["release"]["properties"]["version"]["pattern"]
 
-        self.assertIsNone(re.search(pattern, "1.2.3\\n"))
+        self.assertIsNone(re.search(pattern, "1.2.3\n"))
         self.assertIsNotNone(re.search(pattern, "1.2.3"))
 
 
