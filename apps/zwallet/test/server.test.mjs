@@ -214,7 +214,7 @@ test("maps transport failure to generic 503 and makes exactly one attempt", asyn
         throw new Error("private socket and host details");
       },
     }),
-    "/api/credits",
+    "/api/invoice-intents",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -331,7 +331,7 @@ test("invalid timeout configuration fails closed without calling upstream", asyn
         return Response.json({});
       },
     }),
-    "/api/credits",
+    "/api/invoice-intents",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -440,6 +440,34 @@ test("billing mutations are disabled unless the explicit admission gate is enabl
   let calls = 0;
   const disabledEnv = { ...env, Z_PLATFORM_BILLING_ADAPTER_ENABLE_MUTATIONS: "false" };
   const response = await request(createZWalletServer({ env: disabledEnv, fetchImpl: async () => { calls += 1; return Response.json({ intent_id: "unexpected" }); } }), "/api/invoice-intents", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tenant_id: "tenant-1", idempotency_key: "invoice-disabled", currency: "USD", amount_minor: 500 }) });
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { error: "Billing ledger unavailable" });
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(calls, 0);
+});
+
+test("absolute credit setter remains disabled until its append-only idempotency contract is reviewed", async () => {
+  let calls = 0;
+  const response = await request(
+    createZWalletServer({
+      env,
+      fetchImpl: async () => {
+        calls += 1;
+        return Response.json({ unexpected: true });
+      },
+    }),
+    "/api/credits",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tenant_id: "tenant-1",
+        idempotency_key: "credit-setter-disabled",
+        amount_minor: 100,
+      }),
+    },
+  );
+
   assert.equal(response.status, 503);
   assert.deepEqual(await response.json(), { error: "Billing ledger unavailable" });
   assert.equal(response.headers.get("cache-control"), "no-store");
