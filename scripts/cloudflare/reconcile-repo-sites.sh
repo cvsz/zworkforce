@@ -3,6 +3,9 @@ set -Eeuo pipefail
 
 OWNER="${ZEAZ_REPO_OWNER:-cvsz}"
 ZONE="${ZEAZ_ZONE:-zeaz.dev}"
+ZONE="$(printf '%s' "$ZONE" | tr '[:upper:]' '[:lower:]')"
+ZONE="${ZONE%.}"
+[[ -n "$ZONE" ]] || { echo "ZEAZ_ZONE must not be empty" >&2; exit 1; }
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TF_DIR="${ZEAZ_CLOUDFLARE_TF_DIR:-${ROOT_DIR}/infrastructure/terraform/cloudflare}"
 OUT_FILE="${ZEAZ_REPO_FALLBACK_TFVARS:-${TF_DIR}/repo-fallback.auto.tfvars.json}"
@@ -114,8 +117,10 @@ PY
 
 is_live_code(){
   local code="$1"
-  [[ "$code" =~ ^[23][0-9][0-9]$ ]] || \
-    [[ "$code" == "401" || "$code" == "403" || "$code" == "405" || "$code" == "429" ]]
+  # 401/403 mean the probe was rejected: never classify those as live,
+  # otherwise an expired or revoked token would mask an outage.
+  [[ "$code" =~ ^2[0-9][0-9]$ ]] || \
+    [[ "$code" == "405" || "$code" == "429" ]]
 }
 
 is_forced_live(){
@@ -130,11 +135,33 @@ is_forced_live(){
 
 probe_path(){
   local host="$1" path="$2" code
+  local -a access_headers=()
+  local -a redirect_args=(--location --max-redirs 5)
+  local access_config=""
   : > "$probe_body"
-  code="$(curl --silent --show-error --location \
+  if [[ "$host" == "cme.${ZONE}" ]]; then
+    if [[ -z "${ZWORKFORCE_ACCESS_ID:-}" || -z "${ZWORKFORCE_ACCESS_TOKEN:-}" ]]; then
+      fail "CMe probing requires ZWORKFORCE_ACCESS_ID and ZWORKFORCE_ACCESS_TOKEN; refusing to classify protected origin without them"
+    fi
+    # Never put an Access secret in curl argv; pass a private config over stdin.
+    # Redirects are intentionally not followed here so the secret never
+    # travels to a redirect target.
+    [[ "${ZWORKFORCE_ACCESS_ID}" != *'"'* && "${ZWORKFORCE_ACCESS_TOKEN}" != *'"'* ]] ||
+      fail "CMe Access credentials contain unsupported quotes"
+    access_headers=(--config -)
+    redirect_args=()
+    access_config="$(printf 'header = "CF-Access-Client-Id: %s"\nheader = "CF-Access-Client-Secret: %s"\n' "${ZWORKFORCE_ACCESS_ID}" "${ZWORKFORCE_ACCESS_TOKEN}")"
+  else
+    # Non-credential probes keep following redirects so a 301/302 whose
+    # target is broken still resolves to fallback instead of live.
+    redirect_args=(--location --max-redirs 5)
+  fi
+  code="$(curl --silent --show-error \
     --connect-timeout 3 --max-time 8 \
+    "${redirect_args[@]}" \
+    "${access_headers[@]}" \
     --output "$probe_body" --write-out '%{http_code}' \
-    "https://${host}${path}" 2>/dev/null || true)"
+    "https://${host}${path}" <<< "$access_config" 2>/dev/null || true)"
   [[ "$code" =~ ^[0-9]{3}$ ]] || code="000"
   printf '%s' "$code"
 }
