@@ -480,7 +480,7 @@ class App:
 
                     approval_match = re.fullmatch(r"/api/v1/release-gates/(\d+\.\d+\.\d+)/([0-9a-fA-F]{40})/approval", path)
                     if approval_match:
-                        ctx, response = self._principal("admin", "release:approve")
+                        ctx, response = self._principal("operator", "release:approve")
                         if response:
                             return response
                         principal, tenant_id = ctx
@@ -507,7 +507,7 @@ class App:
 
                     decision_match = re.fullmatch(r"/api/v1/release-gates/(\d+\.\d+\.\d+)/([0-9a-fA-F]{40})/decision", path)
                     if decision_match:
-                        ctx, response = self._principal("admin", "release:decide")
+                        ctx, response = self._principal("operator", "release:decide")
                         if response:
                             return response
                         principal, tenant_id = ctx
