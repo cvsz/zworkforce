@@ -21,6 +21,10 @@ class ReleaseGateWorkflowTests(unittest.TestCase):
         self.assertNotIn("python scripts/verify_release_gate.py", release)
         self.assertIn("git fetch origin main:refs/remotes/origin/main", release)
         publish = release[release.index("  publish:"):]
+        publish_fetch = "git fetch --no-tags origin main:refs/remotes/origin/main"
+        self.assertIn(publish_fetch, publish)
+        self.assertEqual(publish.count(trusted_verifier), 1)
+        self.assertLess(publish.index(publish_fetch), publish.index(trusted_verifier))
         self.assertLess(
             publish.index("Fetch trusted main release gate verifier"),
             publish.index("Re-verify ARIN-Z gate immediately before OCI publication"),
