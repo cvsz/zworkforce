@@ -541,16 +541,27 @@ test("tenant assertions must match the payload tenant and exact route", async ()
 
 test("tenant admission rejects ASCII control characters in tenant IDs and idempotency keys", async () => {
   let upstreamCalls = 0;
-  const cases = [
+  const controls = ["\u0000", "\t", "\n", "\r", "\u001f", "\u007f"];
+  const cases = controls.flatMap((control, index) => [
     {
-      input: { tenant_id: "tenant-\u0001", idempotency_key: "invoice-control-tenant", currency: "USD", amount_minor: 500 },
+      input: {
+        tenant_id: "tenant-" + control + index,
+        idempotency_key: "invoice-control-tenant-" + index,
+        currency: "USD",
+        amount_minor: 500,
+      },
       expected: /tenant_id is required/,
     },
     {
-      input: { tenant_id: "tenant-1", idempotency_key: "invoice-\u007f", currency: "USD", amount_minor: 500 },
+      input: {
+        tenant_id: "tenant-1",
+        idempotency_key: "invoice-" + control + index,
+        currency: "USD",
+        amount_minor: 500,
+      },
       expected: /idempotency_key is required/,
     },
-  ];
+  ]);
 
   for (const { input, expected } of cases) {
     const context = tenantAssertionRequestContext(input, "/api/invoice-intents");
