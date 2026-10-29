@@ -174,6 +174,12 @@ class ReleaseGateTests(unittest.TestCase):
         )
         self.assertEqual(self_approval["decision"], "BLOCKED")
 
+        spoofed_reviewer = self.db.approve_release_candidate(
+            "default", "3.0.4", sha, "APPROVE", current["gate_bundle_digest"],
+            "policedbc", "unprovisioned-policedbc-key",
+        )
+        self.assertEqual(spoofed_reviewer["decision"], "BLOCKED")
+
         decision = self.db.decide_release_candidate(
             "default", "3.0.4", sha, "GO", "v3.0.3", "cvsz", "cvsz-release-key",
         )
