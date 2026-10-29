@@ -512,12 +512,18 @@ class App:
                             return response
                         principal, tenant_id = ctx
                         expected_authority = os.getenv("ZWORKFORCE_RELEASE_AUTHORITY", "cvsz").strip().casefold()
-                        if principal.name.casefold() != expected_authority:
+                        expected_authority_key_id = os.getenv("ZWORKFORCE_RELEASE_AUTHORITY_KEY_ID", "").strip()
+                        if (
+                            principal.name.casefold() != expected_authority
+                            or not expected_authority_key_id
+                            or principal.key_id != expected_authority_key_id
+                        ):
                             app.db.audit(
                                 tenant_id, principal.name, "release_gate.authorization.denied", "release_gate", "decision",
-                                {"principal_key_id": principal.key_id, "expected_identity": expected_authority},
+                                {"principal_key_id": principal.key_id, "expected_identity": expected_authority,
+                                 "reason": "release authority key ID is missing or does not match the provisioned key"},
                             )
-                            return self._error(403, "release_gate_identity_denied", "only the configured release authority may issue the final decision")
+                            return self._error(403, "release_gate_identity_denied", "only the provisioned release-authority key may issue the final decision")
                         body = self._body()
                         version, candidate_sha = decision_match.groups()
                         result = app.db.decide_release_candidate(
@@ -530,7 +536,7 @@ class App:
                             authority_key_id=principal.key_id,
                             rationale=str(body.get("rationale", "")),
                         )
-                        return self._json(201, result)
+                        return self._json(409 if result.get("recorded") is False else 201, result)
 
                     if path in {"/github/webhook", "/webhooks/github"}:
                         secret = os.getenv("GITHUB_WEBHOOK_SECRET", "").strip()
