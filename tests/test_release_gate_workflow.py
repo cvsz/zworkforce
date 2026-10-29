@@ -16,6 +16,8 @@ class ReleaseGateWorkflowTests(unittest.TestCase):
         trusted_verifier = 'git show refs/remotes/origin/main:scripts/verify_release_gate.py > "$RUNNER_TEMP/verify_release_gate.py"'
         self.assertEqual(release.count(trusted_verifier), 2)
         self.assertEqual(release.count('python "$RUNNER_TEMP/verify_release_gate.py" --version "$RELEASE_VERSION" --sha "$CANDIDATE_SHA"'), 3)
+        self.assertEqual(release.count('\n        run: python "$RUNNER_TEMP/verify_release_gate.py" --version "$RELEASE_VERSION" --sha "$CANDIDATE_SHA"'), 2)
+        self.assertNotIn('\nrun: python "$RUNNER_TEMP/verify_release_gate.py"', release)
         self.assertNotIn("python scripts/verify_release_gate.py", release)
         self.assertIn("git fetch origin main:refs/remotes/origin/main", release)
         publish = release[release.index("  publish:"):]
