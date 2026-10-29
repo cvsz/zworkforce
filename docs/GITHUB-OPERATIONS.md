@@ -108,6 +108,19 @@ The release workflow verifies tag/version consistency, builds Python
 distributions, produces checksums and a CycloneDX SBOM, attests provenance,
 publishes the GHCR image, and creates or updates the GitHub Release.
 
+For v3.0.4 and later, both the tag-driven release workflow and the manual
+container-only publication workflow require the ARIN-Z exact-SHA release gate
+before publishing. Configure repository variable
+ZWORKFORCE_RELEASE_GATE_URL as the HTTPS origin of the deployed zWorkforce API
+and repository secret ZWORKFORCE_RELEASE_GATE_TOKEN as a dedicated viewer API
+key with only the release:verify scope. The gate check fails closed when the
+API or configuration is missing, the candidate SHA/version does not match, the
+independent approval is stale, any mandatory Stage A–H is not PASS, or ledger
+and audit verification fails. The tag-driven workflow repeats verification
+immediately before OCI image and GitHub Release publication. This blocks
+publication, but does not prevent creation of a Git tag; pre-tag governance
+remains mandatory. See [ARIN-Z Release Gate Governance](ARIN-Z-GATE-GOVERNANCE.md).
+
 `.github/workflows/publish-container.yml` is the guarded manual container-only
 publication path. Its `ref` must exactly equal `v<version>`, the tag must resolve
 to a commit on `main`, `scripts/verify_release.py` must pass from that tag, and
