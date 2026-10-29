@@ -297,10 +297,11 @@ def _decision_material(row: dict[str, Any]) -> dict[str, Any]:
 
 class ReleaseGateMixin:
     def _begin_release_transaction(self, c, tenant_id: str) -> None:
-        c.execute("BEGIN IMMEDIATE")
         if self.backend_kind == "postgres":
+            c.execute("BEGIN")
             row = c.execute("SELECT id FROM tenants WHERE id=? FOR UPDATE", (tenant_id,)).fetchone()
         else:
+            c.execute("BEGIN IMMEDIATE")
             row = c.execute("SELECT id FROM tenants WHERE id=?", (tenant_id,)).fetchone()
         if not row:
             raise ValueError("tenant not found")
