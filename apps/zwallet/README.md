@@ -8,7 +8,7 @@ It forwards credits and invoice-intent requests to `services/billing-ledger` onl
 
 - `GET /health` reports adapter status and explicitly confirms no wallet/card authority.
 - `POST /api/invoice-intents` forwards invoice intent creation to Billing Ledger.
-- `POST /api/credits` forwards credit updates to Billing Ledger.
+- `POST /api/credits` currently returns HTTP 503 and never calls Billing Ledger; the absolute credit setter stays disabled until a separately reviewed append-only adjustment and durable idempotency contract is implemented.
 
 ## Required environment
 
@@ -44,7 +44,7 @@ Each line is separated by exactly one line-feed (`LF`, U+000A). The signature mu
 
 The exact path is `/api/invoice-intents` or `/api/credits`. The timestamp must be within 60 seconds of adapter time. The adapter compares signatures in constant time and forwards a newly constructed `X-Authenticated-Tenant` header only after verification; it does not trust a caller-supplied tenant header by itself. The gateway must keep the assertion secret private and restrict network access so untrusted clients cannot call the adapter directly.
 
-Generate the assertion secret with a cryptographically secure random generator. Do not store it in source control, logs, images, issue comments or command-line arguments. Keep mutations disabled until the gateway signer, secret distribution, network policy and deployed tenant-isolation tests have been independently reviewed. The Billing Ledger durable credit setter remains disabled pending its separate append-only adjustment/idempotency contract.
+Generate the assertion secret with a cryptographically secure random generator. Do not store it in source control, logs, images, issue comments or command-line arguments. Keep mutations disabled until the gateway signer, secret distribution, network policy and deployed tenant-isolation tests have been independently reviewed. The adapter enforces this boundary in code: `POST /api/credits` always fails closed with HTTP 503 and does not contact Billing Ledger until a separately reviewed append-only adjustment/idempotency implementation replaces the disabled handler.
 
 ## Failure and retry contract
 
