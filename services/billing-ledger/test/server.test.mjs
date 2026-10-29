@@ -130,6 +130,29 @@ test("HTTP routes require service auth and expose no wallet/card authority", asy
   assert.equal(unauthorized.status, 401);
 });
 
+
+test("requires an explicit Bearer scheme even when the raw token matches", async () => {
+  const ledger = new BillingLedger();
+  const response = await request(
+    createBillingLedgerServer({ env, ledger, allowEphemeralStore: true }),
+    "/v1/usage",
+    {
+      method: "POST",
+      headers: { Authorization: "service-token", "Content-Type": "application/json" },
+      body: JSON.stringify({
+        usage_id: "usage-raw-token",
+        idempotency_key: "idem-raw-token",
+        tenant_id: "tenant-1",
+        model: "test",
+      }),
+    },
+  );
+
+  assert.equal(response.status, 401);
+  assert.deepEqual(await response.json(), { error: "Unauthorized" });
+  assert.equal(ledger.store.records.size, 0);
+});
+
 test("memory-backed mutation routes require explicit test-only opt-in", async () => {
   const runtimes = [
     { name: "unset", env: { Z_PLATFORM_SERVICE_TOKEN: "service-token" }, allowEphemeralStore: false },
