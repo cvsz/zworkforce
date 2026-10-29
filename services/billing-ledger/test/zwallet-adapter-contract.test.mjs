@@ -11,15 +11,32 @@ const adapterPath = process.env.ZWALLET_ADAPTER_PATH;
 class ContractStore {
   durable = true;
   invoiceIntents = new Map();
+  invoiceIntentFingerprints = new Map();
   creditsCalls = 0;
 
   async assertReady() {}
 
   async createInvoiceIntent(intent) {
     const key = JSON.stringify([intent.tenant_id, intent.idempotency_key]);
+    const fingerprint = JSON.stringify(
+      Object.fromEntries(
+        Object.entries(intent)
+          .filter(([field]) => !["intent_id", "created_at"].includes(field))
+          .sort(([left], [right]) => left.localeCompare(right)),
+      ),
+    );
     const existing = this.invoiceIntents.get(key);
-    if (existing) return structuredClone(existing);
+    if (existing) {
+      if (this.invoiceIntentFingerprints.get(key) !== fingerprint) {
+        const error = new Error("Idempotency key conflicts with an existing request");
+        error.status = 409;
+        error.publicMessage = error.message;
+        throw error;
+      }
+      return structuredClone(existing);
+    }
     this.invoiceIntents.set(key, structuredClone(intent));
+    this.invoiceIntentFingerprints.set(key, fingerprint);
     return structuredClone(intent);
   }
 
@@ -88,7 +105,10 @@ test(
     const store = new ContractStore();
     const ledger = new BillingLedger({
       store,
-      idGenerator: () => "intent-cross-service-1",
+      idGenerator: (() => {
+        let nextIntent = 0;
+        return () => `intent-cross-service-${++nextIntent}`;
+      })(),
       now: () => "2026-10-30T00:00:00.000Z",
     });
     const ledgerServer = createBillingLedgerServer({
@@ -134,6 +154,29 @@ test(
       assert.equal(acceptedPayload.idempotency_key, input.idempotency_key);
       assert.equal(acceptedPayload.status, "requires_payment_processor");
       assert.equal(store.invoiceIntents.size, 1);
+
+      const replay = await fetch(`${adapterUrl}/api/invoice-intents`, {
+        method: "POST",
+        headers: assertionHeaders(body, assertionSecret),
+        body,
+      });
+      assert.equal(replay.status, 201);
+      const replayPayload = await replay.json();
+      assert.equal(replayPayload.intent_id, acceptedPayload.intent_id);
+      assert.equal(store.invoiceIntents.size, 1, "same-key replay must not create a second intent");
+
+      const conflictInput = { ...input, amount_minor: 501 };
+      const conflictBody = JSON.stringify(conflictInput);
+      const conflict = await fetch(`${adapterUrl}/api/invoice-intents`, {
+        method: "POST",
+        headers: assertionHeaders(conflictBody, assertionSecret),
+        body: conflictBody,
+      });
+      assert.equal(conflict.status, 409);
+      assert.deepEqual(await conflict.json(), {
+        error: "Idempotency key conflicts with an existing request",
+      });
+      assert.equal(store.invoiceIntents.size, 1, "changed-payload replay must not create or overwrite an intent");
 
       const forgedTenant = await fetch(`${adapterUrl}/api/invoice-intents`, {
         method: "POST",
