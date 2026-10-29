@@ -48,17 +48,33 @@ export class PostgresLedgerStore {
                 to_regclass('billing_invoice_intents') IS NOT NULL AS invoice_table_present,
                 EXISTS (
                   SELECT 1
-                    FROM pg_constraint
-                   WHERE conname = 'billing_usage_records_tenant_idempotency_pk'
-                     AND conrelid = to_regclass('billing_usage_records')
-                     AND contype = 'p'
+                    FROM pg_constraint c
+                   WHERE c.conname = 'billing_usage_records_tenant_idempotency_pk'
+                     AND c.conrelid = to_regclass('billing_usage_records')
+                     AND c.contype = 'p'
+                     AND ARRAY(
+                       SELECT a.attname::text
+                         FROM unnest(c.conkey) WITH ORDINALITY AS key_column(attnum, ordinality)
+                         JOIN pg_attribute a
+                           ON a.attrelid = c.conrelid
+                          AND a.attnum = key_column.attnum
+                        ORDER BY key_column.ordinality
+                     ) = ARRAY['tenant_id', 'idempotency_key']::text[]
                 ) AS usage_idempotency_pk_present,
                 EXISTS (
                   SELECT 1
-                    FROM pg_constraint
-                   WHERE conname = 'billing_invoice_intents_tenant_idempotency_pk'
-                     AND conrelid = to_regclass('billing_invoice_intents')
-                     AND contype = 'p'
+                    FROM pg_constraint c
+                   WHERE c.conname = 'billing_invoice_intents_tenant_idempotency_pk'
+                     AND c.conrelid = to_regclass('billing_invoice_intents')
+                     AND c.contype = 'p'
+                     AND ARRAY(
+                       SELECT a.attname::text
+                         FROM unnest(c.conkey) WITH ORDINALITY AS key_column(attnum, ordinality)
+                         JOIN pg_attribute a
+                           ON a.attrelid = c.conrelid
+                          AND a.attnum = key_column.attnum
+                        ORDER BY key_column.ordinality
+                     ) = ARRAY['tenant_id', 'idempotency_key']::text[]
                 ) AS invoice_idempotency_pk_present
            FROM billing_schema_migrations
           WHERE version = $1`,
