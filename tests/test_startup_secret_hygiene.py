@@ -50,13 +50,14 @@ class StartupSecretHygieneTests(unittest.TestCase):
 
     def test_voice_service_token_has_no_literal_secret_fallback(self):
         script = START_SCRIPT.read_text(encoding="utf-8")
-        nonempty_fallback = (
-            r'ZWORKFORCE_ZARVIS_VOICE_SERVICE_TOKEN="\$\{[^}]+:-[^}]+\}"'
-        )
-        self.assertNotRegex(script, nonempty_fallback)
-        self.assertIn(
-            'export ZWORKFORCE_ZARVIS_VOICE_SERVICE_TOKEN="${ZWORKFORCE_ZARVIS_VOICE_SERVICE_TOKEN:-}"',
-            script,
+        token_assignments = [
+            line
+            for line in script.splitlines()
+            if line.startswith("export ZWORKFORCE_ZARVIS_VOICE_SERVICE_TOKEN=")
+        ]
+        self.assertEqual(
+            token_assignments,
+            ['export ZWORKFORCE_ZARVIS_VOICE_SERVICE_TOKEN="${ZWORKFORCE_ZARVIS_VOICE_SERVICE_TOKEN:-}"'],
         )
     def test_voice_defaults_disabled_when_not_configured(self):
         result = self.run_start_script(voice_enabled=None)
