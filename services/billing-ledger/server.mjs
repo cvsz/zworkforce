@@ -23,7 +23,11 @@ function send(response, status, body) {
 }
 
 function authorized(request, env) {
-  const supplied = request.headers.authorization?.replace(/^Bearer\s+/i, "");
+  const authorization = request.headers.authorization;
+  const match = typeof authorization === "string"
+    ? /^Bearer[ \t]+(\S+)$/i.exec(authorization)
+    : null;
+  const supplied = match?.[1];
   const expected = env.Z_PLATFORM_SERVICE_TOKEN;
   if (!supplied || !expected) return false;
   const a = Buffer.from(supplied);
