@@ -72,3 +72,46 @@ class ReleaseGateWorkflowTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+    def test_release_gate_client_never_follows_redirects_with_authorization(self):
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        import threading
+        from urllib.error import HTTPError
+        from urllib.request import Request, build_opener
+
+        from scripts.verify_release_gate import _NoRedirectHandler
+
+        observed = []
+
+        class RedirectHandler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                observed.append((self.path, self.headers.get("Authorization")))
+                if self.path == "/start":
+                    self.send_response(302)
+                    self.send_header("Location", f"http://127.0.0.1:{self.server.server_port}/collect")
+                    self.end_headers()
+                    return
+                self.send_response(200)
+                self.end_headers()
+
+            def log_message(self, format, *args):
+                return
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), RedirectHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            request = Request(
+                f"http://127.0.0.1:{server.server_port}/start",
+                headers={"Authorization": "Bearer synthetic-release-gate-token"},
+            )
+            with self.assertRaises(HTTPError) as raised:
+                build_opener(_NoRedirectHandler).open(request, timeout=2)
+            self.assertEqual(raised.exception.code, 302)
+            self.assertEqual(observed, [("/start", "Bearer synthetic-release-gate-token")])
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+

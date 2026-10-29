@@ -7,11 +7,17 @@ import re
 import sys
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 _SHA40 = re.compile(r"^[0-9a-f]{40}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _VERSION = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
+
+
+class _NoRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        # Never forward the release-gate bearer token through a redirect.
+        return None
 
 
 def fail(message: str) -> None:
@@ -74,7 +80,7 @@ def main() -> int:
         method="GET",
     )
     try:
-        with urlopen(request, timeout=20) as response:
+        with build_opener(_NoRedirectHandler).open(request, timeout=20) as response:
             if response.status != 200:
                 fail(f"gate API returned HTTP {response.status}")
             raw = response.read(1_000_001)
