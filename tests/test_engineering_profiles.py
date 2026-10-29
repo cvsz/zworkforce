@@ -42,6 +42,7 @@ class EngineeringProfileTests(unittest.TestCase):
             {"github": {"require_required_checks": 0}},
             {"github": {"reviewer_account": "alice", "merger_account": "ALICE"}},
             {"github": {"reviewer_account": "not a user"}},
+            {"github": {"reviewer_account": "alice--review"}},
             {"github": {"repository_allowlist": ["../secrets"]}},
             {"github": {"repository_allowlist": ["org/../repo"]}},
             {"github": {"repository_allowlist": ["org/repo/extra"]}},
