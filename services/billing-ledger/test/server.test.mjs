@@ -78,6 +78,30 @@ test("blocks all HTTP billing mutations when the memory store is active outside 
   }
 });
 
+test("liveness remains healthy while readiness fails closed for an ephemeral production store", async () => {
+  const productionEnv = { ...env, NODE_ENV: "production" };
+  const health = await request(createBillingLedgerServer({ env: productionEnv }), "/health");
+  assert.equal(health.status, 200);
+  assert.deepEqual(await health.json(), { status: "ok", service: "billing-ledger", wallet_authority: false, card_data: false });
+
+  const productionReady = await request(createBillingLedgerServer({ env: productionEnv }), "/ready");
+  assert.equal(productionReady.status, 503);
+  assert.deepEqual(await productionReady.json(), {
+    status: "not_ready",
+    service: "billing-ledger",
+    reason: "durable_store_required",
+  });
+
+  const unsetEnv = { ...env };
+  delete unsetEnv.NODE_ENV;
+  const unsetReady = await request(createBillingLedgerServer({ env: unsetEnv }), "/ready");
+  assert.equal(unsetReady.status, 503);
+
+  const testReady = await request(createBillingLedgerServer({ env }), "/ready");
+  assert.equal(testReady.status, 200);
+  assert.deepEqual(await testReady.json(), { status: "ready", service: "billing-ledger" });
+});
+
 test("HTTP usage endpoint returns duplicate on repeated idempotency key", async () => {
   const server = createBillingLedgerServer({ env, ledger: new BillingLedger({ now: () => "2026-07-14T00:00:00.000Z" }) });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
