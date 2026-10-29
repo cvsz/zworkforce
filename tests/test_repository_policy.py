@@ -7,6 +7,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 RULESET = ROOT / ".github" / "rulesets" / "main.json"
+CODEOWNERS = ROOT / ".github" / "CODEOWNERS"
 CI = ROOT / ".github" / "workflows" / "ci.yml"
 GITMODULES = ROOT / ".gitmodules"
 CONTROL = ROOT / "control.sh"
@@ -37,6 +38,39 @@ class RepositoryPolicyTests(unittest.TestCase):
             {"deletion", "non_fast_forward", "pull_request", "required_status_checks"},
             rule_types,
         )
+
+        pull_request_rule = next(
+            rule for rule in ruleset["rules"] if rule["type"] == "pull_request"
+        )
+        parameters = pull_request_rule["parameters"]
+        self.assertGreaterEqual(parameters["required_approving_review_count"], 1)
+        self.assertTrue(parameters["dismiss_stale_reviews_on_push"])
+        self.assertTrue(parameters["require_code_owner_review"])
+        self.assertTrue(parameters["require_last_push_approval"])
+        self.assertEqual([], ruleset["bypass_actors"])
+
+    def test_security_sensitive_paths_require_independent_codeowner(self):
+        owners = {}
+        for raw_line in CODEOWNERS.read_text(encoding="utf-8").splitlines():
+            line = raw_line.split("#", 1)[0].strip()
+            if not line:
+                continue
+            path, *reviewers = line.split()
+            owners[path] = reviewers
+
+        self.assertEqual(["@cvsz"], owners.get("*"))
+        for path in (
+            "/.github/",
+            "/zworkforce/security.py",
+            "/zworkforce/policy.py",
+            "/zworkforce/secret_store.py",
+            "/zworkforce/skill_registry.py",
+            "/deploy/",
+            "/SECURITY.md",
+            "/apps/zwallet/",
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(["@policedbc"], owners.get(path))
 
     def test_required_contexts_match_unconditional_workflow_contracts(self):
         required = self.required_contexts()

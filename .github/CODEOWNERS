@@ -1,11 +1,13 @@
-# Default ownership
+# Default owner for general maintenance
 * @cvsz
 
-# Security-sensitive surfaces
-/.github/ @cvsz
-/zworkforce/security.py @cvsz
-/zworkforce/policy.py @cvsz
-/zworkforce/secret_store.py @cvsz
-/zworkforce/skill_registry.py @cvsz
-/deploy/ @cvsz
-/SECURITY.md @cvsz
+# Security-sensitive and release-governance paths require independent review.
+# Enforcement depends on the server-side ruleset requiring code-owner review.
+/.github/ @policedbc
+/zworkforce/security.py @policedbc
+/zworkforce/policy.py @policedbc
+/zworkforce/secret_store.py @policedbc
+/zworkforce/skill_registry.py @policedbc
+/deploy/ @policedbc
+/SECURITY.md @policedbc
+/apps/zwallet/ @policedbc
