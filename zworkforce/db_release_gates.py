@@ -441,7 +441,7 @@ class ReleaseGateMixin:
         })
         approval_row = c.execute(
             "SELECT * FROM release_gate_approvals2 WHERE tenant_id=? AND release_version=? AND candidate_sha=? "
-            "AND gate_bundle_digest=? ORDER BY created_at DESC,id DESC LIMIT 1",
+            "AND gate_bundle_digest=? AND decision IN ('APPROVE','REJECT') ORDER BY created_at DESC,id DESC LIMIT 1",
             (tenant_id, version, sha, bundle_digest),
         ).fetchone()
         approval = dict(approval_row) if approval_row else None
