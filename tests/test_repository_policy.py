@@ -7,6 +7,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 RULESET = ROOT / ".github" / "rulesets" / "main.json"
+CONTRIBUTING = ROOT / "CONTRIBUTING.md"
 CODEOWNERS = ROOT / ".github" / "CODEOWNERS"
 CI = ROOT / ".github" / "workflows" / "ci.yml"
 GITMODULES = ROOT / ".gitmodules"
@@ -48,6 +49,23 @@ class RepositoryPolicyTests(unittest.TestCase):
         self.assertTrue(parameters["require_code_owner_review"])
         self.assertTrue(parameters["require_last_push_approval"])
         self.assertEqual([], ruleset["bypass_actors"])
+
+    def test_contributing_documents_desired_and_effective_review_policy(self):
+        contributing = CONTRIBUTING.read_text(encoding="utf-8")
+        for phrase in (
+            "one independent approving review",
+            "CODEOWNERS review",
+            "approval after the latest push",
+            "server-side ruleset",
+            "NOT ENFORCED",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, contributing)
+
+        self.assertNotIn(
+            "approval count is `0` to avoid making self-authored",
+            contributing,
+        )
 
     def test_security_sensitive_paths_require_independent_codeowner(self):
         owners = {}
