@@ -106,10 +106,10 @@ function requireTenantAdmission(request, input, path, env) {
 
   const tenantId = input.tenant_id;
   const idempotencyKey = input.idempotency_key;
-  if (typeof tenantId !== "string" || !tenantId || tenantId !== tenantId.trim() || tenantId.length > 128) {
+  if (typeof tenantId !== "string" || !tenantId || tenantId !== tenantId.trim() || tenantId.length > 128 || /[\x00-\x1f\x7f]/.test(tenantId)) {
     throw new AdapterInputError("tenant_id is required");
   }
-  if (typeof idempotencyKey !== "string" || !idempotencyKey || idempotencyKey !== idempotencyKey.trim() || idempotencyKey.length > 255) {
+  if (typeof idempotencyKey !== "string" || !idempotencyKey || idempotencyKey !== idempotencyKey.trim() || idempotencyKey.length > 255 || /[\x00-\x1f\x7f]/.test(idempotencyKey)) {
     throw new AdapterInputError("idempotency_key is required");
   }
 
