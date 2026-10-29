@@ -25,9 +25,18 @@ async function readJson(request) {
   return text.trim() ? JSON.parse(text) : {};
 }
 
-function ledgerUrl(env, path) {
+function ledgerBaseUrl(env) {
   const configured = env.Z_PLATFORM_BILLING_LEDGER_URL;
-  const base = typeof configured === "string" ? configured.trim().replace(/\/+$/, "") : "";
+  return typeof configured === "string" ? configured.trim().replace(/\/+$/, "") : "";
+}
+
+function hasLedgerConfiguration(env) {
+  const token = env.Z_PLATFORM_SERVICE_TOKEN;
+  return Boolean(ledgerBaseUrl(env) && typeof token === "string" && token.trim());
+}
+
+function ledgerUrl(env, path) {
+  const base = ledgerBaseUrl(env);
   if (!base) throw new LedgerUnavailableError();
   return base + path;
 }
@@ -85,7 +94,7 @@ export function createZWalletServer({ env = process.env, fetchImpl = fetch } = {
         return send(response, 200, {
           status: "ok",
           service: "zwallet-adapter",
-          ledger_configured: Boolean(env.Z_PLATFORM_BILLING_LEDGER_URL && env.Z_PLATFORM_SERVICE_TOKEN),
+          ledger_configured: hasLedgerConfiguration(env),
           wallet_authority: false,
           card_data: false,
         });
