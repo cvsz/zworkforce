@@ -166,7 +166,7 @@ test("PostgreSQL constraints reject negative usage counts and unsafe invoice amo
 test("readiness rejects same-named primary keys with incorrect tenant/idempotency columns", {
   skip: !databaseUrl,
 }, async (t) => {
-  const schema = \`billing_drift_\${randomUUID().replaceAll("-", "")}\`;
+  const schema = `billing_drift_${randomUUID().replaceAll("-", "")}`;
   const pool = new Pool({
     connectionString: databaseUrl,
     max: 1,
@@ -177,14 +177,14 @@ test("readiness rejects same-named primary keys with incorrect tenant/idempotenc
   });
   t.after(async () => {
     try {
-      await pool.query(\`DROP SCHEMA IF EXISTS "\${schema}" CASCADE\`);
+      await pool.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
     } finally {
       await pool.end();
     }
   });
 
-  await pool.query(\`CREATE SCHEMA "\${schema}"\`);
-  await pool.query(\`SET search_path TO "\${schema}"\`);
+  await pool.query(`CREATE SCHEMA "${schema}"`);
+  await pool.query(`SET search_path TO "${schema}"`);
   const migration = await readFile(
     new URL("../migrations/001_durable_billing_ledger.sql", import.meta.url),
     "utf8",
