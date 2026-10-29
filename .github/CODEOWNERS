@@ -1,5 +1,5 @@
 # Default owner for general maintenance
-* @cvsz
+* @cvsz @policedbc
 
 # Security-sensitive and release-governance paths require independent review.
 # Enforcement depends on the server-side ruleset requiring code-owner review.
