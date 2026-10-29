@@ -753,6 +753,30 @@ class ReleaseGateMixin:
             try:
                 self._begin_release_transaction(c, tenant_id)
                 snapshot = self._snapshot_cursor(c, tenant_id, version, sha)
+                configured_authority_key_id = _configured_key_id("ZWORKFORCE_RELEASE_AUTHORITY_KEY_ID")
+                if (
+                    str(release_authority).casefold() != configured_authority
+                    or not configured_authority_key_id
+                    or authority_key_id != configured_authority_key_id
+                ):
+                    rationale_text = "release decision request did not authenticate as the provisioned release-authority key"
+                    self._append_release_audit_cursor(
+                        c, tenant_id, release_authority, "release_gate.decision.denied",
+                        "release_gate", decision_id,
+                        {"release_version": version, "candidate_sha": sha,
+                         "principal_key_id": authority_key_id, "reason": rationale_text},
+                    )
+                    c.execute("COMMIT")
+                    return {
+                        "id": decision_id,
+                        "release_version": version,
+                        "candidate_sha": sha,
+                        "decision": "BLOCKED",
+                        "recorded": False,
+                        "gate_bundle_digest": snapshot["gate_bundle_digest"],
+                        "rationale": rationale_text,
+                        "created_at": _now(),
+                    }
                 approval = snapshot["_approval_row"]
                 all_recorders = {str(row.get("recorded_by_key_id", "")) for row in snapshot["_all_evidence_rows"]}
                 all_recorders.discard("")
