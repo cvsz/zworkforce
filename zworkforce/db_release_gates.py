@@ -456,8 +456,42 @@ class ReleaseGateMixin:
         sha = _candidate_sha(candidate_sha)
         with self.connection() as c:
             snapshot = self._snapshot_cursor(c, tenant_id, version, sha)
+        approval = snapshot["_approval_row"]
+        decision = snapshot["_decision_row"]
+        public_approval = None
+        if approval:
+            public_approval = {
+                "id": approval["id"],
+                "decision": approval["decision"],
+                "approver": approval["approver"],
+                "gate_bundle_digest": approval["gate_bundle_digest"],
+                "rationale": approval["rationale"],
+                "record_hash": approval["record_hash"],
+                "created_at": approval["created_at"],
+            }
+        public_decision = None
+        if decision:
+            public_decision = {
+                "id": decision["id"],
+                "decision": decision["decision"],
+                "candidate_sha": decision["candidate_sha"],
+                "gate_bundle_digest": decision["gate_bundle_digest"],
+                "approval_id": decision["approval_id"],
+                "rollback_target": decision["rollback_target"],
+                "release_authority": decision["release_authority"],
+                "rationale": decision["rationale"],
+                "record_hash": decision["record_hash"],
+                "created_at": decision["created_at"],
+            }
         return {
-            key: value for key, value in snapshot.items() if not key.startswith("_")
+            "release_version": snapshot["release_version"],
+            "candidate_sha": snapshot["candidate_sha"],
+            "gate_bundle_digest": snapshot["gate_bundle_digest"],
+            "all_gates_pass": snapshot["all_gates_pass"],
+            "gates": snapshot["gates"],
+            "approval_valid": snapshot["approval_valid"],
+            "approval": public_approval,
+            "decision": public_decision,
         }
 
     def record_release_gate_evidence(
