@@ -21,7 +21,7 @@ It forwards credits and invoice-intent requests to `services/billing-ledger` onl
 
 Billing mutations are denied by default. The adapter requires `Z_PLATFORM_BILLING_ADAPTER_ENABLE_MUTATIONS=true`, a valid tenant-assertion secret of at least 32 UTF-8 bytes, and a signed, time-bounded tenant assertion from the trusted gateway. Missing configuration returns HTTP 503; invalid or mismatched assertions return HTTP 403. No request is forwarded to Billing Ledger unless these checks pass.
 
-Invoice-intent requests accept only `tenant_id`, `idempotency_key`, `currency`, and `amount_minor`. Any unknown top-level field is rejected before forwarding; arbitrary metadata and unrecognized financial/identity fields are not part of the audited contract.
+Invoice-intent requests accept only `tenant_id`, `idempotency_key`, `currency`, and `amount_minor`. Any unknown top-level field is rejected before forwarding; arbitrary metadata and unrecognized financial/identity fields are not part of the audited contract. The `currency` value must be a three-letter alphabetic code and `amount_minor` must be a positive safe integer; invalid object/array values are rejected before any upstream request.
 
 For each POST, the trusted gateway must send:
 
