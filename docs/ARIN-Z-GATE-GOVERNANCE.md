@@ -16,6 +16,11 @@ The default identities can be changed only through server-side environment confi
 - ZWORKFORCE_RELEASE_GATE_RECORDER=arin-z
 - ZWORKFORCE_RELEASE_INDEPENDENT_APPROVER=policedbc
 - ZWORKFORCE_RELEASE_AUTHORITY=cvsz
+- ZWORKFORCE_RELEASE_GATE_RECORDER_KEY_ID=<exact ARIN-Z API key ID>
+- ZWORKFORCE_RELEASE_INDEPENDENT_APPROVER_KEY_ID=<exact policedbc API key ID>
+- ZWORKFORCE_RELEASE_AUTHORITY_KEY_ID=<exact cvsz release-authority API key ID>
+
+The names are not sufficient by themselves: the service pins each role to its exact provisioned API key ID. All three key IDs must be present and distinct in server-side deployment configuration. Missing or mismatched IDs block evidence recording, independent approval, or GO. A newly created API key with a spoofed display name cannot impersonate the configured principal.
 
 The identity check is case-insensitive. API calls must also carry the appropriate role and scope; knowing a principal name is not authentication.
 
