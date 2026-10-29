@@ -128,11 +128,13 @@ class StartupSecretHygieneTests(unittest.TestCase):
         self.assertNotIn(token, result.stdout)
         self.assertNotIn(token, result.stderr)
 
-    def test_legacy_environment_token_remains_backward_compatible(self):
+    def test_legacy_platform_token_is_not_used_as_voice_service_token(self):
         token = "legacy-synthetic-token-" + ("b" * 40)
         result = self.run_start_script({"Z_PLATFORM_SERVICE_TOKEN": token})
-        self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
-        self.assertIn("Voice Enabled", result.stdout)
+        self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
+        self.assertIn("must be provisioned", result.stderr)
+        self.assertNotIn("Voice Enabled", result.stdout)
+        self.assertNotIn(token, result.stdout + result.stderr)
 
     def test_start_script_is_valid_bash(self):
         result = subprocess.run(
