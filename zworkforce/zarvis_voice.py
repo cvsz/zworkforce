@@ -90,6 +90,10 @@ class ZarvisVoiceService:
             raise ValueError("Z.A.R.V.I.S. voice is enabled but the voice gateway URL is missing")
         if self.config.enabled and not self.config.service_token:
             raise ValueError("Z.A.R.V.I.S. voice is enabled but the voice service token is missing")
+        if self.config.enabled and sum(not char.isspace() for char in self.config.service_token) < 32:
+            raise ValueError(
+                "Z.A.R.V.I.S. voice service token must contain at least 32 non-whitespace characters"
+            )
         if self.config.enabled and os.getenv("ZWORKFORCE_ENV", "development").strip().lower() == "production" and not self.config.websocket_allowlist:
             raise ValueError("ZWORKFORCE_ZARVIS_VOICE_WS_ALLOWLIST is required in production when voice is enabled")
 
