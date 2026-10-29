@@ -55,9 +55,14 @@ class StartupSecretHygieneTests(unittest.TestCase):
             r"Z_PLATFORM_SERVICE_TOKEN:-[0-9a-fA-F]{32,}",
             "Startup scripts must never embed a service-token fallback.",
         )
-        self.assertIn(
-            'ZWORKFORCE_ZARVIS_VOICE_SERVICE_TOKEN:-${Z_PLATFORM_SERVICE_TOKEN:-}',
-            script,
+        token_assignments = [
+            line
+            for line in script.splitlines()
+            if line.startswith("export ZWORKFORCE_ZARVIS_VOICE_SERVICE_TOKEN=")
+        ]
+        self.assertEqual(
+            token_assignments,
+            ['export ZWORKFORCE_ZARVIS_VOICE_SERVICE_TOKEN="${ZWORKFORCE_ZARVIS_VOICE_SERVICE_TOKEN:-}"'],
         )
 
     def test_voice_defaults_disabled_when_not_configured(self):
@@ -129,11 +134,13 @@ class StartupSecretHygieneTests(unittest.TestCase):
         self.assertNotIn(token, result.stdout)
         self.assertNotIn(token, result.stderr)
 
-    def test_legacy_environment_token_remains_backward_compatible(self):
+    def test_legacy_platform_token_is_not_used_as_voice_service_token(self):
         token = "legacy-synthetic-token-" + ("b" * 40)
         result = self.run_start_script({"Z_PLATFORM_SERVICE_TOKEN": token})
-        self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
-        self.assertIn("Voice Enabled", result.stdout)
+        self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
+        self.assertIn("must be provisioned", result.stderr)
+        self.assertNotIn("Voice Enabled", result.stdout)
+        self.assertNotIn(token, result.stdout + result.stderr)
 
     def test_start_script_is_valid_bash(self):
         result = subprocess.run(
