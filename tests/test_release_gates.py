@@ -247,5 +247,51 @@ class ReleaseGateTests(unittest.TestCase):
         self.assertFalse(verified["ledger_valid"])
 
 
+class _ReleaseGateTransactionCursor:
+    def __init__(self):
+        self.statements = []
+
+    def execute(self, statement, params=()):
+        self.statements.append((statement, params))
+        return self
+
+    def fetchone(self):
+        return ("tenant-1",)
+
+
+class _ReleaseGateTransactionHarness:
+    from zworkforce.db_release_gates import ReleaseGateMixin
+
+    def __new__(cls, backend_kind):
+        instance = super().__new__(cls)
+        instance.backend_kind = backend_kind
+        return instance
+
+
+class ReleaseGateTransactionTests(unittest.TestCase):
+    def test_postgres_uses_supported_begin_and_locks_tenant(self):
+        from zworkforce.db_release_gates import ReleaseGateMixin
+
+        class Harness(ReleaseGateMixin):
+            backend_kind = "postgres"
+
+        cursor = _ReleaseGateTransactionCursor()
+        Harness()._begin_release_transaction(cursor, "tenant-1")
+        self.assertEqual(cursor.statements[0][0], "BEGIN")
+        self.assertIn("FOR UPDATE", cursor.statements[1][0])
+        self.assertEqual(cursor.statements[1][1], ("tenant-1",))
+
+    def test_sqlite_keeps_immediate_transaction(self):
+        from zworkforce.db_release_gates import ReleaseGateMixin
+
+        class Harness(ReleaseGateMixin):
+            backend_kind = "sqlite"
+
+        cursor = _ReleaseGateTransactionCursor()
+        Harness()._begin_release_transaction(cursor, "tenant-1")
+        self.assertEqual(cursor.statements[0][0], "BEGIN IMMEDIATE")
+        self.assertNotIn("FOR UPDATE", cursor.statements[1][0])
+
+
 if __name__ == "__main__":
     unittest.main()
