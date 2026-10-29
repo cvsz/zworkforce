@@ -41,7 +41,7 @@ Policy document:
 
 Release evidence, approvals, and final decisions are tenant-scoped and bound to a stable release version plus the full 40-character candidate SHA. Stage I is the derived release decision; evidence submission accepts Stages A–H only.
 
-Required scopes are separate: release:read, release:verify, release:record, release:approve, and release:decide. The service also enforces the configured ARIN-Z recorder, independent reviewer, and release authority identities. The default identities are arin-z, policedbc, and cvsz.
+Required scopes are separate: release:read, release:verify, release:record, release:approve, and release:decide. The service also enforces the configured ARIN-Z recorder, independent reviewer, and release authority identities and pins each role to a distinct provisioned API key ID. The default identities are arin-z, policedbc, and cvsz; missing key-ID configuration fails closed.
 
 GET /api/v1/release-gates/{version}/{sha} returns the latest evidence record per required stage and the current gate-bundle digest.
 
