@@ -208,6 +208,14 @@ class ReleaseGateTests(unittest.TestCase):
         )
         self.assertTrue(self.db.verify_release_candidate("default", "3.0.4", sha)["release_ready"])
 
+        spoofed_revocation = self.db.decide_release_candidate(
+            "default", "3.0.4", sha, "NO_GO", "v3.0.3", "cvsz", "spoofed-cvsz-key",
+            "Attempted with a display-name-only identity.",
+        )
+        self.assertEqual(spoofed_revocation["decision"], "BLOCKED")
+        self.assertFalse(spoofed_revocation["recorded"])
+        self.assertTrue(self.db.verify_release_candidate("default", "3.0.4", sha)["release_ready"])
+
         revoked = self.db.decide_release_candidate(
             "default", "3.0.4", sha, "NO_GO", "v3.0.3", "cvsz", "cvsz-release-key",
             "Operator revoked the GO decision for a controlled re-evaluation.",
