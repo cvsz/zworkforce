@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-_USERNAME = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$")
+_USERNAME = re.compile(r"^(?!.*--)[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$")
 _REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 _PROFILES = frozenset({"personal", "organization", "zeazdev-internal"})
 _MODES = frozenset({"local", "connected"})
