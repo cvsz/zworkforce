@@ -48,6 +48,10 @@ The exact path is `/api/invoice-intents` or `/api/credits`. The timestamp must b
 
 Generate the assertion secret with a cryptographically secure random generator. Do not store it in source control, logs, images, issue comments or command-line arguments. Keep mutations disabled until the gateway signer, secret distribution, network policy and deployed tenant-isolation tests have been independently reviewed. The adapter enforces this boundary in code: `POST /api/credits` always fails closed with HTTP 503 and does not contact Billing Ledger until a separately reviewed append-only adjustment/idempotency implementation replaces the disabled handler.
 
+## Production transport
+
+When `NODE_ENV=production`, the Billing Ledger URL must use HTTPS. Malformed URLs, unsupported schemes, embedded URL credentials, query strings, fragments, or plaintext HTTP are treated as unavailable and fail closed before sending the service token. HTTP is permitted only outside production for local/test environments.
+
 ## Failure and retry contract
 
 - The adapter returns HTTP 503 with a generic body when Billing Ledger is unavailable, times out/connects unsuccessfully, returns 3xx redirects, 401/403 upstream authentication failures, 408 timeouts, 429 or 5xx responses, is not configured, or returns invalid success JSON. Redirects are never followed for financial mutations.
