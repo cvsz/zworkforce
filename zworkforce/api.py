@@ -282,6 +282,20 @@ class App:
 
             def _get_api(self, path: str):
                 q = self._query()
+                release_match = re.fullmatch(r"/api/v1/release-gates/(\d+\.\d+\.\d+)/([0-9a-fA-F]{40})(?:/(verify))?", path)
+                if release_match:
+                    version, candidate_sha, mode = release_match.groups()
+                    if mode == "verify":
+                        ctx, response = self._principal("viewer", "release:verify")
+                        if response:
+                            return response
+                        _, tenant_id = ctx
+                        return self._json(200, app.db.verify_release_candidate(tenant_id, version, candidate_sha))
+                    ctx, response = self._principal("viewer", "release:read")
+                    if response:
+                        return response
+                    _, tenant_id = ctx
+                    return self._json(200, app.db.get_release_gate_snapshot(tenant_id, version, candidate_sha))
                 if path == "/api/v1/dashboard/events":
                     ctx, response = self._principal("viewer", "workforce:read")
                     if response:
@@ -440,6 +454,90 @@ class App:
                 self._prepare()
                 path = urllib.parse.urlsplit(self.path).path
                 try:
+                    if path == "/api/v1/release-gates/evidence":
+                        ctx, response = self._principal("operator", "release:record")
+                        if response:
+                            return response
+                        principal, tenant_id = ctx
+                        expected_recorder = os.getenv("ZWORKFORCE_RELEASE_GATE_RECORDER", "arin-z").strip().casefold()
+                        if principal.name.casefold() != expected_recorder:
+                            app.db.audit(
+                                tenant_id, principal.name, "release_gate.authorization.denied", "release_gate", "evidence",
+                                {"principal_key_id": principal.key_id, "expected_identity": expected_recorder},
+                            )
+                            return self._error(403, "release_gate_identity_denied", "only the configured ARIN-Z recorder may submit gate evidence")
+                        body = self._body()
+                        result = app.db.record_release_gate_evidence(
+                            tenant_id=tenant_id,
+                            release_version=str(body.get("release_version", "")),
+                            candidate_sha=str(body.get("candidate_sha", "")),
+                            gate_id=str(body.get("gate_id", "")),
+                            evidence=body.get("evidence"),
+                            recorded_by=principal.name,
+                            recorded_by_key_id=principal.key_id,
+                        )
+                        return self._json(201 if result.get("recorded") else 409, result)
+
+                    approval_match = re.fullmatch(r"/api/v1/release-gates/(\d+\.\d+\.\d+)/([0-9a-fA-F]{40})/approval", path)
+                    if approval_match:
+                        ctx, response = self._principal("operator", "release:approve")
+                        if response:
+                            return response
+                        principal, tenant_id = ctx
+                        expected_approver = os.getenv("ZWORKFORCE_RELEASE_INDEPENDENT_APPROVER", "policedbc").strip().casefold()
+                        if principal.name.casefold() != expected_approver:
+                            app.db.audit(
+                                tenant_id, principal.name, "release_gate.authorization.denied", "release_gate", "approval",
+                                {"principal_key_id": principal.key_id, "expected_identity": expected_approver},
+                            )
+                            return self._error(403, "release_gate_identity_denied", "only the configured independent reviewer may approve release gates")
+                        body = self._body()
+                        version, candidate_sha = approval_match.groups()
+                        result = app.db.approve_release_candidate(
+                            tenant_id=tenant_id,
+                            release_version=version,
+                            candidate_sha=candidate_sha,
+                            decision=str(body.get("decision", "")),
+                            expected_gate_bundle_digest=str(body.get("expected_gate_bundle_digest", "")),
+                            approver=principal.name,
+                            approver_key_id=principal.key_id,
+                            rationale=str(body.get("rationale", "")),
+                        )
+                        return self._json(409 if result.get("decision") == "BLOCKED" else 201, result)
+
+                    decision_match = re.fullmatch(r"/api/v1/release-gates/(\d+\.\d+\.\d+)/([0-9a-fA-F]{40})/decision", path)
+                    if decision_match:
+                        ctx, response = self._principal("operator", "release:decide")
+                        if response:
+                            return response
+                        principal, tenant_id = ctx
+                        expected_authority = os.getenv("ZWORKFORCE_RELEASE_AUTHORITY", "cvsz").strip().casefold()
+                        expected_authority_key_id = os.getenv("ZWORKFORCE_RELEASE_AUTHORITY_KEY_ID", "").strip()
+                        if (
+                            principal.name.casefold() != expected_authority
+                            or not expected_authority_key_id
+                            or principal.key_id != expected_authority_key_id
+                        ):
+                            app.db.audit(
+                                tenant_id, principal.name, "release_gate.authorization.denied", "release_gate", "decision",
+                                {"principal_key_id": principal.key_id, "expected_identity": expected_authority,
+                                 "reason": "release authority key ID is missing or does not match the provisioned key"},
+                            )
+                            return self._error(403, "release_gate_identity_denied", "only the provisioned release-authority key may issue the final decision")
+                        body = self._body()
+                        version, candidate_sha = decision_match.groups()
+                        result = app.db.decide_release_candidate(
+                            tenant_id=tenant_id,
+                            release_version=version,
+                            candidate_sha=candidate_sha,
+                            requested_decision=str(body.get("decision", "GO")),
+                            rollback_target=str(body.get("rollback_target", "")),
+                            release_authority=principal.name,
+                            authority_key_id=principal.key_id,
+                            rationale=str(body.get("rationale", "")),
+                        )
+                        return self._json(409 if result.get("recorded") is False else 201, result)
+
                     if path in {"/github/webhook", "/webhooks/github"}:
                         secret = os.getenv("GITHUB_WEBHOOK_SECRET", "").strip()
                         if not secret:

@@ -34,6 +34,7 @@ jobs:
           python-version: "3.13"
 
       - name: Verify release tag
+        id: meta
         env:
           RELEASE_REF: ${{ inputs.ref }}
           RELEASE_VERSION: ${{ inputs.version }}
@@ -48,11 +49,23 @@ jobs:
             echo "ref must be the immutable v$RELEASE_VERSION tag" >&2
             exit 2
           }
-          git fetch origin "refs/tags/$RELEASE_REF:refs/tags/$RELEASE_REF" main
+          git fetch origin "refs/tags/$RELEASE_REF:refs/tags/$RELEASE_REF" "main:refs/remotes/origin/main"
           TAG_COMMIT="$(git rev-list -n 1 "$RELEASE_REF")"
           git merge-base --is-ancestor "$TAG_COMMIT" refs/remotes/origin/main
           git checkout --detach "$RELEASE_REF"
           python scripts/verify_release.py --expected "$RELEASE_VERSION"
+          echo "candidate_sha=$TAG_COMMIT" >> "$GITHUB_OUTPUT"
+
+      - name: Verify ARIN-Z exact-SHA release gate
+        env:
+          ZWORKFORCE_RELEASE_GATE_URL: ${{ vars.ZWORKFORCE_RELEASE_GATE_URL }}
+          ZWORKFORCE_RELEASE_GATE_TOKEN: ${{ secrets.ZWORKFORCE_RELEASE_GATE_TOKEN }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          CANDIDATE_SHA: ${{ steps.meta.outputs.candidate_sha }}
+        run: |
+          set -euo pipefail
+          git show refs/remotes/origin/main:scripts/verify_release_gate.py > "$RUNNER_TEMP/verify_release_gate.py"
+          python "$RUNNER_TEMP/verify_release_gate.py" --version "$RELEASE_VERSION" --sha "$CANDIDATE_SHA"
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v4

@@ -110,6 +110,8 @@ The PR that updates this ledger must independently satisfy the current protected
 
 The v3.0.3 publication boundary was crossed early and remains immutable. The v3.0.4 publication boundary remains closed.
 
+ARIN-Z gate recording and deterministic evaluation are governance tooling, not external production evidence. They do not upgrade any Stage A–I status in this ledger. Each external stage remains pending, partial, or blocked until real evidence for the final frozen candidate SHA is retained and independently reviewed; the release decision must be recorded separately as Stage I.
+
 ## Corrective external-gate attempt — 2026-08-25 to 2026-08-26
 
 The following observations are useful diagnostics but are not a production GO. Where no durable candidate-bound execution artifact was retained, the result is deliberately recorded as pending rather than promoted to final external evidence.

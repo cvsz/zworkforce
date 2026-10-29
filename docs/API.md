@@ -37,6 +37,25 @@ Policy document:
 {"default":"allow","rules":[{"id":"deny-shell","effect":"deny","action":"tool.shell_exec","when":{"department":"finance"}}]}
 ```
 
+## Release gates
+
+Release evidence, approvals, and final decisions are tenant-scoped and bound to a stable release version plus the full 40-character candidate SHA. Stage I is the derived release decision; evidence submission accepts Stages A–H only.
+
+Required scopes are separate: release:read, release:verify, release:record, release:approve, and release:decide. The service also enforces the configured ARIN-Z recorder, independent reviewer, and release authority identities and pins each role to a distinct provisioned API key ID. The default identities are arin-z, policedbc, and cvsz; missing key-ID configuration fails closed.
+Read and verify operations require viewer plus their dedicated scope. Evidence recording, independent approval, and final release decisions require operator plus release:record, release:approve, and release:decide respectively. The three write roles are pinned to distinct server-configured key IDs; a matching display name alone is insufficient.
+
+GET /api/v1/release-gates/{version}/{sha} returns the latest evidence record per required stage and the current gate-bundle digest.
+
+GET /api/v1/release-gates/{version}/{sha}/verify returns release_ready, the latest decision, ledger integrity, audit-chain integrity, and reasons. It fails closed unless the exact-SHA GO decision and independent approval are current.
+
+POST /api/v1/release-gates/evidence records evidence and runs the deterministic ARIN-Z evaluator. Request fields: release_version, candidate_sha, gate_id, and evidence. The evaluator derives PASS, FAIL, BLOCKED, or PENDING; callers cannot set status.
+
+POST /api/v1/release-gates/{version}/{sha}/approval records APPROVE or REJECT for the current gate-bundle digest. The request must include expected_gate_bundle_digest. Stale digests, incomplete gates, shared recorder/approver keys, and approval attempts after GO are recorded as BLOCKED.
+
+POST /api/v1/release-gates/{version}/{sha}/decision records the release authority's GO or NO_GO decision. A requested GO is stored as NO_GO unless all mandatory gates, independent approval, ledger/audit checks, identity separation, and the v3.0.4 rollback requirement pass. A NO_GO decision can revoke a prior GO.
+
+Every accepted evidence record, approval attempt, and final decision has a durable record hash and an audit event in the same transaction. The release API does not expose update/delete operations for these records.
+
 ## Tasks
 
 ```text
