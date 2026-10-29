@@ -119,6 +119,12 @@ function validateAdapterInput(input) {
       throw new AdapterInputError(key + " is not accepted by the audited adapter");
     }
   }
+  if (typeof input.currency !== "string" || !/^[A-Za-z]{3}$/.test(input.currency)) {
+    throw new AdapterInputError("currency must be a three-letter code");
+  }
+  if (!Number.isSafeInteger(input.amount_minor) || input.amount_minor <= 0) {
+    throw new AdapterInputError("amount_minor must be a positive safe integer");
+  }
   return input;
 }
 
