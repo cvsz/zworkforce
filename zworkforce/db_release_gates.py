@@ -869,7 +869,15 @@ class ReleaseGateMixin:
         valid = True
         for row in evidence_rows:
             evidence = json_loads(row["evidence_json"], {})
-            if _digest(evidence) != row["evidence_digest"] or _digest(_evidence_material(row)) != row["record_hash"]:
+            evaluated_status, evaluated_rationale = _evaluate_gate(row["gate_id"], evidence)
+            if (
+                _digest(evidence) != row["evidence_digest"]
+                or _digest(_evidence_material(row)) != row["record_hash"]
+                or row["evaluator"] != RELEASE_GATE_EVALUATOR
+                or row["recorded_by"].casefold() != _identity("ZWORKFORCE_RELEASE_GATE_RECORDER", "arin-z")
+                or evaluated_status != row["status"]
+                or evaluated_rationale != row["rationale"]
+            ):
                 valid = False
             expected_events.add(("release_gate.evidence.recorded", "release_gate_evidence", row["id"], row["record_hash"]))
         for row in approval_rows:
