@@ -13,6 +13,20 @@ ROOT = Path(__file__).resolve().parents[1]
 class ReleaseGateWorkflowTests(unittest.TestCase):
     def test_tag_release_and_manual_container_publication_fail_closed(self):
         release = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+        trusted_verifier = 'git show refs/remotes/origin/main:scripts/verify_release_gate.py > "$RUNNER_TEMP/verify_release_gate.py"'
+        self.assertEqual(release.count(trusted_verifier), 2)
+        self.assertEqual(release.count('python "$RUNNER_TEMP/verify_release_gate.py" --version "$RELEASE_VERSION" --sha "$CANDIDATE_SHA"'), 3)
+        self.assertNotIn("python scripts/verify_release_gate.py", release)
+        self.assertIn("git fetch origin main:refs/remotes/origin/main", release)
+        publish = release[release.index("  publish:"):]
+        self.assertLess(
+            publish.index("Fetch trusted main release gate verifier"),
+            publish.index("Re-verify ARIN-Z gate immediately before OCI publication"),
+        )
+        self.assertLess(
+            release.index(trusted_verifier),
+            release.index("Verify ARIN-Z exact-SHA release gate"),
+        )
         self.assertLess(
             release.index("Verify ARIN-Z exact-SHA release gate"),
             release.index("Build Python distributions"),
