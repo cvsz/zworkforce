@@ -75,8 +75,8 @@ The hash chain detects changes and reordering, while ledger cross-checks detect 
 | Read current gate snapshot | GET /api/v1/release-gates/{version}/{sha} | viewer + release:read | Any authorized reader |
 | Verify release readiness | GET /api/v1/release-gates/{version}/{sha}/verify | viewer + release:verify | Release workflow verifier |
 | Record and evaluate evidence | POST /api/v1/release-gates/evidence | operator + release:record | ARIN-Z |
-| Independent approval/rejection | POST /api/v1/release-gates/{version}/{sha}/approval | admin + release:approve | policedbc |
-| Final decision | POST /api/v1/release-gates/{version}/{sha}/decision | admin + release:decide | cvsz |
+| Independent approval/rejection | POST /api/v1/release-gates/{version}/{sha}/approval | operator + release:approve | policedbc |
+| Final decision | POST /api/v1/release-gates/{version}/{sha}/decision | operator + release:decide | cvsz |
 
 Create narrowly scoped API keys and store their one-time secrets outside the repository. The release workflow verifier key should be viewer with only release:verify. Do not use a wildcard scope for service identities.
 
@@ -84,8 +84,8 @@ Example key creation commands for the default tenant (the CLI stores each one-ti
 
 ```bash
 zworkforce key-create --name arin-z --role operator --scopes release:record
-zworkforce key-create --name policedbc --role admin --scopes release:approve
-zworkforce key-create --name cvsz --role admin --scopes release:decide
+zworkforce key-create --name policedbc --role operator --scopes release:approve
+zworkforce key-create --name cvsz --role operator --scopes release:decide
 zworkforce key-create --name release-gate-verifier --role viewer --scopes release:verify
 ```
 
