@@ -179,7 +179,7 @@ class AgentSkillCatalogTests(unittest.TestCase):
             result, error = self._run_installer(target, paths)
 
             self.assertEqual(result, 1)
-            self.assertIn("manifest.release.version must match 'X.Y.Z'", error)
+            self.assertIn("manifest.release.version must be a valid SemVer 2.0.0 string", error)
             self.assertFalse(target.exists())
 
     def test_installer_refuses_blocked_release_before_writing(self):
@@ -265,7 +265,7 @@ class AgentSkillCatalogTests(unittest.TestCase):
             (
                 "invalid semantic version",
                 lambda manifest: manifest["release"].update(version="latest"),
-                "manifest.release.version must match 'X.Y.Z'",
+                "manifest.release.version must be a valid SemVer 2.0.0 string",
             ),
             (
                 "unexpected top-level property",
