@@ -207,7 +207,31 @@ test("invalid JSON from a successful ledger response fails closed", async () => 
   assert.equal(response.headers.get("cache-control"), "no-store");
 });
 
-test("ledger client errors remain 400 without exposing upstream details", async () => {
+test("ledger idempotency conflicts preserve HTTP 409 without exposing upstream details", async () => {
+  let calls = 0;
+  const response = await request(
+    createZWalletServer({
+      env,
+      fetchImpl: async () => {
+        calls += 1;
+        return Response.json({ error: "private idempotency diagnostics" }, { status: 409 });
+      },
+    }),
+    "/api/invoice-intents",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tenant_id: "tenant-1", idempotency_key: "invoice-conflict", currency: "USD", amount_minor: 500 }),
+    },
+  );
+
+  assert.equal(response.status, 409);
+  assert.deepEqual(await response.json(), { error: "Billing request conflict" });
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(calls, 1);
+});
+
+test("ledger validation errors remain 400 without exposing upstream details", async () => {
   const response = await request(
     createZWalletServer({
       env,
