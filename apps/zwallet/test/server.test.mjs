@@ -33,6 +33,20 @@ test("health exposes no wallet or card authority", async () => {
   });
 });
 
+test("health does not treat blank ledger configuration as configured", async () => {
+  const response = await request(
+    createZWalletServer({ env: { Z_PLATFORM_BILLING_LEDGER_URL: "   ", Z_PLATFORM_SERVICE_TOKEN: "  " } }),
+    "/health",
+  );
+  assert.deepEqual(await response.json(), {
+    status: "ok",
+    service: "zwallet-adapter",
+    ledger_configured: false,
+    wallet_authority: false,
+    card_data: false,
+  });
+});
+
 test("invoice intents forward only audited billing fields", async () => {
   const calls = [];
   const result = await createInvoiceIntent(invoiceBody, env, async (url, options) => {
