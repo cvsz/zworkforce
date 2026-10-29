@@ -26,6 +26,14 @@ class PostgresIntegrationTests(unittest.TestCase):
     def test_fixture_uses_isolated_tenant(self):
         self.assertNotEqual(self.db.default_tenant, "ci")
 
+
+    def test_release_gate_snapshot_uses_postgres_transaction(self):
+        candidate_sha = "a" * 40
+        snapshot = self.db.get_release_gate_snapshot(self.tenant_id, "3.0.4", candidate_sha)
+        self.assertEqual(snapshot["candidate_sha"], candidate_sha)
+        self.assertEqual(len(snapshot["gates"]), 8)
+        self.assertFalse(snapshot["all_gates_pass"])
+
     def test_dashboard_events_round_trip_and_tenant_isolation(self):
         other_tenant = f"other-{uuid.uuid4().hex}"
         self.db.ensure_tenant(other_tenant, "Other")
