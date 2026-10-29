@@ -12,6 +12,12 @@ MANIFEST = ROOT / "configs" / "agent-skill-release-manifest.json"
 AGENT_DIR = ROOT / ".agents" / "agents"
 SKILL_DIR = ROOT / ".agents" / "skills"
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+SEMVER_RE = re.compile(
+    r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
+    r"(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
+    r"(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?"
+    r"(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$"
+)
 
 
 def frontmatter(text: str) -> dict[str, str]:
@@ -66,8 +72,8 @@ def validate() -> list[str]:
             if not isinstance(release.get(key), str) or not release[key].strip():
                 errors.append(f"manifest.release.{key} must be a non-empty string")
         version = release.get("version")
-        if isinstance(version, str) and not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
-            errors.append("manifest.release.version must match 'X.Y.Z'")
+        if isinstance(version, str) and not SEMVER_RE.fullmatch(version):
+            errors.append("manifest.release.version must be a valid SemVer 2.0.0 string")
         status = release.get("status")
         if not isinstance(status, str) or status not in {"candidate", "verified", "blocked", "released"}:
             errors.append("manifest.release.status has an unsupported value")
