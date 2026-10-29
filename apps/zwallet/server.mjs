@@ -20,6 +20,13 @@ class AdapterInputError extends Error {
   }
 }
 
+class AdapterConflictError extends Error {
+  constructor() {
+    super("Idempotency key conflicts with an existing request");
+    this.name = "AdapterConflictError";
+  }
+}
+
 class RequestTooLargeError extends Error {
   constructor() {
     super("Request body too large");
@@ -231,6 +238,10 @@ async function forwardLedger(path, input, env, fetchImpl, tenantId) {
   }
 
   if (!result.ok) {
+    // The ledger uses 409 specifically for an operation-scoped idempotency conflict.
+    // Preserve that contract without reflecting arbitrary upstream response bodies.
+    if (result.status === 409) throw new AdapterConflictError();
+
     // Redirects are never followed for financial mutations. Treat any 3xx
     // response as an upstream protocol/availability failure, not client input.
     if ((result.status >= 300 && result.status < 400) || result.status >= 500 || result.status === 429 || result.status === 401 || result.status === 403 || result.status === 408) {
@@ -283,6 +294,9 @@ export function createZWalletServer({ env = process.env, fetchImpl = fetch } = {
     } catch (error) {
       if (error instanceof LedgerUnavailableError) {
         return send(response, 503, { error: "Billing ledger unavailable" });
+      }
+      if (error instanceof AdapterConflictError) {
+        return send(response, 409, { error: "Idempotency key conflicts with an existing request" });
       }
       if (error instanceof RequestTooLargeError) {
         return send(response, 413, { error: "Request body too large" });
