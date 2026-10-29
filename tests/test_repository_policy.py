@@ -58,7 +58,7 @@ class RepositoryPolicyTests(unittest.TestCase):
             path, *reviewers = line.split()
             owners[path] = reviewers
 
-        self.assertEqual(["@cvsz"], owners.get("*"))
+        self.assertEqual(["@cvsz", "@policedbc"], owners.get("*"))
         for path in (
             "/.github/",
             "/zworkforce/security.py",
