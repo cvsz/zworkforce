@@ -6,6 +6,8 @@
 
 เอกสารนี้เป็น operator runbook เท่านั้น การแก้ไข source code หรือ CI ไม่ได้หมุน secret ใน environment จริง และไม่ใช่การอนุมัติให้เปลี่ยน production secret
 
+Credential boundary: the voice gateway accepts only `ZWORKFORCE_ZARVIS_VOICE_SERVICE_TOKEN`. Do not reuse `Z_PLATFORM_SERVICE_TOKEN` as a fallback; provision a dedicated voice-service credential through the approved secret manager. If it is absent while voice is enabled, startup must fail closed.
+
 ## Preconditions
 
 - มี change ticket/approval และระบุเจ้าของ voice gateway กับ zWorkforce runtime
