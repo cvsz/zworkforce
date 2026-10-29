@@ -69,11 +69,6 @@ class ReleaseGateWorkflowTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue(json.loads(result.stdout)["skipped"])
 
-
-if __name__ == "__main__":
-    unittest.main()
-
-
     def test_release_gate_client_never_follows_redirects_with_authorization(self):
         from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
         import threading
@@ -115,3 +110,5 @@ if __name__ == "__main__":
             server.server_close()
             thread.join(timeout=2)
 
+if __name__ == "__main__":
+    unittest.main()
