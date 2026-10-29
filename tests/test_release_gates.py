@@ -14,11 +14,17 @@ class ReleaseGateTests(unittest.TestCase):
                 "ZWORKFORCE_RELEASE_GATE_RECORDER",
                 "ZWORKFORCE_RELEASE_INDEPENDENT_APPROVER",
                 "ZWORKFORCE_RELEASE_AUTHORITY",
+                "ZWORKFORCE_RELEASE_GATE_RECORDER_KEY_ID",
+                "ZWORKFORCE_RELEASE_INDEPENDENT_APPROVER_KEY_ID",
+                "ZWORKFORCE_RELEASE_AUTHORITY_KEY_ID",
             )
         }
         os.environ["ZWORKFORCE_RELEASE_GATE_RECORDER"] = "arin-z"
         os.environ["ZWORKFORCE_RELEASE_INDEPENDENT_APPROVER"] = "policedbc"
         os.environ["ZWORKFORCE_RELEASE_AUTHORITY"] = "cvsz"
+        os.environ["ZWORKFORCE_RELEASE_GATE_RECORDER_KEY_ID"] = "arin-z-key"
+        os.environ["ZWORKFORCE_RELEASE_INDEPENDENT_APPROVER_KEY_ID"] = "policedbc-key"
+        os.environ["ZWORKFORCE_RELEASE_AUTHORITY_KEY_ID"] = "cvsz-release-key"
         self.temp, self.settings, self.db, self.provider, self.engine, self.auth = stack()
 
     def tearDown(self):
