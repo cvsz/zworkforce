@@ -401,11 +401,38 @@ test("direct adapter calls reject non-object input", async () => {
   assert.equal(calls, 0);
 });
 
-test("adapter rejects signing, card, KYC, MPC, and swap payloads", async () => {
-  await assert.rejects(
-    createInvoiceIntent({ tenant_id: "tenant-1", idempotency_key: "invoice-1", currency: "USD", amount_minor: 500, wallet_signature: "nope" }, env, async () => Response.json({})),
-    /wallet_signature is not accepted/,
-  );
+test("adapter rejects signing, card, KYC, MPC, and swap payloads at every nesting level", async () => {
+  const forbiddenPayloads = [
+    { wallet_signature: "nope" },
+    { metadata: { card_number: "synthetic-card-number" } },
+    { details: [{ WalletSignature: "synthetic-signature" }] },
+    { envelope: { "kyc-payload": { document: "synthetic" } } },
+    { items: [{ mpcShare: "synthetic-share" }] },
+    { request: { swap_route: { provider: "synthetic" } } },
+  ];
+  let calls = 0;
+
+  for (const forbiddenPayload of forbiddenPayloads) {
+    await assert.rejects(
+      createInvoiceIntent(
+        {
+          tenant_id: "tenant-1",
+          idempotency_key: "invoice-forbidden",
+          currency: "USD",
+          amount_minor: 500,
+          ...forbiddenPayload,
+        },
+        env,
+        async () => {
+          calls += 1;
+          return Response.json({});
+        },
+      ),
+      /is not accepted by the audited adapter/,
+    );
+  }
+
+  assert.equal(calls, 0);
 });
 
 
