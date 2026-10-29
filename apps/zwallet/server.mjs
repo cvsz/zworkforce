@@ -78,14 +78,35 @@ function ledgerTimeoutMs(env) {
   return value;
 }
 
+const FORBIDDEN_BILLING_KEYS = new Set([
+  "walletsignature",
+  "cardnumber",
+  "kycpayload",
+  "mpcshare",
+  "swaproute",
+]);
+
+function rejectForbiddenBillingFields(value) {
+  if (Array.isArray(value)) {
+    for (const item of value) rejectForbiddenBillingFields(item);
+    return;
+  }
+  if (value === null || typeof value !== "object") return;
+
+  for (const [key, nestedValue] of Object.entries(value)) {
+    const normalizedKey = key.replace(/[^a-z0-9]/gi, "").toLowerCase();
+    if (FORBIDDEN_BILLING_KEYS.has(normalizedKey)) {
+      throw new AdapterInputError(key + " is not accepted by the audited adapter");
+    }
+    rejectForbiddenBillingFields(nestedValue);
+  }
+}
+
 function validateAdapterInput(input) {
   if (input === null || typeof input !== "object" || Array.isArray(input)) {
     throw new AdapterInputError("JSON body must be an object");
   }
-  const forbidden = ["wallet_signature", "card_number", "kyc_payload", "mpc_share", "swap_route"];
-  for (const key of forbidden) {
-    if (Object.hasOwn(input, key)) throw new AdapterInputError(key + " is not accepted by the audited adapter");
-  }
+  rejectForbiddenBillingFields(input);
   return input;
 }
 
