@@ -48,6 +48,8 @@ psql "$Z_BILLING_LEDGER_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f services/billin
 npm test --prefix services/billing-ledger
 ```
 
+The dedicated CI workflow also runs the repository-mandated `tests/test_v3_postgres.py` against the same disposable PostgreSQL 17 service. This checks the existing control-plane PostgreSQL contract in addition to the new billing-ledger integration tests; the test database is synthetic and must never point to a customer or production DSN.
+
 Never point integration tests at a customer or production database. Tests use synthetic tenant IDs and append-only rows in a disposable database.
 
 ## Remaining production gates
