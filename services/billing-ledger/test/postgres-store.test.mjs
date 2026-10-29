@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import { Pool } from "pg";
 
 import { BillingLedger } from "../server.mjs";
@@ -159,4 +160,59 @@ test("PostgreSQL constraints reject negative usage counts and unsafe invoice amo
     ),
     (error) => error.code === "23514",
   );
+});
+
+
+test("readiness rejects same-named primary keys with incorrect tenant/idempotency columns", {
+  skip: !databaseUrl,
+}, async (t) => {
+  const schema = \`billing_drift_\${randomUUID().replaceAll("-", "")}\`;
+  const pool = new Pool({
+    connectionString: databaseUrl,
+    max: 1,
+    connectionTimeoutMillis: 3000,
+    statement_timeout: 5000,
+    query_timeout: 7000,
+    application_name: "billing-ledger-schema-drift-test",
+  });
+  t.after(async () => {
+    try {
+      await pool.query(\`DROP SCHEMA IF EXISTS "\${schema}" CASCADE\`);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  await pool.query(\`CREATE SCHEMA "\${schema}"\`);
+  await pool.query(\`SET search_path TO "\${schema}"\`);
+  const migration = await readFile(
+    new URL("../migrations/001_durable_billing_ledger.sql", import.meta.url),
+    "utf8",
+  );
+  await pool.query(migration);
+
+  const store = new PostgresLedgerStore({ pool });
+  assert.equal(await store.assertReady(), true);
+
+  await pool.query(
+    "ALTER TABLE billing_usage_records DROP CONSTRAINT billing_usage_records_tenant_idempotency_pk",
+  );
+  await pool.query(
+    "ALTER TABLE billing_usage_records ADD CONSTRAINT billing_usage_records_tenant_idempotency_pk PRIMARY KEY (tenant_id, usage_id)",
+  );
+  await assert.rejects(store.assertReady(), (error) => error.status === 503);
+
+  await pool.query(
+    "ALTER TABLE billing_usage_records DROP CONSTRAINT billing_usage_records_tenant_idempotency_pk",
+  );
+  await pool.query(
+    "ALTER TABLE billing_usage_records ADD CONSTRAINT billing_usage_records_tenant_idempotency_pk PRIMARY KEY (tenant_id, idempotency_key)",
+  );
+  await pool.query(
+    "ALTER TABLE billing_invoice_intents DROP CONSTRAINT billing_invoice_intents_tenant_idempotency_pk",
+  );
+  await pool.query(
+    "ALTER TABLE billing_invoice_intents ADD CONSTRAINT billing_invoice_intents_tenant_idempotency_pk PRIMARY KEY (tenant_id, intent_id)",
+  );
+  await assert.rejects(store.assertReady(), (error) => error.status === 503);
 });
