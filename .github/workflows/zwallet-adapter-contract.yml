@@ -1,0 +1,37 @@
+name: ZWallet Adapter Contract
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/zwallet/**"
+      - ".github/workflows/zwallet-adapter-contract.yml"
+  pull_request:
+    paths:
+      - "apps/zwallet/**"
+      - ".github/workflows/zwallet-adapter-contract.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zwallet-adapter-contract-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+      - name: Check adapter syntax
+        run: node --check apps/zwallet/server.mjs
+      - name: Run ZWallet adapter contract tests
+        run: npm test --prefix apps/zwallet
