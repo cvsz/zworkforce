@@ -441,11 +441,11 @@ test("tenant admission rejects ASCII control characters in tenant IDs and idempo
   let upstreamCalls = 0;
   const cases = [
     {
-      input: { tenant_id: "tenant-\\u0001", idempotency_key: "invoice-control-tenant", currency: "USD", amount_minor: 500 },
+      input: { tenant_id: "tenant-\u0001", idempotency_key: "invoice-control-tenant", currency: "USD", amount_minor: 500 },
       expected: /tenant_id is required/,
     },
     {
-      input: { tenant_id: "tenant-1", idempotency_key: "invoice-\\u007f", currency: "USD", amount_minor: 500 },
+      input: { tenant_id: "tenant-1", idempotency_key: "invoice-\u007f", currency: "USD", amount_minor: 500 },
       expected: /idempotency_key is required/,
     },
   ];
