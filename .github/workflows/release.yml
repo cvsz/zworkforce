@@ -33,7 +33,7 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Verify tag, source and main ancestry
+      - name: Verify tag, source and exact main candidate
         id: meta
         shell: bash
         run: |
@@ -42,7 +42,11 @@ jobs:
           [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "stable semantic version tag required" >&2; exit 2; }
           python scripts/verify_release.py --expected "$VERSION"
           git fetch origin main:refs/remotes/origin/main
-          git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main
+          MAIN_SHA="$(git rev-parse refs/remotes/origin/main)"
+          [[ "$GITHUB_SHA" == "$MAIN_SHA" ]] || {
+            echo "release tag must point to the exact current main HEAD" >&2
+            exit 2
+          }
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Verify ARIN-Z exact-SHA release gate

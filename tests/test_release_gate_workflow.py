@@ -20,6 +20,9 @@ class ReleaseGateWorkflowTests(unittest.TestCase):
         self.assertNotIn('\nrun: python "$RUNNER_TEMP/verify_release_gate.py"', release)
         self.assertNotIn("python scripts/verify_release_gate.py", release)
         self.assertIn("git fetch origin main:refs/remotes/origin/main", release)
+        self.assertIn('MAIN_SHA="$(git rev-parse refs/remotes/origin/main)"', release)
+        self.assertIn('[[ "$GITHUB_SHA" == "$MAIN_SHA" ]] || {', release)
+        self.assertNotIn('git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main', release)
         publish = release[release.index("  publish:"):]
         publish_fetch = "git fetch --no-tags origin main:refs/remotes/origin/main"
         self.assertIn(publish_fetch, publish)
@@ -30,8 +33,8 @@ class ReleaseGateWorkflowTests(unittest.TestCase):
             publish.index("Re-verify ARIN-Z gate immediately before OCI publication"),
         )
         self.assertLess(
-            release.index(trusted_verifier),
             release.index("Verify ARIN-Z exact-SHA release gate"),
+            release.index(trusted_verifier),
         )
         self.assertLess(
             release.index("Verify ARIN-Z exact-SHA release gate"),
