@@ -202,10 +202,10 @@ export async function createInvoiceIntent(input, env = process.env, fetchImpl = 
   return forwardLedger("/v1/invoice-intents", input, env, fetchImpl, tenantId);
 }
 
-export async function setCredits(input, env = process.env, fetchImpl = fetch, requestContext = null) {
-  validateAdapterInput(input);
-  const tenantId = requireTenantAdmission(requestContext, input, "/api/credits", env);
-  return forwardLedger("/v1/credits", input, env, fetchImpl, tenantId);
+// The absolute credit setter is intentionally unavailable until a separately
+// reviewed append-only adjustment and durable idempotency contract exists.
+export async function setCredits() {
+  throw new LedgerUnavailableError();
 }
 
 export function createZWalletServer({ env = process.env, fetchImpl = fetch } = {}) {
