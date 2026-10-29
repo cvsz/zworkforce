@@ -218,7 +218,7 @@ test("maps transport failure to generic 503 and makes exactly one attempt", asyn
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tenant_id: "tenant-1", idempotency_key: "credit-503", amount_minor: 100 }),
+      body: JSON.stringify({ tenant_id: "tenant-1", idempotency_key: "invoice-503", currency: "USD", amount_minor: 500 }),
     },
   );
 
@@ -335,7 +335,7 @@ test("invalid timeout configuration fails closed without calling upstream", asyn
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tenant_id: "tenant-1", idempotency_key: "credit-timeout-invalid", amount_minor: 100 }),
+      body: JSON.stringify({ tenant_id: "tenant-1", idempotency_key: "invoice-timeout-invalid", currency: "USD", amount_minor: 500 }),
     },
   );
 
@@ -398,6 +398,30 @@ test("direct adapter calls reject non-object input", async () => {
     }),
     /JSON body must be an object/,
   );
+  assert.equal(calls, 0);
+});
+
+test("invoice intents reject invalid currency and amount types before upstream access", async () => {
+  const base = { tenant_id: "tenant-1", idempotency_key: "invoice-invalid-field-type", currency: "USD", amount_minor: 500 };
+  const cases = [
+    { input: { ...base, currency: { cvv: "synthetic-cvv" } }, expected: /currency must be a three-letter code/ },
+    { input: { ...base, currency: "US\\nD" }, expected: /currency must be a three-letter code/ },
+    { input: { ...base, amount_minor: { metadata: "synthetic" } }, expected: /amount_minor must be a positive safe integer/ },
+    { input: { ...base, amount_minor: 1.5 }, expected: /amount_minor must be a positive safe integer/ },
+    { input: { ...base, amount_minor: 0 }, expected: /amount_minor must be a positive safe integer/ },
+  ];
+  let calls = 0;
+
+  for (const { input, expected } of cases) {
+    await assert.rejects(
+      createInvoiceIntent(input, env, async () => {
+        calls += 1;
+        return Response.json({ intent_id: "unexpected" });
+      }, tenantAssertionRequestContext(input, "/api/invoice-intents")),
+      expected,
+    );
+  }
+
   assert.equal(calls, 0);
 });
 
