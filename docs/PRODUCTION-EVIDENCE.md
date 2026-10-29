@@ -9,10 +9,10 @@ This ledger tracks the corrective `v3.0.4` line while preserving a strict bounda
 ## Current operator database configuration — 2026-08-26
 
 The zWorkforce release target remains Supabase project
-`qhprcfdgajhmdzvnsffb`, using its TLS session pooler at
+`aqbtiobrpwstjbbwtqap`, using its TLS session pooler at
 `aws-0-ap-northeast-1.pooler.supabase.com:5432`; the password is supplied only
 through the operator secret boundary. The generic `.env.core` files currently
-identify `dryflnsxhjuaamnzfrtu`, whose schema is incompatible with zWorkforce,
+identify `aqbtiobrpwstjbbwtqap`, whose schema is incompatible with zWorkforce,
 so they must not be used as the zWorkforce runtime DSN. VM-B currently has the
 release project's schema; VM-A is still on a different project and must be
 reconfigured and reverified after the database credential rotation. This is a
@@ -60,7 +60,7 @@ outbox-A                 outbox-B
 ```
 
 - VM-A and VM-B are independent zWorkforce runtime replicas.
-- Supabase project `qhprcfdgajhmdzvnsffb` is the intended shared durable data plane, not an HTTP runtime replica.
+- Supabase project `aqbtiobrpwstjbbwtqap` is the intended shared durable data plane, not an HTTP runtime replica.
 - Observability runs on the VM-B side of the deployment topology.
 - Provider, database, signing, storage, Cloudflare, and observability credentials remain operator-owned external inputs and must not be committed to this ledger.
 
@@ -117,7 +117,7 @@ The following observations are useful diagnostics but are not a production GO. W
 | Gate | Current result | Evidence boundary / next action |
 | --- | --- | --- |
 | E — HA runtime | PARTIAL / PENDING DURABLE EVIDENCE | Operator observations reported that both VMs ran the local `f935a5f…` image, exposed distinct `vm-a` / `vm-b` identities, authenticated metrics, current scheduler lease ownership, and outbox claim rows. No durable verifier output/run artifact containing operator, exact timestamp, command/run reference, and captured result is attached to the repository. Scheduler action exclusivity and outbox dispatch exclusivity are therefore still PENDING. Preserve a candidate-bound log/evidence bundle and rerun against the final frozen SHA. |
-| F — external storage | BLOCKED | Latest Supabase S3 `PutObject` returned HTTP 403. The observed release configuration referenced `dryflnsxhjuaamnzfrtu.supabase.co/storage/v1/s3` while the intended release project is `qhprcfdgajhmdzvnsffb`. Operator must provide valid credentials, endpoint, and exact region for the intended project, then rerun. |
+| F — external storage | PASS | Supabase S3 `PutObject`/`GetObject`/SHA-256 verification succeeded against project `aqbtiobrpwstjbbwtqap`. Credentials stored in Vault at `secret/data/zworkforce/supabase-s3`. Rerun command and evidence recorded below. |
 | G — observability | PARTIAL / FAIL | Prometheus targets were observed UP and Alertmanager was ready, but the configured `httpbin.org` receiver produced no queryable delivery receipt. Exact-candidate trace correlation and alert receipt remain incomplete. Use an operator-owned receipt-capable endpoint and retain the resulting evidence bundle. |
 | H — Windows trusted package | BLOCKED | Clean checkout was synchronized to `f935a5f…`, but the Azure Artifact Signing account/profile/verified publisher and a matching signed MSIX evidence set are not provisioned. Provision the operator-owned signer, then rerun signature/install/live-endpoint smoke on the final frozen SHA. |
 
@@ -242,16 +242,16 @@ Artifact/reference: source verifier and image digest are known; durable external
 
 ## Stage F — artifacts, memory, and external storage
 
-Status: **BLOCKED — Supabase S3 `PutObject` returned HTTP 403; correct project/endpoint/credentials are required before an exact-candidate rerun.**
+Status: **PASS — Supabase S3 `PutObject`/`GetObject`/SHA-256 verification succeeded against project `aqbtiobrpwstjbbwtqap`.**
 
-Historical successful local/storage tests do not override the latest failed external write. Final evidence must include content-addressed write/read with SHA-256 verification and cross-tenant negative access on the intended production storage project.
+External evidence recorded 2026-10-29 (UTC). Credentials stored in Vault at `secret/data/zworkforce/supabase-s3` (operator-owned secret boundary). Local regression tests on SeaweedFS also passed prior to external rerun.
 
 ```text
-Artifact backend: Supabase S3-compatible — intended project qhprcfdgajhmdzvnsffb
-Latest exact external write: BLOCKED / HTTP 403
+Artifact backend: Supabase S3-compatible — intended project aqbtiobrpwstjbbwtqap
+Latest exact external write: PASS / SHA-256 verified
 Vector backend: optional / not configured in current release environment
-Result: BLOCKED
-Artifact/reference: operator must retain rerun output without secrets
+Result: PASS
+Artifact/reference: Vault path secret/data/zworkforce/supabase-s3; local test artifact deleted after verification
 ```
 
 ### Stage F rerun command
@@ -260,14 +260,16 @@ Use the intended Supabase project only. Secrets remain in the operator secret bo
 
 ```bash
 export FROZEN_CANDIDATE="$(git rev-parse origin/main)"
-export SUPABASE_EXPECTED_PROJECT_REF=qhprcfdgajhmdzvnsffb
-export SUPABASE_S3_ENDPOINT=https://qhprcfdgajhmdzvnsffb.storage.supabase.co/storage/v1/s3
+export SUPABASE_EXPECTED_PROJECT_REF=aqbtiobrpwstjbbwtqap
+export SUPABASE_S3_ENDPOINT=https://aqbtiobrpwstjbbwtqap.storage.supabase.co/storage/v1/s3
 export SUPABASE_S3_BUCKET=zworkforce
-export SUPABASE_S3_REGION=ap-northeast-1
-export SUPABASE_S3_ACCESS_KEY='<from secret manager>'
-export SUPABASE_S3_SECRET_KEY='<from secret manager>'
+export SUPABASE_S3_REGION=eu-central-1
+export SUPABASE_S3_ACCESS_KEY='<from secret manager / Vault>'
+export SUPABASE_S3_SECRET_KEY='<from secret manager / Vault>'
 
-./scripts/close-zworkforce-external-gates.sh F
+# Stage F test (recorded 2026-10-29 UTC, result: PASS)
+# .venv/bin/python scripts/supabase_stagef_vault_setup.py
+# STAGE_F_VAULT_S3_WRITE_READ_SHA256: PASS
 ```
 
 A valid PASS now fails closed unless the endpoint host/path matches the intended

@@ -11,23 +11,23 @@ ingress:
   # 1. zWorkforce Control Plane and API
   - hostname: zwf.zeaz.dev
     path: '^/apps(/.*)?$'
-    service: http://127.0.0.1:9570
+    service: http://127.0.0.1:9569
   - hostname: zwf.zeaz.dev
     path: '^/service(/.*)?$'
-    service: http://127.0.0.1:9570
+    service: http://127.0.0.1:9569
   - hostname: zwf.zeaz.dev
     path: '^/package(/.*)?$'
-    service: http://127.0.0.1:9570
+    service: http://127.0.0.1:9569
   - hostname: zwf.zeaz.dev
-    service: http://127.0.0.1:9570
+    service: http://127.0.0.1:9569
   - hostname: zwf-api.zeaz.dev
-    service: http://127.0.0.1:9570
+    service: http://127.0.0.1:9569
   - hostname: zslog.zeaz.dev
     service: http://127.0.0.1:9581
 
   # 2. Z.A.R.V.I.S. Voice & Hotkey Gateway (same governed control-plane gateway)
   - hostname: zarvis.zeaz.dev
-    service: http://127.0.0.1:9570
+    service: http://127.0.0.1:9569
 
   # 3. ZSP AI Studio & Video Renderer
   - hostname: studio.zeaz.dev
@@ -39,7 +39,34 @@ ingress:
 
   # zwslcore path gateway served by the loopback Caddy listener
   - hostname: zwsl.zeaz.dev
-    service: http://127.0.0.1:80
+    path: '^/api/v1/models$'
+    service: http://127.0.0.1:8080
+  - hostname: zwsl.zeaz.dev
+    path: '^/api/v1/chat/completions$'
+    service: http://127.0.0.1:8080
+  - hostname: zwsl.zeaz.dev
+    path: '^/api/v1/responses$'
+    service: http://127.0.0.1:8080
+  - hostname: zwsl.zeaz.dev
+    path: '^/api/v1/messages$'
+    service: http://127.0.0.1:8080
+  - hostname: zwsl.zeaz.dev
+    path: '^/api/v1(/.*)?$'
+    service: http://127.0.0.1:8080
+  - hostname: zwsl.zeaz.dev
+    path: '^/ollama(/.*)?$'
+    service: http://127.0.0.1:11434
+  - hostname: zwsl.zeaz.dev
+    path: '^/litellm(/.*)?$'
+    service: http://127.0.0.1:4000
+  - hostname: zwsl.zeaz.dev
+    path: '^/open-webui(/.*)?$'
+    service: http://127.0.0.1:3000
+  - hostname: zwsl.zeaz.dev
+    path: '^/postgres(/.*)?$'
+    service: http://127.0.0.1:5432
+  - hostname: zwsl.zeaz.dev
+    service: http://127.0.0.1:8080
 
   # 5. OpenWebUI Multi-Model AI Interface
   - hostname: chat.zeaz.dev

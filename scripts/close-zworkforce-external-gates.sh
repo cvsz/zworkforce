@@ -140,7 +140,7 @@ stage_f(){
   : "${SUPABASE_S3_REGION:?set SUPABASE_S3_REGION}"
   : "${SUPABASE_S3_ACCESS_KEY:?set SUPABASE_S3_ACCESS_KEY}"
   : "${SUPABASE_S3_SECRET_KEY:?set SUPABASE_S3_SECRET_KEY}"
-  local expected_project_ref="${SUPABASE_EXPECTED_PROJECT_REF:-qhprcfdgajhmdzvnsffb}"
+  local expected_project_ref="${SUPABASE_EXPECTED_PROJECT_REF:-aqbtiobrpwstjbbwtqap}"
 
   python3 - "$SUPABASE_S3_ENDPOINT" "$expected_project_ref" <<'PY'
 import sys
@@ -380,7 +380,7 @@ stage_e(){
   local compose_a="${HA_COMPOSE_FILE_A:-compose.vm-a.yaml}"
   local compose_b="${HA_COMPOSE_FILE_B:-compose.vm-b.yaml}"
   local image_pull_policy="${HA_IMAGE_PULL_POLICY:-always}"
-  local expected_db_project_ref="${HA_EXPECTED_DB_PROJECT_REF:-qhprcfdgajhmdzvnsffb}"
+  local expected_db_project_ref="${HA_EXPECTED_DB_PROJECT_REF:-aqbtiobrpwstjbbwtqap}"
   local expected_db_host="${HA_EXPECTED_DB_HOST:-aws-0-ap-northeast-1.pooler.supabase.com}"
   local expected_db_port="${HA_EXPECTED_DB_PORT:-5432}"
 
