@@ -198,23 +198,15 @@ def _evaluate_gate(gate_id: str, evidence: dict[str, Any]) -> tuple[str, str]:
     if blocked_reason:
         return "BLOCKED", blocked_reason[:500]
 
-    required = {
-        "environment", "observed_at_utc", "artifact_uri", "artifact_sha256", "result_summary",
-    } | _STAGE_FIELDS[gate_id]
-    if not evidence.get("command") and not evidence.get("run_url"):
-        required.add("command_or_run_url")
-    missing = sorted(field for field in required if field not in evidence)
-    if missing:
-        return "PENDING", "missing required evidence fields: " + ", ".join(missing)
-
     artifact_hash = str(evidence.get("artifact_sha256", "")).lower()
-    if not _SHA256_RE.fullmatch(artifact_hash):
+    if artifact_hash and not _SHA256_RE.fullmatch(artifact_hash):
         return "FAIL", "artifact_sha256 is not a valid 64-character SHA-256 digest"
-
-    if gate_id == "A" and not _IMAGE_DIGEST_RE.fullmatch(str(evidence["deployed_image_digest"]).lower()):
-        return "FAIL", "deployed_image_digest must be an immutable sha256 image digest"
-    if gate_id == "H" and not _SHA256_RE.fullmatch(str(evidence["signed_msix_sha256"]).lower()):
-        return "FAIL", "signed_msix_sha256 is not a valid 64-character SHA-256 digest"
+    if gate_id == "A" and "deployed_image_digest" in evidence:
+        if not _IMAGE_DIGEST_RE.fullmatch(str(evidence["deployed_image_digest"]).lower()):
+            return "FAIL", "deployed_image_digest must be an immutable sha256 image digest"
+    if gate_id == "H" and "signed_msix_sha256" in evidence:
+        if not _SHA256_RE.fullmatch(str(evidence["signed_msix_sha256"]).lower()):
+            return "FAIL", "signed_msix_sha256 is not a valid 64-character SHA-256 digest"
 
     check_fields = {
         "B": ("pitr_verified",),
@@ -230,13 +222,23 @@ def _evaluate_gate(gate_id: str, evidence: dict[str, Any]) -> tuple[str, str]:
         return "FAIL", "required checks failed: " + ", ".join(failed_checks)
 
     if gate_id == "B":
-        if evidence["observed_rpo_seconds"] > evidence["target_rpo_seconds"]:
-            return "FAIL", "observed RPO exceeds the declared target"
-        if evidence["observed_rto_seconds"] > evidence["target_rto_seconds"]:
-            return "FAIL", "observed RTO exceeds the declared target"
+        if "observed_rpo_seconds" in evidence and "target_rpo_seconds" in evidence:
+            if evidence["observed_rpo_seconds"] > evidence["target_rpo_seconds"]:
+                return "FAIL", "observed RPO exceeds the declared target"
+        if "observed_rto_seconds" in evidence and "target_rto_seconds" in evidence:
+            if evidence["observed_rto_seconds"] > evidence["target_rto_seconds"]:
+                return "FAIL", "observed RTO exceeds the declared target"
+
+    required = {
+        "environment", "observed_at_utc", "artifact_uri", "artifact_sha256", "result_summary",
+    } | _STAGE_FIELDS[gate_id]
+    if not evidence.get("command") and not evidence.get("run_url"):
+        required.add("command_or_run_url")
+    missing = sorted(field for field in required if field not in evidence)
+    if missing:
+        return "PENDING", "missing required evidence fields: " + ", ".join(missing)
 
     return "PASS", "required evidence fields and deterministic stage assertions passed"
-
 
 def _evidence_material(row: dict[str, Any]) -> dict[str, Any]:
     return {
