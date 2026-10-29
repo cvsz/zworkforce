@@ -28,19 +28,25 @@ class CatalogSchemaRegressionTests(unittest.TestCase):
             with patch.object(VALIDATOR, "MANIFEST", manifest_path):
                 return VALIDATOR.validate()
 
-    def test_semver_accepts_numeric_triplet(self):
-        payload = json.loads(json.dumps(self.baseline))
-        payload["release"]["version"] = "2.10.3"
-        errors = self.validate_payload(payload)
-        self.assertFalse(any("release.version" in error for error in errors), errors)
-
-    def test_semver_rejects_malformed_versions(self):
-        for version in ("latest", "1.2", "1.2.3.4", "v1.2.3", "1..3"):
+    def test_semver_accepts_stable_prerelease_and_build_metadata(self):
+        for version in ("2.10.3", "1.0.0-alpha.1", "1.0.0+build.5", "1.0.0-rc.1+build.7"):
             with self.subTest(version=version):
                 payload = json.loads(json.dumps(self.baseline))
                 payload["release"]["version"] = version
                 errors = self.validate_payload(payload)
-                self.assertIn("manifest.release.version must match 'X.Y.Z'", errors)
+                self.assertFalse(any("release.version" in error for error in errors), errors)
+
+    def test_semver_rejects_malformed_versions_and_numeric_leading_zeroes(self):
+        invalid_versions = (
+            "latest", "1.2", "1.2.3.4", "v1.2.3", "1..3",
+            "01.2.3", "1.02.3", "1.2.03", "1.2.3-01", "1.2.3-", "1.2.3+",
+        )
+        for version in invalid_versions:
+            with self.subTest(version=version):
+                payload = json.loads(json.dumps(self.baseline))
+                payload["release"]["version"] = version
+                errors = self.validate_payload(payload)
+                self.assertIn("manifest.release.version must be a valid SemVer 2.0.0 string", errors)
 
     def test_unknown_top_level_property_is_rejected(self):
         payload = json.loads(json.dumps(self.baseline))
