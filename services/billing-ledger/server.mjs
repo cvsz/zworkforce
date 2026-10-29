@@ -117,6 +117,15 @@ export function createBillingLedgerServer({ env = process.env, ledger = new Bill
     if (request.method === "GET" && request.url === "/health") return send(response, 200, { status: "ok", service: "billing-ledger", wallet_authority: false, card_data: false });
     if (!authorized(request, env)) return send(response, 401, { error: "Unauthorized" });
 
+    // Never acknowledge financial mutations from process-local Maps in production.
+    // NODE_ENV must be explicitly development/test to use the in-memory store.
+    const mutationRoute = request.method === "POST" &&
+      ["/v1/usage", "/v1/credits", "/v1/invoice-intents"].includes(request.url);
+    const localMode = env.NODE_ENV === "development" || env.NODE_ENV === "test";
+    if (mutationRoute && ledger.store instanceof MemoryLedgerStore && !localMode) {
+      return send(response, 503, { error: "Durable billing store unavailable" });
+    }
+
     try {
       if (request.method === "POST" && request.url === "/v1/usage") {
         const result = await ledger.recordUsage(await readJson(request));
