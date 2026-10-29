@@ -39,8 +39,8 @@ class ReleaseGateApiTests(unittest.TestCase):
         self.base = f"http://127.0.0.1:{self.server.server_address[1]}"
 
         self.recorder_key_id, self.recorder_secret = self.auth.create_key("default", "arin-z", "operator", ["release:record"])
-        self.reviewer_key_id, self.reviewer_secret = self.auth.create_key("default", "policedbc", "admin", ["release:approve"])
-        self.authority_key_id, self.authority_secret = self.auth.create_key("default", "cvsz", "admin", ["release:decide"])
+        self.reviewer_key_id, self.reviewer_secret = self.auth.create_key("default", "policedbc", "operator", ["release:approve"])
+        self.authority_key_id, self.authority_secret = self.auth.create_key("default", "cvsz", "operator", ["release:decide"])
         os.environ["ZWORKFORCE_RELEASE_GATE_RECORDER_KEY_ID"] = self.recorder_key_id
         os.environ["ZWORKFORCE_RELEASE_INDEPENDENT_APPROVER_KEY_ID"] = self.reviewer_key_id
         os.environ["ZWORKFORCE_RELEASE_AUTHORITY_KEY_ID"] = self.authority_key_id
