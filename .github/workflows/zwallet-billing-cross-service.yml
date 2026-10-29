@@ -1,0 +1,50 @@
+name: ZWallet Billing Ledger Cross-Service Contract
+
+on:
+  pull_request:
+    paths:
+      - "services/billing-ledger/**"
+      - ".github/workflows/zwallet-billing-cross-service.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zwallet-billing-cross-service-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cross-service-contract:
+    # This evidence is intentionally bound to the reviewed ledger and adapter candidates.
+    # Update the pinned adapter SHA and branch guard when the candidate changes.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'fix/billing-ledger-postgres-scope-20261030-run11-r2'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      ZWALLET_ADAPTER_PATH: ${{ github.workspace }}/.integration/zwallet/apps/zwallet/server.mjs
+    steps:
+      - name: Checkout billing-ledger candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Checkout exact ZWallet tenant-admission candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: cvsz/zworkforce
+          ref: ad71aa8e9101a56b01b13a7037d61ed791ec0875
+          path: .integration/zwallet
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "24.22.1"
+
+      - name: Check exact candidate syntax
+        run: |
+          node --check services/billing-ledger/server.mjs
+          node --check "$ZWALLET_ADAPTER_PATH"
+
+      - name: Run end-to-end tenant admission contract
+        run: node --test services/billing-ledger/test/zwallet-adapter-contract.test.mjs
