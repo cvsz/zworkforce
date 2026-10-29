@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { BillingLedger, createBillingLedgerServer } from "../server.mjs";
 
-const env = { Z_PLATFORM_SERVICE_TOKEN: "service-token" };
+const env = { Z_PLATFORM_SERVICE_TOKEN: "service-token", NODE_ENV: "test" };
 
 async function request(server, path, options = {}) {
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -47,6 +47,59 @@ test("HTTP routes require service auth and expose no wallet/card authority", asy
 
   const unauthorized = await request(createBillingLedgerServer({ env }), "/v1/usage", { method: "POST", body: "{}" });
   assert.equal(unauthorized.status, 401);
+});
+
+test("blocks all HTTP billing mutations when the memory store is active outside explicit development/test mode", async () => {
+  for (const nodeEnv of [undefined, "production"]) {
+    const runtimeEnv = { ...env };
+    if (nodeEnv === undefined) delete runtimeEnv.NODE_ENV;
+    else runtimeEnv.NODE_ENV = nodeEnv;
+
+    const ledger = new BillingLedger({ idGenerator: () => "blocked-intent" });
+    const cases = [
+      ["/v1/usage", { usage_id: "usage-blocked", idempotency_key: "usage-blocked", tenant_id: "tenant-1", model: "test" }],
+      ["/v1/credits", { tenant_id: "tenant-1", credits: 100 }],
+      ["/v1/invoice-intents", { tenant_id: "tenant-1", idempotency_key: "invoice-blocked", currency: "USD", amount_minor: 500 }],
+    ];
+
+    for (const [path, payload] of cases) {
+      const response = await request(
+        createBillingLedgerServer({ env: runtimeEnv, ledger }),
+        path,
+        { method: "POST", headers, body: JSON.stringify(payload) },
+      );
+      assert.equal(response.status, 503, `NODE_ENV=${nodeEnv ?? "unset"} ${path}`);
+      assert.deepEqual(await response.json(), { error: "Durable billing store unavailable" });
+    }
+
+    assert.equal(ledger.store.records.size, 0);
+    assert.equal(ledger.store.credits.size, 0);
+    assert.equal(ledger.store.invoiceIntents.size, 0);
+  }
+});
+
+test("liveness remains healthy while readiness fails closed for an ephemeral production store", async () => {
+  const productionEnv = { ...env, NODE_ENV: "production" };
+  const health = await request(createBillingLedgerServer({ env: productionEnv }), "/health");
+  assert.equal(health.status, 200);
+  assert.deepEqual(await health.json(), { status: "ok", service: "billing-ledger", wallet_authority: false, card_data: false });
+
+  const productionReady = await request(createBillingLedgerServer({ env: productionEnv }), "/ready");
+  assert.equal(productionReady.status, 503);
+  assert.deepEqual(await productionReady.json(), {
+    status: "not_ready",
+    service: "billing-ledger",
+    reason: "durable_store_required",
+  });
+
+  const unsetEnv = { ...env };
+  delete unsetEnv.NODE_ENV;
+  const unsetReady = await request(createBillingLedgerServer({ env: unsetEnv }), "/ready");
+  assert.equal(unsetReady.status, 503);
+
+  const testReady = await request(createBillingLedgerServer({ env }), "/ready");
+  assert.equal(testReady.status, 200);
+  assert.deepEqual(await testReady.json(), { status: "ready", service: "billing-ledger" });
 });
 
 test("HTTP usage endpoint returns duplicate on repeated idempotency key", async () => {
