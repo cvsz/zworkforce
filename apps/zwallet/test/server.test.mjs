@@ -98,6 +98,49 @@ test("health does not treat blank ledger configuration as configured", async () 
   });
 });
 
+test("production rejects plaintext ledger URLs before sending service credentials", async () => {
+  const productionEnv = {
+    ...env,
+    NODE_ENV: "production",
+    Z_PLATFORM_BILLING_LEDGER_URL: "http://ledger",
+  };
+  let calls = 0;
+  const input = { tenant_id: "tenant-1", idempotency_key: "invoice-http-production", currency: "USD", amount_minor: 500 };
+  const response = await request(
+    createZWalletServer({
+      env: productionEnv,
+      fetchImpl: async () => {
+        calls += 1;
+        return Response.json({ intent_id: "unexpected" });
+      },
+    }),
+    "/api/invoice-intents",
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) },
+  );
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(calls, 0);
+});
+
+test("malformed downstream response metadata fails closed without retrying", async () => {
+  let calls = 0;
+  const input = { tenant_id: "tenant-1", idempotency_key: "invoice-invalid-response", currency: "USD", amount_minor: 500 };
+  const response = await request(
+    createZWalletServer({
+      env,
+      fetchImpl: async () => {
+        calls += 1;
+        return { ok: true, json: async () => ({ intent_id: "unexpected" }) };
+      },
+    }),
+    "/api/invoice-intents",
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) },
+  );
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(calls, 1);
+});
+
 test("invoice intents forward only audited billing fields", async () => {
   const calls = [];
   const input = { tenant_id: "tenant-1", idempotency_key: "invoice-1", currency: "USD", amount_minor: 500 };
