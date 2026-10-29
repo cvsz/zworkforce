@@ -515,7 +515,6 @@ class ReleaseGateMixin:
             raise ValueError("authenticated recorder identity and key ID are required")
         normalized = _normalize_evidence(gate, evidence)
         status, rationale = _evaluate_gate(gate, normalized)
-        now = _now()
         evidence_digest = _digest(normalized)
         record_id = uuid.uuid4().hex
         configured_recorder = _identity("ZWORKFORCE_RELEASE_GATE_RECORDER", "arin-z")
@@ -545,6 +544,7 @@ class ReleaseGateMixin:
                     return {"recorded": False, "status": "BLOCKED", "gate_id": gate,
                             "candidate_sha": sha, "rationale": "candidate is frozen by GO; record NO_GO before changing its evidence"}
 
+                now = _now()
                 material = {
                     "id": record_id,
                     "tenant_id": tenant_id,
@@ -617,7 +617,6 @@ class ReleaseGateMixin:
             raise ValueError("authenticated approver identity and key ID are required")
 
         approval_id = uuid.uuid4().hex
-        now = _now()
         configured_approver = _identity("ZWORKFORCE_RELEASE_INDEPENDENT_APPROVER", "policedbc")
 
         with self.connection() as c:
@@ -655,6 +654,7 @@ class ReleaseGateMixin:
                     "Independent reviewer rejected the candidate." if stored_decision == "REJECT"
                     else "Independent reviewer approved the current exact-SHA gate bundle."
                 )
+                now = _now()
                 approval_material = {
                     "id": approval_id,
                     "tenant_id": tenant_id,
@@ -720,7 +720,6 @@ class ReleaseGateMixin:
             raise ValueError("authenticated release-authority identity and key ID are required")
 
         decision_id = uuid.uuid4().hex
-        now = _now()
         configured_authority = _identity("ZWORKFORCE_RELEASE_AUTHORITY", "cvsz")
         normalized_rollback = str(rollback_target or "").strip()
         with self.connection() as c:
@@ -775,6 +774,7 @@ class ReleaseGateMixin:
                         final_rationale = "; ".join(reasons + ([note] if note else []))
 
                 approval_id = str(approval.get("id", "")) if approval else ""
+                now = _now()
                 material = {
                     "id": decision_id,
                     "tenant_id": tenant_id,
