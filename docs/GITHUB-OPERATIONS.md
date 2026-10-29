@@ -113,7 +113,10 @@ container-only publication workflow require the ARIN-Z exact-SHA release gate
 before publishing. Configure repository variable
 ZWORKFORCE_RELEASE_GATE_URL as the HTTPS origin of the deployed zWorkforce API
 and repository secret ZWORKFORCE_RELEASE_GATE_TOKEN as a dedicated viewer API
-key with only the release:verify scope. The gate check fails closed when the
+key with only the release:verify scope. The deployed zWorkforce service must also
+pin the ARIN-Z recorder, policedbc reviewer, and cvsz release authority to their
+exact distinct API key IDs using the ZWORKFORCE_RELEASE_*_KEY_ID environment
+variables. The gate check fails closed when the
 API or configuration is missing, the candidate SHA/version does not match, the
 independent approval is stale, any mandatory Stage A–H is not PASS, or ledger
 and audit verification fails. The tag-driven workflow repeats verification
