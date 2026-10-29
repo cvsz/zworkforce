@@ -51,7 +51,13 @@ jobs:
           ZWORKFORCE_RELEASE_GATE_TOKEN: ${{ secrets.ZWORKFORCE_RELEASE_GATE_TOKEN }}
           RELEASE_VERSION: ${{ steps.meta.outputs.version }}
           CANDIDATE_SHA: ${{ github.sha }}
-        run: python scripts/verify_release_gate.py --version "$RELEASE_VERSION" --sha "$CANDIDATE_SHA"
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The candidate must not control the verifier that admits its own release.
+          git show refs/remotes/origin/main:scripts/verify_release_gate.py > "$RUNNER_TEMP/verify_release_gate.py"
+          test -s "$RUNNER_TEMP/verify_release_gate.py"
+          python "$RUNNER_TEMP/verify_release_gate.py" --version "$RELEASE_VERSION" --sha "$CANDIDATE_SHA"
 
       - name: Build Python distributions
         run: |
@@ -322,13 +328,21 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
+      - name: Fetch trusted main release gate verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          git show refs/remotes/origin/main:scripts/verify_release_gate.py > "$RUNNER_TEMP/verify_release_gate.py"
+          test -s "$RUNNER_TEMP/verify_release_gate.py"
+
       - name: Re-verify ARIN-Z gate immediately before OCI publication
         env:
           ZWORKFORCE_RELEASE_GATE_URL: ${{ vars.ZWORKFORCE_RELEASE_GATE_URL }}
           ZWORKFORCE_RELEASE_GATE_TOKEN: ${{ secrets.ZWORKFORCE_RELEASE_GATE_TOKEN }}
           RELEASE_VERSION: ${{ needs.prepare-release.outputs.version }}
           CANDIDATE_SHA: ${{ github.sha }}
-        run: python scripts/verify_release_gate.py --version "$RELEASE_VERSION" --sha "$CANDIDATE_SHA"
+run: python "$RUNNER_TEMP/verify_release_gate.py" --version "$RELEASE_VERSION" --sha "$CANDIDATE_SHA"
 
       - name: Build and push OCI image
         uses: docker/build-push-action@v7
@@ -350,7 +364,7 @@ jobs:
           ZWORKFORCE_RELEASE_GATE_TOKEN: ${{ secrets.ZWORKFORCE_RELEASE_GATE_TOKEN }}
           RELEASE_VERSION: ${{ needs.prepare-release.outputs.version }}
           CANDIDATE_SHA: ${{ github.sha }}
-        run: python scripts/verify_release_gate.py --version "$RELEASE_VERSION" --sha "$CANDIDATE_SHA"
+run: python "$RUNNER_TEMP/verify_release_gate.py" --version "$RELEASE_VERSION" --sha "$CANDIDATE_SHA"
 
       - name: Create or update GitHub Release with all platform assets
         env:
