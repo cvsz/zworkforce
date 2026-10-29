@@ -20,7 +20,7 @@ It forwards credits and invoice-intent requests to `services/billing-ledger` onl
 - The adapter returns HTTP 503 with a generic body when Billing Ledger is unavailable, times out/connects unsuccessfully, returns 3xx redirects, 401/403 upstream authentication failures, 408 timeouts, 429 or 5xx responses, is not configured, or returns invalid success JSON. Redirects are never followed for financial mutations.
 - Responses include `Cache-Control: no-store`. The adapter does not retry automatically and does not forward upstream error bodies or `Retry-After`.
 - A 503 does **not** prove whether a financial mutation committed. Reconcile with Billing Ledger using the same durable, operation-specific `idempotency_key` before retrying; never generate a new key solely because the response was 503.
-- Upstream request-validation and conflict responses remain HTTP 400 with a generic message. Upstream authentication/configuration and timeout failures map to HTTP 503. Forbidden wallet/card/KYC/MPC/swap payloads remain rejected.
+- Upstream idempotency conflicts remain HTTP 409 with a generic message, preserving the ledger's same-key/different-payload conflict signal without exposing upstream details. Other upstream request-validation errors remain HTTP 400. Upstream authentication/configuration and timeout failures map to HTTP 503. Forbidden wallet/card/KYC/MPC/swap payloads remain rejected.
 
 ## Validation
 
