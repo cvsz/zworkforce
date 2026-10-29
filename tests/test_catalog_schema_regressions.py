@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -93,6 +94,14 @@ class CatalogSchemaRegressionTests(unittest.TestCase):
                 payload = json.loads(json.dumps(self.baseline))
                 payload["policy"]["default_mutation"] = value
                 self.assertIn("policy.default_mutation must equal 'deny'", self.validate_payload(payload))
+
+    def test_schema_pattern_rejects_trailing_line_terminator(self):
+        schema_path = ROOT / "schemas" / "agent-skill-release-manifest.schema.json"
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        pattern = schema["properties"]["release"]["properties"]["version"]["pattern"]
+
+        self.assertIsNone(re.search(pattern, "1.2.3\\n"))
+        self.assertIsNotNone(re.search(pattern, "1.2.3"))
 
 
 if __name__ == "__main__":
