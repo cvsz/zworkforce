@@ -401,6 +401,29 @@ test("direct adapter calls reject non-object input", async () => {
   assert.equal(calls, 0);
 });
 
+test("invoice intents reject unknown top-level fields before upstream access", async () => {
+  const base = { tenant_id: "tenant-1", idempotency_key: "invoice-unknown-field", currency: "USD", amount_minor: 500 };
+  const extras = [
+    { cvv: "synthetic-cvv" },
+    { metadata: { harmless_note: "not part of the audited contract" } },
+    { debug: { mode: "unexpected" } },
+  ];
+  let calls = 0;
+
+  for (const extra of extras) {
+    const input = { ...base, ...extra };
+    await assert.rejects(
+      createInvoiceIntent(input, env, async () => {
+        calls += 1;
+        return Response.json({ intent_id: "unexpected" });
+      }, tenantAssertionRequestContext(input, "/api/invoice-intents")),
+      /is not accepted by the audited adapter/,
+    );
+  }
+
+  assert.equal(calls, 0);
+});
+
 test("adapter rejects signing, card, KYC, MPC, and swap payloads at every nesting level", async () => {
   const forbiddenPayloads = [
     { wallet_signature: "nope" },
