@@ -89,7 +89,13 @@ zworkforce key-create --name cvsz --role admin --scopes release:decide
 zworkforce key-create --name release-gate-verifier --role viewer --scopes release:verify
 ```
 
-Provision these keys in the deployed zWorkforce database. The GitHub workflow secret must contain only the release-gate-verifier key; do not copy recorder, reviewer, or release-authority credentials into GitHub Actions.
+Provision these keys in the deployed zWorkforce database. Copy the returned ID for each of the first three keys into the corresponding server-side environment variable:
+
+- ARIN-Z key ID → ZWORKFORCE_RELEASE_GATE_RECORDER_KEY_ID
+- policedbc key ID → ZWORKFORCE_RELEASE_INDEPENDENT_APPROVER_KEY_ID
+- cvsz release key ID → ZWORKFORCE_RELEASE_AUTHORITY_KEY_ID
+
+Restart/redeploy the service after setting these values and verify that the IDs are present and distinct. The GitHub workflow secret must contain only the release-gate-verifier key; do not copy recorder, reviewer, or release-authority credentials into GitHub Actions.
 
 Example final approval request:
 
