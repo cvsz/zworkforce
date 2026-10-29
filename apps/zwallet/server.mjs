@@ -64,7 +64,29 @@ async function readJson(request) {
 
 function ledgerBaseUrl(env) {
   const configured = env.Z_PLATFORM_BILLING_LEDGER_URL;
-  return typeof configured === "string" ? configured.trim().replace(/\/+$/, "") : "";
+  if (typeof configured !== "string" || !configured.trim()) return "";
+
+  const value = configured.trim().replace(/\/+$/, "");
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return "";
+  }
+
+  if (
+    !["http:", "https:"].includes(parsed.protocol) ||
+    parsed.username ||
+    parsed.password ||
+    parsed.search ||
+    parsed.hash
+  ) {
+    return "";
+  }
+  if (typeof env.NODE_ENV === "string" && env.NODE_ENV.toLowerCase() === "production" && parsed.protocol !== "https:") {
+    return "";
+  }
+  return value;
 }
 
 function hasLedgerConfiguration(env) {
