@@ -20,11 +20,17 @@ class ReleaseGateApiTests(unittest.TestCase):
                 "ZWORKFORCE_RELEASE_GATE_RECORDER",
                 "ZWORKFORCE_RELEASE_INDEPENDENT_APPROVER",
                 "ZWORKFORCE_RELEASE_AUTHORITY",
+                "ZWORKFORCE_RELEASE_GATE_RECORDER_KEY_ID",
+                "ZWORKFORCE_RELEASE_INDEPENDENT_APPROVER_KEY_ID",
+                "ZWORKFORCE_RELEASE_AUTHORITY_KEY_ID",
             )
         }
         os.environ["ZWORKFORCE_RELEASE_GATE_RECORDER"] = "arin-z"
         os.environ["ZWORKFORCE_RELEASE_INDEPENDENT_APPROVER"] = "policedbc"
         os.environ["ZWORKFORCE_RELEASE_AUTHORITY"] = "cvsz"
+        os.environ.pop("ZWORKFORCE_RELEASE_GATE_RECORDER_KEY_ID", None)
+        os.environ.pop("ZWORKFORCE_RELEASE_INDEPENDENT_APPROVER_KEY_ID", None)
+        os.environ.pop("ZWORKFORCE_RELEASE_AUTHORITY_KEY_ID", None)
         self.temp, self.settings, self.db, self.provider, self.engine, self.auth = stack()
         self.app = App(self.settings, self.db, self.engine, self.auth, self.provider)
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), self.app.handler())
@@ -32,9 +38,12 @@ class ReleaseGateApiTests(unittest.TestCase):
         self.thread.start()
         self.base = f"http://127.0.0.1:{self.server.server_address[1]}"
 
-        _, self.recorder_secret = self.auth.create_key("default", "arin-z", "operator", ["release:record"])
-        _, self.reviewer_secret = self.auth.create_key("default", "policedbc", "admin", ["release:approve"])
-        _, self.authority_secret = self.auth.create_key("default", "cvsz", "admin", ["release:decide"])
+        self.recorder_key_id, self.recorder_secret = self.auth.create_key("default", "arin-z", "operator", ["release:record"])
+        self.reviewer_key_id, self.reviewer_secret = self.auth.create_key("default", "policedbc", "admin", ["release:approve"])
+        self.authority_key_id, self.authority_secret = self.auth.create_key("default", "cvsz", "admin", ["release:decide"])
+        os.environ["ZWORKFORCE_RELEASE_GATE_RECORDER_KEY_ID"] = self.recorder_key_id
+        os.environ["ZWORKFORCE_RELEASE_INDEPENDENT_APPROVER_KEY_ID"] = self.reviewer_key_id
+        os.environ["ZWORKFORCE_RELEASE_AUTHORITY_KEY_ID"] = self.authority_key_id
         _, self.reader_secret = self.auth.create_key("default", "gate-reader", "viewer", ["release:read"])
         _, self.verifier_secret = self.auth.create_key("default", "gate-verifier", "viewer", ["release:verify"])
 
