@@ -154,8 +154,12 @@ new_token="$(printf '%s' "$rolled" | jq -er '.result')" || fail "Cloudflare retu
 
 # Save the rotated value before any further API call can fail. If verification
 # or local replacement fails, the operator can recover from this private file.
+if ! printf 'CLOUDFLARE_API_TOKEN=%s\n' "$new_token" > "$recovery_file" ||
+   ! cmp -s <(printf 'CLOUDFLARE_API_TOKEN=%s\n' "$new_token") "$recovery_file" ||
+   [[ "$(stat -c '%a' "$recovery_file" 2>/dev/null)" != "600" ]]; then
+  fail "Cloudflare rotated the runtime token but recovery persistence could not be verified; manual bootstrap recovery is required"
+fi
 recovery_has_token=1
-printf 'CLOUDFLARE_API_TOKEN=%s\n' "$new_token" > "$recovery_file" || fail "could not persist replacement token recovery file"
 
 new_verify="$(api_get "$new_token" "/accounts/$account_id/tokens/verify")"
 [[ "$(printf '%s' "$new_verify" | jq -r '.success // false')" == true ]] || fail "replacement token verification failed"
