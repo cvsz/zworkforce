@@ -1,5 +1,7 @@
 from pathlib import Path
+import os
 import subprocess
+import tempfile
 import unittest
 
 from botocore.exceptions import ClientError
@@ -23,6 +25,7 @@ WINDOWS_SIGNATURE_SCRIPT = ROOT / "ZWorkforceClient" / "build" / "windows" / "Ve
 POSTGRES_BACKUP_SCRIPT = ROOT / "scripts" / "backup-postgres.sh"
 POSTGRES_RESTORE_SCRIPT = ROOT / "scripts" / "restore-postgres.sh"
 POSTGRES_CONNECTION_HELPER = ROOT / "scripts" / "lib" / "postgres-connection.sh"
+SIGNING_CERT_SCRIPT = ROOT / "scripts" / "generate-code-signing-cert.sh"
 
 
 class ReleaseWorkflowTests(unittest.TestCase):
@@ -86,6 +89,27 @@ postgres_cleanup_service
         self.assertNotIn("azure/login@v3", workflow)
         self.assertNotIn("WINDOWS_MSIX_PFX_BASE64", workflow)
         self.assertNotIn("Import-PfxCertificate", workflow)
+
+    def test_code_signing_certificate_generation_requires_explicit_password(self):
+        script = SIGNING_CERT_SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("umask 077", script)
+        self.assertIn('-passout "env:CODE_SIGNING_PFX_PASSWORD"', script)
+        self.assertNotIn("change-me-at-sign-time", script)
+
+        environment = os.environ.copy()
+        environment.pop("CODE_SIGNING_PFX_PASSWORD", None)
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            output_dir = Path(temporary_directory) / "certs"
+            result = subprocess.run(
+                ["bash", str(SIGNING_CERT_SCRIPT), str(output_dir)],
+                capture_output=True,
+                text=True,
+                check=False,
+                env=environment,
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("CODE_SIGNING_PFX_PASSWORD", result.stderr)
+            self.assertFalse(output_dir.exists())
 
     def test_pre_tag_windows_candidate_signing_is_sha_pinned_and_non_publishing(self):
         workflow = WINDOWS_SIGNED_CANDIDATE_WORKFLOW.read_text(encoding="utf-8")
