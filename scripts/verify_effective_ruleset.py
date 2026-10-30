@@ -40,7 +40,12 @@ def validate_effective_ruleset(desired: dict[str, Any], actual: dict[str, Any]) 
         errors.append("default-branch exclude conditions differ from desired state")
 
     bypass_actors = actual.get("bypass_actors")
-    if bypass_actors != []:
+    if "bypass_actors" not in actual or not isinstance(bypass_actors, list):
+        errors.append(
+            "UNVERIFIABLE: GitHub did not expose bypass_actors as an array; "
+            "authorized ruleset-writer/admin read-back is required"
+        )
+    elif bypass_actors:
         errors.append("bypass_actors must be empty")
     bypass_capability = actual.get("current_user_can_bypass")
     if bypass_capability not in (None, "never"):
@@ -209,6 +214,12 @@ def main() -> int:
         return 2
 
     errors = validate_effective_ruleset(desired, ruleset)
+    unverifiable = [error for error in errors if error.startswith("UNVERIFIABLE:")]
+    if unverifiable:
+        print("UNVERIFIABLE: GitHub did not expose all required effective ruleset fields")
+        for error in errors:
+            print(f"- {error}")
+        return 2
     if errors:
         print("FAIL: effective GitHub ruleset does not match desired state")
         for error in errors:
