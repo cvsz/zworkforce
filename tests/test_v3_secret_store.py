@@ -31,6 +31,8 @@ class SecretStoreTests(unittest.TestCase):
             "file://relative/secret",
             "file://",
             "file:relative/secret",
+            "file:////server/share/secret",
+            "file:///%5C%5Cserver/share/secret",
         )
         for reference in rejected_references:
             with self.subTest(reference=reference):
