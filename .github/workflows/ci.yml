@@ -373,17 +373,17 @@ jobs:
         run: docker compose config -q
       - name: Verify release workflow capabilities
         run: |
-          grep -q 'actions/attest-build-provenance@v4' .github/workflows/release.yml
+          grep -Eq 'actions/attest-build-provenance@[0-9a-f]{40}' .github/workflows/release.yml
           grep -q 'provenance: mode=max' .github/workflows/release.yml
           grep -q 'sbom: true' .github/workflows/release.yml
           grep -q 'gh release create' .github/workflows/release.yml
           grep -q 'id-token: write' .github/workflows/release.yml
-          grep -q 'azure/login@v3' .github/workflows/release.yml
-          grep -q 'azure/artifact-signing-action@v2' .github/workflows/release.yml
+          grep -Eq 'azure/login@[0-9a-f]{40}' .github/workflows/release.yml
+          grep -Eq 'azure/artifact-signing-action@[0-9a-f]{40}' .github/workflows/release.yml
           grep -q 'workflow_dispatch:' .github/workflows/windows-signed-candidate.yml
           grep -q 'git merge-base --is-ancestor' .github/workflows/windows-signed-candidate.yml
-          grep -q 'azure/login@v3' .github/workflows/windows-signed-candidate.yml
-          grep -q 'azure/artifact-signing-action@v2' .github/workflows/windows-signed-candidate.yml
+          grep -Eq 'azure/login@[0-9a-f]{40}' .github/workflows/windows-signed-candidate.yml
+          grep -Eq 'azure/artifact-signing-action@[0-9a-f]{40}' .github/workflows/windows-signed-candidate.yml
           grep -q 'CANDIDATE_REF' .github/workflows/windows-signed-candidate.yml
           grep -q 'Upload signed candidate evidence' .github/workflows/windows-signed-candidate.yml
           grep -q 'Package-Client.ps1 -Configuration Release -Platform x64 -Unsigned' .github/workflows/release.yml
