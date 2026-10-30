@@ -35,7 +35,7 @@ jobs:
       ZKSATO_TEST_DATABASE_URL: postgresql+psycopg://zksato:zksato_test@127.0.0.1:5432/zksato_test
       PGPASSWORD: zksato_test
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -111,7 +111,7 @@ jobs:
           test "$(git -C packages/zttshop-php rev-parse HEAD)" = "$(git rev-parse HEAD:packages/zttshop-php)"
           test "$(git -C packages/zmovie rev-parse HEAD)" = "$(git rev-parse HEAD:packages/zmovie)"
           test "$(git -C packages/zok rev-parse HEAD)" = "$(git rev-parse HEAD:packages/zok)"
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
         with:
           python-version: "3.11"
@@ -185,8 +185,8 @@ jobs:
         python: ["3.12", "3.13", "3.14"]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ matrix.python }}
       - name: Install package and runtime dependencies
@@ -216,16 +216,16 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: cvsz/zchat
           ref: 057dcc7c7838c77064d04f53da21bd7b5ba09055
           path: integration/zchat
           persist-credentials: false
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: "3.13"
       - name: Install both contract implementations
@@ -239,8 +239,8 @@ jobs:
   documentation-contract:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: "3.13"
       - name: Install package
@@ -267,8 +267,8 @@ jobs:
     env:
       ZWORKFORCE_TEST_POSTGRES_URL: postgresql://zworkforce:zworkforce@127.0.0.1:5432/zworkforce_ci
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: "3.13"
       - name: Install package
@@ -327,8 +327,8 @@ jobs:
   release-integrity:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: "3.13"
       - name: Install release package
@@ -396,8 +396,8 @@ jobs:
   container:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: docker/setup-buildx-action@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
       - name: Build hardened image
         shell: bash
         run: |
@@ -411,7 +411,7 @@ jobs:
     steps:
       - name: Enforce submodule validation result
         run: test "${{ needs.submodule-validation.result }}" = success
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: No shell=True in runtime
         run: '! grep -R --line-number --include="*.py" "shell=True" zworkforce'
       - name: No provider secrets in static assets
