@@ -2,6 +2,7 @@ import json
 import os
 import tempfile
 import unittest
+import urllib.error
 from pathlib import Path
 from unittest.mock import patch
 
@@ -38,6 +39,14 @@ class SecretStoreTests(unittest.TestCase):
             with self.subTest(reference=reference):
                 with self.assertRaises(SecretStoreError):
                     resolver.resolve(reference)
+
+    def test_file_reference_wraps_url_conversion_errors(self):
+        with patch(
+            "zworkforce.secret_store.urllib.request.url2pathname",
+            side_effect=urllib.error.URLError("unsupported file URL"),
+        ):
+            with self.assertRaises(SecretStoreError):
+                SecretResolver().resolve("file:///tmp/secret")
 
     def test_file_reference_accepts_absolute_and_loopback_paths(self):
         resolver = SecretResolver()
