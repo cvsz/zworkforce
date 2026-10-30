@@ -51,6 +51,24 @@ were changed in this run. Until the administrator records successful
 read-back, treat independent approval and restricted bypass as **NOT ENFORCED**
 and do not merge security-sensitive or production-impacting changes.
 
+### Read-only effective-ruleset verification
+
+Run the verifier from a trusted operator workstation after injecting `GH_TOKEN`
+or `GITHUB_TOKEN` through a secure environment. The token needs repository
+`Administration: read` permission only:
+
+```bash
+python scripts/verify_effective_ruleset.py --repository cvsz/zworkforce
+```
+
+The script performs GET requests only. Exit code `0` means the live ruleset
+matches the checked-in desired-state contract; `1` means policy drift; `2`
+means the API, permission, or input could not be verified. It checks active
+default-branch scope, approval count, CODEOWNERS and last-push approval,
+required status contexts, and bypass actors. It never writes ruleset settings
+or prints the token. This read-back is evidence, not an administrative repair;
+an authorized administrator must still apply and verify the server-side change.
+
 Global required checks must only include checks that are emitted for every pull
 request. In particular, `ZARVIS` uses path filters and its package-specific jobs
 must **not** be configured as global required contexts; they are mandatory when
