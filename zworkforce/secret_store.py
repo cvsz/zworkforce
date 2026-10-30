@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -48,8 +49,14 @@ class SecretResolver:
                 raise SecretStoreError("file secret reference must not carry a remote host")
             if not parts.path:
                 raise SecretStoreError("file secret reference must be an absolute path")
-            path_text = urllib.request.url2pathname(parts.path)
-            if path_text.startswith(("\\\\", "//")):
+            decoded_path = urllib.parse.unquote(parts.path)
+            if decoded_path.replace("/", "\\").startswith("\\\\"):
+                raise SecretStoreError("file secret reference must not use a network path")
+            try:
+                path_text = urllib.request.url2pathname(parts.path)
+            except urllib.error.URLError as exc:
+                raise SecretStoreError("invalid file secret path") from exc
+            if path_text.replace("/", "\\").startswith("\\\\"):
                 raise SecretStoreError("file secret reference must not use a network path")
             path = Path(path_text)
             if not path.is_absolute():
