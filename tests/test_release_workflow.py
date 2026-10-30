@@ -28,7 +28,7 @@ POSTGRES_CONNECTION_HELPER = ROOT / "scripts" / "lib" / "postgres-connection.sh"
 
 class ReleaseWorkflowTests(unittest.TestCase):
     def test_all_workflow_actions_are_pinned_to_immutable_commit_shas(self):
-        pattern = re.compile(r"^\\s*-?\\s*uses:\\s*([^\\s#]+)", re.MULTILINE)
+        pattern = re.compile(r"^\s*-?\s*uses:\s*([^\s#]+)", re.MULTILINE)
         unpinned = []
         workflow_dir = ROOT / ".github" / "workflows"
         for path in sorted((*workflow_dir.glob("*.yml"), *workflow_dir.glob("*.yaml"))):
