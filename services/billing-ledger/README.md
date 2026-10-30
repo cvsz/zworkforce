@@ -10,14 +10,15 @@ The durable PostgreSQL adapter, `PostgresLedgerStore`, persists usage records an
 
 ```sh
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f services/billing-ledger/migrations/001_durable_billing_ledger.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f services/billing-ledger/migrations/002_supported_invoice_currencies.sql
 ```
 
-The migration creates database-enforced (tenant_id, idempotency_key) primary keys, payload fingerprints, constrained invoice intent fields, and a schema-version marker. The insert is the atomic idempotency claim: concurrent duplicate requests cannot create two rows. Same-key/same-payload requests replay the stored object; same-key/different-payload requests return HTTP 409.
+The migration creates database-enforced (tenant_id, idempotency_key) primary keys, payload fingerprints, constrained invoice intent fields, and schema version 1. Migration 002 adds a validated database constraint for the currently supported ISO 4217 invoice currencies: `THB` and `USD`. Adding another currency requires a reviewed application allowlist change and a forward-only database migration. The insert is the atomic idempotency claim: concurrent duplicate requests cannot create two rows. Same-key/same-payload requests replay the stored object; same-key/different-payload requests return HTTP 409.
 
 Configure `DATABASE_URL` for the service. Production startup and any enabled billing-mutation gate require `sslmode=verify-full`. `Z_BILLING_LEDGER_REQUIRE_TLS=true` also enforces this in non-production environments. Without verified TLS, startup fails closed before opening the PostgreSQL pool. Connection and query timeouts are bounded. Do not put database credentials in logs or commit them to the repository.
 
 - `GET /health` is a liveness endpoint only.
-- `GET /ready` returns 200 only when PostgreSQL is reachable, schema version 1 is present, both ledger tables exist, and both tenant-scoped idempotency primary keys are present; otherwise it returns 503. This is a schema-admission check, not proof of production recovery or tenant isolation at the deployed gateway.
+- `GET /ready` returns 200 only when PostgreSQL is reachable, schema version 2 is present, both ledger tables exist, and both tenant-scoped idempotency primary keys are present; otherwise it returns 503. This is a schema-admission check, not proof of production recovery or tenant isolation at the deployed gateway.
 - Without `DATABASE_URL`, the service can start for diagnostics but all production mutation routes fail closed.
 - Database errors are redacted from HTTP responses.
 
@@ -35,7 +36,7 @@ The trusted ingress must authenticate the calling workload, authorize its tenant
 
 `/v1/credits` remains disabled for durable stores. The existing absolute setter has no operation idempotency key or append-only audit contract; replace it with a reviewed, tenant-authorized adjustment API before implementing credit mutations. The memory-backed setter is only for isolated unit tests.
 
-Invoice intents are records with status `requires_payment_processor`. They do not charge cards, move customer funds, or call a payment provider.
+Invoice intents are records with status `requires_payment_processor`. The only currently supported invoice currency codes are `THB` and `USD`; other ISO 4217 codes are rejected until explicitly added in both application validation and a forward-only database migration. They do not charge cards, move customer funds, or call a payment provider.
 
 ## Verification
 
