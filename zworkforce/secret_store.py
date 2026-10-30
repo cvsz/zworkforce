@@ -63,6 +63,9 @@ class SecretResolver:
                 raise SecretStoreError("file secret reference must be an absolute path")
             try:
                 resolved = path.resolve(strict=True)
+                resolved_text = str(resolved)
+                if resolved_text.replace("/", "\\").startswith("\\\\"):
+                    raise SecretStoreError("file secret reference must not resolve to a network path")
                 raw = resolved.read_text(encoding="utf-8")
             except (OSError, RuntimeError) as exc:
                 raise SecretStoreError(f"cannot read secret file: {path}") from exc
