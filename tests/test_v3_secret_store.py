@@ -48,6 +48,22 @@ class SecretStoreTests(unittest.TestCase):
             with self.assertRaises(SecretStoreError):
                 SecretResolver().resolve("file:///tmp/secret")
 
+    def test_file_reference_rejects_resolved_network_paths(self):
+        resolver = SecretResolver()
+        network_targets = (
+            r"\\server\share\secret.txt",
+            "//server/share/secret.txt",
+        )
+        for target in network_targets:
+            with self.subTest(target=target):
+                with (
+                    patch("zworkforce.secret_store.Path.resolve", return_value=Path(target)),
+                    patch("zworkforce.secret_store.Path.read_text") as read_text,
+                ):
+                    with self.assertRaisesRegex(SecretStoreError, "network path"):
+                        resolver.resolve("file:///tmp/local-secret")
+                    read_text.assert_not_called()
+
     def test_file_reference_accepts_absolute_and_loopback_paths(self):
         resolver = SecretResolver()
         with tempfile.TemporaryDirectory() as td:
