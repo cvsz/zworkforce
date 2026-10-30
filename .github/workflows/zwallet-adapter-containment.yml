@@ -1,0 +1,41 @@
+name: ZWallet Adapter Containment
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "apps/zwallet/server.mjs"
+      - "apps/zwallet/test/server.test.mjs"
+      - "apps/zwallet/README.md"
+      - ".github/workflows/zwallet-adapter-containment.yml"
+  pull_request:
+    paths:
+      - "apps/zwallet/server.mjs"
+      - "apps/zwallet/test/server.test.mjs"
+      - "apps/zwallet/README.md"
+      - ".github/workflows/zwallet-adapter-containment.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zwallet-adapter-containment-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: "22"
+      - name: Validate adapter syntax
+        run: node --check apps/zwallet/server.mjs
+      - name: Run adapter regression tests
+        run: node --test apps/zwallet/test/server.test.mjs
