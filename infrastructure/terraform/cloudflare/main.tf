@@ -9,6 +9,8 @@ locals {
     { hostname = var.zttato_hostname, service = var.zttato_origin },
     { hostname = var.qwen_hostname, service = var.qwen_origin },
     { hostname = var.chat_hostname, service = var.chat_origin },
+    { hostname = var.zchat_hostname, service = var.zchat_origin },
+    { hostname = var.zcoder_hostname, service = var.zcoder_origin },
     { hostname = var.piewdash_hostname, service = var.piewdash_origin },
     { hostname = var.zdash_hostname, service = var.zdash_origin },
     { hostname = var.zerp_hostname, service = var.zerp_origin },
@@ -96,6 +98,26 @@ resource "cloudflare_dns_record" "chat" {
   ttl     = 1
   proxied = true
   comment = "OpenWebUI chat via Cloudflare Tunnel"
+}
+
+resource "cloudflare_dns_record" "zchat" {
+  zone_id = var.cloudflare_zone_id
+  name    = var.zchat_hostname
+  type    = "CNAME"
+  content = local.tunnel_cname
+  ttl     = 1
+  proxied = true
+  comment = "ZChat Control Server via Cloudflare Tunnel"
+}
+
+resource "cloudflare_dns_record" "zcoder" {
+  zone_id = var.cloudflare_zone_id
+  name    = var.zcoder_hostname
+  type    = "CNAME"
+  content = local.tunnel_cname
+  ttl     = 1
+  proxied = true
+  comment = "ZChat conversation UI via Cloudflare Tunnel"
 }
 
 resource "cloudflare_dns_record" "piewdash" {

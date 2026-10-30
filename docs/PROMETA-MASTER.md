@@ -112,6 +112,14 @@ Every production agent should have:
 | `skill-registry-curator` | governance | sol | no | Verify skill manifest validation, signatures and registry host safety. |
 | `zok-merchant` | commerce | terra | yes | Manage conversational commerce, intent routing, cart recovery and omnichannel webhook dispatch across LINE, WhatsApp, TikTok, Shopee and Shopify. |
 
+## Reusable prompt references
+
+The [Face Recognition master prompt](../prompts/master-prompt-FaceRecognition.md)
+provides consent-focused design and review guidance for biometric identity
+systems. It does not grant data-collection or deployment authority and does not
+override product boundaries such as the `zarvis-perception` exclusion of
+biometric identification.
+
 ## Skill catalog
 
 Skills are reusable prompt/tool policy overlays. They should be signed before

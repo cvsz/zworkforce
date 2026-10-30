@@ -3,115 +3,151 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>ZChat</title>
+  <meta name="theme-color" content="#f4f7fb">
+  <meta name="description" content="ZChat is a focused AI conversation workspace.">
+  <title>ZChat — conversations</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <main class="shell">
     <header class="topbar">
-      <div class="topbar__title">
-        <h1>ZChat</h1>
-        <p>Gateway-only chat surface at zchat.zeaz.dev</p>
-      </div>
+      <a class="brand" href="/" aria-label="ZChat home">
+        <span class="brand__mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" focusable="false"><path d="M6 7.5A4.5 4.5 0 0 1 10.5 3h11A4.5 4.5 0 0 1 26 7.5v10a4.5 4.5 0 0 1-4.5 4.5h-5.2l-6.8 5v-5.2A4.5 4.5 0 0 1 6 17.5v-10Z"/><path d="M11 11h10M11 16h7"/></svg>
+        </span>
+        <span class="brand__copy"><strong>ZChat</strong><small>AI conversations</small></span>
+      </a>
       <div class="topbar__actions">
-        <button id="theme-toggle" type="button" aria-pressed="false" aria-label="Switch to dark mode">Dark mode</button>
-        <span class="conversation" id="conversation" aria-label="Conversation id">new</span>
-        <a href="/api/auth/cloudflare" id="login" role="button" aria-label="Log in with Cloudflare Access">Log in</a>
-        <button id="logout" type="button" aria-label="Log out">Log out</button>
+        <span class="gateway-badge">AI calls use the platform gateway</span>
+        <button id="theme-toggle" class="button button--quiet" type="button" aria-pressed="false" aria-label="Switch to dark mode">Dark mode</button>
       </div>
     </header>
 
-    <section class="workspace" aria-label="Chat workspace">
+    <section class="workspace" aria-label="ZChat workspace">
       <aside class="history-panel" aria-label="Conversation history">
         <div class="history-panel__header">
           <div>
-            <h2>History</h2>
-            <p>Recent chats stay on the browser side only.</p>
+            <p class="eyebrow">WORKSPACE</p>
+            <h1>Messages</h1>
           </div>
-          <button id="new-chat" type="button" aria-label="Start a new chat">New chat</button>
+          <button id="new-chat" class="button button--icon" type="button" aria-label="Start a new chat" title="New chat">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3.5v13M3.5 10h13"/></svg>
+          </button>
         </div>
         <label class="history-search" for="history-search">
-          <span>Search chats</span>
-          <input id="history-search" type="search" placeholder="Search title or message" autocomplete="off" aria-keyshortcuts="Control+K Meta+K">
+          <span class="sr-only">Search conversations</span>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.7" cy="8.7" r="5.7"/><path d="m13 13 4 4"/></svg>
+          <input id="history-search" type="search" placeholder="Search conversations" autocomplete="off" aria-keyshortcuts="Control+K Meta+K">
         </label>
+        <div class="history-panel__label"><span>Recent</span><span class="history-panel__local">Saved in this browser</span></div>
         <ol id="history" class="history" aria-label="Saved conversations"></ol>
+        <footer class="history-panel__footer">
+          <span class="privacy-dot" aria-hidden="true"></span>
+          <span>Conversation history stays in this browser.</span>
+        </footer>
       </aside>
 
       <section class="workspace__main" aria-label="Active conversation">
-        <section class="conversation-panel" aria-label="Conversation details">
-          <label for="conversation-title">Conversation title</label>
-          <input id="conversation-title" type="text" placeholder="New chat">
-          <p class="hint">This title stays with the selected conversation and appears in history.</p>
-        </section>
-
-        <section class="export-panel" aria-label="Conversation export">
-          <div class="export-panel__header">
-            <div>
-              <h2>Export</h2>
-              <p>Copy the active conversation as Markdown or download it as JSON.</p>
-            </div>
+        <header class="conversation-header">
+          <div class="assistant-avatar" aria-hidden="true">Z</div>
+          <div class="conversation-header__identity">
+            <p class="eyebrow">ZCHAT ASSISTANT</p>
+            <h2 id="conversation" aria-label="Conversation title">New conversation</h2>
           </div>
-          <div class="export-panel__actions">
-            <button id="copy-markdown" type="button" aria-label="Copy active conversation as markdown">Copy markdown</button>
-            <button id="download-json" type="button" aria-label="Download active conversation as JSON">Download JSON</button>
-            <button id="import-json" type="button" aria-label="Import a validated conversation JSON file">Import JSON</button>
-            <input id="import-json-file" class="visually-hidden" type="file" accept="application/json,.json">
-          </div>
-        </section>
+          <span class="conversation-header__spacer"></span>
+          <button id="conversation-options" class="button button--quiet conversation-options" type="button" aria-label="Conversation options" aria-controls="conversation-tools" aria-expanded="false">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="4" cy="10" r="1"/><circle cx="10" cy="10" r="1"/><circle cx="16" cy="10" r="1"/></svg>
+            <span>Options</span>
+          </button>
+        </header>
 
-        <section class="template-panel" aria-label="Prompt templates">
-          <div class="template-panel__header">
-            <div>
-              <h2>Prompt templates</h2>
-              <p>Save reusable prompts and start a new chat from one with a click.</p>
+        <section id="conversation-tools" class="conversation-tools" aria-label="Conversation tools" hidden>
+          <details class="tool-card conversation-panel">
+            <summary>Conversation title</summary>
+            <div class="tool-card__content">
+              <label for="conversation-title">Title</label>
+              <input id="conversation-title" type="text" placeholder="New conversation">
+              <p class="hint">The title is saved with this conversation.</p>
             </div>
-          </div>
-          <form id="template-form" class="template-form">
-            <label for="template-title">Template name</label>
-            <input id="template-title" type="text" placeholder="Code review">
-            <label for="template-prompt">Template prompt</label>
-            <textarea id="template-prompt" rows="3" placeholder="Enter a reusable prompt"></textarea>
-            <div class="template-form__actions">
-              <p class="hint">Built-in prompts stay available; your custom templates are browser-local.</p>
-              <button id="save-template" type="submit">Save template</button>
+          </details>
+
+          <details class="tool-card export-panel">
+            <summary>Export or import</summary>
+            <div class="tool-card__content">
+              <p class="hint">Copy the active conversation as Markdown or move it as JSON.</p>
+              <div class="export-panel__actions">
+                <button id="copy-markdown" class="button button--secondary" type="button" aria-label="Copy active conversation as markdown">Copy Markdown</button>
+                <button id="download-json" class="button button--secondary" type="button" aria-label="Download active conversation as JSON">Download JSON</button>
+                <button id="import-json" class="button button--secondary" type="button" aria-label="Import a validated conversation JSON file">Import JSON</button>
+                <input id="import-json-file" class="visually-hidden" type="file" accept="application/json,.json">
+              </div>
             </div>
-          </form>
-          <ol id="templates" class="templates" aria-label="Saved prompt templates"></ol>
+          </details>
+
+          <details class="tool-card template-panel">
+            <summary>Prompt templates</summary>
+            <div class="tool-card__content">
+              <p class="hint">Save reusable prompts in this browser.</p>
+              <form id="template-form" class="template-form">
+                <label for="template-title">Template name</label>
+                <input id="template-title" type="text" placeholder="Code review">
+                <label for="template-prompt">Template prompt</label>
+                <textarea id="template-prompt" rows="3" placeholder="Enter a reusable prompt"></textarea>
+                <div class="template-form__actions">
+                  <span class="hint">Built-in prompts stay available.</span>
+                  <button id="save-template" class="button button--secondary" type="submit">Save template</button>
+                </div>
+              </form>
+              <ol id="templates" class="templates" aria-label="Saved prompt templates"></ol>
+            </div>
+          </details>
+
+          <details class="tool-card prompt-panel">
+            <summary>System prompt</summary>
+            <div class="tool-card__content">
+              <label for="system-prompt">Instructions for this conversation</label>
+              <textarea id="system-prompt" rows="4" placeholder="Set the instructions for this conversation"></textarea>
+              <p class="hint">Saved with this chat and sent before each user message.</p>
+            </div>
+          </details>
         </section>
 
-        <section class="prompt-panel" aria-label="Conversation instructions">
-          <label for="system-prompt">System prompt</label>
-          <textarea id="system-prompt" rows="4" placeholder="Set the instructions for this conversation"></textarea>
-          <p class="hint">Saved with the current chat and sent before each user message.</p>
-        </section>
-
-        <div class="toolbar" aria-label="Chat controls">
-          <label for="model">Model</label>
-          <select id="model" aria-label="Model"></select>
+        <div class="conversation-toolbar" aria-label="Chat controls">
+          <div class="model-picker">
+            <label for="model">Model</label>
+            <select id="model" aria-label="Model"></select>
+          </div>
           <div class="toolbar__buttons">
-            <button id="retry" type="button" aria-label="Retry last message">Retry</button>
-            <button id="clear" type="button" aria-label="Clear conversation">Clear</button>
+            <button id="retry" class="button button--quiet" type="button" aria-label="Retry last message">Retry</button>
+            <button id="clear" class="button button--quiet" type="button">Clear chat</button>
           </div>
         </div>
 
         <p id="status" class="status" role="status" aria-live="polite" data-tone="ready">Loading models</p>
 
         <section class="transcript" aria-label="Conversation transcript">
-          <button id="load-older" class="load-older" type="button" hidden>Load older messages</button>
+          <button id="load-older" class="load-older button button--secondary" type="button" hidden>Load older messages</button>
           <ol id="transcript" class="messages" role="log" aria-live="polite" aria-relevant="additions text"></ol>
           <div id="empty-state" class="empty-state">
-            Start a conversation. Replies stream into the timeline and stay on the server gateway path.
+            <span class="empty-state__icon" aria-hidden="true">
+              <svg viewBox="0 0 48 48"><path d="M8 11a7 7 0 0 1 7-7h18a7 7 0 0 1 7 7v17a7 7 0 0 1-7 7H22l-9 8v-9.6A7 7 0 0 1 8 27V11Z"/><path d="M17 17h14M17 23h10"/></svg>
+            </span>
+            <h3>Start a conversation</h3>
+            <p>Ask a question, explore an idea, or draft something new.</p>
           </div>
         </section>
 
         <form id="composer" class="composer">
-          <label for="prompt">Message</label>
-          <textarea id="prompt" rows="5" placeholder="Write a message"></textarea>
+          <label class="sr-only" for="prompt">Message</label>
+          <textarea id="prompt" rows="2" placeholder="Message ZChat…"></textarea>
           <div class="composer__actions">
-            <p class="hint">Enter sends. Shift+Enter inserts a new line. Ctrl/⌘+K searches chats.</p>
+            <p class="hint">Enter to send · Shift+Enter for a new line · Ctrl/⌘+K to search</p>
             <div class="composer__actions-group">
-              <button id="stop" type="button" aria-label="Stop generating" disabled>Stop</button>
-              <button id="send" type="submit">Send</button>
+              <button id="stop" class="button button--secondary" type="button" aria-label="Stop generating" disabled>Stop</button>
+              <button id="send" class="button button--primary" type="submit" aria-label="Send message">
+                <span>Send</span>
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 10h13M10 4l6 6-6 6"/></svg>
+              </button>
             </div>
           </div>
         </form>

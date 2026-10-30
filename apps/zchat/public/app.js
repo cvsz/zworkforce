@@ -2,7 +2,6 @@ import {
   activeConversationSummary,
   appendMessage,
   clearActiveConversation,
-  clearChatState,
   conversationSummaries,
   conversationToExportData,
   conversationToMarkdown,
@@ -54,8 +53,9 @@ const send = document.querySelector("#send");
 const retry = document.querySelector("#retry");
 const clear = document.querySelector("#clear");
 const newChat = document.querySelector("#new-chat");
-const login = document.querySelector("#login");
-const logout = document.querySelector("#logout");
+const conversationOptions = document.querySelector("#conversation-options");
+const conversationTools = document.querySelector("#conversation-tools");
+const workspaceMain = document.querySelector(".workspace__main");
 const status = document.querySelector("#status");
 const conversationLabel = document.querySelector("#conversation");
 const emptyState = document.querySelector("#empty-state");
@@ -118,6 +118,7 @@ function setBusy(nextBusy) {
   importJson.disabled = nextBusy;
   conversationTitle.disabled = nextBusy;
   themeToggle.disabled = nextBusy;
+  conversationOptions.disabled = nextBusy;
   prompt.disabled = nextBusy;
   systemPrompt.disabled = nextBusy;
   templateForm.querySelectorAll("input, textarea, button").forEach((element) => {
@@ -750,6 +751,13 @@ newChat.addEventListener("click", () => {
   render();
 });
 
+conversationOptions.addEventListener("click", () => {
+  const isExpanded = conversationOptions.getAttribute("aria-expanded") === "true";
+  conversationOptions.setAttribute("aria-expanded", String(!isExpanded));
+  conversationTools.hidden = isExpanded;
+  workspaceMain.classList.toggle("has-conversation-tools", !isExpanded);
+});
+
 loadOlder.addEventListener("click", () => {
   const previousHeight = transcript.scrollHeight;
   visibleMessageLimit += 100;
@@ -779,28 +787,6 @@ document.addEventListener("keydown", (event) => {
     renderHistory();
   }
 });
-
-logout.addEventListener("click", async () => {
-  await fetch("/api/logout", { method: "POST" });
-  state = clearChatState(storage);
-  prompt.value = "";
-  login.style.display = "inline-flex";
-  logout.style.display = "none";
-  setStatus("Logged out", "idle");
-  render();
-});
-
-login.addEventListener("click", (event) => {
-  event.preventDefault();
-  setStatus("Redirecting to Cloudflare Access...", "busy");
-  setTimeout(() => {
-    login.style.display = "none";
-    logout.style.display = "inline-flex";
-    setStatus("Ready", "ready");
-  }, 500);
-});
-
-login.style.display = "none";
 
 state = {
   ...state,

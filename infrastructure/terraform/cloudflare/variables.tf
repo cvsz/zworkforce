@@ -29,7 +29,7 @@ variable "cloudflare_zone_id" {
 
 variable "cloudflare_tunnel_id" {
   type        = string
-  description = "Existing Cloudflare Tunnel ID, as a UUID or a 32-character hexadecimal value."
+  description = "ID of the existing zwslcore Cloudflare Tunnel used by all proxied tunnel CNAME records and ingress routes in this stack."
   validation {
     condition     = can(regex("^[0-9a-fA-F]{32}$", var.cloudflare_tunnel_id)) || can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.cloudflare_tunnel_id))
     error_message = "cloudflare_tunnel_id must be a UUID or 32 hexadecimal characters."
@@ -159,6 +159,46 @@ variable "chat_origin" {
   validation {
     condition     = var.chat_origin == "http://127.0.0.1:3000" || var.chat_origin == "http://127.0.0.1:3080"
     error_message = "chat_origin must use the reviewed OpenWebUI host port at http://127.0.0.1:3000 or the deployed host port at http://127.0.0.1:3080."
+  }
+}
+
+variable "zchat_hostname" {
+  type        = string
+  default     = "zchat.zeaz.dev"
+  description = "Public hostname for the ZChat Control Server dashboard."
+  validation {
+    condition     = endswith(lower(var.zchat_hostname), ".${lower(var.zone_name)}")
+    error_message = "zchat_hostname must be a subdomain of zone_name."
+  }
+}
+
+variable "zchat_origin" {
+  type        = string
+  default     = "http://127.0.0.1:8000"
+  description = "Loopback origin for the locally installed ZChat Control Server."
+  validation {
+    condition     = var.zchat_origin == "http://127.0.0.1:8000"
+    error_message = "zchat_origin must use the reviewed loopback Control Server at http://127.0.0.1:8000."
+  }
+}
+
+variable "zcoder_hostname" {
+  type        = string
+  default     = "zcoder.zeaz.dev"
+  description = "Public hostname for the ZChat conversation UI after its hostname move."
+  validation {
+    condition     = endswith(lower(var.zcoder_hostname), ".${lower(var.zone_name)}")
+    error_message = "zcoder_hostname must be a subdomain of zone_name."
+  }
+}
+
+variable "zcoder_origin" {
+  type        = string
+  default     = "http://127.0.0.1:3021"
+  description = "Host-loopback origin for the ZChat UI; the service must be published on this host port before the route is enabled."
+  validation {
+    condition     = var.zcoder_origin == "http://127.0.0.1:3021"
+    error_message = "zcoder_origin must use the reviewed host-loopback ZChat UI port at http://127.0.0.1:3021."
   }
 }
 

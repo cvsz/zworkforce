@@ -1,6 +1,7 @@
 # Secrets are supplied by .env.cloudflare as TF_VAR_cloudflare_api_token.
 cloudflare_account_id = "00000000000000000000000000000000"
 cloudflare_zone_id    = "00000000000000000000000000000000"
+# กำหนด ID ของ Tunnel zwslcore ในไฟล์ config ภายในที่เก็บอย่างปลอดภัย
 cloudflare_tunnel_id  = "00000000-0000-0000-0000-000000000000"
 
 zwf_hostname     = "zwf.zeaz.dev"
@@ -20,6 +21,10 @@ arin_origin       = "http://127.0.0.1:8080"
 zttshop_hostname  = "zttshop.zeaz.dev"
 zttshop_origin    = "http://127.0.0.1:8080"
 chat_hostname     = "chat.zeaz.dev"
+zchat_hostname    = "zchat.zeaz.dev"
+zchat_origin      = "http://127.0.0.1:8000"
+zcoder_hostname   = "zcoder.zeaz.dev"
+zcoder_origin     = "http://127.0.0.1:3021"
 chat_origin       = "http://127.0.0.1:3000"
 piewdash_hostname = "piewdash.zeaz.dev"
 piewdash_origin   = "http://127.0.0.1:80"

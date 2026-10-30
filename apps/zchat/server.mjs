@@ -10,6 +10,7 @@ const staticAssets = {
   "/app.js": { file: "app.js", type: "text/javascript; charset=utf-8" },
   "/chat-state.mjs": { file: "chat-state.mjs", type: "text/javascript; charset=utf-8" },
   "/chat-stream.mjs": { file: "chat-stream.mjs", type: "text/javascript; charset=utf-8" },
+  "/markdown.mjs": { file: "markdown.mjs", type: "text/javascript; charset=utf-8" },
   "/styles.css": { file: "styles.css", type: "text/css; charset=utf-8" },
 };
 
@@ -106,9 +107,10 @@ function requestAbortSignal(request) {
   return controller.signal;
 }
 
-function tenantId(request) {
-  const value = request.headers["x-tenant-id"];
-  return typeof value === "string" && value.trim() ? value.trim() : "anonymous";
+function tenantId(env) {
+  const value = env.ZCHAT_TENANT_ID?.trim();
+  if (!value) throw new Error("ZChat tenant context is not configured");
+  return value;
 }
 
 function sessionExpired(request, env) {
@@ -122,7 +124,7 @@ function gatewayHeaders(env, request, conversationId = randomUUID()) {
   return {
     Authorization: "Bearer " + env.Z_PLATFORM_SERVICE_TOKEN,
     "Content-Type": "application/json",
-    "X-Tenant-Id": tenantId(request),
+    "X-Tenant-Id": tenantId(env),
     "X-Conversation-Id": conversationId,
     "X-Usage-Correlation-Id": request.headers["x-usage-correlation-id"] || conversationId,
     "X-Request-Id": request.headers["x-request-id"] || randomUUID(),
@@ -152,6 +154,7 @@ export function zchatHealthSnapshot(env = process.env) {
     service: "zchat",
     release_sha: /^[0-9a-f]{40}$/.test(env.Z_PLATFORM_RELEASE_SHA || "") ? env.Z_PLATFORM_RELEASE_SHA : "unknown",
     gateway_configured: Boolean(env.Z_PLATFORM_AI_GATEWAY_URL && env.Z_PLATFORM_SERVICE_TOKEN),
+    tenant_configured: Boolean(env.ZCHAT_TENANT_ID?.trim()),
     session_ttl_seconds: Number(env.ZCHAT_SESSION_TTL_SECONDS || 0),
   };
 }
@@ -186,7 +189,7 @@ export async function chat(body, env = process.env, fetchImpl = fetch, request =
       stream: false,
       metadata: {
         z_platform: {
-          tenant_id: tenantId(request),
+          tenant_id: tenantId(env),
           conversation_id: conversationId,
           usage_correlation_id: request.headers["x-usage-correlation-id"] || conversationId,
         },
@@ -220,7 +223,7 @@ export async function chatStream(body, env = process.env, fetchImpl = fetch, req
       stream: true,
       metadata: {
         z_platform: {
-          tenant_id: tenantId(request),
+          tenant_id: tenantId(env),
           conversation_id: conversationId,
           usage_correlation_id: request.headers["x-usage-correlation-id"] || conversationId,
         },

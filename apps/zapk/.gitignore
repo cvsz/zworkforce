@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+!.env.zapk.example
+__pycache__/
+.pytest_cache/
+*.pyc
+data/

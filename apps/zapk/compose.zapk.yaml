@@ -1,0 +1,30 @@
+services:
+  zapk:
+    build:
+      context: .
+    image: zeazdev/zapk:local
+    environment:
+      ZEAZ_ENV: production
+      ZEAZ_BASE_PATH: /zapk
+      ZEAZ_DATA_DIR: /srv/data
+      ZEAZ_ADMIN_TOKEN: ${ZEAZ_ADMIN_TOKEN:?Required}
+      ZEAZ_SIGNING_SECRET: ${ZEAZ_SIGNING_SECRET:?Required}
+      ZEAZ_MAX_UPLOAD_BYTES: 157286400
+      APKCUBE_API_KEY: ${APKCUBE_API_KEY:-}
+    ports:
+      - "127.0.0.1:${ZAPK_PORT:-18080}:8000"
+    volumes:
+      - zapk_data:/srv/data
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+    restart: unless-stopped
+volumes:
+  zapk_data:

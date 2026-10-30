@@ -1,5 +1,7 @@
 from pathlib import Path
+import os
 import subprocess
+import tempfile
 import unittest
 
 from botocore.exceptions import ClientError
@@ -23,6 +25,7 @@ WINDOWS_SIGNATURE_SCRIPT = ROOT / "ZWorkforceClient" / "build" / "windows" / "Ve
 POSTGRES_BACKUP_SCRIPT = ROOT / "scripts" / "backup-postgres.sh"
 POSTGRES_RESTORE_SCRIPT = ROOT / "scripts" / "restore-postgres.sh"
 POSTGRES_CONNECTION_HELPER = ROOT / "scripts" / "lib" / "postgres-connection.sh"
+SIGNING_CERT_SCRIPT = ROOT / "scripts" / "generate-code-signing-cert.sh"
 
 
 class ReleaseWorkflowTests(unittest.TestCase):
@@ -71,26 +74,42 @@ postgres_cleanup_service
         self.assertIn("Windows release artifacts were skipped", workflow)
         self.assertIn("find dist windows-assets -type f -print", workflow)
 
-    def test_release_uses_azure_artifact_signing_with_oidc(self):
+    def test_release_uses_self_signed_code_signing(self):
         workflow = RELEASE_WORKFLOW.read_text(encoding="utf-8")
 
         self.assertIn("id-token: write", workflow)
         self.assertIn("environment: production", workflow)
-        self.assertIn("uses: azure/login@v3", workflow)
-        self.assertIn("uses: azure/artifact-signing-action@v2", workflow)
-        self.assertIn("AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}", workflow)
-        self.assertIn("AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}", workflow)
-        self.assertIn("AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}", workflow)
-        self.assertIn("AZURE_ARTIFACT_SIGNING_ENDPOINT", workflow)
-        self.assertIn("AZURE_ARTIFACT_SIGNING_ACCOUNT_NAME", workflow)
-        self.assertIn("AZURE_ARTIFACT_SIGNING_PROFILE_NAME", workflow)
+        self.assertIn("Sign MSIX with self-signed certificate", workflow)
+        self.assertIn("signtool.exe", workflow)
+        self.assertIn("WINDOWS_CODE_SIGNING_PFX: ${{ secrets.WINDOWS_CODE_SIGNING_PFX }}", workflow)
+        self.assertIn("WINDOWS_CODE_SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_CODE_SIGNING_PFX_PASSWORD }}", workflow)
         self.assertIn("Package-Client.ps1 -Configuration Release -Platform x64 -Unsigned", workflow)
-        self.assertIn("timestamp-rfc3161: http://timestamp.acs.microsoft.com", workflow)
-        self.assertIn("timestamp-digest: SHA256", workflow)
-        self.assertIn("file-digest: SHA256", workflow)
-        self.assertIn("enhanced-key-usage: 1.3.6.1.5.5.7.3.3", workflow)
+        self.assertIn("timestamp.digicert.com", workflow)
+        self.assertNotIn("azure/artifact-signing-action@v2", workflow)
+        self.assertNotIn("azure/login@v3", workflow)
         self.assertNotIn("WINDOWS_MSIX_PFX_BASE64", workflow)
         self.assertNotIn("Import-PfxCertificate", workflow)
+
+    def test_code_signing_certificate_generation_requires_explicit_password(self):
+        script = SIGNING_CERT_SCRIPT.read_text(encoding="utf-8")
+        self.assertIn("umask 077", script)
+        self.assertIn('-passout "env:CODE_SIGNING_PFX_PASSWORD"', script)
+        self.assertNotIn("change-me-at-sign-time", script)
+
+        environment = os.environ.copy()
+        environment.pop("CODE_SIGNING_PFX_PASSWORD", None)
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            output_dir = Path(temporary_directory) / "certs"
+            result = subprocess.run(
+                ["bash", str(SIGNING_CERT_SCRIPT), str(output_dir)],
+                capture_output=True,
+                text=True,
+                check=False,
+                env=environment,
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("CODE_SIGNING_PFX_PASSWORD", result.stderr)
+            self.assertFalse(output_dir.exists())
 
     def test_pre_tag_windows_candidate_signing_is_sha_pinned_and_non_publishing(self):
         workflow = WINDOWS_SIGNED_CANDIDATE_WORKFLOW.read_text(encoding="utf-8")
@@ -101,8 +120,7 @@ postgres_cleanup_service
         self.assertIn("git merge-base --is-ancestor", workflow)
         self.assertIn("environment: production", workflow)
         self.assertIn("id-token: write", workflow)
-        self.assertIn("uses: azure/login@v3", workflow)
-        self.assertIn("uses: azure/artifact-signing-action@v2", workflow)
+        self.assertIn("sign MSIX (self-signed)", workflow)
         self.assertIn("Package-Client.ps1 -Configuration Release -Platform x64 -Unsigned", workflow)
         self.assertIn('ExpectedVersion "$($env:RELEASE_VERSION).0"', workflow)
         self.assertIn("Upload signed candidate evidence", workflow)
@@ -113,6 +131,7 @@ postgres_cleanup_service
         self.assertNotIn("gh release create", workflow)
         self.assertNotIn("docker/build-push-action", workflow)
         self.assertNotIn("WINDOWS_MSIX_PFX_BASE64", workflow)
+        self.assertNotIn("azure/artifact-signing-action@v2", workflow)
 
     def test_unsigned_windows_package_is_explicit_and_signature_verifier_is_required(self):
         package_script = WINDOWS_PACKAGE_SCRIPT.read_text(encoding="utf-8")
@@ -147,13 +166,19 @@ postgres_cleanup_service
         self.assertNotIn("WINDOWS_MSIX_PFX_PASSWORD", gates)
         self.assertNotIn("WINDOWS_MSIX_SIGNING_PFX_PATH", gates)
 
-    def test_release_policy_requires_azure_artifact_signing(self):
+    def test_release_policy_requires_self_signed_code_signing(self):
         policy = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
 
-        self.assertIn("azure/artifact-signing-action@v2", policy)
-        self.assertIn("azure/login@v3", policy)
+        self.assertIn("Sign MSIX with self-signed certificate", policy)
+        self.assertIn("sign MSIX (self-signed)", policy)
         self.assertIn("Package-Client.ps1 -Unsigned", policy)
         self.assertNotIn("WINDOWS_MSIX_PFX_BASE64", policy)
+        self.assertNotIn("uses: azure/artifact-signing-action", policy)
+        # The guard must not match its own definition, and it must still be able
+        # to fail if a workflow re-adopts the Azure signing action.
+        self.assertIn('azure_action="azure/artifact-signing-""action"', policy)
+        self.assertIn('! grep -rqrn "$azure_action"', policy)
+        self.assertNotIn("! grep -rn 'azure/artifact-signing-action'", policy)
 
     def test_external_gates_bind_evidence_to_runtime_and_candidate(self):
         gates = EXTERNAL_GATES.read_text(encoding="utf-8")
