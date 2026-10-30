@@ -172,11 +172,12 @@ test("PostgreSQL readiness rechecks database connectivity instead of caching a s
       if (!online) throw new Error("synthetic database outage");
       return {
         rows: [{
-          version: 1,
+          version: 2,
           usage_table_present: true,
           invoice_table_present: true,
           usage_idempotency_pk_present: true,
           invoice_idempotency_pk_present: true,
+    invoice_currency_check_present: true,
         }],
       };
     },
@@ -192,11 +193,12 @@ test("PostgreSQL readiness rechecks database connectivity instead of caching a s
 
 test("PostgreSQL readiness fails closed when required schema objects or idempotency keys are missing", async () => {
   const completeSchema = {
-    version: 1,
+    version: 2,
     usage_table_present: true,
     invoice_table_present: true,
     usage_idempotency_pk_present: true,
     invoice_idempotency_pk_present: true,
+    invoice_currency_check_present: true,
   };
 
   for (const missingField of [
@@ -204,6 +206,7 @@ test("PostgreSQL readiness fails closed when required schema objects or idempote
     "invoice_table_present",
     "usage_idempotency_pk_present",
     "invoice_idempotency_pk_present",
+    "invoice_currency_check_present",
   ]) {
     const store = new PostgresLedgerStore({
       pool: {
