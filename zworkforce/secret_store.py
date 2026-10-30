@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import ntpath
 import os
 from pathlib import Path
 import urllib.error
@@ -10,6 +11,14 @@ import urllib.request
 
 class SecretStoreError(ValueError):
     pass
+
+
+def _is_network_path(path_text: str) -> bool:
+    drive, _ = ntpath.splitdrive(path_text.replace("/", "\\"))
+    normalized_drive = drive.lower()
+    if normalized_drive.startswith("\\\\?\\unc\\"):
+        return True
+    return drive.startswith("\\\\") and not normalized_drive.startswith("\\\\?\\")
 
 
 class SecretResolver:
@@ -50,21 +59,20 @@ class SecretResolver:
             if not parts.path:
                 raise SecretStoreError("file secret reference must be an absolute path")
             decoded_path = urllib.parse.unquote(parts.path)
-            if decoded_path.replace("/", "\\").startswith("\\\\"):
+            if _is_network_path(decoded_path):
                 raise SecretStoreError("file secret reference must not use a network path")
             try:
                 path_text = urllib.request.url2pathname(parts.path)
             except urllib.error.URLError as exc:
                 raise SecretStoreError("invalid file secret path") from exc
-            if path_text.replace("/", "\\").startswith("\\\\"):
+            if _is_network_path(path_text):
                 raise SecretStoreError("file secret reference must not use a network path")
             path = Path(path_text)
             if not path.is_absolute():
                 raise SecretStoreError("file secret reference must be an absolute path")
             try:
                 resolved = path.resolve(strict=True)
-                resolved_text = str(resolved)
-                if resolved_text.replace("/", "\\").startswith("\\\\"):
+                if _is_network_path(str(resolved)):
                     raise SecretStoreError("file secret reference must not resolve to a network path")
                 raw = resolved.read_text(encoding="utf-8")
             except (OSError, RuntimeError) as exc:
