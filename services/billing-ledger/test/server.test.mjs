@@ -77,6 +77,45 @@ test("scopes invoice idempotency by tenant and rejects amount conflicts", async 
   );
 });
 
+test("accepts only the supported ISO 4217 invoice currencies before mutating the store", async () => {
+  const ledger = new BillingLedger({
+    idGenerator: (() => {
+      let next = 0;
+      return () => `currency-intent-${++next}`;
+    })(),
+  });
+
+  const thb = await ledger.createInvoiceIntent({
+    tenant_id: "tenant-currency",
+    idempotency_key: "invoice-thb",
+    currency: "thb",
+    amount_minor: 100,
+  });
+  const usd = await ledger.createInvoiceIntent({
+    tenant_id: "tenant-currency",
+    idempotency_key: "invoice-usd",
+    currency: "USD",
+    amount_minor: 200,
+  });
+  assert.equal(thb.currency, "THB");
+  assert.equal(usd.currency, "USD");
+
+  for (const currency of ["ZZZ", "ABC", "EUR", "JPY", "XTS"]) {
+    await assert.rejects(
+      ledger.createInvoiceIntent({
+        tenant_id: "tenant-currency",
+        idempotency_key: `invoice-${currency}`,
+        currency,
+        amount_minor: 300,
+      }),
+      (error) => error.status === 400,
+      `${currency} must not be admitted until explicitly supported`,
+    );
+  }
+
+  assert.equal(ledger.store.invoiceIntents.size, 2);
+});
+
 test("rejects invalid usage token counts before mutating the store", async () => {
   const ledger = new BillingLedger();
   const base = { usage_id: "usage-invalid", idempotency_key: "usage-invalid", tenant_id: "tenant-1", model: "test" };
