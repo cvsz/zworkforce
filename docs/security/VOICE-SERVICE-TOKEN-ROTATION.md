@@ -8,6 +8,8 @@
 
 Credential boundary: the voice gateway accepts only `ZWORKFORCE_ZARVIS_VOICE_SERVICE_TOKEN`. Do not reuse `Z_PLATFORM_SERVICE_TOKEN` as a fallback; provision a dedicated voice-service credential through the approved secret manager. If it is absent while voice is enabled, startup must fail closed.
 
+Launcher integrity: `start-zworkforce.sh` is an executable entry point and must retain Git mode `100755`; the startup secret-hygiene tests enforce this.
+
 ## Preconditions
 
 - มี change ticket/approval และระบุเจ้าของ voice gateway กับ zWorkforce runtime
