@@ -1,5 +1,6 @@
 import os
 import tempfile
+from pathlib import Path
 os.environ['ZEAZ_DATA_DIR']=tempfile.mkdtemp()
 os.environ['ZEAZ_ADMIN_TOKEN']='test-secret'
 from fastapi.testclient import TestClient
@@ -26,3 +27,15 @@ def test_file_validation():
     headers={'Authorization':'Bearer test-secret'}
     bad=client.post('/api/publisher/apps/org.example.test/builds',data={'version':'1.0'},files={'file':('bad.apk',b'invalid bytes')},headers=headers)
     assert bad.status_code==400
+
+
+def test_example_environment_uses_placeholders():
+    env_path = Path(__file__).resolve().parents[1] / '.env.zapk.example'
+    values = {}
+    for line in env_path.read_text(encoding='utf-8').splitlines():
+        if line and not line.lstrip().startswith('#') and '=' in line:
+            key, value = line.split('=', 1)
+            values[key] = value
+    assert values['ZEAZ_ADMIN_TOKEN'] == 'replace-with-long-random-secret'
+    assert values['ZEAZ_SIGNING_SECRET'] == 'replace-with-another-long-random-secret'
+    assert values['ZEAZ_ADMIN_TOKEN'] != values['ZEAZ_SIGNING_SECRET']
