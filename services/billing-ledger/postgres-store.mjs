@@ -75,10 +75,18 @@ export class PostgresLedgerStore {
                           AND a.attnum = key_column.attnum
                         ORDER BY key_column.ordinality
                      ) = ARRAY['tenant_id', 'idempotency_key']::text[]
-                ) AS invoice_idempotency_pk_present
+                ) AS invoice_idempotency_pk_present,
+                EXISTS (
+                  SELECT 1
+                    FROM pg_constraint c
+                   WHERE c.conname = 'billing_invoice_intents_supported_currency_check'
+                     AND c.conrelid = to_regclass('billing_invoice_intents')
+                     AND c.contype = 'c'
+                     AND c.convalidated = true
+                ) AS invoice_currency_check_present
            FROM billing_schema_migrations
           WHERE version = $1`,
-        [1],
+        [2],
       );
       const schema = rows?.[0];
       if (
@@ -86,7 +94,8 @@ export class PostgresLedgerStore {
         schema.usage_table_present !== true ||
         schema.invoice_table_present !== true ||
         schema.usage_idempotency_pk_present !== true ||
-        schema.invoice_idempotency_pk_present !== true
+        schema.invoice_idempotency_pk_present !== true ||
+        schema.invoice_currency_check_present !== true
       ) {
         throw storageUnavailable();
       }
