@@ -41,10 +41,18 @@ class SecretResolver:
                 raise SecretStoreError(f"environment secret not found: {name}")
             return os.environ[name]
         if scheme == "file":
+            authority = parts.netloc.lower()
+            if authority.startswith("[") and authority.endswith("]"):
+                authority = authority[1:-1]
+            if authority and authority not in {"localhost", "127.0.0.1", "::1"}:
+                raise SecretStoreError("file secret reference must not carry a remote host")
+            if not parts.path or not parts.path.startswith("/"):
+                raise SecretStoreError("file secret reference must be an absolute path")
             path = Path(urllib.request.url2pathname(parts.path))
             try:
-                raw = path.read_text(encoding="utf-8")
-            except OSError as exc:
+                resolved = path.resolve(strict=True)
+                raw = resolved.read_text(encoding="utf-8")
+            except (OSError, RuntimeError) as exc:
                 raise SecretStoreError(f"cannot read secret file: {path}") from exc
             if parts.fragment:
                 try:
