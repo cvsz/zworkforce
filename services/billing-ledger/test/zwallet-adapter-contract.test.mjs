@@ -203,6 +203,23 @@ test(
       assert.equal(missingAssertion.status, 403);
       assert.equal(store.invoiceIntents.size, 1, "missing assertions must not reach the ledger");
 
+      const unsupportedCurrencyInput = {
+        ...input,
+        idempotency_key: "invoice-unsupported-currency",
+        currency: "ZZZ",
+      };
+      const unsupportedCurrencyBody = JSON.stringify(unsupportedCurrencyInput);
+      const unsupportedCurrency = await fetch(`${adapterUrl}/api/invoice-intents`, {
+        method: "POST",
+        headers: assertionHeaders(unsupportedCurrencyBody, assertionSecret),
+        body: unsupportedCurrencyBody,
+      });
+      assert.equal(unsupportedCurrency.status, 400);
+      assert.deepEqual(await unsupportedCurrency.json(), {
+        error: "currency must be one of the supported ISO 4217 codes: THB, USD",
+      });
+      assert.equal(store.invoiceIntents.size, 1, "unsupported currency must not reach durable storage");
+
       const directMissingTenant = await fetch(`${ledgerUrl}/v1/invoice-intents`, {
         method: "POST",
         headers: {
