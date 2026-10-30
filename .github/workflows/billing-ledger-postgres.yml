@@ -64,7 +64,9 @@ jobs:
       - name: Apply additive schema to disposable PostgreSQL
         run: |
           set -euo pipefail
-          psql "$Z_BILLING_LEDGER_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f services/billing-ledger/migrations/001_durable_billing_ledger.sql
+          for migration in services/billing-ledger/migrations/*.sql; do
+            psql "$Z_BILLING_LEDGER_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
+          done
           psql "$Z_BILLING_LEDGER_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -c "SELECT version FROM billing_schema_migrations ORDER BY version"
       - name: Run in-memory and PostgreSQL contract tests
         run: npm test --prefix services/billing-ledger
@@ -125,19 +127,22 @@ jobs:
 
           usage_rows="$(psql "$restore_url" -v ON_ERROR_STOP=1 -Atc "SELECT count(*) FROM billing_usage_records WHERE tenant_id='tenant-restore-drill' AND idempotency_key='restore-usage-key'")"
           invoice_rows="$(psql "$restore_url" -v ON_ERROR_STOP=1 -Atc "SELECT count(*) FROM billing_invoice_intents WHERE tenant_id='tenant-restore-drill' AND idempotency_key='restore-invoice-key' AND status='requires_payment_processor'")"
-          schema_rows="$(psql "$restore_url" -v ON_ERROR_STOP=1 -Atc "SELECT count(*) FROM billing_schema_migrations WHERE version=1")"
+          schema_rows="$(psql "$restore_url" -v ON_ERROR_STOP=1 -Atc "SELECT count(*) FROM billing_schema_migrations WHERE version=2")"
           usage_pk="$(psql "$restore_url" -v ON_ERROR_STOP=1 -Atc "SELECT count(*) FROM pg_constraint WHERE conname='billing_usage_records_tenant_idempotency_pk'")"
           invoice_pk="$(psql "$restore_url" -v ON_ERROR_STOP=1 -Atc "SELECT count(*) FROM pg_constraint WHERE conname='billing_invoice_intents_tenant_idempotency_pk'")"
+          currency_check="$(psql "$restore_url" -v ON_ERROR_STOP=1 -Atc "SELECT count(*) FROM pg_constraint WHERE conname='billing_invoice_intents_supported_currency_check' AND conrelid='billing_invoice_intents'::regclass AND convalidated")"
           test "$usage_rows" = "1"
           test "$invoice_rows" = "1"
           test "$schema_rows" = "1"
           test "$usage_pk" = "1"
           test "$invoice_pk" = "1"
+          test "$currency_check" = "1"
           elapsed_ms="$(( $(date +%s%3N) - started_ms ))"
           echo "disposable_ci_restore_drill=PASS"
           echo "restored_usage_rows=$usage_rows"
           echo "restored_invoice_rows=$invoice_rows"
           echo "restored_schema_version_rows=$schema_rows"
           echo "restored_tenant_idempotency_constraints=2"
+          echo "restored_supported_currency_constraint=$currency_check"
           echo "disposable_ci_restore_elapsed_ms=$elapsed_ms"
           echo "::notice::Elapsed time is a disposable CI smoke metric, not production RTO/RPO evidence."
