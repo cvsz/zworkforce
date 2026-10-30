@@ -32,13 +32,52 @@ repository-side desired state: it must be reconciled with GitHub Rulesets by an
 operator or automation that has repository administration permission. Merely
 committing the JSON does not prove the server-side ruleset is applied.
 
-As of 2026-08-18 the server-side ruleset is applied on the default branch as
-ruleset ID **`20988030`** (`zWorkforce main release protection`, enforcement
-`active`) and is regression-checked against the committed contract. A
-Copilot-review ruleset (ID `20673774`) also applies to the default branch.
-If the server-side ruleset is recreated, replaced, or drifted, verify the
-committed JSON still matches the applied rules before relying on release
-gates.
+**Governance drift notice (2026-10-30; Main SHA `8e4d821ad5f507637bd94167d0bd701d430009cb`):** a direct read-back of active
+server-side ruleset **`20988030`** found `required_approving_review_count: 0`,
+`require_code_owner_review: false`, `require_last_push_approval: false`, and
+a `RepositoryRole` bypass actor with `bypass_mode: always`. This conflicts
+with the repository's desired-state contract and is tracked in
+[issue #336](https://github.com/cvsz/zworkforce/issues/336). The separate
+Copilot-review ruleset **`20673774`** also currently has a DeployKey, a
+RepositoryRole actor, and multiple Integration actors with
+`bypass_mode: always`.
+
+The committed contract now explicitly requires at least one approving review,
+CODEOWNERS review, approval after the latest push, and an empty bypass-actor
+list. **This is not effective until an authorized administrator reconciles the
+server-side rulesets and reads back the resulting configuration.** The current
+connected integration exposes read-only ruleset access; no server-side settings
+were changed in this run. Until the administrator records successful
+read-back, treat independent approval and restricted bypass as **NOT ENFORCED**
+and do not merge security-sensitive or production-impacting changes.
+
+### Read-only effective-ruleset verification
+
+Run the verifier from a trusted operator workstation after injecting `GH_TOKEN`
+or `GITHUB_TOKEN` through a secure environment. The token needs repository
+`Administration: read` permission only:
+
+```bash
+python scripts/verify_effective_ruleset.py --repository cvsz/zworkforce
+```
+
+The script performs GET requests only. Exit code `0` means the live ruleset
+matches the checked-in desired-state contract; `1` means observed policy drift;
+`2` means the API, permission, or input could not be verified. GitHub may omit
+`bypass_actors` when the caller lacks ruleset-writer access even if the caller
+can read the ruleset. In that case the verifier reports **UNVERIFIABLE** and
+exits `2`; it must not interpret the omitted field as an empty list or claim
+that bypass actors were observed. An authorized ruleset-writer/administrator
+must provide a separate read-back of the actual bypass-actor list.
+
+It checks the single branch ruleset named by the supplied desired-state JSON:
+active default-branch scope, approval count, CODEOWNERS and last-push approval,
+required status contexts, and bypass actors when that field is visible. It
+does not inventory or validate other active rulesets (for example, the
+separate Copilot-review ruleset); those require a separate explicit read-back.
+It never writes ruleset settings or prints the token. This read-back is
+evidence, not an administrative repair; an authorized administrator must
+still apply and verify the server-side change.
 
 Global required checks must only include checks that are emitted for every pull
 request. In particular, `ZARVIS` uses path filters and its package-specific jobs
