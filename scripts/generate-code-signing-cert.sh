@@ -7,6 +7,13 @@ set -euo pipefail
 OUT_DIR="${1:-build/windows-certs}"
 SUBJECT="${2:-CN=ZEAZDEV Code Signing Test, O=ZEAZDEV COMPANY LIMITED}"
 
+if [[ -z "${CODE_SIGNING_PFX_PASSWORD:-}" || -z "${CODE_SIGNING_PFX_PASSWORD//[[:space:]]/}" ]]; then
+  printf '%s\n' "CODE_SIGNING_PFX_PASSWORD must be set before generating the PFX." >&2
+  exit 2
+fi
+
+# Keep generated private material owner-readable only.
+umask 077
 mkdir -p "$OUT_DIR"
 
 # Self-signed code-signing certificate (RSA 4096, 10y, codeSigning EKU 1.3.6.1.5.5.7.3.3)
@@ -18,13 +25,14 @@ OPENSSL_CONF=/dev/null openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 -no
   -addext "extendedKeyUsage=critical,codeSigning" \
   -addext "basicConstraints=critical,CA:FALSE"
 
-# Build an install-trustable PFX (password required; supply via env at sign time)
+# Build an install-trustable PFX using the environment passphrase source.
+# This avoids placing the password in the OpenSSL process argument list.
 OPENSSL_CONF=/dev/null openssl pkcs12 -export \
   -out "$OUT_DIR/code-signing.pfx" \
   -inkey "$OUT_DIR/code-signing.key" \
   -in "$OUT_DIR/code-signing.cer" \
   -name "ZEAZDEV Code Signing Test" \
-  -passout "pass:${CODE_SIGNING_PFX_PASSWORD:-change-me-at-sign-time}"
+  -passout "env:CODE_SIGNING_PFX_PASSWORD"
 
 echo "Generated:"
 echo "  public cert: $OUT_DIR/code-signing.cer"
