@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 const defaultHost = process.env.HOST || "127.0.0.1";
 const defaultPort = Number(process.env.PORT || 8700);
 const MAX_REQUEST_BODY_BYTES = 64 * 1024;
+const SUPPORTED_INVOICE_CURRENCIES = Object.freeze(["THB", "USD"]);
 
 export class BillingLedgerError extends Error {
   constructor(message, status = 400) {
@@ -239,8 +240,8 @@ export class BillingLedger {
       status: "requires_payment_processor",
       created_at: this.now(),
     };
-    if (!/^[A-Z]{3}$/.test(intent.currency)) {
-      throw new BillingLedgerError("currency must be a three-letter ISO currency code");
+    if (!SUPPORTED_INVOICE_CURRENCIES.includes(intent.currency)) {
+      throw new BillingLedgerError("currency must be one of the supported ISO 4217 codes: THB, USD");
     }
     if (typeof intent.amount_minor !== "number" || !Number.isSafeInteger(intent.amount_minor) || intent.amount_minor <= 0) {
       throw new BillingLedgerError("amount_minor must be a positive safe integer");
