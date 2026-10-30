@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   cross-service-contract:
-    # Keep the adapter checkout pinned to the exact reviewed candidate SHA.
+    # Keep the adapter checkout pinned to the exact independently reviewed candidate SHA.
     # Update this pin in a reviewed change when the adapter candidate changes or is superseded.
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -31,7 +31,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: cvsz/zworkforce
-          ref: d3e59af28acc1ac90fee2f2b7cdb12339591fb6c
+          ref: 30fd4e0bf5e51c6be92992c50d437037ec86c418
           path: .integration/zwallet
           persist-credentials: false
 
