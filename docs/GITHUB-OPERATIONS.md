@@ -62,15 +62,22 @@ python scripts/verify_effective_ruleset.py --repository cvsz/zworkforce
 ```
 
 The script performs GET requests only. Exit code `0` means the live ruleset
-matches the checked-in desired-state contract; `1` means policy drift; `2`
-means the API, permission, or input could not be verified. It checks the single branch ruleset named
-by the supplied desired-state JSON: active default-branch scope, approval
-count, CODEOWNERS and last-push approval, required status contexts, and bypass
-actors. It does not inventory or validate other active rulesets (for example,
-the separate Copilot-review ruleset); those require a separate explicit
-read-back. It never writes ruleset settings or prints the token. This
-read-back is evidence, not an administrative repair; an authorized
-administrator must still apply and verify the server-side change.
+matches the checked-in desired-state contract; `1` means observed policy drift;
+`2` means the API, permission, or input could not be verified. GitHub may omit
+`bypass_actors` when the caller lacks ruleset-writer access even if the caller
+can read the ruleset. In that case the verifier reports **UNVERIFIABLE** and
+exits `2`; it must not interpret the omitted field as an empty list or claim
+that bypass actors were observed. An authorized ruleset-writer/administrator
+must provide a separate read-back of the actual bypass-actor list.
+
+It checks the single branch ruleset named by the supplied desired-state JSON:
+active default-branch scope, approval count, CODEOWNERS and last-push approval,
+required status contexts, and bypass actors when that field is visible. It
+does not inventory or validate other active rulesets (for example, the
+separate Copilot-review ruleset); those require a separate explicit read-back.
+It never writes ruleset settings or prints the token. This read-back is
+evidence, not an administrative repair; an authorized administrator must
+still apply and verify the server-side change.
 
 Global required checks must only include checks that are emitted for every pull
 request. In particular, `ZARVIS` uses path filters and its package-specific jobs
