@@ -98,8 +98,13 @@ rather than being committed to the repository or the Windows checkout.
 
 The certificate is generated at zero cost with
 `scripts/generate-code-signing-cert.sh`, which produces a public `.cer` and a
-PFX bundle. Only the public certificate is committed; the private key and PFX
-stay gitignored.
+PFX bundle. Before running it, set `CODE_SIGNING_PFX_PASSWORD` to a unique,
+high-entropy value. The script fails closed when the variable is missing, uses
+OpenSSL's environment passphrase source rather than a process argument, and
+applies `umask 077` before creating private material. Store the value in a
+password manager and the protected GitHub Environment secret
+`WINDOWS_CODE_SIGNING_PFX_PASSWORD`; never commit it. Only the public
+certificate is committed; the private key and PFX stay gitignored.
 
 The protected `production` environment must provide these GitHub Secrets:
 
