@@ -44,6 +44,36 @@ class EffectiveRulesetVerifierTests(unittest.TestCase):
         self.assertIn("bypass_actors must be empty", errors)
         self.assertTrue(any("bypass capability" in item for item in errors))
 
+    def test_hidden_bypass_actor_field_is_unverifiable(self):
+        actual = effective_ruleset()
+        del actual["bypass_actors"]
+
+        errors = validate_effective_ruleset(DESIRED, actual)
+
+        self.assertTrue(
+            any(
+                item.startswith("UNVERIFIABLE:") and "bypass_actors" in item
+                for item in errors
+            )
+        )
+        self.assertNotIn("bypass_actors must be empty", errors)
+
+    def test_malformed_bypass_actor_field_is_unverifiable(self):
+        for value in (None, {}):
+            with self.subTest(value=value):
+                actual = effective_ruleset()
+                actual["bypass_actors"] = value
+
+                errors = validate_effective_ruleset(DESIRED, actual)
+
+                self.assertTrue(
+                    any(
+                        item.startswith("UNVERIFIABLE:") and "bypass_actors" in item
+                        for item in errors
+                    )
+                )
+                self.assertNotIn("bypass_actors must be empty", errors)
+
     def test_missing_or_unexpected_status_context_fails(self):
         actual = effective_ruleset()
         status_rule = next(
