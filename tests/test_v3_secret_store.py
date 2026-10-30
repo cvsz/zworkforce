@@ -53,6 +53,7 @@ class SecretStoreTests(unittest.TestCase):
         network_targets = (
             r"\\server\share\secret.txt",
             "//server/share/secret.txt",
+            r"\\?\UNC\server\share\secret.txt",
         )
         for target in network_targets:
             with self.subTest(target=target):
@@ -63,6 +64,18 @@ class SecretStoreTests(unittest.TestCase):
                     with self.assertRaisesRegex(SecretStoreError, "network path"):
                         resolver.resolve("file:///tmp/local-secret")
                     read_text.assert_not_called()
+
+    def test_file_reference_allows_resolved_extended_local_paths(self):
+        resolver = SecretResolver()
+        with (
+            patch(
+                "zworkforce.secret_store.Path.resolve",
+                return_value=Path(r"\\?\C:\secrets\local.txt"),
+            ),
+            patch("zworkforce.secret_store.Path.read_text", return_value="value-789") as read_text,
+        ):
+            self.assertEqual(resolver.resolve("file:///tmp/local-secret"), "value-789")
+        read_text.assert_called_once_with(encoding="utf-8")
 
     def test_file_reference_accepts_absolute_and_loopback_paths(self):
         resolver = SecretResolver()
