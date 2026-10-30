@@ -216,7 +216,7 @@ test(
       });
       assert.equal(unsupportedCurrency.status, 400);
       assert.deepEqual(await unsupportedCurrency.json(), {
-        error: "currency must be one of the supported ISO 4217 codes: THB, USD",
+        error: "Billing ledger rejected the request",
       });
       assert.equal(store.invoiceIntents.size, 1, "unsupported currency must not reach durable storage");
 
