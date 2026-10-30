@@ -111,7 +111,7 @@ test("PostgreSQL invoice intents are durable and reject changed-payload replay",
   );
 });
 
-test("PostgreSQL constraints reject negative usage counts and unsafe invoice amounts", {
+test("PostgreSQL constraints reject negative usage counts, unsafe amounts, and unsupported currencies", {
   skip: !databaseUrl,
 }, async (t) => {
   const pool = new Pool({
@@ -160,6 +160,31 @@ test("PostgreSQL constraints reject negative usage counts and unsafe invoice amo
     ),
     (error) => error.code === "23514",
   );
+
+  const unsupportedTenant = `ci-${randomUUID()}`;
+  await assert.rejects(
+    pool.query(
+      `INSERT INTO billing_invoice_intents
+         (tenant_id, idempotency_key, intent_id, payload_hash, currency, amount_minor, status, intent)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)`,
+      [
+        unsupportedTenant,
+        `unsupported-currency-${randomUUID()}`,
+        `intent-${randomUUID()}`,
+        "c".repeat(64),
+        "ZZZ",
+        100,
+        "requires_payment_processor",
+        JSON.stringify({ currency: "ZZZ", amount_minor: 100 }),
+      ],
+    ),
+    (error) => error.code === "23514",
+  );
+  const rejectedRows = await pool.query(
+    "SELECT count(*)::int AS count FROM billing_invoice_intents WHERE tenant_id = $1",
+    [unsupportedTenant],
+  );
+  assert.equal(rejectedRows.rows[0].count, 0);
 });
 
 
@@ -185,13 +210,32 @@ test("readiness rejects same-named primary keys with incorrect tenant/idempotenc
 
   await pool.query(`CREATE SCHEMA "${schema}"`);
   await pool.query(`SET search_path TO "${schema}"`);
-  const migration = await readFile(
+  const migrationV1 = await readFile(
     new URL("../migrations/001_durable_billing_ledger.sql", import.meta.url),
     "utf8",
   );
-  await pool.query(migration);
+  await pool.query(migrationV1);
 
   const store = new PostgresLedgerStore({ pool });
+  await assert.rejects(store.assertReady(), (error) => error.status === 503);
+
+  const migrationV2 = await readFile(
+    new URL("../migrations/002_supported_invoice_currencies.sql", import.meta.url),
+    "utf8",
+  );
+  await pool.query(migrationV2);
+  assert.equal(await store.assertReady(), true);
+
+  await pool.query(
+    "ALTER TABLE billing_invoice_intents DROP CONSTRAINT billing_invoice_intents_supported_currency_check",
+  );
+  await assert.rejects(store.assertReady(), (error) => error.status === 503);
+  await pool.query(
+    "ALTER TABLE billing_invoice_intents ADD CONSTRAINT billing_invoice_intents_supported_currency_check CHECK (currency IN ('THB', 'USD')) NOT VALID",
+  );
+  await pool.query(
+    "ALTER TABLE billing_invoice_intents VALIDATE CONSTRAINT billing_invoice_intents_supported_currency_check",
+  );
   assert.equal(await store.assertReady(), true);
 
   await pool.query(
