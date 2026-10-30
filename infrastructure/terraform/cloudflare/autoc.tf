@@ -30,27 +30,6 @@ resource "cloudflare_dns_record" "autoc" {
   comment = "Protected autoc operations dashboard via Cloudflare Tunnel"
 }
 
-resource "cloudflare_zero_trust_access_application" "autoc" {
-  account_id                 = var.cloudflare_account_id
-  name                       = "Autoc Operations Dashboard"
-  domain                     = var.autoc_hostname
-  type                       = "self_hosted"
-  session_duration           = "8h"
-  app_launcher_visible       = false
-  enable_binding_cookie      = true
-  http_only_cookie_attribute = true
-
-  policies = [{
-    name       = "Approved autoc operators"
-    precedence = 1
-    decision   = "allow"
-    include = [
-      for email in sort(tolist(var.piewdash_access_allowed_emails)) :
-      { email = { email = lower(email) } }
-    ]
-  }]
-}
-
 output "autoc_url" {
   value       = "https://${var.autoc_hostname}"
   description = "Protected autoc URL after DNS, tunnel ingress, and Cloudflare Access are active."

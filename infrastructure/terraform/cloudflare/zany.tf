@@ -30,33 +30,7 @@ resource "cloudflare_dns_record" "zany" {
   comment = "Protected zanything Universal AI Operator via Cloudflare Tunnel"
 }
 
-resource "cloudflare_zero_trust_access_application" "zany" {
-  account_id                 = var.cloudflare_account_id
-  name                       = "zanything Universal AI Operator"
-  domain                     = var.zany_hostname
-  type                       = "self_hosted"
-  session_duration           = "8h"
-  app_launcher_visible       = false
-  enable_binding_cookie      = true
-  http_only_cookie_attribute = true
-
-  policies = [{
-    name       = "Approved zanything operators"
-    precedence = 1
-    decision   = "allow"
-    include = [
-      for email in sort(tolist(var.piewdash_access_allowed_emails)) :
-      { email = { email = lower(email) } }
-    ]
-  }]
-}
-
 output "zany_url" {
   value       = "https://${var.zany_hostname}"
-  description = "Protected zanything URL after DNS, tunnel ingress, and Cloudflare Access are active."
-}
-
-output "zany_access_audience" {
-  value       = cloudflare_zero_trust_access_application.zany.aud
-  description = "Audience claim expected on Cloudflare Access JWTs for zanything."
+  description = "Protected zanything URL after DNS and tunnel ingress are active."
 }

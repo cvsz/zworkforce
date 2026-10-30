@@ -53,11 +53,6 @@ output "auth_url" {
   description = "Public ZEAZ Authentication Portal URL after proxied DNS record and tunnel ingress are active."
 }
 
-output "piewdash_access_audience" {
-  value       = cloudflare_zero_trust_access_application.piewdash.aud
-  description = "Audience claim expected on Cloudflare Access JWTs for the dashboard."
-}
-
 output "laps_url" {
   value       = "https://${var.laps_hostname}"
   description = "Public LAPS URL after the proxied DNS record and tunnel ingress are active."

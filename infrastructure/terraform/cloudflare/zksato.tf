@@ -132,29 +132,6 @@ resource "cloudflare_dns_record" "zksato_dash" {
   comment = "zkSato dashboard via Cloudflare Tunnel"
 }
 
-resource "cloudflare_zero_trust_access_application" "zksato" {
-  count = var.zksato_alias_enabled ? 1 : 0
-
-  account_id                 = var.cloudflare_account_id
-  name                       = "zkSato Trading Control Plane"
-  domain                     = var.zksato_api_hostname
-  type                       = "self_hosted"
-  session_duration           = "8h"
-  app_launcher_visible       = false
-  enable_binding_cookie      = true
-  http_only_cookie_attribute = true
-
-  policies = [{
-    name       = "Approved zkSato operators"
-    precedence = 1
-    decision   = "allow"
-    include = [
-      for email in sort(tolist(local.zksato_access_allowed_emails)) :
-      { email = { email = lower(email) } }
-    ]
-  }]
-}
-
 output "zksato_url" {
   value       = "https://${var.zksato_hostname}"
   description = "Public zkSato frontend URL after the proxied DNS record and tunnel ingress are active."
