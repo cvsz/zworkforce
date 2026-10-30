@@ -1,9 +1,16 @@
 import io
 import json
+import os
 import urllib.error
 import unittest
+from unittest.mock import patch
 
-from zworkforce.zarvis_voice import ZarvisVoiceConfig, ZarvisVoiceError, ZarvisVoiceService
+from zworkforce.zarvis_voice import (
+    ZarvisVoiceConfig,
+    ZarvisVoiceError,
+    ZarvisVoiceService,
+    load_voice_config,
+)
 
 
 class FakeResponse:
@@ -32,6 +39,18 @@ class ZarvisVoiceTests(unittest.TestCase):
         }
         values.update(overrides)
         return ZarvisVoiceConfig(**values)
+
+    def test_generic_platform_token_is_not_used_as_voice_service_token(self):
+        with patch.dict(
+            os.environ,
+            {
+                "ZWORKFORCE_ZARVIS_VOICE_SERVICE_TOKEN": "",
+                "Z_PLATFORM_SERVICE_TOKEN": "synthetic-generic-platform-token-" + ("x" * 40),
+            },
+            clear=True,
+        ):
+            config = load_voice_config()
+        self.assertEqual(config.service_token, "")
 
     def test_snapshot_never_serializes_service_token_or_gateway_url(self):
         service = ZarvisVoiceService(self.config())

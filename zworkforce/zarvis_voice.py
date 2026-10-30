@@ -56,10 +56,7 @@ def load_voice_config() -> ZarvisVoiceConfig:
         os.getenv("ZWORKFORCE_ZARVIS_VOICE_GATEWAY_URL", "").strip()
         or os.getenv("Z_PLATFORM_VOICE_GATEWAY_URL", "").strip()
     )
-    token = (
-        os.getenv("ZWORKFORCE_ZARVIS_VOICE_SERVICE_TOKEN", "").strip()
-        or os.getenv("Z_PLATFORM_SERVICE_TOKEN", "").strip()
-    )
+    token = os.getenv("ZWORKFORCE_ZARVIS_VOICE_SERVICE_TOKEN", "").strip()
     raw_allowlist = os.getenv("ZWORKFORCE_ZARVIS_VOICE_WS_ALLOWLIST", "").strip()
     allowlist: list[str] = []
     for raw in raw_allowlist.split(",") if raw_allowlist else ():
