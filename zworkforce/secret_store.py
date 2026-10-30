@@ -46,9 +46,14 @@ class SecretResolver:
                 authority = authority[1:-1]
             if authority and authority not in {"localhost", "127.0.0.1", "::1"}:
                 raise SecretStoreError("file secret reference must not carry a remote host")
-            if not parts.path or not parts.path.startswith("/"):
+            if not parts.path:
                 raise SecretStoreError("file secret reference must be an absolute path")
-            path = Path(urllib.request.url2pathname(parts.path))
+            path_text = urllib.request.url2pathname(parts.path)
+            if path_text.startswith(("\\\\", "//")):
+                raise SecretStoreError("file secret reference must not use a network path")
+            path = Path(path_text)
+            if not path.is_absolute():
+                raise SecretStoreError("file secret reference must be an absolute path")
             try:
                 resolved = path.resolve(strict=True)
                 raw = resolved.read_text(encoding="utf-8")
