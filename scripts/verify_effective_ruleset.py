@@ -215,16 +215,17 @@ def main() -> int:
 
     errors = validate_effective_ruleset(desired, ruleset)
     unverifiable = [error for error in errors if error.startswith("UNVERIFIABLE:")]
-    if unverifiable:
-        print("UNVERIFIABLE: GitHub did not expose all required effective ruleset fields")
-        for error in errors:
-            print(f"- {error}")
-        return 2
-    if errors:
+    policy_errors = [error for error in errors if not error.startswith("UNVERIFIABLE:")]
+    if policy_errors:
         print("FAIL: effective GitHub ruleset does not match desired state")
         for error in errors:
             print(f"- {error}")
         return 1
+    if unverifiable:
+        print("UNVERIFIABLE: GitHub did not expose all required effective ruleset fields")
+        for error in unverifiable:
+            print(f"- {error}")
+        return 2
 
     print(
         f"PASS: {args.repository} ruleset {desired['name']!r} matches "
