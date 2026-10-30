@@ -173,7 +173,7 @@ postgres_cleanup_service
 
         self.assertIn("azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82", policy)
         self.assertIn("azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906", policy)
-        self.assertRegex(policy, r"(?m)^\\s*run: .*Package-Client\\.ps1\\b.*\\s-Unsigned\\b")
+        self.assertRegex(policy, r"(?m)^\s*run: .*Package-Client\.ps1\b.*\s-Unsigned\b")
         self.assertNotIn("WINDOWS_MSIX_PFX_BASE64", policy)
 
     def test_external_gates_bind_evidence_to_runtime_and_candidate(self):
