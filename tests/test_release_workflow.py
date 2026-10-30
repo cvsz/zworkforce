@@ -169,7 +169,7 @@ postgres_cleanup_service
         self.assertNotIn("WINDOWS_MSIX_SIGNING_PFX_PATH", gates)
 
     def test_release_policy_requires_azure_artifact_signing(self):
-        policy = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        policy = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
 
         self.assertIn("azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82", policy)
         self.assertIn("azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906", policy)
