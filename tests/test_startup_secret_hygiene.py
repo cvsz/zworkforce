@@ -142,6 +142,9 @@ class StartupSecretHygieneTests(unittest.TestCase):
         self.assertNotIn("Voice Enabled", result.stdout)
         self.assertNotIn(token, result.stdout + result.stderr)
 
+    def test_start_script_remains_executable(self):
+        self.assertTrue(os.access(START_SCRIPT, os.X_OK))
+
     def test_start_script_is_valid_bash(self):
         result = subprocess.run(
             ["bash", "-n", str(START_SCRIPT)],
