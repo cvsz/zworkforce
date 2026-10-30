@@ -4,7 +4,7 @@ from pathlib import Path
 os.environ['ZEAZ_DATA_DIR']=tempfile.mkdtemp()
 os.environ['ZEAZ_ADMIN_TOKEN']='test-secret'
 from fastapi.testclient import TestClient
-from app.main import app
+from app.main import app, _validate_production_secrets
 client=TestClient(app)
 
 def test_catalogue():
@@ -39,3 +39,20 @@ def test_example_environment_uses_placeholders():
     assert values['ZEAZ_ADMIN_TOKEN'] == 'replace-with-long-random-secret'
     assert values['ZEAZ_SIGNING_SECRET'] == 'replace-with-another-long-random-secret'
     assert values['ZEAZ_ADMIN_TOKEN'] != values['ZEAZ_SIGNING_SECRET']
+
+def test_production_rejects_example_secret_placeholders():
+    valid_secret = 'v' * 48
+    invalid_pairs = (
+        ('replace-with-long-random-secret', valid_secret),
+        (valid_secret, 'replace-with-another-long-random-secret'),
+    )
+    for admin_token, signing_secret in invalid_pairs:
+        try:
+            _validate_production_secrets(admin_token, signing_secret)
+        except RuntimeError:
+            continue
+        raise AssertionError('Production secret validation accepted an example placeholder')
+
+
+def test_production_accepts_distinct_generated_secrets():
+    _validate_production_secrets('a' * 48, 'b' * 48)

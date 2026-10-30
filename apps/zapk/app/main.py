@@ -31,9 +31,42 @@ MAX_UPLOAD = int(os.environ.get('ZEAZ_MAX_UPLOAD_BYTES', str(150 * 1024 * 1024))
 PUBLIC_BASE_PATH = os.environ.get('ZEAZ_BASE_PATH', '/zapk').rstrip('/')
 if not PUBLIC_BASE_PATH.startswith('/') or PUBLIC_BASE_PATH == '/' or not re.fullmatch(r'/[a-zA-Z0-9_-]+', PUBLIC_BASE_PATH):
     raise RuntimeError('ZEAZ_BASE_PATH must be a single path segment such as /zapk')
+def _is_placeholder_secret(value: str) -> bool:
+    normalized = value.strip().lower()
+    return normalized.startswith(
+        (
+            'replace-with-',
+            'change-me',
+            'changeme',
+            'your-',
+            'placeholder',
+            'example-',
+            'dummy-',
+            'not-a-secret',
+        )
+    )
+
+
+def _validate_production_secrets(admin_token: str, signing_secret: str) -> None:
+    admin_value = admin_token.strip()
+    signing_value = signing_secret.strip()
+    if (
+        len(admin_value) < 32
+        or len(signing_value) < 32
+        or admin_value == signing_value
+        or _is_placeholder_secret(admin_value)
+        or _is_placeholder_secret(signing_value)
+    ):
+        raise RuntimeError(
+            'Production requires distinct generated ZEAZ_ADMIN_TOKEN and '
+            'ZEAZ_SIGNING_SECRET values of at least 32 characters'
+        )
+
+
 if os.environ.get('ZEAZ_ENV') == 'production':
-    if not os.environ.get('ZEAZ_SIGNING_SECRET') or len(ADMIN_TOKEN) < 32 or len(SECRET) < 32 or ADMIN_TOKEN == SECRET:
-        raise RuntimeError('Production requires distinct ZEAZ_ADMIN_TOKEN and ZEAZ_SIGNING_SECRET of at least 32 characters')
+    if not os.environ.get('ZEAZ_SIGNING_SECRET'):
+        raise RuntimeError('Production requires distinct generated ZEAZ_ADMIN_TOKEN and ZEAZ_SIGNING_SECRET values of at least 32 characters')
+    _validate_production_secrets(ADMIN_TOKEN, SECRET)
 PACKAGE_RE = re.compile(r'^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+$')
 app = FastAPI(title='ZEAZ APK Hub', version='0.2.0', docs_url='/docs', redoc_url=None)
 logging.basicConfig(level=os.getenv('ZEAZ_LOG_LEVEL', 'INFO'))
