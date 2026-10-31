@@ -269,23 +269,63 @@ test("session expiry blocks chat before gateway call", { concurrency: false }, a
   assert.equal(called, false);
 });
 
-test("http routes return gateway content and clear browser storage", { concurrency: false }, async () => {
+test("tenant-scoped HTTP APIs fail closed before any gateway call", { concurrency: false }, async () => {
+  let gatewayCalls = 0;
   const handler = createZChatRequestHandler({
     env,
-    fetchImpl: async () => Response.json({ choices: [{ message: { content: "ok" } }] }),
+    fetchImpl: async () => {
+      gatewayCalls += 1;
+      return Response.json({ choices: [{ message: { content: "must not run" } }] });
+    },
+  });
+  const requests = [
+    { method: "GET", url: "/api/models" },
+    { method: "GET", url: "/api/platform/status" },
+    {
+      method: "POST",
+      url: "/api/chat",
+      body: JSON.stringify({ prompt: "hello", tenant_id: "tenant-victim" }),
+    },
+    {
+      method: "POST",
+      url: "/api/chat/stream",
+      body: JSON.stringify({ prompt: "hello", tenant_id: "tenant-victim" }),
+    },
+  ];
+
+  for (const request of requests) {
+    const response = await invoke(handler, {
+      ...request,
+      headers: {
+        "x-tenant-id": "tenant-victim",
+        "x-session-started-at": String(Date.now()),
+      },
+    });
+    assert.equal(response.status, 503, request.method + " " + request.url);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    assert.deepEqual(await response.json(), {
+      error: "Authenticated tenant identity is not configured",
+    });
+  }
+
+  assert.equal(gatewayCalls, 0);
+});
+
+test("public health is redacted and logout still clears browser storage", { concurrency: false }, async () => {
+  const handler = createZChatRequestHandler({ env });
+  const healthResponse = await invoke(handler, {
+    method: "GET",
+    url: "/health",
   });
 
-  const chatResponse = await invoke(handler, {
-    method: "POST",
-    url: "/api/chat",
-    headers: { "Content-Type": "application/json", "X-Usage-Correlation-Id": "usage-1" },
-    body: JSON.stringify({ prompt: "hi", conversation_id: "conversation-1" }),
+  assert.equal(healthResponse.status, 200);
+  assert.deepEqual(await healthResponse.json(), {
+    status: "ok",
+    service: "zchat",
+    release_sha: "unknown",
   });
 
-  assert.equal(chatResponse.status, 200);
-  assert.deepEqual(await chatResponse.json(), { content: "ok", conversation_id: "conversation-1" });
-
-  const logoutResponse = await invoke(createZChatRequestHandler({ env }), {
+  const logoutResponse = await invoke(handler, {
     method: "POST",
     url: "/api/logout",
   });
