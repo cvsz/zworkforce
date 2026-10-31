@@ -31,7 +31,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: cvsz/zworkforce
-          ref: 30fd4e0bf5e51c6be92992c50d437037ec86c418
+          ref: 8bc283f8c35ceb9d56ca1e3d1207c43c4ac473ef
           path: .integration/zwallet
           persist-credentials: false
 
