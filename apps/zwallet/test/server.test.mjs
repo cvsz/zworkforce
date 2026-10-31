@@ -7,7 +7,7 @@ import { createInvoiceIntent, createZWalletServer } from "../server.mjs";
 
 const env = {
   Z_PLATFORM_BILLING_LEDGER_URL: "http://ledger",
-  Z_PLATFORM_SERVICE_TOKEN: "service-token",
+  Z_PLATFORM_BILLING_LEDGER_SERVICE_TOKEN: "service-token",
   Z_PLATFORM_BILLING_ADAPTER_ENABLE_MUTATIONS: "true",
   Z_PLATFORM_TENANT_ASSERTION_SECRET: "synthetic-tenant-assertion-secret-with-32-bytes-minimum",
 };
@@ -86,7 +86,7 @@ test("health exposes no wallet or card authority", async () => {
 
 test("health does not treat blank ledger configuration as configured", async () => {
   const response = await request(
-    createZWalletServer({ env: { Z_PLATFORM_BILLING_LEDGER_URL: "   ", Z_PLATFORM_SERVICE_TOKEN: "  " } }),
+    createZWalletServer({ env: { Z_PLATFORM_BILLING_LEDGER_URL: "   ", Z_PLATFORM_BILLING_LEDGER_SERVICE_TOKEN: "  " } }),
     "/health",
   );
   assert.deepEqual(await response.json(), {
@@ -96,6 +96,33 @@ test("health does not treat blank ledger configuration as configured", async () 
     wallet_authority: false,
     card_data: false,
   });
+});
+
+test("generic platform service token cannot configure or authorize the billing adapter", async () => {
+  const legacyEnv = {
+    Z_PLATFORM_BILLING_LEDGER_URL: "http://ledger",
+    Z_PLATFORM_SERVICE_TOKEN: "legacy-platform-token",
+    Z_PLATFORM_BILLING_ADAPTER_ENABLE_MUTATIONS: "true",
+    Z_PLATFORM_TENANT_ASSERTION_SECRET: env.Z_PLATFORM_TENANT_ASSERTION_SECRET,
+  };
+  const health = await request(createZWalletServer({ env: legacyEnv }), "/health");
+  assert.equal((await health.json()).ledger_configured, false);
+
+  let calls = 0;
+  const input = { tenant_id: "tenant-1", idempotency_key: "invoice-legacy-token", currency: "USD", amount_minor: 500 };
+  await assert.rejects(
+    createInvoiceIntent(
+      input,
+      legacyEnv,
+      async () => {
+        calls += 1;
+        return Response.json({ intent_id: "unexpected" });
+      },
+      tenantAssertionRequestContext(input, "/api/invoice-intents", legacyEnv),
+    ),
+    /Billing ledger unavailable/,
+  );
+  assert.equal(calls, 0);
 });
 
 test("production rejects plaintext ledger URLs before sending service credentials", async () => {

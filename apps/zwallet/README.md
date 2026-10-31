@@ -13,11 +13,11 @@ It forwards credits and invoice-intent requests to `services/billing-ledger` onl
 ## Required environment
 
 - `Z_PLATFORM_BILLING_LEDGER_URL`
-- `Z_PLATFORM_SERVICE_TOKEN` (outbound credential; never returned to callers)
+- `Z_PLATFORM_BILLING_LEDGER_SERVICE_TOKEN` (dedicated adapter-to-ledger credential; never returned to callers)
 - `Z_PLATFORM_BILLING_ADAPTER_ENABLE_MUTATIONS` (must remain unset/false until the trusted gateway contract is verified)
 - `Z_PLATFORM_TENANT_ASSERTION_SECRET` (high-entropy secret shared only by the trusted gateway and adapter)
 
-## Tenant admission and mutation safety
+`Z_PLATFORM_SERVICE_TOKEN` is not accepted as a fallback. Provision the dedicated value independently in the adapter and ledger secret stores, restricted to this service boundary. For rotation, provision the new value to both workloads, verify new-token acceptance, then revoke the old value and verify old-token rejection. Source changes do not rotate production secrets.\n\n## Tenant admission and mutation safety
 
 Billing mutations are denied by default. The adapter requires `Z_PLATFORM_BILLING_ADAPTER_ENABLE_MUTATIONS=true`, a valid tenant-assertion secret of at least 32 UTF-8 bytes, and a signed, time-bounded tenant assertion from the trusted gateway. Missing configuration returns HTTP 503; invalid or mismatched assertions return HTTP 403. No request is forwarded to Billing Ledger unless these checks pass.
 

@@ -97,7 +97,7 @@ function ledgerBaseUrl(env) {
 }
 
 function hasLedgerConfiguration(env) {
-  const token = env.Z_PLATFORM_SERVICE_TOKEN;
+  const token = env.Z_PLATFORM_BILLING_LEDGER_SERVICE_TOKEN;
   return Boolean(ledgerBaseUrl(env) && typeof token === "string" && token.trim());
 }
 
@@ -216,7 +216,7 @@ function requireTenantAdmission(request, input, path, env) {
 
 async function forwardLedger(path, input, env, fetchImpl, tenantId) {
   validateAdapterInput(input);
-  const configuredToken = env.Z_PLATFORM_SERVICE_TOKEN;
+  const configuredToken = env.Z_PLATFORM_BILLING_LEDGER_SERVICE_TOKEN;
   const token = typeof configuredToken === "string" ? configuredToken.trim() : "";
   if (!token) throw new LedgerUnavailableError();
   const timeoutMs = ledgerTimeoutMs(env);
