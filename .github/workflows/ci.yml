@@ -427,3 +427,17 @@ jobs:
           PY
           test ! -e .github/workflows/v3-rematerialize.yml
           test ! -e .github/workflows/v3-materialize.yml
+
+  customer-apps:
+    name: Customer app Node contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: ZAI Coder Web HTTP and workspace tests
+        run: npm test --prefix apps/zaicoder/web
+      - name: ZChat HTTP and gateway tests
+        run: npm test --prefix apps/zchat
