@@ -98,7 +98,7 @@ test(
     const assertionSecret = "synthetic-integration-tenant-assertion-secret-32-bytes-minimum";
     const ledgerEnv = {
       NODE_ENV: "test",
-      Z_PLATFORM_SERVICE_TOKEN: serviceToken,
+      Z_PLATFORM_BILLING_LEDGER_SERVICE_TOKEN: serviceToken,
       Z_BILLING_LEDGER_ENABLE_MUTATIONS: "true",
       Z_BILLING_LEDGER_TENANT_AUTHZ_MODE: "trusted-gateway",
     };
@@ -125,7 +125,7 @@ test(
         env: {
           NODE_ENV: "test",
           Z_PLATFORM_BILLING_LEDGER_URL: ledgerUrl,
-          Z_PLATFORM_SERVICE_TOKEN: serviceToken,
+          Z_PLATFORM_BILLING_LEDGER_SERVICE_TOKEN: serviceToken,
           Z_PLATFORM_BILLING_ADAPTER_ENABLE_MUTATIONS: "true",
           Z_PLATFORM_TENANT_ASSERTION_SECRET: assertionSecret,
         },

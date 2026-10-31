@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { BillingLedger, createBillingLedgerServer } from "../server.mjs";
 
-const env = { NODE_ENV: "test", Z_PLATFORM_SERVICE_TOKEN: "service-token" };
+const env = { NODE_ENV: "test", Z_PLATFORM_BILLING_LEDGER_SERVICE_TOKEN: "service-token" };
 
 async function request(server, path, options = {}) {
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -170,6 +170,51 @@ test("HTTP routes require service auth and expose no wallet/card authority", asy
 });
 
 
+test("accepts only the dedicated billing ledger service token", async () => {
+  const payload = {
+    usage_id: "usage-service-token-boundary",
+    idempotency_key: "idem-service-token-boundary",
+    tenant_id: "tenant-1",
+    model: "test",
+  };
+  const body = JSON.stringify(payload);
+
+  const legacyLedger = new BillingLedger();
+  const legacy = await request(
+    createBillingLedgerServer({
+      env: { NODE_ENV: "test", Z_PLATFORM_SERVICE_TOKEN: "service-token" },
+      ledger: legacyLedger,
+      allowEphemeralStore: true,
+    }),
+    "/v1/usage",
+    { method: "POST", headers, body },
+  );
+  assert.equal(legacy.status, 401);
+  assert.equal(legacyLedger.store.records.size, 0);
+
+  const rotatedLedger = new BillingLedger();
+  const rotated = await request(
+    createBillingLedgerServer({
+      env: { NODE_ENV: "test", Z_PLATFORM_BILLING_LEDGER_SERVICE_TOKEN: "rotated-service-token" },
+      ledger: rotatedLedger,
+      allowEphemeralStore: true,
+    }),
+    "/v1/usage",
+    { method: "POST", headers, body },
+  );
+  assert.equal(rotated.status, 401);
+  assert.equal(rotatedLedger.store.records.size, 0);
+
+  const acceptedLedger = new BillingLedger();
+  const accepted = await request(
+    createBillingLedgerServer({ env, ledger: acceptedLedger, allowEphemeralStore: true }),
+    "/v1/usage",
+    { method: "POST", headers, body },
+  );
+  assert.equal(accepted.status, 201);
+  assert.equal(acceptedLedger.store.records.size, 1);
+});
+
 test("requires an explicit Bearer scheme even when the raw token matches", async () => {
   const ledger = new BillingLedger();
   const response = await request(
@@ -194,7 +239,7 @@ test("requires an explicit Bearer scheme even when the raw token matches", async
 
 test("memory-backed mutation routes require explicit test-only opt-in", async () => {
   const runtimes = [
-    { name: "unset", env: { Z_PLATFORM_SERVICE_TOKEN: "service-token" }, allowEphemeralStore: false },
+    { name: "unset", env: { Z_PLATFORM_BILLING_LEDGER_SERVICE_TOKEN: "service-token" }, allowEphemeralStore: false },
     { name: "production", env: { ...env, NODE_ENV: "production" }, allowEphemeralStore: false },
     { name: "development", env: { ...env, NODE_ENV: "development" }, allowEphemeralStore: false },
     { name: "test without explicit opt-in", env: { ...env, NODE_ENV: "test" }, allowEphemeralStore: false },

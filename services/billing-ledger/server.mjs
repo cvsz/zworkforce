@@ -29,7 +29,7 @@ function authorized(request, env) {
     ? /^Bearer[ \t]+(\S+)$/i.exec(authorization)
     : null;
   const supplied = match?.[1];
-  const expected = env.Z_PLATFORM_SERVICE_TOKEN;
+  const expected = env.Z_PLATFORM_BILLING_LEDGER_SERVICE_TOKEN;
   if (!supplied || !expected) return false;
   const a = Buffer.from(supplied);
   const b = Buffer.from(expected);

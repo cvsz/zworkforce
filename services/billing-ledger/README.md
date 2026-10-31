@@ -30,9 +30,9 @@ Durable `/v1/usage` and `/v1/invoice-intents` writes require all of the followin
 2. `Z_BILLING_LEDGER_ENABLE_MUTATIONS=true`.
 3. `Z_BILLING_LEDGER_TENANT_AUTHZ_MODE=trusted-gateway`.
 4. A trusted `X-Authenticated-Tenant` assertion matching the request's `tenant_id`.
-5. The normal service bearer token.
+5. `Z_PLATFORM_BILLING_LEDGER_SERVICE_TOKEN`, a dedicated adapter-to-ledger bearer credential.
 
-The trusted ingress must authenticate the calling workload, authorize its tenant, remove any client-supplied `X-Authenticated-Tenant` header, and inject the verified tenant assertion. Do not expose this service directly to untrusted clients. A shared service token by itself is not tenant authorization. Keep mutation gates unset until gateway enforcement and external deployment evidence are verified.
+The ledger accepts only `Z_PLATFORM_BILLING_LEDGER_SERVICE_TOKEN`; it does not fall back to `Z_PLATFORM_SERVICE_TOKEN`. Provision the same high-entropy dedicated value only in the adapter and ledger secret stores. Do not reuse generic platform or voice credentials. Rotate by provisioning a new dedicated value to both workloads, verifying new-token acceptance, then revoking the old value and verifying old-token rejection. Source changes do not rotate production secrets.\n\nThe trusted ingress must authenticate the calling workload, authorize its tenant, remove any client-supplied `X-Authenticated-Tenant` header, and inject the verified tenant assertion. Do not expose this service directly to untrusted clients. A dedicated service token by itself is not tenant authorization. Keep mutation gates unset until gateway enforcement and external deployment evidence are verified.
 
 `/v1/credits` remains disabled for durable stores. The existing absolute setter has no operation idempotency key or append-only audit contract; replace it with a reviewed, tenant-authorized adjustment API before implementing credit mutations. The memory-backed setter is only for isolated unit tests.
 

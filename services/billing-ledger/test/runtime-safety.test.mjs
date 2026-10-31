@@ -11,7 +11,7 @@ const headers = {
 };
 const enabledEnv = {
   NODE_ENV: "production",
-  Z_PLATFORM_SERVICE_TOKEN: serviceToken,
+  Z_PLATFORM_BILLING_LEDGER_SERVICE_TOKEN: serviceToken,
   Z_BILLING_LEDGER_ENABLE_MUTATIONS: "true",
   Z_BILLING_LEDGER_TENANT_AUTHZ_MODE: "trusted-gateway",
 };
