@@ -74,8 +74,17 @@ export class MemoryLedgerStore {
   }
 
   async createInvoiceIntent(intent) {
-    if (this.invoiceIntents.has(intent.idempotency_key)) return this.invoiceIntents.get(intent.idempotency_key);
-    this.invoiceIntents.set(intent.idempotency_key, structuredClone(intent));
+    // Idempotency is scoped to a tenant. A reused key from another tenant must
+    // never return the first tenant's invoice intent.
+    const key = JSON.stringify([intent.tenant_id, intent.idempotency_key]);
+    if (this.invoiceIntents.has(key)) {
+      const existing = this.invoiceIntents.get(key);
+      if (existing.currency !== intent.currency || existing.amount_minor !== intent.amount_minor) {
+        throw new BillingLedgerError("Idempotency key conflicts with an existing request", 409);
+      }
+      return existing;
+    }
+    this.invoiceIntents.set(key, structuredClone(intent));
     return intent;
   }
 }
