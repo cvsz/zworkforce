@@ -1,0 +1,148 @@
+name: Billing Ledger PostgreSQL Integration
+
+on:
+  pull_request:
+    paths:
+      - "services/billing-ledger/**"
+      - ".github/workflows/billing-ledger-postgres.yml"
+  push:
+    branches: [main]
+    paths:
+      - "services/billing-ledger/**"
+      - ".github/workflows/billing-ledger-postgres.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: billing-ledger-postgres-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  postgres-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: billing_test
+          POSTGRES_PASSWORD: billing_test
+          POSTGRES_DB: billing_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U billing_test -d billing_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 15
+    env:
+      Z_BILLING_LEDGER_TEST_DATABASE_URL: postgresql://billing_test:billing_test@127.0.0.1:5432/billing_test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "24.22.1"
+      - name: Install the committed dependency lockfile
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/services/billing-ledger"
+          test -f package.json
+          test -f package-lock.json
+          # This package is nested under the root npm workspace; use its committed lockfile in isolation.
+          npm ci --workspaces=false --ignore-scripts --no-audit
+          npm audit --workspaces=false --omit=dev --audit-level=high
+      - name: Validate JavaScript syntax
+        run: |
+          node --check services/billing-ledger/server.mjs
+          node --check services/billing-ledger/postgres-store.mjs
+          node --check services/billing-ledger/test/postgres-store.test.mjs
+      - name: Apply additive schema to disposable PostgreSQL
+        run: |
+          set -euo pipefail
+          for migration in services/billing-ledger/migrations/*.sql; do
+            psql "$Z_BILLING_LEDGER_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
+          done
+          psql "$Z_BILLING_LEDGER_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -c "SELECT version FROM billing_schema_migrations ORDER BY version"
+      - name: Run in-memory and PostgreSQL contract tests
+        run: npm test --prefix services/billing-ledger
+      - name: Setup Python for repository PostgreSQL contract
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Run repository PostgreSQL integration contract
+        env:
+          ZWORKFORCE_TEST_POSTGRES_URL: postgresql://billing_test:billing_test@127.0.0.1:5432/billing_test
+        run: |
+          set -euo pipefail
+          python -m pip install --no-cache-dir -e '.[test]'
+          PYTHONPATH=. python -m unittest discover -s tests -p 'test_v3_postgres.py' -v
+      - name: Exercise disposable PostgreSQL backup and restore
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Use PostgreSQL 17 client tools matching the PostgreSQL 17 service.
+          # The Ubuntu runner may carry an older pg_dump which refuses newer servers.
+          docker pull postgres:17-alpine
+
+          # Seed synthetic data only. This job must never use a customer or production DSN.
+          psql "$Z_BILLING_LEDGER_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          INSERT INTO billing_usage_records
+            (tenant_id, idempotency_key, usage_id, input_tokens, output_tokens, payload_hash, record)
+          VALUES
+            ('tenant-restore-drill', 'restore-usage-key', 'usage-restore-drill', 1, 2,
+             repeat('a', 64),
+             jsonb_build_object('tenant_id', 'tenant-restore-drill', 'usage_id', 'usage-restore-drill'))
+          ON CONFLICT (tenant_id, idempotency_key) DO NOTHING;
+
+          INSERT INTO billing_invoice_intents
+            (tenant_id, idempotency_key, intent_id, payload_hash, currency, amount_minor, status, intent)
+          VALUES
+            ('tenant-restore-drill', 'restore-invoice-key', 'invoice-restore-drill', repeat('b', 64),
+             'THB', 125, 'requires_payment_processor',
+             jsonb_build_object('tenant_id', 'tenant-restore-drill', 'intent_id', 'invoice-restore-drill'))
+          ON CONFLICT (tenant_id, idempotency_key) DO NOTHING;
+          SQL
+
+          dump_path="$RUNNER_TEMP/billing-ledger-restore-drill.dump"
+          restore_url="${Z_BILLING_LEDGER_TEST_DATABASE_URL%/billing_test}/billing_restore"
+          started_ms="$(date +%s%3N)"
+          psql "$Z_BILLING_LEDGER_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -c "CREATE DATABASE billing_restore"
+          docker run --rm --network host \
+            --env Z_BILLING_LEDGER_TEST_DATABASE_URL \
+            --env "restore_url=$restore_url" \
+            --volume "$RUNNER_TEMP:/backup" \
+            postgres:17-alpine sh -euc '
+              pg_dump "$Z_BILLING_LEDGER_TEST_DATABASE_URL" --format=custom --no-owner --no-privileges --file=/backup/billing-ledger-restore-drill.dump
+              test -s /backup/billing-ledger-restore-drill.dump
+              pg_restore --list /backup/billing-ledger-restore-drill.dump >/dev/null
+              pg_restore --dbname="$restore_url" --no-owner --no-privileges /backup/billing-ledger-restore-drill.dump
+            '
+
+          usage_rows="$(psql "$restore_url" -v ON_ERROR_STOP=1 -Atc "SELECT count(*) FROM billing_usage_records WHERE tenant_id='tenant-restore-drill' AND idempotency_key='restore-usage-key'")"
+          invoice_rows="$(psql "$restore_url" -v ON_ERROR_STOP=1 -Atc "SELECT count(*) FROM billing_invoice_intents WHERE tenant_id='tenant-restore-drill' AND idempotency_key='restore-invoice-key' AND status='requires_payment_processor'")"
+          schema_rows="$(psql "$restore_url" -v ON_ERROR_STOP=1 -Atc "SELECT count(*) FROM billing_schema_migrations WHERE version=2")"
+          usage_pk="$(psql "$restore_url" -v ON_ERROR_STOP=1 -Atc "SELECT count(*) FROM pg_constraint WHERE conname='billing_usage_records_tenant_idempotency_pk'")"
+          invoice_pk="$(psql "$restore_url" -v ON_ERROR_STOP=1 -Atc "SELECT count(*) FROM pg_constraint WHERE conname='billing_invoice_intents_tenant_idempotency_pk'")"
+          currency_check="$(psql "$restore_url" -v ON_ERROR_STOP=1 -Atc "SELECT count(*) FROM pg_constraint WHERE conname='billing_invoice_intents_supported_currency_check' AND conrelid='billing_invoice_intents'::regclass AND convalidated")"
+          test "$usage_rows" = "1"
+          test "$invoice_rows" = "1"
+          test "$schema_rows" = "1"
+          test "$usage_pk" = "1"
+          test "$invoice_pk" = "1"
+          test "$currency_check" = "1"
+          elapsed_ms="$(( $(date +%s%3N) - started_ms ))"
+          echo "disposable_ci_restore_drill=PASS"
+          echo "restored_usage_rows=$usage_rows"
+          echo "restored_invoice_rows=$invoice_rows"
+          echo "restored_schema_version_rows=$schema_rows"
+          echo "restored_tenant_idempotency_constraints=2"
+          echo "restored_supported_currency_constraint=$currency_check"
+          echo "disposable_ci_restore_elapsed_ms=$elapsed_ms"
+          echo "::notice::Elapsed time is a disposable CI smoke metric, not production RTO/RPO evidence."
