@@ -232,11 +232,37 @@ export async function chatStream(body, env = process.env, fetchImpl = fetch, req
   return { stream: result.body, conversation_id: conversationId };
 }
 
+function isTenantScopedApiRequest(request) {
+  const pathname = (request.url || "/").split("?", 1)[0];
+  return (
+    (request.method === "GET" &&
+      ["/api/platform/status", "/api/models"].includes(pathname)) ||
+    (request.method === "POST" &&
+      ["/api/chat", "/api/chat/stream"].includes(pathname))
+  );
+}
+
 export function createZChatRequestHandler({ env = process.env, fetchImpl = fetch } = {}) {
   return async (request, response) => {
     try {
+      if (isTenantScopedApiRequest(request)) {
+        return send(
+          response,
+          503,
+          JSON.stringify({
+            error: "Authenticated tenant identity is not configured",
+          }),
+          "application/json; charset=utf-8",
+          { "Cache-Control": "no-store", Connection: "close" },
+        );
+      }
       if (request.method === "GET" && request.url === "/health") {
-        return send(response, 200, JSON.stringify({ ...zchatHealthSnapshot(env), backends: await platformStatus(env, fetchImpl) }));
+        const snapshot = zchatHealthSnapshot(env);
+        return send(response, 200, JSON.stringify({
+          status: snapshot.status,
+          service: snapshot.service,
+          release_sha: snapshot.release_sha,
+        }));
       }
       if (request.method === "GET" && request.url === "/health/live") {
         return send(response, 200, JSON.stringify({

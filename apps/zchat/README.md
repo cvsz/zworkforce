@@ -1,39 +1,43 @@
 # ZChat
 
-ZChat is the platform chat surface migrated from `cvsz/z-platform/apps/zchat`.
-
-This version keeps the browser UI thin and routes model calls through the platform AI Gateway. Browser code must never contain upstream provider keys, direct provider base URLs, or tenant-wide service credentials.
-
-The current shell is a conversation client rather than a single-submit form: it renders a transcript, keeps a browser-local conversation history sidebar, lets the active conversation title be edited directly, persists the active conversation in browser storage, supports a per-conversation system prompt, offers browser-local prompt templates, exports the active conversation as markdown or JSON, supports a browser-local dark mode preference, streams assistant output when the gateway supports it, and still keeps all model calls on the server side. Assistant replies support a safe markdown subset for headings, lists, quotes, code fences, inline code, and http(s) links.
-The composer also exposes a stop action that aborts the active generation without exposing provider credentials or bypassing the gateway path.
+ZChat is the platform chat surface migrated from the canonical platform application. Browser code must never contain upstream provider keys, direct provider base URLs, or tenant-wide service credentials.
 
 ## Runtime
 
-- `GET /health` reports service status, gateway configuration, and session TTL.
-- `GET /api/models` loads the AI Gateway model catalog for the browser model selector.
-- `POST /api/chat` accepts `{ "prompt": "...", "model": "optional", "conversation_id": "optional", "system_prompt": "optional" }` and forwards an OpenAI-compatible request to the AI Gateway.
-- `POST /api/chat/stream` forwards streaming chat requests, including the pinned system prompt, and returns server-sent events from the AI Gateway.
-- `POST /api/logout` clears browser storage via `Clear-Site-Data`.
-- `GET /` serves the static accessible chat shell with transcript, history sidebar, conversation title editor, prompt templates, export controls, theme toggle, composer with stop/send controls, model picker, new chat, retry, clear, and logout controls.
+- GET /health and GET /health/live return minimal liveness metadata only; they do not expose gateway configuration or internal backend status.
+- GET / serves the static accessible chat shell.
+- POST /api/logout clears browser storage through Clear-Site-Data.
+- GET /api/models, GET /api/platform/status, POST /api/chat, and POST /api/chat/stream intentionally return HTTP 503 with Cache-Control: no-store until trusted authentication and tenant membership are implemented at this HTTP boundary.
+- Caller-supplied X-Tenant-Id and X-Session-Started-At headers are not proof of identity, tenant membership, or session validity.
+- The exported chat/model helper functions are not exposed by the HTTP routes while identity admission is unavailable.
 
-All model calls include tenant, conversation, request, and usage-correlation headers for platform identity and observability. Provider credentials remain server-side in the AI Gateway.
+## Required environment for a future authenticated runtime
 
-## Required environment
+These settings do not enable API access by themselves. Do not expose them to browser code.
 
-- `Z_PLATFORM_AI_GATEWAY_URL`: AI Gateway base URL. Both `http://gateway:8400` and `http://gateway:8400/v1` are accepted.
-- `Z_PLATFORM_SERVICE_TOKEN`: service token used only by this server-side proxy.
-- `PHASE6_API_URL` and `ZC_API_URL`: internal backend URLs used by the unified platform status facade.
-- `PHASE6_API_TOKEN` and `ZC_API_TOKEN`: optional server-side backend credentials; never expose them to the browser.
+- Z_PLATFORM_AI_GATEWAY_URL: AI Gateway base URL.
+- Z_PLATFORM_SERVICE_TOKEN: server-side service credential for the AI Gateway.
+- PHASE6_API_URL and ZC_API_URL: internal backend URLs used by the platform status facade.
+- PHASE6_API_TOKEN and ZC_API_TOKEN: optional server-side backend credentials.
+- ZCHAT_SESSION_TTL_SECONDS: a future server-validated session policy setting. A caller-supplied start timestamp is not an authentication control.
+- HOST optional, defaults to 127.0.0.1.
+- PORT optional, defaults to 3021.
 
-The production zc deployment requires `ZC_API_TOKEN`; liveness and readiness probes remain unauthenticated, while upload and wire operations require `Authorization: Bearer <ZC_API_TOKEN>`.
-- `ZCHAT_SESSION_TTL_SECONDS` optional. When set, requests with expired `X-Session-Started-At` are rejected.
-- `HOST` optional, defaults to `127.0.0.1`.
-- `PORT` optional, defaults to `3021`.
+## Tenant identity admission requirements
+
+Do not re-enable model catalog, platform status, chat, or streaming routes until all of the following are implemented and tested:
+
+1. Validate a server-trusted OIDC/JWKS identity, including issuer, audience, signature, expiry, and key rotation.
+2. Resolve the authenticated subject to an active tenant membership and current RBAC record using authoritative server-side data.
+3. Derive tenant identity exclusively from the verified principal. Never use X-Tenant-Id, X-Session-Started-At, body tenant_id, role, or plan as authority.
+4. Propagate verified tenant context through AI Gateway usage attribution, conversation storage, rate limits, audit records, and downstream authorization.
+5. Prove positive and negative cross-tenant cases with real HTTP integration tests, including forged headers, missing identity, expired/revoked membership, and conversation ID substitution.
+6. Keep the routes unavailable until exact-head CI, security checks, independent review, and production identity/secret provisioning evidence pass.
 
 ## Validation
 
-Run `npm test` in this directory to check health, gateway-only chat forwarding, model catalog loading, streaming forwarding, tenant scoping, conversation IDs, usage correlation, session expiry, logout, browser storage persistence, conversation history navigation, manual conversation titles, pinned system prompts, prompt template persistence, export formatting, theme persistence, stream parsing, stream cancellation, safe markdown rendering, and gateway URL normalization.
+Run npm test in this directory to check direct gateway helper contracts, session handling, cancellation, static browser behavior, logout, public health redaction, and the fail-closed HTTP tenant boundary.
 
 ## Migration limits
 
-The UI is intentionally minimal and platform-owned. Production deployments still need the selected platform identity/session provider and end-to-end accessibility/mobile QA in the deployed environment.
+The UI remains a platform-owned chat client. Production deployment still requires the selected platform identity/session provider and end-to-end accessibility/mobile QA in the deployed environment.
