@@ -23,12 +23,10 @@ test('tenant scoped usage identity allows independent tenants to reuse usage ids
   assert.equal(ledger.store.records.size, 2);
 });
 
-test('legacy same-key replay is unchanged and does not reserve an ignored usage id', async () => {
+test('conflicting same-key replay is rejected without reserving a new usage id', async () => {
   const ledger = new BillingLedger();
   await ledger.recordUsage(usage('tenant-a', 'key-1', 'usage-1'));
-  const replay = await ledger.recordUsage(usage('tenant-a', 'key-1', 'ignored-usage-id'));
-  assert.equal(replay.duplicate, true);
-  assert.equal(replay.record.usage_id, 'usage-1');
+  await assert.rejects(ledger.recordUsage(usage('tenant-a', 'key-1', 'ignored-usage-id')), isConflict);
   assert.equal((await ledger.recordUsage(usage('tenant-a', 'key-2', 'ignored-usage-id'))).duplicate, false);
   assert.equal(ledger.store.records.size, 2);
 });
