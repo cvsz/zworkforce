@@ -1,6 +1,7 @@
 // Candidate-only identity boundary. Not wired to HTTP, payments, or production.
 // An authenticated tenant requires a verified JWT AND an independent membership lookup.
 import { createPublicKey, verify as verifySignature } from 'node:crypto';
+import { parseJsonRejectingDuplicateKeys } from './strict-json.mjs';
 
 export class FinancialIdentityError extends Error {
   constructor(message = 'Financial identity denied', status = 403) {
@@ -19,7 +20,7 @@ function parsePart(part) {
   if (typeof part !== 'string' || !/^[A-Za-z0-9_-]+$/.test(part)) throw deny();
   const bytes = Buffer.from(part, 'base64url');
   if (bytes.toString('base64url') !== part) throw deny();
-  return JSON.parse(bytes.toString('utf8'));
+  return parseJsonRejectingDuplicateKeys(bytes.toString('utf8'));
 }
 
 export function createFinancialTenantResolver({ issuer, audience, getJwks, lookupMembership, now = () => Date.now(), maxTokenSeconds = 3600 } = {}) {
