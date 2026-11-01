@@ -11,23 +11,23 @@ ingress:
   # 1. zWorkforce Control Plane and API
   - hostname: zwf.zeaz.dev
     path: '^/apps(/.*)?$'
-    service: http://127.0.0.1:9569
+    service: http://127.0.0.1:9570
   - hostname: zwf.zeaz.dev
     path: '^/service(/.*)?$'
-    service: http://127.0.0.1:9569
+    service: http://127.0.0.1:9570
   - hostname: zwf.zeaz.dev
     path: '^/package(/.*)?$'
-    service: http://127.0.0.1:9569
+    service: http://127.0.0.1:9570
   - hostname: zwf.zeaz.dev
-    service: http://127.0.0.1:9569
+    service: http://127.0.0.1:9570
   - hostname: zwf-api.zeaz.dev
-    service: http://127.0.0.1:9569
+    service: http://127.0.0.1:9570
   - hostname: zslog.zeaz.dev
     service: http://127.0.0.1:9581
 
   # 2. Z.A.R.V.I.S. Voice & Hotkey Gateway (same governed control-plane gateway)
   - hostname: zarvis.zeaz.dev
-    service: http://127.0.0.1:9569
+    service: http://127.0.0.1:9570
 
   # 3. ZSP AI Studio & Video Renderer
   - hostname: studio.zeaz.dev

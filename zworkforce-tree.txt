@@ -1,0 +1,4106 @@
+/home/cvsz/zworkforce/
+├── =1.40,
+├── AGENTS.md
+├── ARCHITECTURE.md
+├── CHANGELOG.md
+├── CONTRIBUTING.md
+├── Directory.Build.props
+├── Dockerfile
+├── LICENSE
+├── Makefile
+├── README.md
+├── ROADMAP.md
+├── ROADMAPS.md
+├── RUNBOOK.md
+├── SECURITY.md
+├── ZWorkforceClient
+│   ├── Directory.Packages.props
+│   ├── ZWorkforceClient.sln
+│   ├── build
+│   │   └── windows
+│   │       ├── Build-Client.ps1
+│   │       ├── Install-Prerequisites.ps1
+│   │       ├── Package-Client.ps1
+│   │       ├── Test-Client.ps1
+│   │       └── Verify-MSIXSignature.ps1
+│   ├── global.json
+│   ├── src
+│   │   ├── ZWorkforceClient
+│   │   │   ├── App.xaml
+│   │   │   ├── App.xaml.cs
+│   │   │   ├── Assets
+│   │   │   │   ├── Square150x150Logo.png
+│   │   │   │   ├── Square44x44Logo.png
+│   │   │   │   └── StoreLogo.png
+│   │   │   ├── MainWindow.xaml
+│   │   │   ├── MainWindow.xaml.cs
+│   │   │   ├── Package.appxmanifest
+│   │   │   ├── Pages
+│   │   │   │   ├── AgentsPage.xaml
+│   │   │   │   ├── AgentsPage.xaml.cs
+│   │   │   │   ├── AutomationPage.xaml
+│   │   │   │   ├── AutomationPage.xaml.cs
+│   │   │   │   ├── ConnectionPage.xaml
+│   │   │   │   ├── ConnectionPage.xaml.cs
+│   │   │   │   ├── GovernancePage.xaml
+│   │   │   │   ├── GovernancePage.xaml.cs
+│   │   │   │   ├── KnowledgePage.xaml
+│   │   │   │   ├── KnowledgePage.xaml.cs
+│   │   │   │   ├── OverviewPage.xaml
+│   │   │   │   ├── OverviewPage.xaml.cs
+│   │   │   │   ├── PageBase.cs
+│   │   │   │   ├── SettingsPage.xaml
+│   │   │   │   ├── SettingsPage.xaml.cs
+│   │   │   │   ├── TasksPage.xaml
+│   │   │   │   └── TasksPage.xaml.cs
+│   │   │   ├── Services
+│   │   │   │   ├── ClientSession.cs
+│   │   │   │   ├── WindowsCredentialStore.cs
+│   │   │   │   └── WindowsSettingsStore.cs
+│   │   │   ├── Styles
+│   │   │   │   └── ThemeResources.xaml
+│   │   │   ├── ViewModels
+│   │   │   │   └── Rows.cs
+│   │   │   ├── ZWorkforceClient.csproj
+│   │   │   └── app.manifest
+│   │   └── ZWorkforceClient.Core
+│   │       ├── Api
+│   │       │   ├── ApiClient.DomainMethods.cs
+│   │       │   ├── ApiClient.cs
+│   │       │   ├── ApiException.cs
+│   │       │   └── ApiRoutes.cs
+│   │       ├── Models
+│   │       │   ├── ApiModels.cs
+│   │       │   ├── ConnectionSettings.cs
+│   │       │   └── JsonModels.cs
+│   │       ├── Services
+│   │       │   └── VoiceService.cs
+│   │       └── ZWorkforceClient.Core.csproj
+│   └── tests
+│       └── ZWorkforceClient.Core.Tests
+│           ├── ApiClientTests.cs
+│           ├── ConnectionSettingsTests.cs
+│           ├── VoiceServiceTests.cs
+│           └── ZWorkforceClient.Core.Tests.csproj
+├── apps
+│   ├── agent-control-panel
+│   │   ├── README.md
+│   │   ├── eslint.config.mjs
+│   │   ├── next.config.ts
+│   │   ├── package.json
+│   │   ├── public
+│   │   │   ├── file.svg
+│   │   │   ├── globe.svg
+│   │   │   ├── next.svg
+│   │   │   ├── vercel.svg
+│   │   │   └── window.svg
+│   │   ├── src
+│   │   │   └── app
+│   │   │       ├── favicon.ico
+│   │   │       ├── globals.css
+│   │   │       ├── layout.tsx
+│   │   │       ├── page.module.css
+│   │   │       └── page.tsx
+│   │   └── tsconfig.json
+│   ├── frontend
+│   │   ├── README.md
+│   │   ├── canva-app
+│   │   │   ├── README.md
+│   │   │   ├── index.html
+│   │   │   ├── package.json
+│   │   │   ├── src
+│   │   │   │   ├── App.tsx
+│   │   │   │   ├── index.css
+│   │   │   │   └── main.tsx
+│   │   │   ├── tsconfig.json
+│   │   │   ├── tsconfig.node.json
+│   │   │   └── vite.config.ts
+│   │   ├── mcp
+│   │   │   ├── README.md
+│   │   │   ├── mcp-config.json
+│   │   │   └── setup-canva-mcp.sh
+│   │   ├── metricui-analytics
+│   │   │   ├── README.md
+│   │   │   ├── app
+│   │   │   │   ├── globals.css
+│   │   │   │   ├── layout.tsx
+│   │   │   │   └── page.tsx
+│   │   │   ├── components
+│   │   │   │   └── ui
+│   │   │   │       └── card.tsx
+│   │   │   ├── lib
+│   │   │   │   └── utils.ts
+│   │   │   ├── next.config.js
+│   │   │   ├── package.json
+│   │   │   ├── tailwind.config.js
+│   │   │   ├── tsconfig.app.json
+│   │   │   └── tsconfig.json
+│   │   └── reui-dashboard
+│   │       ├── README.md
+│   │       ├── app
+│   │       │   ├── globals.css
+│   │       │   ├── layout.tsx
+│   │       │   └── page.tsx
+│   │       ├── lib
+│   │       │   └── utils.ts
+│   │       ├── next-env.d.ts
+│   │       ├── next.config.js
+│   │       ├── package.json
+│   │       ├── tailwind.config.js
+│   │       ├── tsconfig.app.json
+│   │       └── tsconfig.json
+│   ├── zaicoder
+│   │   ├── README.md
+│   │   ├── backend
+│   │   │   ├── README.md
+│   │   │   ├── pyproject.toml
+│   │   │   ├── requirements-dev.txt
+│   │   │   ├── src
+│   │   │   │   └── zaicoder
+│   │   │   │       ├── __init__.py
+│   │   │   │       ├── __main__.py
+│   │   │   │       ├── cli.py
+│   │   │   │       ├── gateway_client.py
+│   │   │   │       ├── mcp_connector.py
+│   │   │   │       ├── model_preflight.py
+│   │   │   │       └── streaming.py
+│   │   │   └── tests
+│   │   │       ├── test_gateway_client.py
+│   │   │       ├── test_mcp_connector.py
+│   │   │       ├── test_model_preflight.py
+│   │   │       └── test_streaming.py
+│   │   └── web
+│   │       ├── README.md
+│   │       ├── package.json
+│   │       ├── public
+│   │       │   ├── app.js
+│   │       │   ├── index.html
+│   │       │   └── style.css
+│   │       ├── server
+│   │       │   ├── cleanup-workspaces.mjs
+│   │       │   ├── gateway.mjs
+│   │       │   ├── http.mjs
+│   │       │   └── workspace-store.mjs
+│   │       └── test
+│   │           ├── cleanup-workspaces.test.mjs
+│   │           ├── gateway.test.mjs
+│   │           └── workspace-store.test.mjs
+│   ├── zarvis-console
+│   │   ├── README.md
+│   │   ├── package.json
+│   │   ├── public
+│   │   │   ├── app.js
+│   │   │   ├── index.html
+│   │   │   └── styles.css
+│   │   ├── server.mjs
+│   │   └── test
+│   │       └── server.test.mjs
+│   ├── zarvis-windows
+│   │   ├── Directory.Build.props
+│   │   ├── README.md
+│   │   ├── installer
+│   │   │   └── ZARVIS.iss
+│   │   ├── scripts
+│   │   │   ├── Install-ZARVIS-OwnerDomain.ps1
+│   │   │   ├── Install-ZARVIS-VoiceDomain.ps1
+│   │   │   ├── Uninstall-ZARVIS-OwnerDomain.ps1
+│   │   │   ├── build.ps1
+│   │   │   └── install-latest.ps1
+│   │   ├── src
+│   │   │   └── ZARVIS.Windows
+│   │   │       ├── App.xaml
+│   │   │       ├── App.xaml.cs
+│   │   │       ├── GlobalUsings.cs
+│   │   │       ├── MainWindow.Release.cs
+│   │   │       ├── MainWindow.xaml
+│   │   │       ├── MainWindow.xaml.cs
+│   │   │       ├── Models
+│   │   │       │   └── ClientSettings.cs
+│   │   │       ├── Services
+│   │   │       │   ├── HealthProbeService.cs
+│   │   │       │   ├── InputValidator.cs
+│   │   │       │   ├── SettingsStore.cs
+│   │   │       │   └── SshTunnelService.cs
+│   │   │       ├── ZARVIS.Windows.csproj
+│   │   │       └── app.manifest
+│   │   └── tests
+│   │       └── ZARVIS.Windows.Tests
+│   │           ├── InputValidatorTests.cs
+│   │           └── ZARVIS.Windows.Tests.csproj
+│   ├── zchat
+│   │   ├── NEXTCHAT_UPGRADE.md
+│   │   ├── README.md
+│   │   ├── package.json
+│   │   ├── public
+│   │   │   ├── app.js
+│   │   │   ├── chat-state.mjs
+│   │   │   ├── chat-stream.mjs
+│   │   │   ├── index.html
+│   │   │   ├── markdown.mjs
+│   │   │   └── styles.css
+│   │   ├── server.mjs
+│   │   └── test
+│   │       ├── chat-state.test.mjs
+│   │       ├── chat-stream.test.mjs
+│   │       ├── markdown.test.mjs
+│   │       └── server.test.mjs
+│   ├── zeaz-web
+│   │   ├── README.md
+│   │   ├── migrations
+│   │   │   └── 0001_initial.sql
+│   │   ├── package.json
+│   │   ├── scripts
+│   │   │   ├── assemble-source.mjs
+│   │   │   ├── render-wrangler.mjs
+│   │   │   └── validate-build.mjs
+│   │   ├── src.parts
+│   │   │   ├── part-00.txt
+│   │   │   ├── part-01.txt
+│   │   │   ├── part-02.txt
+│   │   │   ├── part-03.txt
+│   │   │   └── part-04.txt
+│   │   ├── test
+│   │   │   └── lead-validation.test.mjs
+│   │   └── wrangler.template.json
+│   ├── zow
+│   │   ├── README.md
+│   │   ├── package.json
+│   │   ├── public
+│   │   │   └── index.html
+│   │   ├── server.mjs
+│   │   └── test
+│   │       └── server.test.mjs
+│   ├── zvoice
+│   │   ├── Dockerfile
+│   │   ├── README.md
+│   │   ├── local-conversation.mjs
+│   │   ├── package.json
+│   │   ├── public
+│   │   │   ├── app.js
+│   │   │   ├── humanoid-view.js
+│   │   │   ├── humanoid.css
+│   │   │   ├── index.html
+│   │   │   ├── styles.css
+│   │   │   └── voice-worklet.js
+│   │   ├── server.mjs
+│   │   └── test
+│   │       ├── local-conversation.test.mjs
+│   │       ├── local-fallback-integration.test.mjs
+│   │       └── server.test.mjs
+│   └── zwallet
+│       ├── README.md
+│       ├── package.json
+│       ├── server.mjs
+│       └── test
+│           └── server.test.mjs
+├── automation
+│   └── README.md
+├── backups
+│   └── cloudflare
+│       ├── terraform-state-before-dns-import-20260815T121232Z.json
+│       ├── terraform-state-before-dns-import-20260815T121324Z.json
+│       ├── terraform-state-before-dns-import-20260815T121409Z.json
+│       ├── terraform-state-before-plan-20260815T121259Z.json
+│       └── terraform-state-before-plan-20260815T121440Z.json
+├── build
+│   ├── bdist.linux-x86_64
+│   └── lib
+│       └── zworkforce
+│           ├── __init__.py
+│           ├── __main__.py
+│           ├── a2a_discovery.py
+│           ├── acp.py
+│           ├── agent_handoff.py
+│           ├── api.py
+│           ├── artifact_content_api.py
+│           ├── artifacts.py
+│           ├── browser_effect_api.py
+│           ├── capabilities.py
+│           ├── citation_validator.py
+│           ├── cli.py
+│           ├── cloudflare_api.py
+│           ├── cloudflare_live.py
+│           ├── config.py
+│           ├── connectors.py
+│           ├── db.py
+│           ├── db_artifact_content.py
+│           ├── db_automation.py
+│           ├── db_backend.py
+│           ├── db_base.py
+│           ├── db_browser_effects.py
+│           ├── db_evidence.py
+│           ├── db_finops.py
+│           ├── db_governance.py
+│           ├── db_kids.py
+│           ├── db_migration.py
+│           ├── db_realtime.py
+│           ├── db_schema.py
+│           ├── db_schema_browser_effects.py
+│           ├── db_schema_kids.py
+│           ├── db_schema_realtime.py
+│           ├── db_schema_v3.py
+│           ├── db_schema_workspace.py
+│           ├── db_schema_workspace_grants.py
+│           ├── db_schema_workspace_worktrees.py
+│           ├── db_schema_zeazverse.py
+│           ├── db_tasks.py
+│           ├── db_workspace.py
+│           ├── db_workspace_context.py
+│           ├── db_workspace_grants.py
+│           ├── db_workspace_worktrees.py
+│           ├── db_zeazverse.py
+│           ├── deep_research.py
+│           ├── document_compiler.py
+│           ├── economics.py
+│           ├── engine.py
+│           ├── evaluation_suite.py
+│           ├── evaluator.py
+│           ├── github_webhooks.py
+│           ├── identity.py
+│           ├── kids_api.py
+│           ├── kids_factory.py
+│           ├── kids_mcp.py
+│           ├── kids_workflow.py
+│           ├── mcp.py
+│           ├── metrics.py
+│           ├── outbox.py
+│           ├── policy.py
+│           ├── process_sandbox.py
+│           ├── prometa.py
+│           ├── prometa_data
+│           │   ├── prometa-agent-catalog.json
+│           │   ├── prometa-agent-templates.json
+│           │   ├── prometa-skills.json
+│           │   └── prometa-workflows.json
+│           ├── providers.py
+│           ├── rag.py
+│           ├── realtime.py
+│           ├── router.py
+│           ├── router_tracing.py
+│           ├── s3_errors.py
+│           ├── safety_hooks.py
+│           ├── sagi_approval_request.py
+│           ├── sagi_atomic_approval.py
+│           ├── sagi_browser_runtime.py
+│           ├── sagi_canonical_browser_effect.py
+│           ├── sagi_computer_dispatch.py
+│           ├── sagi_computer_session.py
+│           ├── sagi_computer_use.py
+│           ├── sagi_planning.py
+│           ├── sagi_production_gate.py
+│           ├── sagi_screen_freshness.py
+│           ├── sagi_worker_fencing.py
+│           ├── sagi_zloop_binding.py
+│           ├── samsung_builder_preflight.py
+│           ├── samsung_compat.py
+│           ├── samsung_manifest.py
+│           ├── samsung_sdk_probe.py
+│           ├── samsung_tv.py
+│           ├── scheduler.py
+│           ├── secret_canary.py
+│           ├── secret_store.py
+│           ├── security.py
+│           ├── service_broker.py
+│           ├── service_broker_payment.py
+│           ├── skill_registry.py
+│           ├── skills.py
+│           ├── solana_notary.py
+│           ├── static
+│           │   ├── app.js
+│           │   ├── dashboard
+│           │   │   ├── bootstrap.js
+│           │   │   ├── core
+│           │   │   │   ├── realtime.js
+│           │   │   │   └── registry.js
+│           │   │   └── packages
+│           │   │       └── realtime
+│           │   │           └── index.js
+│           │   ├── index.html
+│           │   ├── styles.css
+│           │   ├── zarvis-hud.css
+│           │   ├── zarvis-hud.js
+│           │   └── zarvis-voice-worklet.js
+│           ├── telemetry.py
+│           ├── tools.py
+│           ├── tunnel.py
+│           ├── tunnel_client.py
+│           ├── workflow.py
+│           ├── workspace_api.py
+│           ├── workspace_cli.py
+│           ├── workspace_command_api.py
+│           ├── workspace_commands.py
+│           ├── workspace_context_api.py
+│           ├── workspace_evidence.py
+│           ├── workspace_evidence_api.py
+│           ├── workspace_grant_api.py
+│           ├── workspace_grants.py
+│           ├── workspace_tool_executor.py
+│           ├── workspace_worktrees.py
+│           ├── worktree.py
+│           ├── zarvis_voice.py
+│           ├── zchat_integration.py
+│           ├── zeazverse_adapters.py
+│           ├── zeazverse_api.py
+│           ├── zeazverse_bibles.py
+│           ├── zeazverse_domain.py
+│           ├── zknowbase_client.py
+│           ├── zktcoder.py
+│           └── zloop_bridge.py
+├── cmd
+│   └── zctl
+│       ├── go.mod
+│       └── main.go
+├── compose.open-webui.yml
+├── compose.yaml
+├── compose.zsp-aitool.yml
+├── configs
+│   └── agent-skill-release-manifest.json
+├── control.sh
+├── data
+│   ├── artifacts
+│   └── zworkforce.sqlite3
+├── deploy
+│   ├── caddy
+│   │   └── Caddyfile
+│   ├── cloudflare
+│   │   ├── tunnel-ingress.yml
+│   │   └── zwf-ingress.yml.example
+│   ├── cloudflared
+│   │   └── moopiew-ingress.yml.example
+│   ├── docker
+│   │   ├── ai-gateway.Dockerfile
+│   │   ├── next-service.Dockerfile
+│   │   └── node-service.Dockerfile
+│   ├── ha
+│   │   ├── compose.shared.env.example
+│   │   ├── compose.vm-a.yaml
+│   │   └── compose.vm-b.yaml
+│   ├── kubernetes
+│   │   ├── api.yaml
+│   │   ├── configmap.yaml
+│   │   ├── kustomization.yaml
+│   │   ├── namespace.yaml
+│   │   ├── networkpolicy.yaml
+│   │   ├── outbox.yaml
+│   │   ├── scheduler.yaml
+│   │   ├── secret.example.yaml
+│   │   ├── storage-rbac.yaml
+│   │   └── worker.yaml
+│   ├── observability
+│   │   ├── __pycache__
+│   │   │   └── alert_receiver.cpython-314.pyc
+│   │   ├── alert-receiver.env.example
+│   │   ├── alert-receiver.service
+│   │   ├── alert-rules.vm-b.yaml
+│   │   ├── alert-rules.yml
+│   │   ├── alert_receiver.py
+│   │   ├── alertmanager.vm-b.yaml
+│   │   ├── alertmanager.yml
+│   │   ├── compose.vm-b.yaml
+│   │   ├── grafana-dashboard.json
+│   │   ├── otel-collector.yaml
+│   │   ├── prometheus.vm-b.yaml
+│   │   ├── prometheus.yml
+│   │   └── render-config.sh
+│   ├── sagi-browser
+│   │   ├── NETWORK-ISOLATION-EVIDENCE.md
+│   │   ├── README.md
+│   │   └── network-policy.yaml
+│   └── systemd
+│       ├── cloudflare-rotation.service
+│       ├── cloudflare-rotation.timer
+│       ├── core-cloudflared.service
+│       └── moopiew-cloudflared.service
+├── docs
+│   ├── AI-AGENT-SKILL-THREAT-MODEL.md
+│   ├── AI-AGENTS-SKILLS-RELEASE.md
+│   ├── AI-PR-AUTOMATION.md
+│   ├── APEX-UI-ATTRIBUTION.md
+│   ├── API-BROWSER-EFFECTS.md
+│   ├── API.md
+│   ├── BROWSER-EFFECTS.md
+│   ├── CENTER-CONTROL-PLANE.md
+│   ├── CLOUDFLARE-API-MCP.md
+│   ├── CLOUDFLARE-LIVE-READONLY-MCP.md
+│   ├── CLOUDFLARE-MCP-AUDIT.md
+│   ├── CLOUDFLARE-MCP-PAGINATION.md
+│   ├── CLOUDFLARE-READ-ERRORS-MCP.md
+│   ├── DATA-MODEL.md
+│   ├── DEPLOYMENT.md
+│   ├── DISASTER-RECOVERY.md
+│   ├── ENTERPRISE-CAPABILITY-PLATFORM.md
+│   ├── GITHUB-OPERATIONS.md
+│   ├── HA-CLOUDFLARE-SUPABASE.md
+│   ├── HIGH-STAR-OSS-AI-ADOPTION.md
+│   ├── IDENTITY.md
+│   ├── MCP.md
+│   ├── OBSERVABILITY.md
+│   ├── OPERATIONS.md
+│   ├── P0-P1-Fix.md
+│   ├── POSTGRESQL.md
+│   ├── PROCESS-SANDBOX.md
+│   ├── PRODUCTION-EVIDENCE.md
+│   ├── PRODUCTION-READINESS.md
+│   ├── PROMETA-MASTER.md
+│   ├── PROVIDERS.md
+│   ├── RELEASE.md
+│   ├── SAGI-APPROVAL-REQUEST.md
+│   ├── SAGI-ARCHITECTURE.md
+│   ├── SAGI-ATOMIC-EXECUTION.md
+│   ├── SAGI-BROWSER-RUNTIME.md
+│   ├── SAGI-CANONICAL-APPROVAL-INTEGRATION.md
+│   ├── SAGI-COMPUTER-EXECUTION-GATES.md
+│   ├── SAGI-COMPUTER-SESSION-SECURITY.md
+│   ├── SAGI-COMPUTER-USE.md
+│   ├── SAGI-FENCING-RELEASE-GATE.md
+│   ├── SAGI-PRODUCTION-ADMISSION.md
+│   ├── SAGI-ZLOOP-BINDING.md
+│   ├── SAMSUNG-BUILDER-PREFLIGHT-MCP.md
+│   ├── SAMSUNG-CLOUDFLARE-MCP-STAGING-ACCEPTANCE.md
+│   ├── SAMSUNG-SDK-ENVIRONMENT-MCP.md
+│   ├── SAMSUNG-SOURCE-MANIFEST-MCP.md
+│   ├── SAMSUNG-TV-MCP-PHASE2.md
+│   ├── SAMSUNG-TV-MCP.md
+│   ├── SECRET-MANAGEMENT.md
+│   ├── SKYWORK-CHANGELOG-REVERSE-ENGINEERING.md
+│   ├── Supabase-Connection.md
+│   ├── THREAT-MODEL.md
+│   ├── UNIVERSAL-STACK-INTELLIGENCE.md
+│   ├── UPGRADE-v1-v2.md
+│   ├── UPGRADE-v2-v3.md
+│   ├── VIDEO-FACTORY-ORC-RUNTIME.md
+│   ├── WINDOWS-CLIENT.md
+│   ├── WORKFLOWS.md
+│   ├── WORKSPACE-COMMANDS.md
+│   ├── WORKSPACE-EVIDENCE-SIDECAR.md
+│   ├── WORKSPACE-GRANTS.md
+│   ├── ZCHAT-INTEGRATION-V1.md
+│   ├── ZEAZ-AGI-INTEGRATION.md
+│   ├── ZEAZDEV-WORK-CONTEXT.md
+│   ├── ZEAZVERSE-MASTER-PROMPT.md
+│   ├── ZKNOWBASE-INTEGRATION.md
+│   ├── ZLOOP-INTEGRATION.md
+│   ├── assets
+│   │   ├── zworkforce-readme-banner.jpg
+│   │   └── zworkforce-social-preview.svg
+│   ├── cloudflare
+│   │   ├── REPO_SITE_FALLBACK.md
+│   │   └── cloudflare-deployment.md
+│   ├── kids-factory
+│   │   ├── AGENT-CONTRACTS.md
+│   │   ├── ARCHITECTURE.md
+│   │   ├── CHANGELOG.md
+│   │   ├── CHARACTER-BIBLE.md
+│   │   ├── CONTENT-PIPELINE.md
+│   │   ├── OPERATIONS.md
+│   │   ├── PROVIDER-ADAPTERS.md
+│   │   ├── ROADMAP.md
+│   │   ├── RUNBOOK.md
+│   │   ├── SECURITY.md
+│   │   ├── TEST-EVIDENCE.md
+│   │   ├── VIDEO-RENDERING.md
+│   │   └── YOUTUBE-INTEGRATION.md
+│   ├── migration
+│   │   └── z-platform-consolidation.md
+│   └── superpowers
+│       ├── plans
+│       │   ├── 2026-08-09-code-scanning-fixes-plan.md
+│       │   ├── 2026-08-09-windows-client-plan.md
+│       │   ├── 2026-08-11-zarvis-migration.md
+│       │   └── 2026-08-30-dashboard-realtime-plan.md
+│       └── specs
+│           ├── 2026-08-09-windows-client-design.md
+│           ├── 2026-08-11-zarvis-migration-design.md
+│           └── 2026-08-30-dashboard-realtime-design.md
+├── examples
+│   ├── agent-template.research.json
+│   ├── agents.json
+│   ├── center-control-plane.example.json
+│   ├── evaluation.tiers.json
+│   ├── event-rule.incident.json
+│   ├── kids-factory-demo.json
+│   ├── policy.production-guard.json
+│   ├── prometa-agent-catalog.json
+│   ├── prometa-agent-templates.json
+│   ├── prometa-skills.json
+│   ├── prometa-workflows.json
+│   ├── schedule.daily-research.json
+│   ├── skill.repo-review.json
+│   └── workflow.research-report.json
+├── infrastructure
+│   ├── kubernetes
+│   │   ├── README.md
+│   │   ├── argocd
+│   │   │   └── application.yaml
+│   │   ├── base
+│   │   │   ├── deployments.yaml
+│   │   │   ├── kustomization.yaml
+│   │   │   ├── namespace.yaml
+│   │   │   ├── networkpolicy.yaml
+│   │   │   ├── poddisruptionbudgets.yaml
+│   │   │   ├── redis.yaml
+│   │   │   ├── serviceaccount.yaml
+│   │   │   └── services.yaml
+│   │   ├── cilium
+│   │   │   ├── k3s-config-migration.yaml.example
+│   │   │   ├── k3s-config.runtime.yaml
+│   │   │   ├── values-k3s.yaml
+│   │   │   └── version.env.example
+│   │   └── overlays
+│   │       └── production
+│   │           └── kustomization.yaml
+│   ├── terraform
+│   │   └── cloudflare
+│   │       ├── README.md
+│   │       ├── ZNEON.md
+│   │       ├── ZTTATO.md
+│   │       ├── autoc.tf
+│   │       ├── backend.r2.tf.example
+│   │       ├── coin.tf
+│   │       ├── dbc.tf
+│   │       ├── llmwiki.tf
+│   │       ├── main.tf
+│   │       ├── outputs.tf
+│   │       ├── providers.tf
+│   │       ├── repo-fallback.tf
+│   │       ├── terraform.tfvars.example
+│   │       ├── tiktok.tf
+│   │       ├── variables.tf
+│   │       ├── workers
+│   │       │   ├── repo-under-construction.js
+│   │       │   └── zeaz-one-product-api.js
+│   │       ├── zany.tf
+│   │       ├── zcoder.tf
+│   │       ├── zdash.tf
+│   │       ├── zeaz-one.tf
+│   │       ├── zksato.tf
+│   │       ├── zneon.tf
+│   │       ├── zsme.tf
+│   │       └── zworkforce.tf
+│   ├── zeaz-cloudflare-policies.json
+│   └── zeaz-cloudflare-policies.tpl
+├── package.json
+├── packages
+│   ├── contracts
+│   │   ├── README.md
+│   │   ├── agent.md
+│   │   ├── ai.md
+│   │   ├── package.json
+│   │   ├── schemas
+│   │   │   ├── agent.job.approved.v1.schema.json
+│   │   │   ├── agent.job.completed.v1.schema.json
+│   │   │   ├── agent.job.requested.v1.schema.json
+│   │   │   ├── zarvis.action.approval.v1.schema.json
+│   │   │   ├── zarvis.action.preview.v1.schema.json
+│   │   │   ├── zarvis.action.result.v1.schema.json
+│   │   │   ├── zarvis.action.rollback.v1.schema.json
+│   │   │   ├── zarvis.audit.tool-executed.v1.schema.json
+│   │   │   ├── zarvis.command.completed.v1.schema.json
+│   │   │   ├── zarvis.command.requested.v1.schema.json
+│   │   │   ├── zarvis.memory.export.v1.schema.json
+│   │   │   ├── zarvis.memory.proposal.v1.schema.json
+│   │   │   ├── zarvis.memory.snapshot.v1.schema.json
+│   │   │   ├── zarvis.perception.provenance.v1.schema.json
+│   │   │   ├── zarvis.perception.result.v1.schema.json
+│   │   │   ├── zarvis.perception.session.v1.schema.json
+│   │   │   ├── zarvis.proactive.action-handoff.v1.schema.json
+│   │   │   ├── zarvis.proactive.feedback.v1.schema.json
+│   │   │   ├── zarvis.proactive.notification.v1.schema.json
+│   │   │   ├── zarvis.proactive.policy.v1.schema.json
+│   │   │   ├── zarvis.proactive.signal.v1.schema.json
+│   │   │   ├── zarvis.proactive.subscription.v1.schema.json
+│   │   │   ├── zarvis.session.event.v1.schema.json
+│   │   │   ├── zarvis.task.approval.v1.schema.json
+│   │   │   ├── zarvis.task.requested.v1.schema.json
+│   │   │   └── zarvis.task.snapshot.v1.schema.json
+│   │   ├── test
+│   │   │   ├── agent-contracts.test.mjs
+│   │   │   └── zarvis-schema.test.mjs
+│   │   ├── usage.md
+│   │   └── zarvis.md
+│   ├── wall-street
+│   │   ├── README.md
+│   │   ├── REVERSE_ENGINEERING.md
+│   │   ├── app.js
+│   │   ├── index.html
+│   │   ├── package.json
+│   │   ├── server.mjs
+│   │   └── styles.css
+│   ├── zarvis
+│   │   ├── AGENTS.md
+│   │   ├── ARCHITECTURE.md
+│   │   ├── CODE_OF_CONDUCT.md
+│   │   ├── CONTRIBUTING.md
+│   │   ├── Caddyfile
+│   │   ├── LICENSE
+│   │   ├── MEMORY.md
+│   │   ├── MIGRATION.json
+│   │   ├── Makefile
+│   │   ├── README.md
+│   │   ├── SECURITY.md
+│   │   ├── Z-PLATFORM.md
+│   │   ├── agents
+│   │   │   ├── a11y-architect.md
+│   │   │   ├── architect.md
+│   │   │   ├── brain-memory-agent.md
+│   │   │   ├── build-error-resolver.md
+│   │   │   ├── chief-of-staff.md
+│   │   │   ├── code-architect.md
+│   │   │   ├── code-explorer.md
+│   │   │   ├── code-reviewer.md
+│   │   │   ├── code-simplifier.md
+│   │   │   ├── comment-analyzer.md
+│   │   │   ├── conversation-analyzer.md
+│   │   │   ├── cpp-build-resolver.md
+│   │   │   ├── cpp-reviewer.md
+│   │   │   ├── csharp-reviewer.md
+│   │   │   ├── dart-build-resolver.md
+│   │   │   ├── database-reviewer.md
+│   │   │   ├── django-build-resolver.md
+│   │   │   ├── django-reviewer.md
+│   │   │   ├── doc-updater.md
+│   │   │   ├── docs-lookup.md
+│   │   │   ├── e2e-runner.md
+│   │   │   ├── fastapi-reviewer.md
+│   │   │   ├── flutter-reviewer.md
+│   │   │   ├── fsharp-reviewer.md
+│   │   │   ├── gan-evaluator.md
+│   │   │   ├── gan-generator.md
+│   │   │   ├── gan-planner.md
+│   │   │   ├── go-build-resolver.md
+│   │   │   ├── go-reviewer.md
+│   │   │   ├── harmonyos-app-resolver.md
+│   │   │   ├── harness-optimizer.md
+│   │   │   ├── healthcare-reviewer.md
+│   │   │   ├── homelab-architect.md
+│   │   │   ├── java-build-resolver.md
+│   │   │   ├── java-reviewer.md
+│   │   │   ├── kotlin-build-resolver.md
+│   │   │   ├── kotlin-reviewer.md
+│   │   │   ├── loop-operator.md
+│   │   │   ├── marketing-agent.md
+│   │   │   ├── mle-reviewer.md
+│   │   │   ├── network-architect.md
+│   │   │   ├── network-config-reviewer.md
+│   │   │   ├── network-troubleshooter.md
+│   │   │   ├── opensource-forker.md
+│   │   │   ├── opensource-packager.md
+│   │   │   ├── opensource-sanitizer.md
+│   │   │   ├── operator-supervisor.md
+│   │   │   ├── performance-optimizer.md
+│   │   │   ├── planner.md
+│   │   │   ├── pr-test-analyzer.md
+│   │   │   ├── python-reviewer.md
+│   │   │   ├── pytorch-build-resolver.md
+│   │   │   ├── react-build-resolver.md
+│   │   │   ├── react-reviewer.md
+│   │   │   ├── refactor-cleaner.md
+│   │   │   ├── rust-build-resolver.md
+│   │   │   ├── rust-reviewer.md
+│   │   │   ├── security-reviewer.md
+│   │   │   ├── seo-specialist.md
+│   │   │   ├── silent-failure-hunter.md
+│   │   │   ├── swift-build-resolver.md
+│   │   │   ├── swift-reviewer.md
+│   │   │   ├── tdd-guide.md
+│   │   │   ├── type-design-analyzer.md
+│   │   │   ├── typescript-reviewer.md
+│   │   │   └── voice-orchestrator.md
+│   │   ├── ai
+│   │   │   ├── __init__.py
+│   │   │   ├── audit_log.py
+│   │   │   ├── caching.py
+│   │   │   ├── conversation.py
+│   │   │   ├── cost_control.py
+│   │   │   ├── fallback.py
+│   │   │   ├── guardrails.py
+│   │   │   ├── health_check.py
+│   │   │   ├── metrics.py
+│   │   │   ├── middleware.py
+│   │   │   ├── prompt_registry.py
+│   │   │   ├── provider_policy.py
+│   │   │   ├── provider_registry.py
+│   │   │   ├── providers
+│   │   │   │   ├── _unsupported.py
+│   │   │   │   ├── alibaba_dashscope
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── android_nnapi
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── apple_coreml
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── aws_bedrock
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── azure_openai
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── brave_search_api
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── cerebras
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── chromadb_cloud
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── claude
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── cloudflare_ai
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── deepinfra
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── deepseek
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── exa_search
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── fireworks
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── flux_ai
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── gemini
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── github_copilot
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── google_search_api
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── groq
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── heygen
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── huawei_pangu
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── huggingface
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── llama_cpp
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── lm_studio
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── mistral
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── novita
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── ollama
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── onnx_runtime
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── onnx_web
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── openai
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── openrouter
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── perplexity
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── qdrant_cloud
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── recraft_ai
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── replicate
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── replicate_deployments
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── runpod
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── runway
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── samba_nova
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── sora
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── speechmatics
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── suno_ai
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── synthesia
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── tencent_hunyuan
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── together
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── vast_ai
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── vertex_ai
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── vllm
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── voyage_ai
+│   │   │   │   │   └── __init__.py
+│   │   │   │   ├── xai
+│   │   │   │   │   └── __init__.py
+│   │   │   │   └── zero1_ai
+│   │   │   │       └── __init__.py
+│   │   │   ├── rate_limiter.py
+│   │   │   ├── retry.py
+│   │   │   ├── router.py
+│   │   │   ├── routing_rules.py
+│   │   │   ├── streaming.py
+│   │   │   └── token_counter.py
+│   │   ├── apps
+│   │   │   ├── zarvis-console
+│   │   │   │   ├── README.md
+│   │   │   │   ├── package.json
+│   │   │   │   ├── public
+│   │   │   │   │   ├── app.js
+│   │   │   │   │   ├── index.html
+│   │   │   │   │   └── styles.css
+│   │   │   │   ├── server.mjs
+│   │   │   │   └── test
+│   │   │   │       └── server.test.mjs
+│   │   │   ├── zarvis-windows
+│   │   │   │   ├── Directory.Build.props
+│   │   │   │   ├── README.md
+│   │   │   │   ├── installer
+│   │   │   │   │   └── ZARVIS.iss
+│   │   │   │   ├── scripts
+│   │   │   │   │   ├── Install-ZARVIS-OwnerDomain.ps1
+│   │   │   │   │   ├── Install-ZARVIS-VoiceDomain.ps1
+│   │   │   │   │   ├── Uninstall-ZARVIS-OwnerDomain.ps1
+│   │   │   │   │   ├── build.ps1
+│   │   │   │   │   └── install-latest.ps1
+│   │   │   │   ├── src
+│   │   │   │   │   └── ZARVIS.Windows
+│   │   │   │   │       ├── App.xaml
+│   │   │   │   │       ├── App.xaml.cs
+│   │   │   │   │       ├── GlobalUsings.cs
+│   │   │   │   │       ├── MainWindow.Release.cs
+│   │   │   │   │       ├── MainWindow.xaml
+│   │   │   │   │       ├── MainWindow.xaml.cs
+│   │   │   │   │       ├── Models
+│   │   │   │   │       │   └── ClientSettings.cs
+│   │   │   │   │       ├── Services
+│   │   │   │   │       │   ├── HealthProbeService.cs
+│   │   │   │   │       │   ├── InputValidator.cs
+│   │   │   │   │       │   ├── SettingsStore.cs
+│   │   │   │   │       │   └── SshTunnelService.cs
+│   │   │   │   │       ├── ZARVIS.Windows.csproj
+│   │   │   │   │       └── app.manifest
+│   │   │   │   └── tests
+│   │   │   │       └── ZARVIS.Windows.Tests
+│   │   │   │           ├── InputValidatorTests.cs
+│   │   │   │           └── ZARVIS.Windows.Tests.csproj
+│   │   │   └── zvoice
+│   │   │       ├── Dockerfile
+│   │   │       ├── README.md
+│   │   │       ├── local-conversation.mjs
+│   │   │       ├── package.json
+│   │   │       ├── public
+│   │   │       │   ├── app.js
+│   │   │       │   ├── humanoid-view.js
+│   │   │       │   ├── humanoid.css
+│   │   │       │   ├── index.html
+│   │   │       │   ├── styles.css
+│   │   │       │   └── voice-worklet.js
+│   │   │       ├── server.mjs
+│   │   │       ├── src
+│   │   │       │   └── transcript_overlay.mjs
+│   │   │       └── test
+│   │   │           ├── local-conversation.test.mjs
+│   │   │           ├── local-fallback-integration.test.mjs
+│   │   │           ├── server.test.mjs
+│   │   │           └── transcript_overlay.test.mjs
+│   │   ├── bin
+│   │   │   └── zctl
+│   │   ├── compose.voice.yml
+│   │   ├── compose.zarvis-local.yml
+│   │   ├── compose.zarvis-owner-domain.yml
+│   │   ├── compose.zarvis-owner-voice.yml
+│   │   ├── deploy
+│   │   │   └── docker
+│   │   │       ├── next-service.Dockerfile
+│   │   │       └── node-service.Dockerfile
+│   │   ├── docs
+│   │   │   ├── architecture
+│   │   │   │   ├── README.md
+│   │   │   │   ├── openjarvis-upgrade-map.md
+│   │   │   │   ├── skills-agents.md
+│   │   │   │   ├── voice-agent.md
+│   │   │   │   ├── zarvis-local-action-gateway.md
+│   │   │   │   ├── zarvis-local-proactive-scheduler.md
+│   │   │   │   ├── zarvis-memory.md
+│   │   │   │   ├── zarvis-perception.md
+│   │   │   │   ├── zarvis-session-runtime.md
+│   │   │   │   ├── zarvis-task-runtime.md
+│   │   │   │   └── zarvis.md
+│   │   │   ├── changelog
+│   │   │   │   ├── 2026-08-06-zarvis-consent-perception.md
+│   │   │   │   ├── 2026-08-06-zarvis-durable-task-approval.md
+│   │   │   │   ├── 2026-08-06-zarvis-owner-memory.md
+│   │   │   │   └── 2026-08-06-zarvis-voice-session.md
+│   │   │   ├── integrations
+│   │   │   │   └── zdash.md
+│   │   │   ├── operations
+│   │   │   │   ├── README.md
+│   │   │   │   ├── backups.md
+│   │   │   │   ├── current-head-evidence-2026-07-15.md
+│   │   │   │   ├── github-app-token-format.md
+│   │   │   │   ├── incident-runbook.md
+│   │   │   │   ├── voice-agent.md
+│   │   │   │   ├── zarvis-first-slice.md
+│   │   │   │   ├── zarvis-local-action-runbook.md
+│   │   │   │   ├── zarvis-local-proactive-runbook.md
+│   │   │   │   ├── zarvis-local-release-runbook.md
+│   │   │   │   ├── zarvis-local-slo.md
+│   │   │   │   ├── zarvis-memory.md
+│   │   │   │   ├── zarvis-owner-domain.md
+│   │   │   │   ├── zarvis-perception.md
+│   │   │   │   ├── zarvis-task-runtime.md
+│   │   │   │   ├── zarvis-voice-session-bridge.md
+│   │   │   │   └── zarvis-windows-client.md
+│   │   │   ├── release
+│   │   │   │   ├── README.md
+│   │   │   │   ├── external-verification-checklist.md
+│   │   │   │   ├── operational-ownership.md
+│   │   │   │   ├── production-release-record.md
+│   │   │   │   ├── release-state-machine.md
+│   │   │   │   ├── staging-environment-inventory.md
+│   │   │   │   └── staging-review-record.md
+│   │   │   ├── releases
+│   │   │   │   ├── zarvis-local-evidence-map.md
+│   │   │   │   ├── zarvis-local-owner-acceptance.md
+│   │   │   │   └── zarvis-local-release-notes.md
+│   │   │   ├── requirements
+│   │   │   │   ├── README.md
+│   │   │   │   └── master-requirements.md
+│   │   │   ├── runbooks
+│   │   │   │   ├── ci-baseline.md
+│   │   │   │   └── health-checks.md
+│   │   │   └── security
+│   │   │       ├── zarvis-local-action-threat-model.md
+│   │   │       ├── zarvis-local-proactive-threat-model.md
+│   │   │       ├── zarvis-local-red-team-plan.md
+│   │   │       ├── zarvis-memory-privacy.md
+│   │   │       ├── zarvis-owner-access.md
+│   │   │       ├── zarvis-perception-privacy.md
+│   │   │       ├── zarvis-task-approval.md
+│   │   │       └── zarvis-threat-model.md
+│   │   ├── execution-plan.md
+│   │   ├── node_modules
+│   │   │   └── @playwright
+│   │   │       └── test -> ../.pnpm/@playwright+test@1.64.0/node_modules/@playwright/test
+│   │   ├── ops
+│   │   │   └── zarvis-owner-domain
+│   │   │       ├── local-conversation-contract.json
+│   │   │       └── nginx.conf
+│   │   ├── package.json
+│   │   ├── packages
+│   │   │   ├── contracts
+│   │   │   │   ├── README.md
+│   │   │   │   ├── agent.md
+│   │   │   │   ├── package.json
+│   │   │   │   ├── schemas
+│   │   │   │   │   ├── agent.job.approved.v1.schema.json
+│   │   │   │   │   ├── agent.job.completed.v1.schema.json
+│   │   │   │   │   ├── agent.job.requested.v1.schema.json
+│   │   │   │   │   ├── zarvis.action.approval.v1.schema.json
+│   │   │   │   │   ├── zarvis.action.preview.v1.schema.json
+│   │   │   │   │   ├── zarvis.action.result.v1.schema.json
+│   │   │   │   │   ├── zarvis.action.rollback.v1.schema.json
+│   │   │   │   │   ├── zarvis.audit.tool-executed.v1.schema.json
+│   │   │   │   │   ├── zarvis.command.completed.v1.schema.json
+│   │   │   │   │   ├── zarvis.command.requested.v1.schema.json
+│   │   │   │   │   ├── zarvis.memory.export.v1.schema.json
+│   │   │   │   │   ├── zarvis.memory.proposal.v1.schema.json
+│   │   │   │   │   ├── zarvis.memory.snapshot.v1.schema.json
+│   │   │   │   │   ├── zarvis.perception.provenance.v1.schema.json
+│   │   │   │   │   ├── zarvis.perception.result.v1.schema.json
+│   │   │   │   │   ├── zarvis.perception.session.v1.schema.json
+│   │   │   │   │   ├── zarvis.proactive.action-handoff.v1.schema.json
+│   │   │   │   │   ├── zarvis.proactive.feedback.v1.schema.json
+│   │   │   │   │   ├── zarvis.proactive.notification.v1.schema.json
+│   │   │   │   │   ├── zarvis.proactive.policy.v1.schema.json
+│   │   │   │   │   ├── zarvis.proactive.signal.v1.schema.json
+│   │   │   │   │   ├── zarvis.proactive.subscription.v1.schema.json
+│   │   │   │   │   ├── zarvis.session.event.v1.schema.json
+│   │   │   │   │   ├── zarvis.skill.invocation.v1.schema.json
+│   │   │   │   │   ├── zarvis.skill.manifest.v1.schema.json
+│   │   │   │   │   ├── zarvis.skill.result.v1.schema.json
+│   │   │   │   │   ├── zarvis.task.approval.v1.schema.json
+│   │   │   │   │   ├── zarvis.task.requested.v1.schema.json
+│   │   │   │   │   └── zarvis.task.snapshot.v1.schema.json
+│   │   │   │   ├── test
+│   │   │   │   │   ├── agent-contracts.test.mjs
+│   │   │   │   │   ├── skill-schemas.test.mjs
+│   │   │   │   │   └── zarvis-schema.test.mjs
+│   │   │   │   └── zarvis.md
+│   │   │   └── voice-client
+│   │   │       ├── package.json
+│   │   │       ├── src
+│   │   │       │   ├── audio.js
+│   │   │       │   ├── browser.js
+│   │   │       │   ├── client.js
+│   │   │       │   ├── ptt.js
+│   │   │       │   └── state.js
+│   │   │       └── test
+│   │   │           ├── audio.test.mjs
+│   │   │           ├── browser.test.mjs
+│   │   │           └── state.test.mjs
+│   │   ├── pnpm-lock.yaml
+│   │   ├── pnpm-workspace.yaml
+│   │   ├── schemas
+│   │   │   ├── operations
+│   │   │   │   ├── phase-6-operator-inputs.schema.json
+│   │   │   │   └── staging-decision-record.schema.json
+│   │   │   └── release
+│   │   │       ├── common.schema.json
+│   │   │       ├── external-verification.schema.json
+│   │   │       ├── operational-ownership.schema.json
+│   │   │       ├── production-release-record.schema.json
+│   │   │       ├── staging-inventory.schema.json
+│   │   │       └── staging-review.schema.json
+│   │   ├── scripts
+│   │   │   ├── apikey-manager.sh
+│   │   │   ├── generate-provider-api-key-list.sh
+│   │   │   ├── git-gpg
+│   │   │   │   ├── gpg-export.sh
+│   │   │   │   ├── gpg-revoke.sh
+│   │   │   │   ├── gpg-rotate.sh
+│   │   │   │   ├── gpg-setup.sh
+│   │   │   │   └── gpg-verify.sh
+│   │   │   ├── normalize-apikey.sh
+│   │   │   ├── probe-body.mjs
+│   │   │   ├── test
+│   │   │   │   ├── codeql-workflow.test.mjs
+│   │   │   │   ├── container-actions-runtime.test.mjs
+│   │   │   │   ├── hosted-runner-workflows.test.mjs
+│   │   │   │   ├── probe-body.test.mjs
+│   │   │   │   ├── validate-api-keys.test.mjs
+│   │   │   │   ├── workflow-pnpm-setup.test.mjs
+│   │   │   │   └── zarvis-local-conversation-contract.test.mjs
+│   │   │   ├── test-normalize-apikey.sh
+│   │   │   ├── validate-api-keys.mjs
+│   │   │   ├── validate-release-templates.mjs
+│   │   │   ├── validate-staging-decision-record.mjs
+│   │   │   ├── validate-zarvis-local-conversation.mjs
+│   │   │   ├── voice-agent-smoke.sh
+│   │   │   ├── zai-config-gen.py
+│   │   │   ├── zarvis-complete-all.sh
+│   │   │   ├── zarvis-live-complete.sh
+│   │   │   ├── zarvis-local-backup.sh
+│   │   │   ├── zarvis-local-build-manifest.mjs
+│   │   │   ├── zarvis-local-container-evidence.mjs
+│   │   │   ├── zarvis-local-red-team.mjs
+│   │   │   ├── zarvis-local-release-acceptance.mjs
+│   │   │   ├── zarvis-local-restart-drill.mjs
+│   │   │   ├── zarvis-local-restore.sh
+│   │   │   ├── zarvis-local-setup.sh
+│   │   │   ├── zarvis-local-smoke.mjs
+│   │   │   ├── zarvis-local-verify-restore.mjs
+│   │   │   ├── zarvis-local-verify-rotation.mjs
+│   │   │   ├── zarvis-owner-domain-live.sh
+│   │   │   ├── zarvis-owner-domain-setup.sh
+│   │   │   ├── zarvis-owner-voice-live.sh
+│   │   │   ├── zarvis-proactive-smoke.mjs
+│   │   │   ├── zarvis-test-clean-env.mjs
+│   │   │   └── zarvis-windows-release.sh
+│   │   ├── services
+│   │   │   ├── voice-agent
+│   │   │   │   ├── Dockerfile
+│   │   │   │   ├── entrypoint.sh
+│   │   │   │   ├── healthcheck.py
+│   │   │   │   └── speech
+│   │   │   │       ├── __init__.py
+│   │   │   │       ├── providers
+│   │   │   │       │   ├── __init__.py
+│   │   │   │       │   └── fake.py
+│   │   │   │       ├── registry.py
+│   │   │   │       ├── stt.py
+│   │   │   │       ├── test_speech_registry.py
+│   │   │   │       └── tts.py
+│   │   │   ├── voice-gateway
+│   │   │   │   ├── Dockerfile
+│   │   │   │   ├── index.mjs
+│   │   │   │   ├── mock_agent.mjs
+│   │   │   │   ├── test
+│   │   │   │   │   ├── tickets.test.mjs
+│   │   │   │   │   └── vad_config.test.mjs
+│   │   │   │   └── vad_config.mjs
+│   │   │   ├── zarvis-action-gateway
+│   │   │   │   ├── README.md
+│   │   │   │   ├── package.json
+│   │   │   │   ├── public
+│   │   │   │   │   ├── app.js
+│   │   │   │   │   ├── index.html
+│   │   │   │   │   └── styles.css
+│   │   │   │   ├── runtime.mjs
+│   │   │   │   ├── server.mjs
+│   │   │   │   ├── store.mjs
+│   │   │   │   ├── test
+│   │   │   │   │   ├── concurrency.test.mjs
+│   │   │   │   │   └── runtime.test.mjs
+│   │   │   │   └── worker.mjs
+│   │   │   ├── zarvis-api
+│   │   │   │   ├── Dockerfile
+│   │   │   │   ├── README.md
+│   │   │   │   ├── app.py
+│   │   │   │   ├── grafana-datasource.yml
+│   │   │   │   ├── prometheus.yml
+│   │   │   │   ├── requirements.txt
+│   │   │   │   └── tests
+│   │   │   │       ├── test_backup_restore.py
+│   │   │   │       ├── test_dependency_security.py
+│   │   │   │       ├── test_external_ai.py
+│   │   │   │       ├── test_github_webhook.py
+│   │   │   │       └── test_supabase_read.py
+│   │   │   ├── zarvis-memory
+│   │   │   │   ├── README.md
+│   │   │   │   ├── crypto-store.mjs
+│   │   │   │   ├── package.json
+│   │   │   │   ├── public
+│   │   │   │   │   ├── app.js
+│   │   │   │   │   ├── index.html
+│   │   │   │   │   └── styles.css
+│   │   │   │   ├── runtime.mjs
+│   │   │   │   ├── server.mjs
+│   │   │   │   └── test
+│   │   │   │       └── runtime.test.mjs
+│   │   │   ├── zarvis-orchestrator
+│   │   │   │   ├── README.md
+│   │   │   │   ├── package.json
+│   │   │   │   ├── src
+│   │   │   │   │   ├── contracts.mjs
+│   │   │   │   │   ├── github-status-tool.mjs
+│   │   │   │   │   ├── live_voice.mjs
+│   │   │   │   │   ├── orchestrator.mjs
+│   │   │   │   │   ├── server.mjs
+│   │   │   │   │   ├── session-store.mjs
+│   │   │   │   │   └── skill-catalog.mjs
+│   │   │   │   └── test
+│   │   │   │       ├── live_voice.test.mjs
+│   │   │   │       ├── orchestrator-skill-execution.test.mjs
+│   │   │   │       ├── orchestrator.test.mjs
+│   │   │   │       ├── skill-catalog.test.mjs
+│   │   │   │       └── skill-manifest-instances.test.mjs
+│   │   │   ├── zarvis-owner-voice-edge
+│   │   │   │   └── server.mjs
+│   │   │   ├── zarvis-perception
+│   │   │   │   ├── README.md
+│   │   │   │   ├── crypto-store.mjs
+│   │   │   │   ├── package.json
+│   │   │   │   ├── public
+│   │   │   │   │   ├── app.js
+│   │   │   │   │   ├── index.html
+│   │   │   │   │   └── styles.css
+│   │   │   │   ├── runtime.mjs
+│   │   │   │   ├── server.mjs
+│   │   │   │   └── test
+│   │   │   │       └── runtime.test.mjs
+│   │   │   ├── zarvis-proactive
+│   │   │   │   ├── README.md
+│   │   │   │   ├── local-health-adapter.mjs
+│   │   │   │   ├── package.json
+│   │   │   │   ├── public
+│   │   │   │   │   ├── app.js
+│   │   │   │   │   ├── index.html
+│   │   │   │   │   └── styles.css
+│   │   │   │   ├── runtime.mjs
+│   │   │   │   ├── server.mjs
+│   │   │   │   ├── store.mjs
+│   │   │   │   ├── test
+│   │   │   │   │   ├── local-health-adapter.test.mjs
+│   │   │   │   │   └── runtime.test.mjs
+│   │   │   │   └── worker.mjs
+│   │   │   └── zarvis-task-gateway
+│   │   │       ├── README.md
+│   │   │       ├── durable-adapters.mjs
+│   │   │       ├── orchestrator-core.mjs
+│   │   │       ├── package.json
+│   │   │       ├── runtime.mjs
+│   │   │       ├── server.mjs
+│   │   │       └── test
+│   │   │           └── runtime.test.mjs
+│   │   ├── skills
+│   │   │   ├── README.md
+│   │   │   ├── code
+│   │   │   │   ├── README.md
+│   │   │   │   └── skill.json
+│   │   │   ├── conversation
+│   │   │   │   ├── README.md
+│   │   │   │   └── skill.json
+│   │   │   ├── memory
+│   │   │   │   ├── README.md
+│   │   │   │   └── skill.json
+│   │   │   ├── operations
+│   │   │   │   ├── README.md
+│   │   │   │   └── skill.json
+│   │   │   ├── productivity
+│   │   │   │   ├── README.md
+│   │   │   │   └── skill.json
+│   │   │   └── research
+│   │   │       ├── README.md
+│   │   │       └── skill.json
+│   │   ├── tests
+│   │   │   ├── test_ai_router.py
+│   │   │   └── test_bedrock_provider.py
+│   │   └── tools
+│   │       ├── ops
+│   │       │   ├── check-dependencies.mjs
+│   │       │   ├── generate-sbom.mjs
+│   │       │   └── verify-provenance.mjs
+│   │       └── zctl
+│   │           ├── FIXED.md
+│   │           ├── Makefile
+│   │           ├── README.md
+│   │           ├── cmd
+│   │           │   └── zctl
+│   │           │       └── main.go
+│   │           ├── config
+│   │           │   └── zctl.example.yaml
+│   │           ├── go.mod
+│   │           └── internal
+│   │               └── app
+│   │                   ├── app.go
+│   │                   ├── app_test.go
+│   │                   ├── upgrade.go
+│   │                   └── upgrade_test.go
+│   ├── zeto
+│   │   ├── AGENTS.md
+│   │   ├── ARCHITECTURE.md
+│   │   ├── CHANGELOG.md
+│   │   ├── CONTRIBUTING.md
+│   │   ├── Dockerfile
+│   │   ├── Makefile
+│   │   ├── README.md
+│   │   ├── SECURITY.md
+│   │   ├── compose.yaml
+│   │   ├── config
+│   │   │   └── brands
+│   │   │       └── zato.json
+│   │   ├── docs
+│   │   │   ├── JARVIS-VIDEO-REVERSE-ENGINEERING.md
+│   │   │   ├── OPERATIONS.md
+│   │   │   ├── ZEAZVERSE-YOUTUBE-AUTOMATION.md
+│   │   │   └── adr
+│   │   │       └── 0001-target-platform-architecture.md
+│   │   ├── eslint.config.mjs
+│   │   ├── exec-planing.md
+│   │   ├── lint.txt
+│   │   ├── output
+│   │   │   └── playwright
+│   │   │       ├── control-room-desktop.png
+│   │   │       └── control-room-mobile.png
+│   │   ├── package-lock.json
+│   │   ├── package.json
+│   │   ├── prompts
+│   │   │   └── vdo.prompt
+│   │   ├── public
+│   │   │   ├── css
+│   │   │   │   ├── style.css
+│   │   │   │   └── zarvis.css
+│   │   │   ├── index.html
+│   │   │   ├── js
+│   │   │   │   ├── app.js
+│   │   │   │   ├── arin.js
+│   │   │   │   ├── operatorStream.js
+│   │   │   │   └── zarvis.js
+│   │   │   └── zarvis.html
+│   │   ├── scripts
+│   │   │   ├── backup.sh
+│   │   │   ├── load-baseline.js
+│   │   │   └── verify-backup.sh
+│   │   ├── skills-lock.json
+│   │   ├── src
+│   │   │   ├── aiAutoPoster.js
+│   │   │   ├── api
+│   │   │   │   ├── openapi.js
+│   │   │   │   ├── operatorV1.js
+│   │   │   │   └── v1.js
+│   │   │   ├── contentGenerator.js
+│   │   │   ├── controllers
+│   │   │   │   ├── exportController.js
+│   │   │   │   └── importController.js
+│   │   │   ├── crypto.js
+│   │   │   ├── database
+│   │   │   │   ├── migrate.js
+│   │   │   │   ├── migrations
+│   │   │   │   │   ├── 001_initial.sql
+│   │   │   │   │   ├── 002_immutable_records.sql
+│   │   │   │   │   ├── 003_operational_store.sql
+│   │   │   │   │   ├── 004_operational_audit.sql
+│   │   │   │   │   ├── 005_workflow_runtime.sql
+│   │   │   │   │   ├── 006_workflow_step_order.sql
+│   │   │   │   │   ├── 007_workflow_run_idempotency.sql
+│   │   │   │   │   ├── 008_monitoring_escalations.sql
+│   │   │   │   │   ├── 009_metric_source_uniqueness.sql
+│   │   │   │   │   ├── 010_domain_audit_triggers.sql
+│   │   │   │   │   ├── 011_alert_outcomes.sql
+│   │   │   │   │   ├── 012_publication_queue_retry.sql
+│   │   │   │   │   ├── 013_workflow_tracing.sql
+│   │   │   │   │   ├── 014_operator_runtime.sql
+│   │   │   │   │   └── 015_operator_sequences.sql
+│   │   │   │   └── pool.js
+│   │   │   ├── db.js
+│   │   │   ├── domain
+│   │   │   │   ├── approvalStateMachine.js
+│   │   │   │   ├── assetPackFactory.js
+│   │   │   │   ├── autopilotPolicy.js
+│   │   │   │   ├── calendar.js
+│   │   │   │   ├── factoryWorkflow.js
+│   │   │   │   ├── modelRouter.js
+│   │   │   │   ├── monitoring.js
+│   │   │   │   ├── operatorContracts.js
+│   │   │   │   ├── operatorEvents.js
+│   │   │   │   ├── operatorSequences.js
+│   │   │   │   ├── operatorStateMachine.js
+│   │   │   │   ├── promptCompiler.js
+│   │   │   │   ├── prompt_tuner.js
+│   │   │   │   ├── qaScorer.js
+│   │   │   │   ├── qa_engine.js
+│   │   │   │   ├── retryPolicy.js
+│   │   │   │   ├── seo_engine.js
+│   │   │   │   ├── toolRegistry.js
+│   │   │   │   └── workflowStateMachine.js
+│   │   │   ├── fbController.js
+│   │   │   ├── googleDrive.js
+│   │   │   ├── notification.js
+│   │   │   ├── observability
+│   │   │   │   └── metrics.js
+│   │   │   ├── providers
+│   │   │   │   ├── ai
+│   │   │   │   │   ├── aiProvider.js
+│   │   │   │   │   └── aiProviderRegistry.js
+│   │   │   │   ├── facebookPublishingProvider.js
+│   │   │   │   ├── httpPublishingProvider.js
+│   │   │   │   ├── instagramPublishingProvider.js
+│   │   │   │   ├── linkedinPublishingProvider.js
+│   │   │   │   ├── providerRegistry.js
+│   │   │   │   ├── publishingProvider.js
+│   │   │   │   ├── tiktokPublishingProvider.js
+│   │   │   │   ├── xPublishingProvider.js
+│   │   │   │   └── youtubePublishingProvider.js
+│   │   │   ├── repositories
+│   │   │   │   ├── alertRepository.js
+│   │   │   │   ├── analyticsRepository.js
+│   │   │   │   ├── brandRepository.js
+│   │   │   │   ├── factoryRepository.js
+│   │   │   │   ├── jobRepository.js
+│   │   │   │   ├── monitoringRepository.js
+│   │   │   │   ├── operationalStore.js
+│   │   │   │   ├── operatorRepository.js
+│   │   │   │   ├── publicationRepository.js
+│   │   │   │   └── workflowRepository.js
+│   │   │   ├── scheduler.js
+│   │   │   ├── security
+│   │   │   │   ├── remoteUrlGuard.js
+│   │   │   │   ├── secrets.js
+│   │   │   │   └── uploadValidation.js
+│   │   │   ├── server.js
+│   │   │   ├── services
+│   │   │   │   ├── facebookPublishingService.js
+│   │   │   │   ├── factoryWorkflowService.js
+│   │   │   │   ├── operatorRuntimeService.js
+│   │   │   │   └── operatorSequenceExecutor.js
+│   │   │   ├── shutdown.js
+│   │   │   ├── storage
+│   │   │   │   ├── localObjectStorage.js
+│   │   │   │   └── objectStorage.js
+│   │   │   └── zarvisView.js
+│   │   ├── test
+│   │   │   ├── aiProvider.test.js
+│   │   │   ├── analytics.integration.test.js
+│   │   │   ├── approval.integration.test.js
+│   │   │   ├── assetPack.test.js
+│   │   │   ├── autopilot.test.js
+│   │   │   ├── branding.test.js
+│   │   │   ├── calendar.test.js
+│   │   │   ├── crypto.test.js
+│   │   │   ├── factoryWorkflow.test.js
+│   │   │   ├── mentionClassification.test.js
+│   │   │   ├── metrics.test.js
+│   │   │   ├── modelRouter.test.js
+│   │   │   ├── monitoring.test.js
+│   │   │   ├── multiPlatformPublishingProviders.test.js
+│   │   │   ├── objectStorage.test.js
+│   │   │   ├── operationalStore.integration.test.js
+│   │   │   ├── operatorApi.integration.test.js
+│   │   │   ├── operatorApi.integration.test.js.bak
+│   │   │   ├── operatorEvents.test.js
+│   │   │   ├── operatorRuntime.integration.test.js
+│   │   │   ├── operatorRuntime.integration.test.js.bak
+│   │   │   ├── operatorSequences.integration.test.js
+│   │   │   ├── operatorSequences.test.js
+│   │   │   ├── operatorStateMachine.test.js
+│   │   │   ├── operatorStream.test.js
+│   │   │   ├── postgres.integration.test.js
+│   │   │   ├── promptCompiler.test.js
+│   │   │   ├── prompt_tuner.test.js
+│   │   │   ├── publishingProvider.test.js
+│   │   │   ├── qa.test.js
+│   │   │   ├── qa_seo_engine.test.js
+│   │   │   ├── remoteUrlGuard.test.js
+│   │   │   ├── secrets.test.js
+│   │   │   ├── server.e2e.test.js
+│   │   │   ├── smoke.test.js
+│   │   │   ├── stateMachines.test.js
+│   │   │   ├── uploadValidation.test.js
+│   │   │   ├── v1.integration.test.js
+│   │   │   ├── zarvisView.test.js
+│   │   │   └── zeazverseYoutubeSafety.test.js
+│   │   ├── test.txt
+│   │   ├── test_out.txt
+│   │   └── tests
+│   │       ├── shutdown.test.js
+│   │       └── toolRegistry.test.js
+│   ├── zider
+│   │   ├── AGENTS.md
+│   │   ├── ARCHITECTURE.md
+│   │   ├── Dockerfile
+│   │   ├── Makefile
+│   │   ├── README.md
+│   │   ├── SECURITY.md
+│   │   ├── compose.yaml
+│   │   ├── docs
+│   │   │   ├── API_REFERENCE.md
+│   │   │   ├── EXTENSION_GUIDE.md
+│   │   │   ├── FEATURES.md
+│   │   │   └── SIDER_COMPARISON.md
+│   │   ├── extension
+│   │   │   ├── background.js
+│   │   │   ├── content.js
+│   │   │   ├── icons
+│   │   │   │   └── icon.svg
+│   │   │   ├── manifest.json
+│   │   │   ├── options.html
+│   │   │   ├── options.js
+│   │   │   ├── popup.html
+│   │   │   ├── popup.js
+│   │   │   ├── sidebar.css
+│   │   │   ├── sidebar.html
+│   │   │   ├── sidebar.js
+│   │   │   └── test_context_menu.mjs
+│   │   ├── package.json
+│   │   ├── scripts
+│   │   │   └── verify_csp.test.mjs
+│   │   ├── server
+│   │   │   ├── app
+│   │   │   │   ├── config.py
+│   │   │   │   ├── main.py
+│   │   │   │   ├── models.py
+│   │   │   │   ├── routes
+│   │   │   │   │   └── api.py
+│   │   │   │   └── services
+│   │   │   │       ├── __pycache__
+│   │   │   │       │   ├── agent_runner.cpython-314.pyc
+│   │   │   │       │   ├── browser_approval.cpython-314.pyc
+│   │   │   │       │   ├── browser_effects.cpython-314.pyc
+│   │   │   │       │   ├── browser_executor.cpython-314.pyc
+│   │   │   │       │   └── zworkforce_bridge.cpython-314.pyc
+│   │   │   │       ├── agent_runner.py
+│   │   │   │       ├── artifact_content.py
+│   │   │   │       ├── browser_approval.py
+│   │   │   │       ├── browser_effects.py
+│   │   │   │       ├── browser_executor.py
+│   │   │   │       ├── browser_runtime.py
+│   │   │   │       ├── image_gen_service.py
+│   │   │   │       ├── llm_gateway.py
+│   │   │   │       ├── pdf_service.py
+│   │   │   │       ├── playwright_runtime.py
+│   │   │   │       ├── prompt_library.py
+│   │   │   │       ├── search_service.py
+│   │   │   │       ├── summarizer_service.py
+│   │   │   │       ├── translator_service.py
+│   │   │   │       ├── vision_service.py
+│   │   │   │       └── zworkforce_bridge.py
+│   │   │   ├── requirements.txt
+│   │   │   ├── src
+│   │   │   │   └── rerank_engine.mjs
+│   │   │   ├── test
+│   │   │   │   └── rerank_engine.test.mjs
+│   │   │   └── tests
+│   │   │       ├── test_agent_runner_effect_binding.py
+│   │   │       ├── test_browser_approval.py
+│   │   │       ├── test_browser_approval_bridge_contract.py
+│   │   │       ├── test_browser_contract.py
+│   │   │       ├── test_browser_effect_controller_contract.py
+│   │   │       ├── test_browser_effects.py
+│   │   │       ├── test_browser_executor.py
+│   │   │       ├── test_browser_executor_ipv6.py
+│   │   │       ├── test_playwright_mutations.py
+│   │   │       ├── test_playwright_runtime.py
+│   │   │       ├── test_playwright_upload.py
+│   │   │       ├── test_zider_api.py
+│   │   │       └── test_zworkforce_bridge.py
+│   │   └── web
+│   │       ├── app.js
+│   │       ├── index.html
+│   │       └── style.css
+│   ├── zksato
+│   ├── zmovie
+│   ├── zok
+│   ├── zsp-aitool
+│   │   ├── AGENTS.md
+│   │   ├── CLAUDE.md
+│   │   ├── CONTRIBUTING.md
+│   │   ├── Dockerfile
+│   │   ├── GEMINI.md
+│   │   ├── LICENSE
+│   │   ├── Makefile
+│   │   ├── README.md
+│   │   ├── SECURITY.md
+│   │   ├── configs
+│   │   │   └── plugins
+│   │   │       ├── repositories.example.yaml
+│   │   │       ├── repositories.schema.json
+│   │   │       └── repositories.yaml.example
+│   │   ├── deploy
+│   │   │   └── systemd
+│   │   │       ├── zsp-hyperframes-alerts.service
+│   │   │       ├── zsp-hyperframes-alerts.timer
+│   │   │       ├── zsp-hyperframes-cleanup.service
+│   │   │       ├── zsp-hyperframes-cleanup.timer
+│   │   │       └── zsp-hyperframes-worker.service
+│   │   ├── docker-compose.yml
+│   │   ├── docs
+│   │   │   ├── architecture
+│   │   │   │   └── HYBRID_PLUGIN_INTEGRATION.md
+│   │   │   ├── architecture-system-v1.md
+│   │   │   ├── architecture.md
+│   │   │   ├── ci-production-readiness-review-2026-05-17.md
+│   │   │   ├── compliance-extension-review-2026-05-17.md
+│   │   │   ├── feature-matrix.md
+│   │   │   ├── hyperframes-render-worker.md
+│   │   │   ├── product-import-workflow-review-2026-05-17.md
+│   │   │   ├── production-readiness-checklist.md
+│   │   │   ├── project-status.md
+│   │   │   ├── prompts
+│   │   │   │   ├── 005-final-full-repo-production-readiness.prompt.md
+│   │   │   │   ├── 014-full-ux-ui-redesign.prompt.md
+│   │   │   │   ├── 015-production-launch-polish.prompt.md
+│   │   │   │   ├── 016-post-launch-monitoring-and-growth.prompt.md
+│   │   │   │   ├── 017-first-100-users-growth-loop.prompt.md
+│   │   │   │   ├── 018-official-shopee-open-api-integration.prompt.md
+│   │   │   │   ├── 019-full-ux-ui-final-release-day-night-system.prompt.md
+│   │   │   │   ├── 020-production-db-schema-drift-hardening-and-settings-migration.prompt.md
+│   │   │   │   ├── 021-growth-analytics-and-feedback-dashboard.prompt.md
+│   │   │   │   ├── 022-official-shopee-open-api-foundation-polish.prompt.md
+│   │   │   │   ├── 023-hyperframes-template-marketplace-lite.prompt.md
+│   │   │   │   ├── 024-team-workspace-billing-and-quota-polish.prompt.md
+│   │   │   │   ├── 025-mobile-pwa-and-extension-polish.prompt.md
+│   │   │   │   ├── 026-ai-template-automation-and-brand-kit.prompt.md
+│   │   │   │   ├── 027-admin-audit-observability-and-ops-center.prompt.md
+│   │   │   │   ├── 028-production-backup-restore-and-release-runbooks.prompt.md
+│   │   │   │   ├── 029-security-compliance-and-abuse-prevention.prompt.md
+│   │   │   │   ├── 030-enterprise-readiness-and-scale-plan.prompt.md
+│   │   │   │   ├── 032-shopee-affiliate-portal-integration-polish.prompt.md
+│   │   │   │   ├── 033-shopee-affiliate-automation-safe-ingestion.prompt.md
+│   │   │   │   ├── 036-shopee-affiliate-persist-social-drafts.prompt.md
+│   │   │   │   ├── 037-marqeta-core-api-sandbox-foundation.prompt.md
+│   │   │   │   ├── 038-codex-cloud-high-priority-test-coverage.prompt.md
+│   │   │   │   ├── 039-db-schema-drift-repair.prompt.md
+│   │   │   │   ├── 040-backend-monitor-dashboard-cli.prompt.md
+│   │   │   │   ├── 041-large-csv-import-job-queue.prompt.md
+│   │   │   │   ├── 042-product-list-scaling.prompt.md
+│   │   │   │   ├── 043-shopee-import-progress-ui.prompt.md
+│   │   │   │   ├── 044-product-deduplication-engine.prompt.md
+│   │   │   │   ├── 045-persist-social-drafts-db-final.prompt.md
+│   │   │   │   ├── 046-ai-content-queue-for-products.prompt.md
+│   │   │   │   ├── 047-export-center-v2.prompt.md
+│   │   │   │   ├── 048-admin-audit-logs.prompt.md
+│   │   │   │   ├── 049-observability-pack.prompt.md
+│   │   │   │   ├── 050-cicd-hardening.prompt.md
+│   │   │   │   ├── README.md
+│   │   │   │   ├── phase53-hybrid-plugin-integration.prompt
+│   │   │   │   ├── zsp-aitool-full-source-en.md
+│   │   │   │   └── zsp-aitool-step-by-step-th.md
+│   │   │   ├── reference
+│   │   │   │   └── shopee-open-api-developer-guide-v2.1.md
+│   │   │   ├── release-notes-2026-05-17.md
+│   │   │   ├── release-notes-2026-05-21.md
+│   │   │   ├── reviews
+│   │   │   │   └── extension-integration-review-2026-05-17.md
+│   │   │   ├── roadmap.md
+│   │   │   ├── runbooks
+│   │   │   │   ├── PLUGIN_REPO_OPERATIONS.md
+│   │   │   │   ├── admin-audit-logs.md
+│   │   │   │   ├── admin-observability-ops-center.md
+│   │   │   │   ├── ai-content-queue-for-products.md
+│   │   │   │   ├── ai-template-brand-kit.md
+│   │   │   │   ├── backend-monitor.md
+│   │   │   │   ├── db-schema-drift-repair.md
+│   │   │   │   ├── enterprise-readiness-scale-plan.md
+│   │   │   │   ├── export-center-v2.md
+│   │   │   │   ├── first-100-users-growth-loop.md
+│   │   │   │   ├── full-ux-ui-final-release-matrix.md
+│   │   │   │   ├── github-branch-protection.md
+│   │   │   │   ├── growth-analytics-feedback.md
+│   │   │   │   ├── growth-feedback-loop.md
+│   │   │   │   ├── hyperframes-remediation.md
+│   │   │   │   ├── hyperframes-template-marketplace-lite.md
+│   │   │   │   ├── incident-response.md
+│   │   │   │   ├── marqeta-core-api-sandbox-foundation.md
+│   │   │   │   ├── mobile-pwa-extension.md
+│   │   │   │   ├── observability-pack.md
+│   │   │   │   ├── onboarding-activation-checklist.md
+│   │   │   │   ├── post-launch-monitoring.md
+│   │   │   │   ├── product-deduplication-engine.md
+│   │   │   │   ├── product-list-scaling.md
+│   │   │   │   ├── production-backup-restore.md
+│   │   │   │   ├── production-db-drift.md
+│   │   │   │   ├── production-deployment-checklist.md
+│   │   │   │   ├── production-launch.md
+│   │   │   │   ├── release-checklist.md
+│   │   │   │   ├── security-compliance-abuse-prevention.md
+│   │   │   │   ├── shopee-affiliate-portal-integration.md
+│   │   │   │   ├── shopee-affiliate-safe-automation.md
+│   │   │   │   ├── shopee-affiliate-social-posting.md
+│   │   │   │   ├── shopee-import-progress-ui.md
+│   │   │   │   ├── shopee-open-api-integration.md
+│   │   │   │   ├── shopee-open-api-managed-seller-kam.md
+│   │   │   │   ├── shopee-social-drafts-db.md
+│   │   │   │   ├── team-workspace-billing-quota.md
+│   │   │   │   ├── user-feedback-playbook.md
+│   │   │   │   └── zsp-release-smoke-checklist.md
+│   │   │   ├── security-audit-2026-05-19.md
+│   │   │   ├── security-review-2026-05-17.md
+│   │   │   ├── testing
+│   │   │   │   └── high-priority-api-ui-coverage.md
+│   │   │   └── ux-ui-review-2026-05-17.md
+│   │   ├── extension
+│   │   │   ├── README.md
+│   │   │   ├── manifest.json
+│   │   │   ├── package-lock.json
+│   │   │   ├── package.json
+│   │   │   ├── src
+│   │   │   │   ├── api-client.ts
+│   │   │   │   ├── background.ts
+│   │   │   │   ├── content-script.ts
+│   │   │   │   ├── options.html
+│   │   │   │   ├── options.ts
+│   │   │   │   ├── popup.css
+│   │   │   │   ├── popup.html
+│   │   │   │   ├── popup.ts
+│   │   │   │   └── types.ts
+│   │   │   ├── tsconfig.json
+│   │   │   └── vite.config.ts
+│   │   ├── generated
+│   │   │   └── cloudflare
+│   │   │       ├── plugins-dns-intent.yaml
+│   │   │       └── plugins-ingress.yml
+│   │   ├── next-env.d.ts
+│   │   ├── next.config.js
+│   │   ├── next.config.ts
+│   │   ├── package-lock.json
+│   │   ├── package.json
+│   │   ├── postcss.config.js
+│   │   ├── prisma
+│   │   │   ├── migrations
+│   │   │   │   ├── 20260517113207_init
+│   │   │   │   │   └── migration.sql
+│   │   │   │   ├── 20260518090000_add_hyperframes_render_jobs
+│   │   │   │   │   └── migration.sql
+│   │   │   │   ├── 20260518110000_add_hyperframes_output_size
+│   │   │   │   │   └── migration.sql
+│   │   │   │   ├── 20260518110000_hyperframes_org_scope
+│   │   │   │   │   └── migration.sql
+│   │   │   │   ├── 20260518120000_add_hyperframes_render_shares
+│   │   │   │   │   └── migration.sql
+│   │   │   │   ├── 20260518120000_add_subscription_plan
+│   │   │   │   │   └── migration.sql
+│   │   │   │   ├── 20260519090000_add_feedback_submission
+│   │   │   │   │   └── migration.sql
+│   │   │   │   ├── 20260519101000_add_user_setting_branding_fields
+│   │   │   │   │   └── migration.sql
+│   │   │   │   ├── 20260520043000_add_shopee_affiliate_ingestion
+│   │   │   │   │   └── migration.sql
+│   │   │   │   ├── 20260520120000_add_shopee_social_drafts
+│   │   │   │   │   └── migration.sql
+│   │   │   │   ├── 20260521093000_add_user_plan_tier
+│   │   │   │   │   └── migration.sql
+│   │   │   │   ├── 20260521153000_add_csv_import_job_queue
+│   │   │   │   │   └── migration.sql
+│   │   │   │   ├── 20260521180000_add_product_duplicate_groups
+│   │   │   │   │   └── migration.sql
+│   │   │   │   ├── 20260521193000_add_ai_content_queue_job
+│   │   │   │   │   └── migration.sql
+│   │   │   │   └── migration_lock.toml
+│   │   │   ├── schema.prisma
+│   │   │   └── seed.ts
+│   │   ├── public
+│   │   │   └── images
+│   │   │       └── hyperframes
+│   │   │           ├── template-comparison.svg
+│   │   │           ├── template-discount-alert.svg
+│   │   │           ├── template-product-showcase.svg
+│   │   │           ├── template-social-short-cut.svg
+│   │   │           └── template-testimonial-style.svg
+│   │   ├── scripts
+│   │   │   ├── ai
+│   │   │   │   ├── content-queue-status.ts
+│   │   │   │   └── content-queue-worker.ts
+│   │   │   ├── ci
+│   │   │   │   └── local-preflight.sh
+│   │   │   ├── codex
+│   │   │   │   ├── maintenance.sh
+│   │   │   │   └── setup.sh
+│   │   │   ├── db
+│   │   │   │   ├── check-user-settings-schema.ts
+│   │   │   │   ├── import-csv-to-products.ts
+│   │   │   │   └── import-csv-to-table.ts
+│   │   │   ├── fix-next-server-chunks.sh
+│   │   │   ├── health-zsp-aitool.sh
+│   │   │   ├── hyperframes
+│   │   │   │   ├── ci-mock.sh
+│   │   │   │   ├── ci-real.sh
+│   │   │   │   ├── cleanup-renders.ts
+│   │   │   │   ├── cleanup-timer-status.sh
+│   │   │   │   ├── diag.sh
+│   │   │   │   ├── disable-cleanup-timer.sh
+│   │   │   │   ├── disable-real-worker-daemon.sh
+│   │   │   │   ├── disable-worker-service.sh
+│   │   │   │   ├── doctor.sh
+│   │   │   │   ├── doctor.ts
+│   │   │   │   ├── enable-real-worker-daemon.sh
+│   │   │   │   ├── enqueue-smoke-job.ts
+│   │   │   │   ├── install-cleanup-timer.sh
+│   │   │   │   ├── install-worker-alert-timer.sh
+│   │   │   │   ├── install-worker-log-policy.sh
+│   │   │   │   ├── install-worker-service.sh
+│   │   │   │   ├── live-queue-trial.sh
+│   │   │   │   ├── persistent-worker-preflight.sh
+│   │   │   │   ├── recover-stale-jobs.ts
+│   │   │   │   ├── render-inventory.ts
+│   │   │   │   ├── render-job-status.ts
+│   │   │   │   ├── render-queue-status.ts
+│   │   │   │   ├── render-smoke.ts
+│   │   │   │   ├── render-worker.ts
+│   │   │   │   ├── safe-rollback.sh
+│   │   │   │   ├── test-hyperframes-render.sh
+│   │   │   │   ├── worker-alerts.ts
+│   │   │   │   ├── worker-journal-summary.sh
+│   │   │   │   ├── worker-logs.sh
+│   │   │   │   ├── worker-status.sh
+│   │   │   │   ├── worker-trial.sh
+│   │   │   │   └── worker-watchdog.ts
+│   │   │   ├── imports
+│   │   │   │   ├── csv-product-import-status.ts
+│   │   │   │   └── csv-product-import-worker.ts
+│   │   │   ├── monitor
+│   │   │   │   ├── backend-monitor-status.sh
+│   │   │   │   ├── backend-monitor.sh
+│   │   │   │   ├── backend-monitor.ts
+│   │   │   │   └── install-backend-monitor-timer.sh
+│   │   │   ├── ops
+│   │   │   │   └── backup-db.sh
+│   │   │   ├── plugins
+│   │   │   │   ├── plugin-evidence.sh
+│   │   │   │   ├── plugin-health.sh
+│   │   │   │   ├── plugin-lib.sh
+│   │   │   │   ├── plugin-list.sh
+│   │   │   │   ├── plugin-render-cloudflare.sh
+│   │   │   │   ├── plugin-sync.sh
+│   │   │   │   └── plugin-validate.sh
+│   │   │   └── post-launch
+│   │   │       ├── smoke-routes.sh
+│   │   │       └── status-summary.sh
+│   │   ├── skills-lock.json
+│   │   ├── src
+│   │   │   ├── app
+│   │   │   │   ├── api
+│   │   │   │   │   ├── admin
+│   │   │   │   │   │   ├── analytics
+│   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   ├── audit-logs
+│   │   │   │   │   │   │   ├── [id]
+│   │   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   ├── backend
+│   │   │   │   │   │   │   └── status
+│   │   │   │   │   │   │       └── route.ts
+│   │   │   │   │   │   ├── observability
+│   │   │   │   │   │   │   ├── events
+│   │   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   │   └── summary
+│   │   │   │   │   │   │       └── route.ts
+│   │   │   │   │   │   └── overview
+│   │   │   │   │   │       └── route.ts
+│   │   │   │   │   ├── ai
+│   │   │   │   │   │   ├── content-queue
+│   │   │   │   │   │   │   ├── [id]
+│   │   │   │   │   │   │   │   ├── cancel
+│   │   │   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   │   │   ├── retry
+│   │   │   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   ├── generate
+│   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   └── generate-batch
+│   │   │   │   │   │       └── route.ts
+│   │   │   │   │   ├── auth
+│   │   │   │   │   │   ├── login
+│   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   ├── logout
+│   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   ├── me
+│   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   └── register
+│   │   │   │   │   │       └── route.ts
+│   │   │   │   │   ├── content-history
+│   │   │   │   │   │   ├── [id]
+│   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   └── route.ts
+│   │   │   │   │   ├── dashboard
+│   │   │   │   │   │   └── overview
+│   │   │   │   │   │       └── route.ts
+│   │   │   │   │   ├── export
+│   │   │   │   │   │   ├── content
+│   │   │   │   │   │   │   └── [id].txt
+│   │   │   │   │   │   │       └── route.ts
+│   │   │   │   │   │   ├── content.csv
+│   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   ├── content.md
+│   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   ├── products.csv
+│   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   └── v2
+│   │   │   │   │   │       ├── _shared.ts
+│   │   │   │   │   │       ├── affiliate-links
+│   │   │   │   │   │       │   └── route.ts
+│   │   │   │   │   │       ├── content-history
+│   │   │   │   │   │       │   └── route.ts
+│   │   │   │   │   │       ├── jobs
+│   │   │   │   │   │       │   ├── [id]
+│   │   │   │   │   │       │   │   ├── download
+│   │   │   │   │   │       │   │   │   └── route.ts
+│   │   │   │   │   │       │   │   └── route.ts
+│   │   │   │   │   │       │   └── route.ts
+│   │   │   │   │   │       ├── products
+│   │   │   │   │   │       │   └── route.ts
+│   │   │   │   │   │       └── social-drafts
+│   │   │   │   │   │           └── route.ts
+│   │   │   │   │   ├── feedback
+│   │   │   │   │   │   └── route.ts
+│   │   │   │   │   ├── hyperframes
+│   │   │   │   │   │   ├── brand-kit
+│   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   ├── compose
+│   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   ├── operator
+│   │   │   │   │   │   │   ├── jobs
+│   │   │   │   │   │   │   │   └── [id]
+│   │   │   │   │   │   │   │       ├── cancel
+│   │   │   │   │   │   │   │       │   └── route.ts
+│   │   │   │   │   │   │   │       └── recover-stale
+│   │   │   │   │   │   │   │           └── route.ts
+│   │   │   │   │   │   │   └── queue
+│   │   │   │   │   │   │       └── route.ts
+│   │   │   │   │   │   ├── quota
+│   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   ├── render
+│   │   │   │   │   │   │   ├── [id]
+│   │   │   │   │   │   │   │   ├── cancel
+│   │   │   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   │   │   ├── download
+│   │   │   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   │   │   ├── download-token
+│   │   │   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   │   │   ├── retry
+│   │   │   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   │   │   ├── route.ts
+│   │   │   │   │   │   │   │   ├── share
+│   │   │   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   │   │   └── thumbnail
+│   │   │   │   │   │   │   │       └── route.ts
+│   │   │   │   │   │   │   ├── batch
+│   │   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   │   ├── history
+│   │   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   │   ├── limits
+│   │   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   │   ├── metrics
+│   │   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   │   ├── quota
+│   │   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   │   ├── route.ts
+│   │   │   │   │   │   │   ├── share
+│   │   │   │   │   │   │   │   └── [token]
+│   │   │   │   │   │   │   │       └── route.ts
+│   │   │   │   │   │   │   └── status
+│   │   │   │   │   │   │       └── route.ts
+│   │   │   │   │   │   ├── route.ts
+│   │   │   │   │   │   ├── script
+│   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   ├── script-to-composition
+│   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   ├── share
+│   │   │   │   │   │   │   └── [token]
+│   │   │   │   │   │   │       └── route.ts
+│   │   │   │   │   │   ├── social-export
+│   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   └── variants
+│   │   │   │   │   │       └── route.ts
+│   │   │   │   │   ├── imports
+│   │   │   │   │   │   └── csv-products
+│   │   │   │   │   │       ├── [id]
+│   │   │   │   │   │       │   ├── cancel
+│   │   │   │   │   │       │   │   └── route.ts
+│   │   │   │   │   │       │   ├── retry
+│   │   │   │   │   │       │   │   └── route.ts
+│   │   │   │   │   │       │   └── route.ts
+│   │   │   │   │   │       └── route.ts
+│   │   │   │   │   ├── integrations
+│   │   │   │   │   │   ├── marqeta
+│   │   │   │   │   │   │   └── status
+│   │   │   │   │   │   │       └── route.ts
+│   │   │   │   │   │   └── shopee
+│   │   │   │   │   │       ├── affiliate-csv-preview
+│   │   │   │   │   │       │   └── route.ts
+│   │   │   │   │   │       ├── affiliate-ingestions
+│   │   │   │   │   │       │   ├── [id]
+│   │   │   │   │   │       │   │   ├── approve
+│   │   │   │   │   │       │   │   │   └── route.ts
+│   │   │   │   │   │       │   │   ├── import
+│   │   │   │   │   │       │   │   │   └── route.ts
+│   │   │   │   │   │       │   │   ├── reject
+│   │   │   │   │   │       │   │   │   └── route.ts
+│   │   │   │   │   │       │   │   └── social-drafts
+│   │   │   │   │   │       │   │       └── route.ts
+│   │   │   │   │   │       │   ├── route.ts
+│   │   │   │   │   │       │   └── social-drafts
+│   │   │   │   │   │       │       └── copy
+│   │   │   │   │   │       │           └── route.ts
+│   │   │   │   │   │       ├── affiliate-manual-import
+│   │   │   │   │   │       │   └── route.ts
+│   │   │   │   │   │       ├── social-drafts
+│   │   │   │   │   │       │   ├── [id]
+│   │   │   │   │   │       │   │   ├── archive
+│   │   │   │   │   │       │   │   │   └── route.ts
+│   │   │   │   │   │       │   │   ├── copy
+│   │   │   │   │   │       │   │   │   └── route.ts
+│   │   │   │   │   │       │   │   └── route.ts
+│   │   │   │   │   │       │   └── route.ts
+│   │   │   │   │   │       └── status
+│   │   │   │   │   │           └── route.ts
+│   │   │   │   │   ├── ocr
+│   │   │   │   │   │   ├── [id]
+│   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   └── extract
+│   │   │   │   │   │       └── route.ts
+│   │   │   │   │   ├── products
+│   │   │   │   │   │   ├── [id]
+│   │   │   │   │   │   │   ├── affiliate-link
+│   │   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   │   ├── route.ts
+│   │   │   │   │   │   │   ├── similar
+│   │   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   │   └── similar-refresh
+│   │   │   │   │   │   │       └── route.ts
+│   │   │   │   │   │   ├── bulk-generate-content
+│   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   ├── deduplication
+│   │   │   │   │   │   │   ├── groups
+│   │   │   │   │   │   │   │   ├── [id]
+│   │   │   │   │   │   │   │   │   ├── dismiss
+│   │   │   │   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   │   │   │   └── merge
+│   │   │   │   │   │   │   │   │       └── route.ts
+│   │   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   │   └── scan
+│   │   │   │   │   │   │       └── route.ts
+│   │   │   │   │   │   ├── extension-import
+│   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   ├── import-json
+│   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   ├── import-url
+│   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   └── route.ts
+│   │   │   │   │   ├── settings
+│   │   │   │   │   │   └── route.ts
+│   │   │   │   │   ├── templates
+│   │   │   │   │   │   ├── [id]
+│   │   │   │   │   │   │   ├── duplicate
+│   │   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   ├── restore-defaults
+│   │   │   │   │   │   │   └── route.ts
+│   │   │   │   │   │   └── route.ts
+│   │   │   │   │   └── usage
+│   │   │   │   │       └── summary
+│   │   │   │   │           └── route.ts
+│   │   │   │   ├── contact
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── dashboard
+│   │   │   │   │   ├── admin
+│   │   │   │   │   │   ├── analytics
+│   │   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   │   ├── audit-logs
+│   │   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   │   ├── backend-monitor
+│   │   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   │   ├── content
+│   │   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   │   ├── observability
+│   │   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   │   ├── page.tsx
+│   │   │   │   │   │   ├── products
+│   │   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   │   ├── renders
+│   │   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   │   ├── settings
+│   │   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   │   ├── system
+│   │   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   │   └── users
+│   │   │   │   │   │       └── page.tsx
+│   │   │   │   │   ├── content-history
+│   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   ├── export-center
+│   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   ├── generator
+│   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   ├── hyperframes
+│   │   │   │   │   │   ├── batch
+│   │   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   │   ├── ops
+│   │   │   │   │   │   │   ├── page.tsx
+│   │   │   │   │   │   │   └── queue
+│   │   │   │   │   │   │       └── page.tsx
+│   │   │   │   │   │   ├── page.tsx
+│   │   │   │   │   │   └── renders
+│   │   │   │   │   │       └── page.tsx
+│   │   │   │   │   ├── layout.tsx
+│   │   │   │   │   ├── loading.tsx
+│   │   │   │   │   ├── ocr
+│   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   ├── page.tsx
+│   │   │   │   │   ├── products
+│   │   │   │   │   │   ├── [id]
+│   │   │   │   │   │   │   ├── page.tsx
+│   │   │   │   │   │   │   └── similar
+│   │   │   │   │   │   │       └── page.tsx
+│   │   │   │   │   │   ├── deduplication
+│   │   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   │   ├── new
+│   │   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   ├── settings
+│   │   │   │   │   │   ├── billing
+│   │   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   ├── shopee-affiliate
+│   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   ├── similar
+│   │   │   │   │   │   └── page.tsx
+│   │   │   │   │   └── templates
+│   │   │   │   │       └── page.tsx
+│   │   │   │   ├── docs
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── error.tsx
+│   │   │   │   ├── globals.css
+│   │   │   │   ├── layout.tsx
+│   │   │   │   ├── login
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── not-found.tsx
+│   │   │   │   ├── page.tsx
+│   │   │   │   ├── register
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── release
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── security
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── status
+│   │   │   │   │   └── page.tsx
+│   │   │   │   ├── www
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── zdash
+│   │   │   │       └── page.tsx
+│   │   │   ├── components
+│   │   │   │   ├── admin
+│   │   │   │   │   ├── AdminGuardNotice.tsx
+│   │   │   │   │   ├── AdminMetricCard.tsx
+│   │   │   │   │   ├── AdminPlaceholderTable.tsx
+│   │   │   │   │   ├── AdminShell.tsx
+│   │   │   │   │   └── AdminStatusPanel.tsx
+│   │   │   │   ├── ai
+│   │   │   │   │   ├── ContentGeneratorForm.tsx
+│   │   │   │   │   ├── GeneratedContentCard.tsx
+│   │   │   │   │   ├── PlatformSelector.tsx
+│   │   │   │   │   └── ToneSelector.tsx
+│   │   │   │   ├── auth
+│   │   │   │   │   ├── LoginForm.tsx
+│   │   │   │   │   └── RegisterForm.tsx
+│   │   │   │   ├── export
+│   │   │   │   │   └── ExportPanel.tsx
+│   │   │   │   ├── hyperframes
+│   │   │   │   │   ├── HyperFramesStatusGrid.tsx
+│   │   │   │   │   ├── HyperframesTemplateBrowser.tsx
+│   │   │   │   │   ├── OperatorWarningBanner.tsx
+│   │   │   │   │   ├── RenderHistoryTable.tsx
+│   │   │   │   │   ├── RenderJobCard.tsx
+│   │   │   │   │   ├── RenderStatusBadge.tsx
+│   │   │   │   │   ├── SafeErrorText.tsx
+│   │   │   │   │   └── TemplateSelector.tsx
+│   │   │   │   ├── imports
+│   │   │   │   │   └── CsvProductImportProgressPanel.tsx
+│   │   │   │   ├── layout
+│   │   │   │   │   ├── AppLayout.tsx
+│   │   │   │   │   ├── Header.tsx
+│   │   │   │   │   ├── MobileNav.tsx
+│   │   │   │   │   └── Sidebar.tsx
+│   │   │   │   ├── ocr
+│   │   │   │   │   ├── OCRResultReview.tsx
+│   │   │   │   │   └── OCRUploadBox.tsx
+│   │   │   │   ├── products
+│   │   │   │   │   ├── ProductCard.tsx
+│   │   │   │   │   ├── ProductDeduplicationPanel.tsx
+│   │   │   │   │   ├── ProductForm.tsx
+│   │   │   │   │   ├── ProductGrid.tsx
+│   │   │   │   │   ├── ProductImportForm.tsx
+│   │   │   │   │   └── SimilarProductCard.tsx
+│   │   │   │   ├── settings
+│   │   │   │   │   └── SettingsForm.tsx
+│   │   │   │   ├── shopee
+│   │   │   │   │   ├── ShopeeAffiliateControlCenter.tsx
+│   │   │   │   │   └── ShopeeAffiliateRealDbDashboard.tsx
+│   │   │   │   ├── templates
+│   │   │   │   │   ├── TemplateCard.tsx
+│   │   │   │   │   ├── TemplateEditorModal.tsx
+│   │   │   │   │   └── VariablePalette.tsx
+│   │   │   │   ├── theme
+│   │   │   │   │   ├── BackgroundColorSelect.tsx
+│   │   │   │   │   ├── ThemeProvider.tsx
+│   │   │   │   │   └── ThemeToggle.tsx
+│   │   │   │   └── ui
+│   │   │   │       ├── AlertBanner.tsx
+│   │   │   │       ├── Button.tsx
+│   │   │   │       ├── Card.tsx
+│   │   │   │       ├── ConfirmDialog.tsx
+│   │   │   │       ├── CopyButton.tsx
+│   │   │   │       ├── DataTable.tsx
+│   │   │   │       ├── EmptyState.tsx
+│   │   │   │       ├── ExportButton.tsx
+│   │   │   │       ├── FormField.tsx
+│   │   │   │       ├── LoadingSpinner.tsx
+│   │   │   │       ├── ModuleCard.tsx
+│   │   │   │       ├── PageHeader.tsx
+│   │   │   │       ├── PageTitle.tsx
+│   │   │   │       ├── PlatformBadge.tsx
+│   │   │   │       ├── Section.tsx
+│   │   │   │       ├── StatCard.tsx
+│   │   │   │       ├── StatusBadge.tsx
+│   │   │   │       ├── Tabs.tsx
+│   │   │   │       └── Toast.tsx
+│   │   │   ├── hooks
+│   │   │   │   ├── use-api.ts
+│   │   │   │   ├── use-toast.ts
+│   │   │   │   └── useAuth.ts
+│   │   │   ├── index.ts
+│   │   │   ├── lib
+│   │   │   │   ├── admin
+│   │   │   │   │   └── access.ts
+│   │   │   │   ├── api-client.ts
+│   │   │   │   ├── api-response.ts
+│   │   │   │   ├── auth.ts
+│   │   │   │   ├── category-matcher.ts
+│   │   │   │   ├── csv.ts
+│   │   │   │   ├── env.ts
+│   │   │   │   ├── errors.ts
+│   │   │   │   ├── format-price.ts
+│   │   │   │   ├── hyperframes
+│   │   │   │   │   ├── artifact-access.ts
+│   │   │   │   │   ├── asset-fetch.ts
+│   │   │   │   │   ├── billing.ts
+│   │   │   │   │   ├── build-composition.ts
+│   │   │   │   │   ├── download-token.ts
+│   │   │   │   │   ├── operator-access.ts
+│   │   │   │   │   ├── operator-status.ts
+│   │   │   │   │   ├── org-access.ts
+│   │   │   │   │   ├── render-command.ts
+│   │   │   │   │   ├── render-config.ts
+│   │   │   │   │   ├── render-metrics.ts
+│   │   │   │   │   ├── render-quality.ts
+│   │   │   │   │   ├── render-safety.ts
+│   │   │   │   │   ├── render-validation.ts
+│   │   │   │   │   ├── retry.ts
+│   │   │   │   │   ├── sanitize.ts
+│   │   │   │   │   ├── share-token.ts
+│   │   │   │   │   ├── social-export.ts
+│   │   │   │   │   ├── subscription-limits.ts
+│   │   │   │   │   ├── subtitles.ts
+│   │   │   │   │   ├── template-marketplace.ts
+│   │   │   │   │   ├── templates
+│   │   │   │   │   │   ├── index.ts
+│   │   │   │   │   │   └── types.ts
+│   │   │   │   │   ├── types.ts
+│   │   │   │   │   └── voiceover.ts
+│   │   │   │   ├── keyword-extractor.ts
+│   │   │   │   ├── markdown.ts
+│   │   │   │   ├── marqeta
+│   │   │   │   │   └── config.ts
+│   │   │   │   ├── observability
+│   │   │   │   │   ├── api-timing.ts
+│   │   │   │   │   ├── db-timing.ts
+│   │   │   │   │   └── logger.ts
+│   │   │   │   ├── password.ts
+│   │   │   │   ├── price-similarity.ts
+│   │   │   │   ├── prisma.ts
+│   │   │   │   ├── product-validation.ts
+│   │   │   │   ├── rate-limit.ts
+│   │   │   │   ├── safe-json.ts
+│   │   │   │   ├── shopee
+│   │   │   │   │   ├── open-api-config.ts
+│   │   │   │   │   └── signature.ts
+│   │   │   │   ├── shopee-affiliate-url-safety.ts
+│   │   │   │   ├── shopee-url.ts
+│   │   │   │   ├── slug.ts
+│   │   │   │   ├── url-safety.ts
+│   │   │   │   ├── usage-guard.ts
+│   │   │   │   └── validators.ts
+│   │   │   ├── middleware
+│   │   │   │   └── auth-middleware.ts
+│   │   │   ├── pages
+│   │   │   │   └── 404.tsx
+│   │   │   ├── schemas
+│   │   │   │   ├── ai.schema.ts
+│   │   │   │   ├── feedback.schema.ts
+│   │   │   │   ├── hyperframes-brand-kit.schema.ts
+│   │   │   │   ├── hyperframes-script.schema.ts
+│   │   │   │   ├── hyperframes-social-export.schema.ts
+│   │   │   │   ├── hyperframes-variants.schema.ts
+│   │   │   │   ├── ocr.schema.ts
+│   │   │   │   ├── product.schema.ts
+│   │   │   │   ├── settings.schema.ts
+│   │   │   │   ├── shopee-affiliate.schema.ts
+│   │   │   │   └── template.schema.ts
+│   │   │   ├── server
+│   │   │   │   └── collab_server.js
+│   │   │   ├── services
+│   │   │   │   ├── AIContentQueueService.ts
+│   │   │   │   ├── AIContentService.ts
+│   │   │   │   ├── AdminAuditLogService.ts
+│   │   │   │   ├── BackendMonitorService.ts
+│   │   │   │   ├── BudgetService.ts
+│   │   │   │   ├── CsvProductImportJobService.ts
+│   │   │   │   ├── ExportCenterService.ts
+│   │   │   │   ├── ExportService.ts
+│   │   │   │   ├── FeedbackService.ts
+│   │   │   │   ├── GrowthAnalyticsService.ts
+│   │   │   │   ├── HyperFramesQuotaService.ts
+│   │   │   │   ├── MarqetaCoreApiService.ts
+│   │   │   │   ├── OCRService.ts
+│   │   │   │   ├── ObservabilityService.ts
+│   │   │   │   ├── ProductDeduplicationService.ts
+│   │   │   │   ├── ProductService.ts
+│   │   │   │   ├── PromptTemplateService.ts
+│   │   │   │   ├── ShopeeAffiliateIngestionService.ts
+│   │   │   │   ├── ShopeeAffiliateSocialDraftService.ts
+│   │   │   │   ├── ShopeeOpenApiService.ts
+│   │   │   │   ├── SimilarProductService.ts
+│   │   │   │   ├── TemplateRenderer.ts
+│   │   │   │   ├── UserSettingService.ts
+│   │   │   │   ├── admin-data-service.ts
+│   │   │   │   ├── admin-overview-service.ts
+│   │   │   │   ├── ai
+│   │   │   │   │   ├── AIProvider.ts
+│   │   │   │   │   ├── ContentSafety.ts
+│   │   │   │   │   ├── MockAIProvider.ts
+│   │   │   │   │   ├── OpenAICompatibleProvider.ts
+│   │   │   │   │   └── PromptBuilder.ts
+│   │   │   │   ├── ai-content-service.ts
+│   │   │   │   ├── export_pipeline.js
+│   │   │   │   ├── export_pipeline.ts
+│   │   │   │   ├── hyperframes-brand-kit-service.ts
+│   │   │   │   ├── hyperframes-script-service.ts
+│   │   │   │   ├── hyperframes-social-export-service.ts
+│   │   │   │   ├── hyperframes-variants-service.ts
+│   │   │   │   ├── ocr
+│   │   │   │   │   ├── MockOCRProvider.ts
+│   │   │   │   │   └── OCRProvider.ts
+│   │   │   │   ├── product-import-service.ts
+│   │   │   │   ├── product-service.ts
+│   │   │   │   ├── prompt-template-service.ts
+│   │   │   │   ├── shopee-open-api-client.ts
+│   │   │   │   ├── usage-summary-service.ts
+│   │   │   │   └── video_generator.js
+│   │   │   └── types
+│   │   │       ├── ai.ts
+│   │   │       ├── api.ts
+│   │   │       ├── content.ts
+│   │   │       ├── ocr.ts
+│   │   │       └── product.ts
+│   │   ├── standalone-server
+│   │   │   └── server.js
+│   │   ├── start.sh
+│   │   ├── tailwind.config.ts
+│   │   ├── tests
+│   │   │   ├── api
+│   │   │   │   ├── admin-analytics.test.ts
+│   │   │   │   ├── admin-audit-logs.test.ts
+│   │   │   │   ├── admin-backend-status.test.ts
+│   │   │   │   ├── admin-observability.test.ts
+│   │   │   │   ├── ai-content-queue.test.ts
+│   │   │   │   ├── ai-generate-routes.test.ts
+│   │   │   │   ├── auth-routes.test.ts
+│   │   │   │   ├── content-workflow-hardening.test.ts
+│   │   │   │   ├── csv-product-import-jobs.test.ts
+│   │   │   │   ├── csv-product-import-progress.test.ts
+│   │   │   │   ├── export-center-v2.test.ts
+│   │   │   │   ├── export-routes-headers.test.ts
+│   │   │   │   ├── feedback-api.test.ts
+│   │   │   │   ├── hyperframes-billing-gates.test.ts
+│   │   │   │   ├── hyperframes-brand-kit.test.ts
+│   │   │   │   ├── hyperframes-compose.test.ts
+│   │   │   │   ├── hyperframes-operator-controls.test.ts
+│   │   │   │   ├── hyperframes-org-scope.test.ts
+│   │   │   │   ├── hyperframes-quota.test.ts
+│   │   │   │   ├── hyperframes-render-batch.test.ts
+│   │   │   │   ├── hyperframes-render-download-token.test.ts
+│   │   │   │   ├── hyperframes-render-download.test.ts
+│   │   │   │   ├── hyperframes-render-history.test.ts
+│   │   │   │   ├── hyperframes-render-metrics.test.ts
+│   │   │   │   ├── hyperframes-render-retry.test.ts
+│   │   │   │   ├── hyperframes-render-share.test.ts
+│   │   │   │   ├── hyperframes-render-status.test.ts
+│   │   │   │   ├── hyperframes-render-thumbnail.test.ts
+│   │   │   │   ├── hyperframes-render.test.ts
+│   │   │   │   ├── hyperframes-script.test.ts
+│   │   │   │   ├── hyperframes-social-export.test.ts
+│   │   │   │   ├── hyperframes-variants.test.ts
+│   │   │   │   ├── marqeta-status.test.ts
+│   │   │   │   ├── ocr-ai-settings-export-routes.test.ts
+│   │   │   │   ├── ocr-routes.test.ts
+│   │   │   │   ├── product-deduplication.test.ts
+│   │   │   │   ├── product-import-routes.test.ts
+│   │   │   │   ├── products-pagination.test.ts
+│   │   │   │   ├── products.test.ts
+│   │   │   │   ├── settings-route.test.ts
+│   │   │   │   ├── shopee-affiliate-import.test.ts
+│   │   │   │   ├── shopee-affiliate-portal-routes.test.ts
+│   │   │   │   ├── shopee-open-api-status.test.ts
+│   │   │   │   ├── shopee-social-drafts.test.ts
+│   │   │   │   ├── templates-crud.test.ts
+│   │   │   │   ├── tenant-isolation.test.ts
+│   │   │   │   └── usage-summary.test.ts
+│   │   │   ├── branding.test.ts
+│   │   │   ├── collab_server.test.js
+│   │   │   ├── components
+│   │   │   │   ├── ProductCard.test.tsx
+│   │   │   │   ├── admin-audit-logs-static.test.tsx
+│   │   │   │   ├── admin-backend-monitor-static.test.tsx
+│   │   │   │   ├── admin-observability-static.test.tsx
+│   │   │   │   ├── admin-ux-static.test.ts
+│   │   │   │   ├── ai-content-queue-static.test.tsx
+│   │   │   │   ├── ai-template-brand-kit-static.test.ts
+│   │   │   │   ├── all-menu-coverage-static.test.ts
+│   │   │   │   ├── background-color-select-static.test.ts
+│   │   │   │   ├── csv-product-import-progress-static.test.tsx
+│   │   │   │   ├── dashboard-final-release-static.test.ts
+│   │   │   │   ├── dashboard-overview-ux-static.test.ts
+│   │   │   │   ├── dashboard-pages-states-static.test.ts
+│   │   │   │   ├── dashboard-pages-states.test.tsx
+│   │   │   │   ├── dashboard-shell-static.test.ts
+│   │   │   │   ├── export-center-v2-static.test.tsx
+│   │   │   │   ├── final-ui-admin-hyperframes-audit.test.ts
+│   │   │   │   ├── full-ux-ui-final-release-static.test.ts
+│   │   │   │   ├── full-ux-ui-redesign-static.test.ts
+│   │   │   │   ├── growth-analytics-feedback-static.test.ts
+│   │   │   │   ├── growth-copy-safety-static.test.ts
+│   │   │   │   ├── hyperframes-dashboard-render-button-static.test.ts
+│   │   │   │   ├── hyperframes-operator-ux-static.test.ts
+│   │   │   │   ├── hyperframes-quota-static.test.ts
+│   │   │   │   ├── hyperframes-render-history-static.test.ts
+│   │   │   │   ├── hyperframes-template-browser-static.test.ts
+│   │   │   │   ├── hyperframes-ui-phase3-safety.test.ts
+│   │   │   │   ├── hyperframes-upgrade-cta.test.tsx
+│   │   │   │   ├── mobile-nav-coverage-static.test.ts
+│   │   │   │   ├── product-ai-ocr-ux-static.test.ts
+│   │   │   │   ├── product-deduplication-static.test.tsx
+│   │   │   │   ├── products-list-scaling-static.test.ts
+│   │   │   │   ├── shopee-affiliate-portal-static.test.ts
+│   │   │   │   ├── shopee-import-progress-panel-static.test.tsx
+│   │   │   │   ├── shopee-open-api-import-static.test.ts
+│   │   │   │   ├── shopee-social-drafts-static.test.tsx
+│   │   │   │   └── theme-mode-static.test.ts
+│   │   │   ├── docs
+│   │   │   │   ├── branch-protection-runbook-static.test.ts
+│   │   │   │   ├── deployment-checklist-static.test.ts
+│   │   │   │   ├── enterprise-readiness-scale-plan-static.test.ts
+│   │   │   │   ├── growth-runbook-static.test.ts
+│   │   │   │   ├── high-priority-test-coverage-static.test.ts
+│   │   │   │   ├── marqeta-runbook-static.test.ts
+│   │   │   │   ├── shopee-affiliate-runbook-static.test.ts
+│   │   │   │   └── shopee-affiliate-safe-automation-runbook-static.test.ts
+│   │   │   ├── export-panel-security.test.ts
+│   │   │   ├── export_pipeline.test.js
+│   │   │   ├── hyperframes-asset-fetch.test.ts
+│   │   │   ├── hyperframes-cleanup-timer.test.ts
+│   │   │   ├── hyperframes-enqueue-smoke-job.test.ts
+│   │   │   ├── hyperframes-live-queue-trial-script.test.ts
+│   │   │   ├── hyperframes-render-command.test.ts
+│   │   │   ├── hyperframes-render-inventory.test.ts
+│   │   │   ├── hyperframes-render-quality.test.ts
+│   │   │   ├── hyperframes-render-safety.test.ts
+│   │   │   ├── hyperframes-render-smoke.test.ts
+│   │   │   ├── hyperframes-render-validation.test.ts
+│   │   │   ├── hyperframes-safe-rollback.test.ts
+│   │   │   ├── hyperframes-sanitize.test.ts
+│   │   │   ├── hyperframes-subtitles.test.ts
+│   │   │   ├── hyperframes-template-marketplace.test.ts
+│   │   │   ├── hyperframes-templates.test.ts
+│   │   │   ├── hyperframes-watchdog.test.ts
+│   │   │   ├── hyperframes-worker-alerts.test.ts
+│   │   │   ├── hyperframes-worker-trial-script.test.ts
+│   │   │   ├── hyperframes-worker.test.ts
+│   │   │   ├── lib
+│   │   │   │   ├── api-timing.test.ts
+│   │   │   │   ├── marqeta-config.test.ts
+│   │   │   │   ├── observability-redaction.test.ts
+│   │   │   │   ├── rate-limit-distributed.test.ts
+│   │   │   │   ├── shopee-affiliate-url-safety.test.ts
+│   │   │   │   └── shopee-open-api-config.test.ts
+│   │   │   ├── lib.hyperframes-billing.test.ts
+│   │   │   ├── middleware.auth.test.ts
+│   │   │   ├── product-import-service.test.ts
+│   │   │   ├── product-validation.test.ts
+│   │   │   ├── runbooks
+│   │   │   │   └── backup-restore-release-static.test.ts
+│   │   │   ├── scripts
+│   │   │   │   ├── ai-content-queue-worker-static.test.ts
+│   │   │   │   ├── backend-monitor-static.test.ts
+│   │   │   │   ├── backup-db-static.test.ts
+│   │   │   │   ├── csv-product-import-worker-static.test.ts
+│   │   │   │   ├── db-critical-schema-drift-static.test.ts
+│   │   │   │   ├── db-schema-drift-check-static.test.ts
+│   │   │   │   └── github-actions-static.test.ts
+│   │   │   ├── security
+│   │   │   │   ├── admin-audit-redaction.test.ts
+│   │   │   │   ├── ai-content-queue-redaction.test.ts
+│   │   │   │   ├── backend-monitor-redaction-static.test.ts
+│   │   │   │   ├── ci-secret-scan-static.test.ts
+│   │   │   │   ├── csv-import-redaction-static.test.ts
+│   │   │   │   ├── export-center-redaction.test.ts
+│   │   │   │   ├── extension-permissions.test.ts
+│   │   │   │   ├── hyperframes-security.test.ts
+│   │   │   │   ├── import-progress-redaction-static.test.ts
+│   │   │   │   ├── marqeta-secret-redaction-static.test.ts
+│   │   │   │   ├── observability-secret-redaction.test.ts
+│   │   │   │   ├── product-deduplication-isolation.test.ts
+│   │   │   │   ├── products-user-isolation-static.test.ts
+│   │   │   │   ├── security-compliance-static-scans.test.ts
+│   │   │   │   └── shopee-social-drafts-compliance.test.ts
+│   │   │   ├── services
+│   │   │   │   ├── AIContentQueueService.test.ts
+│   │   │   │   ├── AIContentService.test.ts
+│   │   │   │   ├── AdminAuditLogService.test.ts
+│   │   │   │   ├── AuthValidation.test.ts
+│   │   │   │   ├── BackendMonitorService.test.ts
+│   │   │   │   ├── BudgetService.test.ts
+│   │   │   │   ├── CsvProductImportJobService.test.ts
+│   │   │   │   ├── ExportCenterService.test.ts
+│   │   │   │   ├── ExportService.test.ts
+│   │   │   │   ├── MarqetaCoreApiService.test.ts
+│   │   │   │   ├── OCRService.test.ts
+│   │   │   │   ├── ObservabilityService.test.ts
+│   │   │   │   ├── ProductDeduplicationService.test.ts
+│   │   │   │   ├── ProductService.hardening.test.ts
+│   │   │   │   ├── ProductService.pagination.test.ts
+│   │   │   │   ├── ProductService.test.ts
+│   │   │   │   ├── PromptBuilder.test.ts
+│   │   │   │   ├── PromptTemplateService.hardening.test.ts
+│   │   │   │   ├── ShopeeAffiliateSocialDraftService.test.ts
+│   │   │   │   ├── ShopeeOpenApiService.test.ts
+│   │   │   │   ├── SimilarProductService.test.ts
+│   │   │   │   ├── TemplateRenderer.test.ts
+│   │   │   │   ├── hyperframes-script-service.test.ts
+│   │   │   │   ├── shopee-affiliate-ingestion-service.test.ts
+│   │   │   │   └── similar-isolation.test.ts
+│   │   │   ├── setup.ts
+│   │   │   ├── smoke.test.ts
+│   │   │   ├── url-safety.test.ts
+│   │   │   └── video_generator.test.js
+│   │   ├── tsconfig.json
+│   │   ├── tsconfig.typecheck.json
+│   │   ├── vitest.config.ts
+│   │   ├── zsp-agent-status.sh
+│   │   └── zsp-deep-dive.sh
+│   ├── ztrader
+│   │   └── zeaz-intelligence
+│   │       ├── Dockerfile
+│   │       ├── Makefile
+│   │       ├── README.md
+│   │       ├── contracts
+│   │       │   ├── ztrader-advisory-intent.v1.1.schema.json
+│   │       │   ├── ztrader-advisory-intent.v1.schema.json
+│   │       │   ├── ztrader-model-gateway.v1.schema.json
+│   │       │   ├── ztrader-onchain-evidence.v1.1.schema.json
+│   │       │   └── ztrader-onchain-evidence.v1.schema.json
+│   │       ├── deploy
+│   │       │   └── k8s.yaml
+│   │       ├── docker-compose.yml
+│   │       ├── docs
+│   │       │   ├── CANONICAL_INTEGRATIONS.md
+│   │       │   └── FULL_PHASE_REPORT.md
+│   │       ├── pyproject.toml
+│   │       ├── src
+│   │       │   └── ztrader_intel
+│   │       │       ├── __init__.py
+│   │       │       ├── alerts.py
+│   │       │       ├── api.py
+│   │       │       ├── backtest.py
+│   │       │       ├── discovery.py
+│   │       │       ├── events.py
+│   │       │       ├── models.py
+│   │       │       ├── narrative.py
+│   │       │       ├── policy.py
+│   │       │       ├── polymarket
+│   │       │       │   ├── __init__.py
+│   │       │       │   ├── arbitrage.py
+│   │       │       │   ├── client.py
+│   │       │       │   └── models.py
+│   │       │       ├── portfolio.py
+│   │       │       ├── providers.py
+│   │       │       ├── scoring.py
+│   │       │       ├── service.py
+│   │       │       ├── store.py
+│   │       │       ├── trade_plan.py
+│   │       │       └── wallets.py
+│   │       └── tests
+│   │           ├── test_backtest.py
+│   │           ├── test_contracts.py
+│   │           ├── test_discovery.py
+│   │           ├── test_narrative.py
+│   │           ├── test_policy.py
+│   │           ├── test_polymarket_arbitrage.py
+│   │           ├── test_portfolio.py
+│   │           ├── test_runtime_integrations.py
+│   │           ├── test_scoring.py
+│   │           ├── test_store.py
+│   │           ├── test_trade_plan.py
+│   │           ├── test_wallets.py
+│   │           └── test_zaiman_provider.py
+│   └── zttshop-php
+├── planning
+│   ├── AUTONOMOUS-HOURLY-COMPLETION-PROMPTS.md
+│   ├── RELEASE-SCOPE-STATUS.md
+│   ├── SW7-P6B-BROWSER-EFFECT-WIRING.md
+│   ├── autonomous-upgrades.md
+│   ├── exec-planning-capability-platform.md
+│   ├── exec-planning-router.md
+│   ├── exec-planning-skywork.md
+│   ├── exec-planning-universal-stack.md
+│   ├── exec-planning-zarvis.md
+│   ├── exec-planning-zato.md
+│   ├── exec-planning-zloop.md
+│   ├── exec-planning-zwf.md
+│   ├── exec-planning.master.md
+│   ├── exec-planning.zarvis.md
+│   ├── exec-planning.zider.md
+│   ├── exec-planning.zsp-aitool.md
+│   ├── exec-zred-team.md
+│   ├── planning-implementation-router.md
+│   ├── planning-implementation-skywork.md
+│   ├── planning-implementation-zarvis.md
+│   ├── planning-implementation-zato.md
+│   ├── planning-implementation-zider.md
+│   ├── planning-implementation-zred-team.md
+│   ├── planning-implementation-zsp-aitool.md
+│   └── planning-implementation-zwf.md
+├── plugins
+│   └── zworkforce-omnichannel-suite
+│       └── skills
+│           ├── order-fulfillment-ops
+│           │   └── SKILL.md
+│           ├── shop-inventory-sync
+│           │   └── SKILL.md
+│           └── social-content-publisher
+│               └── SKILL.md
+├── pnpm-lock.yaml
+├── pnpm-workspace.yaml
+├── prompts
+│   └── autonomous-upgrades.md
+├── pyproject.toml
+├── schemas
+│   ├── agent-skill-release-manifest.schema.json
+│   ├── center-control-plane.schema.json
+│   ├── operations
+│   │   ├── phase-6-operator-inputs.schema.json
+│   │   ├── service-broker-job.schema.json
+│   │   └── staging-decision-record.schema.json
+│   └── release
+│       ├── common.schema.json
+│       ├── external-verification.schema.json
+│       ├── operational-ownership.schema.json
+│       ├── production-release-record.schema.json
+│       ├── staging-inventory.schema.json
+│       └── staging-review.schema.json
+├── scripts
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-314.pyc
+│   │   ├── cloudflare-plan-manifest.cpython-314.pyc
+│   │   ├── generate_sbom.cpython-314.pyc
+│   │   ├── install_agent_skill_catalog.cpython-314.pyc
+│   │   ├── kids-bench.cpython-314.pyc
+│   │   ├── sarif_triage.cpython-314.pyc
+│   │   ├── supabase_stagef_vault_setup.cpython-314.pyc
+│   │   ├── validate_agent_skill_catalog.cpython-314.pyc
+│   │   ├── validate_center_control_plane.cpython-314.pyc
+│   │   ├── verify_release.cpython-314.pyc
+│   │   └── video_factory_orc.cpython-314.pyc
+│   ├── auto-quad-loop.sh
+│   ├── backup-postgres.sh
+│   ├── close-zworkforce-external-gates.sh
+│   ├── cloudflare
+│   │   ├── cloudflare-apply.sh
+│   │   ├── cloudflare-import-dns.sh
+│   │   ├── cloudflare-plan.sh
+│   │   ├── cloudflare-state.sh
+│   │   ├── cloudflare-tunnel.sh
+│   │   └── reconcile-repo-sites.sh
+│   ├── cloudflare-apply.sh
+│   ├── cloudflare-import-dns.sh
+│   ├── cloudflare-plan-manifest.py
+│   ├── cloudflare-plan.sh
+│   ├── cloudflare-rotation.d
+│   │   ├── 10-account-api-token.sh
+│   │   └── README.md
+│   ├── cloudflare-state.sh
+│   ├── cloudflare-tunnel.sh
+│   ├── deploy-live.sh
+│   ├── generate_sbom.py
+│   ├── install
+│   │   ├── install_hermes_full_stack_master.sh
+│   │   ├── install_spawn_hermes.sh
+│   │   ├── install_spawn_hermes_free.sh
+│   │   ├── install_spawn_hermes_latest_free.sh
+│   │   ├── setup.sh
+│   │   └── spawn_hermes_free_auto.sh
+│   ├── install_agent_skill_catalog.py
+│   ├── install_video_factory_orc.sh
+│   ├── kids-bench.py
+│   ├── lib
+│   │   ├── cloudflare
+│   │   │   └── cloudflare-terraform-env.sh
+│   │   ├── cloudflare-terraform-env.sh
+│   │   └── postgres-connection.sh
+│   ├── release
+│   │   ├── verify-ha.sh
+│   │   └── verify-observability.sh
+│   ├── restore-postgres.sh
+│   ├── rotate-cloudflare-secrets.sh
+│   ├── sarif_triage.py
+│   ├── smoke-test.sh
+│   ├── start-open-webui.sh
+│   ├── supabase_stagef_vault_setup.py
+│   ├── validate_agent_skill_catalog.py
+│   ├── validate_center_control_plane.py
+│   ├── verify-ha.sh
+│   ├── verify-observability.sh
+│   ├── verify-zarvis-online.sh
+│   ├── verify_release.py
+│   └── video_factory_orc.py
+├── services
+│   ├── agent-orchestrator
+│   │   ├── README.md
+│   │   ├── durable-adapters.mjs
+│   │   ├── package.json
+│   │   ├── server.mjs
+│   │   └── test
+│   │       └── server.test.mjs
+│   ├── agent-provider
+│   │   ├── package.json
+│   │   ├── server.mjs
+│   │   └── test
+│   │       └── server.test.mjs
+│   ├── ai-gateway
+│   │   ├── index.js
+│   │   ├── package.json
+│   │   ├── security-config.mjs
+│   │   └── test
+│   │       ├── anthropic-messages.test.mjs
+│   │       ├── disconnect.test.mjs
+│   │       ├── security-config.test.mjs
+│   │       └── startup-contract.test.mjs
+│   ├── billing-ledger
+│   │   ├── README.md
+│   │   ├── ledger-policy.md
+│   │   ├── package.json
+│   │   ├── server.mjs
+│   │   └── test
+│   │       └── server.test.mjs
+│   ├── phase6-api
+│   │   ├── Dockerfile
+│   │   ├── app.py
+│   │   ├── grafana-datasource.yml
+│   │   ├── prometheus.yml
+│   │   ├── requirements.txt
+│   │   └── tests
+│   │       ├── test_backup_restore.py
+│   │       ├── test_external_ai.py
+│   │       ├── test_github_webhook.py
+│   │       └── test_supabase_read.py
+│   ├── voice-agent
+│   │   ├── Dockerfile
+│   │   ├── entrypoint.sh
+│   │   └── healthcheck.py
+│   ├── voice-gateway
+│   │   ├── Dockerfile
+│   │   ├── index.mjs
+│   │   └── test
+│   │       └── tickets.test.mjs
+│   ├── workspace-runtime
+│   │   ├── README.md
+│   │   ├── package.json
+│   │   ├── server.mjs
+│   │   └── test
+│   │       └── server.test.mjs
+│   ├── z-prov
+│   │   ├── Dockerfile
+│   │   ├── Dockerfile.control
+│   │   ├── Dockerfile.enterprise
+│   │   ├── Makefile
+│   │   ├── README.md
+│   │   ├── SECURITY.md
+│   │   ├── compose.yaml
+│   │   ├── config
+│   │   │   ├── providers.example.yaml
+│   │   │   ├── providers.yaml
+│   │   │   └── update-manifest.example.json
+│   │   ├── docs
+│   │   │   ├── DEEP_UPGRADE_AUDIT_ZCODER_1_36.md
+│   │   │   ├── PRODUCTION_READINESS_AUDIT.md
+│   │   │   ├── RENAME_TO_Z_PROV.md
+│   │   │   ├── UPGRADE_SOURCES.md
+│   │   │   └── design
+│   │   │       ├── agent-audit.md
+│   │   │       ├── agent-context-budget.md
+│   │   │       ├── agent-hooks.md
+│   │   │       ├── agent-loop.md
+│   │   │       ├── agent-mcp.md
+│   │   │       ├── agent-memory.md
+│   │   │       ├── agent-permissions.md
+│   │   │       ├── agent-plan-mode.md
+│   │   │       ├── agent-plugins.md
+│   │   │       ├── agent-schemas.md
+│   │   │       ├── agent-session-store.md
+│   │   │       ├── agent-skills.md
+│   │   │       ├── agent-subagents.md
+│   │   │       ├── agent-test-fixtures.md
+│   │   │       ├── control-files.md
+│   │   │       ├── control-models.md
+│   │   │       ├── sandbox-job-api.md
+│   │   │       └── sandbox-runtime.md
+│   │   ├── package.json
+│   │   ├── pyproject.toml
+│   │   ├── requirements-build.in
+│   │   ├── requirements-build.lock
+│   │   ├── requirements-dev.lock
+│   │   ├── requirements.lock
+│   │   ├── scripts
+│   │   │   ├── Install-ZEAZ-Windows11.cmd
+│   │   │   ├── Install-ZEAZ-Windows11.ps1
+│   │   │   ├── bootstrap-host.sh
+│   │   │   ├── doctor.sh
+│   │   │   ├── generate-sbom.py
+│   │   │   ├── hash-client-key.py
+│   │   │   ├── install-auto-update.sh
+│   │   │   ├── install.sh
+│   │   │   ├── sign-update-manifest.sh
+│   │   │   ├── test-vm-snapshot.sh
+│   │   │   ├── uninstall.sh
+│   │   │   ├── update.sh
+│   │   │   ├── validate-container.sh
+│   │   │   └── validate-locks.py
+│   │   └── tests
+│   │       ├── test_agent_audit.py
+│   │       ├── test_agent_context.py
+│   │       ├── test_agent_fixtures.py
+│   │       ├── test_agent_hooks.py
+│   │       ├── test_agent_loop.py
+│   │       ├── test_agent_mcp.py
+│   │       ├── test_agent_memory.py
+│   │       ├── test_agent_permissions.py
+│   │       ├── test_agent_plan_mode.py
+│   │       ├── test_agent_plugins.py
+│   │       ├── test_agent_schemas.py
+│   │       ├── test_agent_session_store.py
+│   │       ├── test_agent_skills.py
+│   │       ├── test_agent_subagents.py
+│   │       ├── test_api.py
+│   │       ├── test_base_url_policy.py
+│   │       ├── test_capabilities.py
+│   │       ├── test_config.py
+│   │       ├── test_container_hardening.py
+│   │       ├── test_control_adapters.py
+│   │       ├── test_control_batches.py
+│   │       ├── test_control_files.py
+│   │       ├── test_control_main.py
+│   │       ├── test_control_models.py
+│   │       ├── test_control_usage.py
+│   │       ├── test_enterprise_admin.py
+│   │       ├── test_enterprise_agent_memory.py
+│   │       ├── test_enterprise_anthropic_admin.py
+│   │       ├── test_enterprise_compliance.py
+│   │       ├── test_enterprise_deletion.py
+│   │       ├── test_enterprise_deployment_boundary.py
+│   │       ├── test_enterprise_main.py
+│   │       ├── test_enterprise_managed_agents.py
+│   │       ├── test_enterprise_vault.py
+│   │       ├── test_enterprise_webhooks.py
+│   │       ├── test_enterprise_wif.py
+│   │       ├── test_host_bootstrap.py
+│   │       ├── test_infra_host.py
+│   │       ├── test_installer_maintenance.py
+│   │       ├── test_installer_transactions.py
+│   │       ├── test_limits.py
+│   │       ├── test_normalize.py
+│   │       ├── test_observability.py
+│   │       ├── test_provider_errors.py
+│   │       ├── test_resilience.py
+│   │       ├── test_router.py
+│   │       ├── test_sandbox_backend.py
+│   │       ├── test_sandbox_egress.py
+│   │       ├── test_sandbox_lxc_backend.py
+│   │       ├── test_sandbox_schemas.py
+│   │       ├── test_sandbox_service.py
+│   │       ├── test_sandbox_streaming.py
+│   │       ├── test_security.py
+│   │       ├── test_streaming.py
+│   │       ├── test_update_signatures.py
+│   │       ├── test_vm_snapshot_runner.py
+│   │       ├── test_web_dashboard.py
+│   │       └── test_windows11_installer.py
+│   ├── zarvis-action-gateway
+│   │   ├── README.md
+│   │   ├── package.json
+│   │   ├── public
+│   │   │   ├── app.js
+│   │   │   ├── index.html
+│   │   │   └── styles.css
+│   │   ├── runtime.mjs
+│   │   ├── server.mjs
+│   │   ├── store.mjs
+│   │   ├── test
+│   │   │   ├── concurrency.test.mjs
+│   │   │   └── runtime.test.mjs
+│   │   └── worker.mjs
+│   ├── zarvis-memory
+│   │   ├── README.md
+│   │   ├── crypto-store.mjs
+│   │   ├── package.json
+│   │   ├── public
+│   │   │   ├── app.js
+│   │   │   ├── index.html
+│   │   │   └── styles.css
+│   │   ├── runtime.mjs
+│   │   ├── server.mjs
+│   │   └── test
+│   │       └── runtime.test.mjs
+│   ├── zarvis-orchestrator
+│   │   ├── README.md
+│   │   ├── package.json
+│   │   ├── src
+│   │   │   ├── contracts.mjs
+│   │   │   ├── github-status-tool.mjs
+│   │   │   ├── orchestrator.mjs
+│   │   │   ├── server.mjs
+│   │   │   └── session-store.mjs
+│   │   └── test
+│   │       └── orchestrator.test.mjs
+│   ├── zarvis-owner-voice-edge
+│   │   └── server.mjs
+│   ├── zarvis-perception
+│   │   ├── README.md
+│   │   ├── crypto-store.mjs
+│   │   ├── package.json
+│   │   ├── public
+│   │   │   ├── app.js
+│   │   │   ├── index.html
+│   │   │   └── styles.css
+│   │   ├── runtime.mjs
+│   │   ├── server.mjs
+│   │   └── test
+│   │       └── runtime.test.mjs
+│   ├── zarvis-proactive
+│   │   ├── README.md
+│   │   ├── local-health-adapter.mjs
+│   │   ├── package.json
+│   │   ├── public
+│   │   │   ├── app.js
+│   │   │   ├── index.html
+│   │   │   └── styles.css
+│   │   ├── runtime.mjs
+│   │   ├── server.mjs
+│   │   ├── store.mjs
+│   │   ├── test
+│   │   │   ├── local-health-adapter.test.mjs
+│   │   │   └── runtime.test.mjs
+│   │   └── worker.mjs
+│   ├── zarvis-task-gateway
+│   │   ├── README.md
+│   │   ├── package.json
+│   │   ├── runtime.mjs
+│   │   ├── server.mjs
+│   │   └── test
+│   │       └── runtime.test.mjs
+│   ├── zc
+│   │   ├── Dockerfile
+│   │   ├── Dockerfile.legacy
+│   │   ├── app
+│   │   │   ├── __init__.py
+│   │   │   ├── api
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── control_panel.py
+│   │   │   │   ├── control_panel_rest.py
+│   │   │   │   └── v1
+│   │   │   │       ├── __init__.py
+│   │   │   │       ├── ai_routes.py
+│   │   │   │       ├── chat_routes.py
+│   │   │   │       ├── middleware
+│   │   │   │       │   └── latency_profiler.py
+│   │   │   │       ├── resource_routes.py
+│   │   │   │       └── routes.py
+│   │   │   ├── cli.py
+│   │   │   ├── core
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── auth.py
+│   │   │   │   ├── cache.py
+│   │   │   │   ├── config.py
+│   │   │   │   ├── encryption.py
+│   │   │   │   ├── http_client.py
+│   │   │   │   ├── monitoring.py
+│   │   │   │   ├── performance.py
+│   │   │   │   ├── resiliency.py
+│   │   │   │   └── security.py
+│   │   │   ├── grpc
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── wire_servicer.py
+│   │   │   ├── local.py
+│   │   │   ├── main.py
+│   │   │   ├── middleware
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── rate_limiter.py
+│   │   │   ├── models
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── ai.py
+│   │   │   │   ├── chat.py
+│   │   │   │   ├── domain_resources.py
+│   │   │   │   └── rbac.py
+│   │   │   ├── proto
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── wire.proto
+│   │   │   │   ├── wire_pb2.py
+│   │   │   │   └── wire_pb2_grpc.py
+│   │   │   ├── requirements.txt
+│   │   │   ├── services
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── ai_provider.py
+│   │   │   │   ├── ai_service.py
+│   │   │   │   ├── capabilities.py
+│   │   │   │   ├── chat_session_store.py
+│   │   │   │   ├── chat_sessions.py
+│   │   │   │   ├── delta
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   └── sync_service.py
+│   │   │   │   ├── domain_resources.py
+│   │   │   │   ├── project_templates.py
+│   │   │   │   ├── queue.py
+│   │   │   │   ├── resource_store.py
+│   │   │   │   ├── storage.py
+│   │   │   │   └── upload_manager.py
+│   │   │   ├── telemetry
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── otel_service.py
+│   │   │   └── workers
+│   │   │       ├── __init__.py
+│   │   │       └── upload_processor.py
+│   │   ├── config
+│   │   │   └── kernel_tuning.conf
+│   │   ├── configs
+│   │   │   └── cloudflare
+│   │   │       ├── access
+│   │   │       │   └── zc-zc-access-policy.example.json
+│   │   │       └── zc
+│   │   │           ├── zc-route-intent.example.json
+│   │   │           └── zc.production.routes.example.json
+│   │   ├── deploy
+│   │   │   └── nginx
+│   │   │       └── zc.conf
+│   │   ├── docs
+│   │   │   ├── 17_projects_and_artifacts.md
+│   │   │   ├── 18_deep_scan_and_fable5.md
+│   │   │   ├── 19_upgrade_v1.10.0.md
+│   │   │   ├── 20_upgrade_v1.10.2.md
+│   │   │   ├── 21_upgrade_v1.10.3.md
+│   │   │   ├── 22_upgrade_v1.10.4.md
+│   │   │   ├── 23_upgrade_v1.10.5.md
+│   │   │   ├── 24_upgrade_v1.11.0.md
+│   │   │   ├── 25_merge_v2_into_release.md
+│   │   │   ├── 26_upgrade_v1.12.1.md
+│   │   │   ├── 27_upgrade_v1.13.0.md
+│   │   │   ├── 28_upgrade_v1.14.0.md
+│   │   │   ├── 29_upgrade_v1.15.0.md
+│   │   │   ├── 30_upgrade_v1.16.0.md
+│   │   │   ├── 31_upgrade_v1.18.0.md
+│   │   │   ├── 32_upgrade_v1.19.0.md
+│   │   │   ├── 33_upgrade_v1.20.0.md
+│   │   │   ├── 35_upgrade_v1.23.0_audit_and_impl.md
+│   │   │   ├── 36_upgrade_v1.24.0_audit_and_impl.md
+│   │   │   ├── 37_upgrade_v1.25.0_audit_and_impl.md
+│   │   │   ├── 38_upgrade_v1.26.0_audit_and_impl.md
+│   │   │   ├── 39_upgrade_v1.27.0_audit_and_impl.md
+│   │   │   ├── 40_upgrade_v1.28.0_file_upload_audit.md
+│   │   │   ├── 41_upgrade_v1.29.0.md
+│   │   │   ├── 42_upgrade_v1.30.0.md
+│   │   │   ├── 43_upgrade_v1.31.0_cli_wiring_audit.md
+│   │   │   ├── 44_upgrade_v1.32.0_route_add_agent.md
+│   │   │   ├── 45_upgrade_v1.33.0_docx_pdf_native.md
+│   │   │   ├── REPOSITORY_AUDIT_2026-07-20.md
+│   │   │   ├── adr
+│   │   │   │   ├── ADR-001-product-surface-boundaries.md
+│   │   │   │   └── README.md
+│   │   │   ├── deployment.md
+│   │   │   ├── enterprise
+│   │   │   │   ├── CHECKLIST.md
+│   │   │   │   ├── ENTERPRISE_IMPLEMENTATION_PLAN.md
+│   │   │   │   ├── ENTERPRISE_SUMMARY.md
+│   │   │   │   ├── IMPLEMENTATION_CHECKLIST.md
+│   │   │   │   ├── PERFORMANCE_OPTIMIZATION_COMPLETE.md
+│   │   │   │   ├── PHASE2_COMPLETE.md
+│   │   │   │   ├── PHASE3_COMPLETE.md
+│   │   │   │   ├── PHASE4_COMPLETE.md
+│   │   │   │   ├── PHASE5_COMPLETE.md
+│   │   │   │   └── PHASE6_COMPLETE.md
+│   │   │   ├── guides
+│   │   │   │   ├── config_generator.md
+│   │   │   │   └── file_sdk.md
+│   │   │   ├── observability.md
+│   │   │   ├── reports
+│   │   │   │   ├── generated
+│   │   │   │   │   └── zc-terraform-integration.md
+│   │   │   │   ├── litellm-integration.md
+│   │   │   │   ├── merged-source-upgrade.md
+│   │   │   │   └── nextchat-frontend-upgrade.md
+│   │   │   ├── zc-api-gap-audit-v1.10.5.md
+│   │   │   ├── zcoder_audit_prompts.md
+│   │   │   └── zcoder_v1.33.0_audit_report.md
+│   │   ├── generated
+│   │   │   └── cloudflare
+│   │   │       └── zc-production-tunnel-ingress.yml
+│   │   ├── pyproject.toml
+│   │   ├── requirements-dev.txt
+│   │   ├── requirements-enterprise.txt
+│   │   ├── requirements.txt
+│   │   ├── scripts
+│   │   │   ├── e2e_load_test.py
+│   │   │   ├── find_claude.py
+│   │   │   ├── rebrand.py
+│   │   │   └── zai-config-gen.py
+│   │   ├── setup.cfg
+│   │   ├── src
+│   │   │   └── wire
+│   │   │       ├── __init__.py
+│   │   │       ├── artifacts.py
+│   │   │       ├── coder.py
+│   │   │       ├── config.py
+│   │   │       ├── cowork.py
+│   │   │       ├── exceptions.py
+│   │   │       ├── health.py
+│   │   │       ├── logging_config.py
+│   │   │       ├── main.py
+│   │   │       ├── personalities.py
+│   │   │       ├── projects.py
+│   │   │       ├── resilience.py
+│   │   │       ├── security.py
+│   │   │       ├── skills.py
+│   │   │       ├── tui.py
+│   │   │       ├── tui_streaming.py
+│   │   │       ├── utils.py
+│   │   │       ├── zc_admin_api.py
+│   │   │       ├── zc_advisor.py
+│   │   │       ├── zc_agents_sdk.py
+│   │   │       ├── zc_batch.py
+│   │   │       ├── zc_cache.py
+│   │   │       ├── zc_chrome.py
+│   │   │       ├── zc_citations.py
+│   │   │       ├── zc_code.py
+│   │   │       ├── zc_code_exec.py
+│   │   │       ├── zc_compliance_api.py
+│   │   │       ├── zc_cost_optimizer.py
+│   │   │       ├── zc_embeddings.py
+│   │   │       ├── zc_eval.py
+│   │   │       ├── zc_evals.py
+│   │   │       ├── zc_excel.py
+│   │   │       ├── zc_fable5.py
+│   │   │       ├── zc_files.py
+│   │   │       ├── zc_git.py
+│   │   │       ├── zc_github.py
+│   │   │       ├── zc_hooks_perms_plan.py
+│   │   │       ├── zc_interactive.py
+│   │   │       ├── zc_live.py
+│   │   │       ├── zc_memory.py
+│   │   │       ├── zc_metrics.py
+│   │   │       ├── zc_models.py
+│   │   │       ├── zc_mythos5.py
+│   │   │       ├── zc_observability.py
+│   │   │       ├── zc_output_styles.py
+│   │   │       ├── zc_pdf.py
+│   │   │       ├── zc_plugins.py
+│   │   │       ├── zc_powerpoint.py
+│   │   │       ├── zc_prompt_optimizer.py
+│   │   │       ├── zc_rag.py
+│   │   │       ├── zc_research.py
+│   │   │       ├── zc_router.py
+│   │   │       ├── zc_sandbox.py
+│   │   │       ├── zc_search.py
+│   │   │       ├── zc_sessions.py
+│   │   │       ├── zc_settings.py
+│   │   │       ├── zc_skills_api.py
+│   │   │       ├── zc_stream.py
+│   │   │       ├── zc_structured.py
+│   │   │       ├── zc_thinking.py
+│   │   │       ├── zc_tokens.py
+│   │   │       ├── zc_tools.py
+│   │   │       ├── zc_vision.py
+│   │   │       ├── zc_wif.py
+│   │   │       ├── zc_word.py
+│   │   │       └── zc_workflow.py
+│   │   ├── tests
+│   │   │   ├── __init__.py
+│   │   │   ├── conftest.py
+│   │   │   ├── test_app_main.py
+│   │   │   ├── test_chat_sessions_api.py
+│   │   │   ├── test_cli_wiring.py
+│   │   │   ├── test_coder.py
+│   │   │   ├── test_config.py
+│   │   │   ├── test_config_gen.py
+│   │   │   ├── test_dependency_lock.py
+│   │   │   ├── test_enterprise_ai_api.py
+│   │   │   ├── test_enterprise_api_client.py
+│   │   │   ├── test_enterprise_api_security.py
+│   │   │   ├── test_enterprise_command_dispatch.py
+│   │   │   ├── test_enterprise_resource_api.py
+│   │   │   ├── test_enterprise_upload.py
+│   │   │   ├── test_github_actions_pins.py
+│   │   │   ├── test_litellm_integration.py
+│   │   │   ├── test_local_runtime.py
+│   │   │   ├── test_logging_config.py
+│   │   │   ├── test_product_boundaries.py
+│   │   │   ├── test_quality_policy.py
+│   │   │   ├── test_release_supply_chain.py
+│   │   │   ├── test_resilience.py
+│   │   │   ├── test_restricted_code.py
+│   │   │   ├── test_security.py
+│   │   │   ├── test_tui.py
+│   │   │   ├── test_tui_streaming.py
+│   │   │   ├── test_utils.py
+│   │   │   ├── test_web_fetcher.py
+│   │   │   ├── test_webapp_server.py
+│   │   │   ├── test_zc_admin_api.py
+│   │   │   ├── test_zc_agents_sdk.py
+│   │   │   ├── test_zc_cache.py
+│   │   │   ├── test_zc_code_context_editing.py
+│   │   │   ├── test_zc_code_exec.py
+│   │   │   ├── test_zc_code_slash_compact.py
+│   │   │   ├── test_zc_compliance_api.py
+│   │   │   ├── test_zc_fable5.py
+│   │   │   ├── test_zc_plugins_security.py
+│   │   │   ├── test_zc_search.py
+│   │   │   ├── test_zc_skills_api.py
+│   │   │   ├── test_zc_structured.py
+│   │   │   ├── test_zc_thinking.py
+│   │   │   ├── test_zc_tools.py
+│   │   │   ├── test_zc_wif.py
+│   │   │   └── test_zc_word_pdf.py
+│   │   └── webapp
+│   │       ├── README.md
+│   │       ├── __init__.py
+│   │       ├── backend
+│   │       │   ├── __init__.py
+│   │       │   └── server.py
+│   │       ├── frontend
+│   │       │   ├── app.js
+│   │       │   ├── control-panel.css
+│   │       │   ├── control-panel.html
+│   │       │   ├── control-panel.js
+│   │       │   ├── index.html
+│   │       │   └── style.css
+│   │       ├── frontend-dist
+│   │       │   ├── assets
+│   │       │   │   ├── index-CAYqFLVn.css
+│   │       │   │   └── index-M5o6nzfH.js
+│   │       │   ├── favicon.svg
+│   │       │   └── index.html
+│   │       ├── frontend-src
+│   │       │   ├── index.html
+│   │       │   ├── package.json
+│   │       │   ├── public
+│   │       │   │   └── favicon.svg
+│   │       │   ├── src
+│   │       │   │   ├── App.tsx
+│   │       │   │   ├── api.test.ts
+│   │       │   │   ├── api.ts
+│   │       │   │   ├── components
+│   │       │   │   │   ├── ArtifactsWorkspace.test.tsx
+│   │       │   │   │   ├── ArtifactsWorkspace.tsx
+│   │       │   │   │   ├── Composer.tsx
+│   │       │   │   │   ├── Markdown.tsx
+│   │       │   │   │   ├── ProjectWorkspace.test.tsx
+│   │       │   │   │   ├── ProjectWorkspace.tsx
+│   │       │   │   │   ├── SessionSidebar.tsx
+│   │       │   │   │   └── SettingsPanel.tsx
+│   │       │   │   ├── main.tsx
+│   │       │   │   ├── storage.ts
+│   │       │   │   ├── styles.css
+│   │       │   │   └── types.ts
+│   │       │   ├── tsconfig.app.json
+│   │       │   ├── tsconfig.json
+│   │       │   ├── tsconfig.node.json
+│   │       │   ├── vite.config.ts
+│   │       │   └── vitest.config.ts
+│   │       └── requirements-web.txt
+│   └── zc-api
+│       ├── Dockerfile
+│       ├── app.py
+│       ├── grafana-datasource.yml
+│       ├── prometheus.yml
+│       ├── requirements.txt
+│       └── tests
+│           ├── test_backup_restore.py
+│           ├── test_external_ai.py
+│           ├── test_github_webhook.py
+│           └── test_supabase_read.py
+├── setup.sh
+├── start-zworkforce.sh
+├── tests
+│   ├── __pycache__
+│   │   ├── common.cpython-314.pyc
+│   │   ├── test_acp.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_acp.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_acp.cpython-314.pyc
+│   │   ├── test_agent_skill_catalog.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_agent_skill_catalog.cpython-314.pyc
+│   │   ├── test_alert_receiver.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_alert_receiver.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_alert_receiver.cpython-314.pyc
+│   │   ├── test_api_v2.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_api_v2.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_api_v2.cpython-314.pyc
+│   │   ├── test_artifact_content_contract.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_artifact_content_contract.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_artifact_content_contract.cpython-314.pyc
+│   │   ├── test_browser_e2e_security.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_browser_e2e_security.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_browser_e2e_security.cpython-314.pyc
+│   │   ├── test_browser_effect_api_composition.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_browser_effect_api_composition.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_browser_effect_api_composition.cpython-314.pyc
+│   │   ├── test_browser_effect_api_contract.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_browser_effect_api_contract.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_browser_effect_api_contract.cpython-314.pyc
+│   │   ├── test_browser_effect_api_lifecycle.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_browser_effect_api_lifecycle.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_browser_effect_api_lifecycle.cpython-314.pyc
+│   │   ├── test_browser_effects.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_browser_effects.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_browser_effects.cpython-314.pyc
+│   │   ├── test_capabilities.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_capabilities.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_capabilities.cpython-314.pyc
+│   │   ├── test_center_control_plane_contract.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_center_control_plane_contract.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_center_control_plane_contract.cpython-314.pyc
+│   │   ├── test_center_control_plane_registry.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_center_control_plane_registry.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_center_control_plane_registry.cpython-314.pyc
+│   │   ├── test_cli_security.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_cli_security.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_cli_security.cpython-314.pyc
+│   │   ├── test_cloudflare_api_mcp.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_cloudflare_api_mcp.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_cloudflare_api_mcp.cpython-314.pyc
+│   │   ├── test_cloudflare_apply_approval.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_cloudflare_apply_approval.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_cloudflare_apply_approval.cpython-314.pyc
+│   │   ├── test_cloudflare_audit_mcp.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_cloudflare_audit_mcp.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_cloudflare_audit_mcp.cpython-314.pyc
+│   │   ├── test_cloudflare_ingress.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_cloudflare_ingress.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_cloudflare_ingress.cpython-314.pyc
+│   │   ├── test_cloudflare_live_mcp.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_cloudflare_live_mcp.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_cloudflare_live_mcp.cpython-314.pyc
+│   │   ├── test_cloudflare_pagination_mcp.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_cloudflare_pagination_mcp.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_cloudflare_pagination_mcp.cpython-314.pyc
+│   │   ├── test_cloudflare_read_errors_mcp.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_cloudflare_read_errors_mcp.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_cloudflare_read_errors_mcp.cpython-314.pyc
+│   │   ├── test_cloudflare_rotation.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_cloudflare_rotation.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_cloudflare_rotation.cpython-314.pyc
+│   │   ├── test_compose_contract.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_compose_contract.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_compose_contract.cpython-314.pyc
+│   │   ├── test_connectors.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_connectors.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_connectors.cpython-314.pyc
+│   │   ├── test_database_v2.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_database_v2.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_database_v2.cpython-314.pyc
+│   │   ├── test_dependabot_coverage.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_dependabot_coverage.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_dependabot_coverage.cpython-314.pyc
+│   │   ├── test_documentation_coverage.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_documentation_coverage.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_documentation_coverage.cpython-314.pyc
+│   │   ├── test_engine_v2.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_engine_v2.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_engine_v2.cpython-314.pyc
+│   │   ├── test_github_webhooks.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_github_webhooks.cpython-314.pyc
+│   │   ├── test_kids_factory.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_kids_factory.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_kids_factory.cpython-314.pyc
+│   │   ├── test_mcp_protocol_negotiation.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_mcp_protocol_negotiation.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_mcp_protocol_negotiation.cpython-314.pyc
+│   │   ├── test_migration_v2.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_migration_v2.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_migration_v2.cpython-314.pyc
+│   │   ├── test_postgres_initialization.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_postgres_initialization.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_postgres_initialization.cpython-314.pyc
+│   │   ├── test_process_sandbox.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_process_sandbox.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_process_sandbox.cpython-314.pyc
+│   │   ├── test_process_sandbox_contract.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_process_sandbox_contract.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_process_sandbox_contract.cpython-314.pyc
+│   │   ├── test_production_fixes.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_production_fixes.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_production_fixes.cpython-314.pyc
+│   │   ├── test_prometa_runtime.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_prometa_runtime.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_prometa_runtime.cpython-314.pyc
+│   │   ├── test_provider_config_types.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_provider_config_types.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_provider_config_types.cpython-314.pyc
+│   │   ├── test_provider_pool.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_provider_pool.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_provider_pool.cpython-314.pyc
+│   │   ├── test_release_workflow.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_release_workflow.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_release_workflow.cpython-314.pyc
+│   │   ├── test_repository_policy.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_repository_policy.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_repository_policy.cpython-314.pyc
+│   │   ├── test_router.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_router.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_router.cpython-314.pyc
+│   │   ├── test_safety_hooks.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_safety_hooks.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_safety_hooks.cpython-314.pyc
+│   │   ├── test_sagi_approval_request.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_sagi_approval_request.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_sagi_approval_request.cpython-314.pyc
+│   │   ├── test_sagi_atomic_approval.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_sagi_atomic_approval.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_sagi_atomic_approval.cpython-314.pyc
+│   │   ├── test_sagi_browser_live.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_sagi_browser_live.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_sagi_browser_live.cpython-314.pyc
+│   │   ├── test_sagi_browser_runtime.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_sagi_browser_runtime.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_sagi_browser_runtime.cpython-314.pyc
+│   │   ├── test_sagi_browser_runtime_integration.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_sagi_browser_runtime_integration.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_sagi_browser_runtime_integration.cpython-314.pyc
+│   │   ├── test_sagi_canonical_browser_effect.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_sagi_canonical_browser_effect.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_sagi_canonical_browser_effect.cpython-314.pyc
+│   │   ├── test_sagi_computer_dispatch.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_sagi_computer_dispatch.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_sagi_computer_dispatch.cpython-314.pyc
+│   │   ├── test_sagi_computer_session.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_sagi_computer_session.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_sagi_computer_session.cpython-314.pyc
+│   │   ├── test_sagi_computer_use.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_sagi_computer_use.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_sagi_computer_use.cpython-314.pyc
+│   │   ├── test_sagi_planning.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_sagi_planning.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_sagi_planning.cpython-314.pyc
+│   │   ├── test_sagi_production_gate.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_sagi_production_gate.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_sagi_production_gate.cpython-314.pyc
+│   │   ├── test_sagi_screen_freshness.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_sagi_screen_freshness.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_sagi_screen_freshness.cpython-314.pyc
+│   │   ├── test_sagi_worker_fencing.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_sagi_worker_fencing.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_sagi_worker_fencing.cpython-314.pyc
+│   │   ├── test_sagi_zloop_binding.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_sagi_zloop_binding.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_sagi_zloop_binding.cpython-314.pyc
+│   │   ├── test_samsung_builder_preflight_mcp.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_samsung_builder_preflight_mcp.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_samsung_builder_preflight_mcp.cpython-314.pyc
+│   │   ├── test_samsung_compat_mcp.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_samsung_compat_mcp.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_samsung_compat_mcp.cpython-314.pyc
+│   │   ├── test_samsung_manifest_mcp.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_samsung_manifest_mcp.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_samsung_manifest_mcp.cpython-314.pyc
+│   │   ├── test_samsung_sdk_probe_mcp.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_samsung_sdk_probe_mcp.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_samsung_sdk_probe_mcp.cpython-314.pyc
+│   │   ├── test_samsung_tv_mcp.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_samsung_tv_mcp.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_samsung_tv_mcp.cpython-314.pyc
+│   │   ├── test_security_v2.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_security_v2.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_security_v2.cpython-314.pyc
+│   │   ├── test_service_broker.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_service_broker.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_service_broker.cpython-314.pyc
+│   │   ├── test_service_broker_payment.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_service_broker_payment.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_service_broker_payment.cpython-314.pyc
+│   │   ├── test_setup_script.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_setup_script.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_setup_script.cpython-314.pyc
+│   │   ├── test_skills_evaluator.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_skills_evaluator.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_skills_evaluator.cpython-314.pyc
+│   │   ├── test_static_assets.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_static_assets.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_static_assets.cpython-314.pyc
+│   │   ├── test_v3_agent_registry.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_v3_agent_registry.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_v3_agent_registry.cpython-314.pyc
+│   │   ├── test_v3_backend.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_v3_backend.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_v3_backend.cpython-314.pyc
+│   │   ├── test_v3_integration_security.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_v3_integration_security.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_v3_integration_security.cpython-314.pyc
+│   │   ├── test_v3_mcp.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_v3_mcp.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_v3_mcp.cpython-314.pyc
+│   │   ├── test_v3_oidc.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_v3_oidc.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_v3_oidc.cpython-314.pyc
+│   │   ├── test_v3_policy.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_v3_policy.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_v3_policy.cpython-314.pyc
+│   │   ├── test_v3_postgres.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_v3_postgres.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_v3_postgres.cpython-314.pyc
+│   │   ├── test_v3_proxy_identity.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_v3_proxy_identity.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_v3_proxy_identity.cpython-314.pyc
+│   │   ├── test_v3_rag_artifacts.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_v3_rag_artifacts.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_v3_rag_artifacts.cpython-314.pyc
+│   │   ├── test_v3_realtime.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_v3_realtime.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_v3_realtime.cpython-314.pyc
+│   │   ├── test_v3_realtime_api.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_v3_realtime_api.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_v3_realtime_api.cpython-314.pyc
+│   │   ├── test_v3_scheduler_eval.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_v3_scheduler_eval.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_v3_scheduler_eval.cpython-314.pyc
+│   │   ├── test_v3_secret_store.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_v3_secret_store.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_v3_secret_store.cpython-314.pyc
+│   │   ├── test_v3_skywork_a2a.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_v3_skywork_a2a.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_v3_skywork_a2a.cpython-314.pyc
+│   │   ├── test_v3_skywork_compilers.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_v3_skywork_compilers.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_v3_skywork_compilers.cpython-314.pyc
+│   │   ├── test_v3_telemetry_handoff.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_v3_telemetry_handoff.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_v3_telemetry_handoff.cpython-314.pyc
+│   │   ├── test_v3_tunnel.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_v3_tunnel.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_v3_tunnel.cpython-314.pyc
+│   │   ├── test_v3_workflow.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_v3_workflow.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_v3_workflow.cpython-314.pyc
+│   │   ├── test_v3_zred_canary.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_v3_zred_canary.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_v3_zred_canary.cpython-314.pyc
+│   │   ├── test_v3_zred_router_tunnel.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_v3_zred_router_tunnel.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_v3_zred_router_tunnel.cpython-314.pyc
+│   │   ├── test_video_factory_orc.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_video_factory_orc.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_video_factory_orc.cpython-314.pyc
+│   │   ├── test_wall_street_package_contract.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_wall_street_package_contract.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_wall_street_package_contract.cpython-314.pyc
+│   │   ├── test_workspace.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_workspace.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_workspace.cpython-314.pyc
+│   │   ├── test_workspace_api.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_workspace_api.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_workspace_api.cpython-314.pyc
+│   │   ├── test_workspace_commands.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_workspace_commands.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_workspace_commands.cpython-314.pyc
+│   │   ├── test_workspace_context.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_workspace_context.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_workspace_context.cpython-314.pyc
+│   │   ├── test_workspace_context_api.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_workspace_context_api.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_workspace_context_api.cpython-314.pyc
+│   │   ├── test_workspace_evidence.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_workspace_evidence.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_workspace_evidence.cpython-314.pyc
+│   │   ├── test_workspace_file_grants.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_workspace_file_grants.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_workspace_file_grants.cpython-314.pyc
+│   │   ├── test_workspace_grants.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_workspace_grants.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_workspace_grants.cpython-314.pyc
+│   │   ├── test_workspace_process_sandbox.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_workspace_process_sandbox.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_workspace_process_sandbox.cpython-314.pyc
+│   │   ├── test_workspace_worktrees.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_workspace_worktrees.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_workspace_worktrees.cpython-314.pyc
+│   │   ├── test_worktree.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_worktree.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_worktree.cpython-314.pyc
+│   │   ├── test_zarvis_api_rename.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_zarvis_api_rename.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_zarvis_api_rename.cpython-314.pyc
+│   │   ├── test_zarvis_online_verifier.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_zarvis_online_verifier.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_zarvis_online_verifier.cpython-314.pyc
+│   │   ├── test_zarvis_package.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_zarvis_package.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_zarvis_package.cpython-314.pyc
+│   │   ├── test_zarvis_voice.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_zarvis_voice.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_zarvis_voice.cpython-314.pyc
+│   │   ├── test_zarvis_voice_api.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_zarvis_voice_api.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_zarvis_voice_api.cpython-314.pyc
+│   │   ├── test_zarvis_voice_live.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_zarvis_voice_live.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_zarvis_voice_live.cpython-314.pyc
+│   │   ├── test_zarvis_windows_targeting.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_zarvis_windows_targeting.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_zarvis_windows_targeting.cpython-314.pyc
+│   │   ├── test_zchat_control_contract.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_zchat_control_contract.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_zchat_control_contract.cpython-314.pyc
+│   │   ├── test_zchat_integration.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_zchat_integration.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_zchat_integration.cpython-314.pyc
+│   │   ├── test_zeazverse_studio.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_zeazverse_studio.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_zeazverse_studio.cpython-314.pyc
+│   │   ├── test_zider_browser_contract.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_zider_browser_contract.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_zider_browser_contract.cpython-314.pyc
+│   │   ├── test_zknowbase_client.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_zknowbase_client.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_zknowbase_client.cpython-314.pyc
+│   │   ├── test_zktcoder.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_zktcoder.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_zktcoder.cpython-314.pyc
+│   │   ├── test_zloop_bridge.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_zloop_bridge.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_zloop_bridge.cpython-314.pyc
+│   │   ├── test_zneon_cloudflare.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_zneon_cloudflare.cpython-314-pytest-9.2.0.pyc
+│   │   ├── test_zneon_cloudflare.cpython-314.pyc
+│   │   ├── test_zworkforce_local_coder.cpython-314-pytest-9.1.1.pyc
+│   │   ├── test_zworkforce_local_coder.cpython-314-pytest-9.2.0.pyc
+│   │   └── test_zworkforce_local_coder.cpython-314.pyc
+│   ├── common.py
+│   ├── dashboard_realtime.test.mjs
+│   ├── test_acp.py
+│   ├── test_agent_skill_catalog.py
+│   ├── test_alert_receiver.py
+│   ├── test_api_v2.py
+│   ├── test_artifact_content_contract.py
+│   ├── test_browser_e2e_security.py
+│   ├── test_browser_effect_api_composition.py
+│   ├── test_browser_effect_api_contract.py
+│   ├── test_browser_effect_api_lifecycle.py
+│   ├── test_browser_effects.py
+│   ├── test_capabilities.py
+│   ├── test_center_control_plane_contract.py
+│   ├── test_center_control_plane_registry.py
+│   ├── test_cli_security.py
+│   ├── test_cloudflare_api_mcp.py
+│   ├── test_cloudflare_apply_approval.py
+│   ├── test_cloudflare_audit_mcp.py
+│   ├── test_cloudflare_ingress.py
+│   ├── test_cloudflare_live_mcp.py
+│   ├── test_cloudflare_pagination_mcp.py
+│   ├── test_cloudflare_read_errors_mcp.py
+│   ├── test_cloudflare_rotation.py
+│   ├── test_compose_contract.py
+│   ├── test_connectors.py
+│   ├── test_database_v2.py
+│   ├── test_dependabot_coverage.py
+│   ├── test_documentation_coverage.py
+│   ├── test_engine_v2.py
+│   ├── test_github_webhooks.py
+│   ├── test_kids_factory.py
+│   ├── test_mcp_protocol_negotiation.py
+│   ├── test_migration_v2.py
+│   ├── test_postgres_initialization.py
+│   ├── test_process_sandbox.py
+│   ├── test_process_sandbox_contract.py
+│   ├── test_production_fixes.py
+│   ├── test_prometa_runtime.py
+│   ├── test_provider_config_types.py
+│   ├── test_provider_pool.py
+│   ├── test_release_workflow.py
+│   ├── test_repository_policy.py
+│   ├── test_router.py
+│   ├── test_safety_hooks.py
+│   ├── test_sagi_approval_request.py
+│   ├── test_sagi_atomic_approval.py
+│   ├── test_sagi_browser_live.py
+│   ├── test_sagi_browser_runtime.py
+│   ├── test_sagi_browser_runtime_integration.py
+│   ├── test_sagi_canonical_browser_effect.py
+│   ├── test_sagi_computer_dispatch.py
+│   ├── test_sagi_computer_session.py
+│   ├── test_sagi_computer_use.py
+│   ├── test_sagi_planning.py
+│   ├── test_sagi_production_gate.py
+│   ├── test_sagi_screen_freshness.py
+│   ├── test_sagi_worker_fencing.py
+│   ├── test_sagi_zloop_binding.py
+│   ├── test_samsung_builder_preflight_mcp.py
+│   ├── test_samsung_compat_mcp.py
+│   ├── test_samsung_manifest_mcp.py
+│   ├── test_samsung_sdk_probe_mcp.py
+│   ├── test_samsung_tv_mcp.py
+│   ├── test_security_v2.py
+│   ├── test_service_broker.py
+│   ├── test_service_broker_payment.py
+│   ├── test_setup_script.py
+│   ├── test_skills_evaluator.py
+│   ├── test_static_assets.py
+│   ├── test_v3_agent_registry.py
+│   ├── test_v3_backend.py
+│   ├── test_v3_integration_security.py
+│   ├── test_v3_mcp.py
+│   ├── test_v3_oidc.py
+│   ├── test_v3_policy.py
+│   ├── test_v3_postgres.py
+│   ├── test_v3_proxy_identity.py
+│   ├── test_v3_rag_artifacts.py
+│   ├── test_v3_realtime.py
+│   ├── test_v3_realtime_api.py
+│   ├── test_v3_scheduler_eval.py
+│   ├── test_v3_secret_store.py
+│   ├── test_v3_skywork_a2a.py
+│   ├── test_v3_skywork_compilers.py
+│   ├── test_v3_telemetry_handoff.py
+│   ├── test_v3_tunnel.py
+│   ├── test_v3_workflow.py
+│   ├── test_v3_zred_canary.py
+│   ├── test_v3_zred_router_tunnel.py
+│   ├── test_video_factory_orc.py
+│   ├── test_wall_street_package_contract.py
+│   ├── test_workspace.py
+│   ├── test_workspace_api.py
+│   ├── test_workspace_commands.py
+│   ├── test_workspace_context.py
+│   ├── test_workspace_context_api.py
+│   ├── test_workspace_evidence.py
+│   ├── test_workspace_file_grants.py
+│   ├── test_workspace_grants.py
+│   ├── test_workspace_process_sandbox.py
+│   ├── test_workspace_worktrees.py
+│   ├── test_worktree.py
+│   ├── test_zarvis_api_rename.py
+│   ├── test_zarvis_online_verifier.py
+│   ├── test_zarvis_package.py
+│   ├── test_zarvis_voice.py
+│   ├── test_zarvis_voice_api.py
+│   ├── test_zarvis_voice_live.py
+│   ├── test_zarvis_windows_targeting.py
+│   ├── test_zchat_control_contract.py
+│   ├── test_zchat_integration.py
+│   ├── test_zeazverse_studio.py
+│   ├── test_zider_browser_contract.py
+│   ├── test_zknowbase_client.py
+│   ├── test_zktcoder.py
+│   ├── test_zloop_bridge.py
+│   ├── test_zneon_cloudflare.py
+│   └── test_zworkforce_local_coder.py
+├── tools
+│   └── agent_prompt_generator
+│       └── generator.py
+├── workflows
+│   └── video-factory-orc.workflow.json
+├── zworkforce
+│   ├── __init__.py
+│   ├── __main__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-314.pyc
+│   │   ├── __main__.cpython-314.pyc
+│   │   ├── a2a_discovery.cpython-314.pyc
+│   │   ├── acp.cpython-314.pyc
+│   │   ├── agent_handoff.cpython-314.pyc
+│   │   ├── api.cpython-314.pyc
+│   │   ├── artifact_content_api.cpython-314.pyc
+│   │   ├── artifacts.cpython-314.pyc
+│   │   ├── browser_effect_api.cpython-314.pyc
+│   │   ├── capabilities.cpython-314.pyc
+│   │   ├── citation_validator.cpython-314.pyc
+│   │   ├── cli.cpython-314.pyc
+│   │   ├── cloudflare_api.cpython-314.pyc
+│   │   ├── cloudflare_live.cpython-314.pyc
+│   │   ├── config.cpython-314.pyc
+│   │   ├── connectors.cpython-314.pyc
+│   │   ├── db.cpython-314.pyc
+│   │   ├── db_artifact_content.cpython-314.pyc
+│   │   ├── db_automation.cpython-314.pyc
+│   │   ├── db_backend.cpython-314.pyc
+│   │   ├── db_base.cpython-314.pyc
+│   │   ├── db_browser_effects.cpython-314.pyc
+│   │   ├── db_evidence.cpython-314.pyc
+│   │   ├── db_finops.cpython-314.pyc
+│   │   ├── db_governance.cpython-314.pyc
+│   │   ├── db_kids.cpython-314.pyc
+│   │   ├── db_migration.cpython-314.pyc
+│   │   ├── db_realtime.cpython-314.pyc
+│   │   ├── db_schema.cpython-314.pyc
+│   │   ├── db_schema_browser_effects.cpython-314.pyc
+│   │   ├── db_schema_kids.cpython-314.pyc
+│   │   ├── db_schema_realtime.cpython-314.pyc
+│   │   ├── db_schema_v3.cpython-314.pyc
+│   │   ├── db_schema_workspace.cpython-314.pyc
+│   │   ├── db_schema_workspace_grants.cpython-314.pyc
+│   │   ├── db_schema_workspace_worktrees.cpython-314.pyc
+│   │   ├── db_schema_zeazverse.cpython-314.pyc
+│   │   ├── db_tasks.cpython-314.pyc
+│   │   ├── db_workspace.cpython-314.pyc
+│   │   ├── db_workspace_context.cpython-314.pyc
+│   │   ├── db_workspace_grants.cpython-314.pyc
+│   │   ├── db_workspace_worktrees.cpython-314.pyc
+│   │   ├── db_zeazverse.cpython-314.pyc
+│   │   ├── deep_research.cpython-314.pyc
+│   │   ├── document_compiler.cpython-314.pyc
+│   │   ├── economics.cpython-314.pyc
+│   │   ├── engine.cpython-314.pyc
+│   │   ├── evaluation_suite.cpython-314.pyc
+│   │   ├── evaluator.cpython-314.pyc
+│   │   ├── github_webhooks.cpython-314.pyc
+│   │   ├── identity.cpython-314.pyc
+│   │   ├── kids_api.cpython-314.pyc
+│   │   ├── kids_factory.cpython-314.pyc
+│   │   ├── kids_mcp.cpython-314.pyc
+│   │   ├── kids_workflow.cpython-314.pyc
+│   │   ├── mcp.cpython-314.pyc
+│   │   ├── metrics.cpython-314.pyc
+│   │   ├── outbox.cpython-314.pyc
+│   │   ├── policy.cpython-314.pyc
+│   │   ├── process_sandbox.cpython-314.pyc
+│   │   ├── prometa.cpython-314.pyc
+│   │   ├── providers.cpython-314.pyc
+│   │   ├── rag.cpython-314.pyc
+│   │   ├── realtime.cpython-314.pyc
+│   │   ├── router.cpython-314.pyc
+│   │   ├── router_tracing.cpython-314.pyc
+│   │   ├── s3_errors.cpython-314.pyc
+│   │   ├── safety_hooks.cpython-314.pyc
+│   │   ├── sagi_approval_request.cpython-314.pyc
+│   │   ├── sagi_atomic_approval.cpython-314.pyc
+│   │   ├── sagi_browser_runtime.cpython-314.pyc
+│   │   ├── sagi_canonical_browser_effect.cpython-314.pyc
+│   │   ├── sagi_computer_dispatch.cpython-314.pyc
+│   │   ├── sagi_computer_session.cpython-314.pyc
+│   │   ├── sagi_computer_use.cpython-314.pyc
+│   │   ├── sagi_planning.cpython-314.pyc
+│   │   ├── sagi_production_gate.cpython-314.pyc
+│   │   ├── sagi_screen_freshness.cpython-314.pyc
+│   │   ├── sagi_worker_fencing.cpython-314.pyc
+│   │   ├── sagi_zloop_binding.cpython-314.pyc
+│   │   ├── samsung_builder_preflight.cpython-314.pyc
+│   │   ├── samsung_compat.cpython-314.pyc
+│   │   ├── samsung_manifest.cpython-314.pyc
+│   │   ├── samsung_sdk_probe.cpython-314.pyc
+│   │   ├── samsung_tv.cpython-314.pyc
+│   │   ├── scheduler.cpython-314.pyc
+│   │   ├── secret_canary.cpython-314.pyc
+│   │   ├── secret_store.cpython-314.pyc
+│   │   ├── security.cpython-314.pyc
+│   │   ├── service_broker.cpython-314.pyc
+│   │   ├── service_broker_payment.cpython-314.pyc
+│   │   ├── skill_registry.cpython-314.pyc
+│   │   ├── skills.cpython-314.pyc
+│   │   ├── solana_notary.cpython-314.pyc
+│   │   ├── telemetry.cpython-314.pyc
+│   │   ├── tools.cpython-314.pyc
+│   │   ├── tunnel.cpython-314.pyc
+│   │   ├── tunnel_client.cpython-314.pyc
+│   │   ├── workflow.cpython-314.pyc
+│   │   ├── workspace_api.cpython-314.pyc
+│   │   ├── workspace_cli.cpython-314.pyc
+│   │   ├── workspace_command_api.cpython-314.pyc
+│   │   ├── workspace_commands.cpython-314.pyc
+│   │   ├── workspace_context_api.cpython-314.pyc
+│   │   ├── workspace_evidence.cpython-314.pyc
+│   │   ├── workspace_evidence_api.cpython-314.pyc
+│   │   ├── workspace_grant_api.cpython-314.pyc
+│   │   ├── workspace_grants.cpython-314.pyc
+│   │   ├── workspace_tool_executor.cpython-314.pyc
+│   │   ├── workspace_worktrees.cpython-314.pyc
+│   │   ├── worktree.cpython-314.pyc
+│   │   ├── zarvis_voice.cpython-314.pyc
+│   │   ├── zchat_integration.cpython-314.pyc
+│   │   ├── zeazverse_adapters.cpython-314.pyc
+│   │   ├── zeazverse_api.cpython-314.pyc
+│   │   ├── zeazverse_bibles.cpython-314.pyc
+│   │   ├── zeazverse_domain.cpython-314.pyc
+│   │   ├── zknowbase_client.cpython-314.pyc
+│   │   ├── zktcoder.cpython-314.pyc
+│   │   └── zloop_bridge.cpython-314.pyc
+│   ├── a2a_discovery.py
+│   ├── acp.py
+│   ├── agent_handoff.py
+│   ├── api.py
+│   ├── artifact_content_api.py
+│   ├── artifacts.py
+│   ├── browser_effect_api.py
+│   ├── capabilities.py
+│   ├── citation_validator.py
+│   ├── cli.py
+│   ├── cloudflare_api.py
+│   ├── cloudflare_live.py
+│   ├── config.py
+│   ├── connectors.py
+│   ├── db.py
+│   ├── db_artifact_content.py
+│   ├── db_automation.py
+│   ├── db_backend.py
+│   ├── db_base.py
+│   ├── db_browser_effects.py
+│   ├── db_evidence.py
+│   ├── db_finops.py
+│   ├── db_governance.py
+│   ├── db_kids.py
+│   ├── db_migration.py
+│   ├── db_realtime.py
+│   ├── db_schema.py
+│   ├── db_schema_browser_effects.py
+│   ├── db_schema_kids.py
+│   ├── db_schema_realtime.py
+│   ├── db_schema_v3.py
+│   ├── db_schema_workspace.py
+│   ├── db_schema_workspace_grants.py
+│   ├── db_schema_workspace_worktrees.py
+│   ├── db_schema_zeazverse.py
+│   ├── db_tasks.py
+│   ├── db_workspace.py
+│   ├── db_workspace_context.py
+│   ├── db_workspace_grants.py
+│   ├── db_workspace_worktrees.py
+│   ├── db_zeazverse.py
+│   ├── deep_research.py
+│   ├── document_compiler.py
+│   ├── economics.py
+│   ├── engine.py
+│   ├── evaluation_suite.py
+│   ├── evaluator.py
+│   ├── github_webhooks.py
+│   ├── identity.py
+│   ├── kids_api.py
+│   ├── kids_factory.py
+│   ├── kids_mcp.py
+│   ├── kids_workflow.py
+│   ├── mcp.py
+│   ├── metrics.py
+│   ├── outbox.py
+│   ├── policy.py
+│   ├── process_sandbox.py
+│   ├── prometa.py
+│   ├── prometa_data
+│   │   ├── prometa-agent-catalog.json
+│   │   ├── prometa-agent-templates.json
+│   │   ├── prometa-skills.json
+│   │   └── prometa-workflows.json
+│   ├── providers.py
+│   ├── rag.py
+│   ├── realtime.py
+│   ├── router.py
+│   ├── router_tracing.py
+│   ├── s3_errors.py
+│   ├── safety_hooks.py
+│   ├── sagi_approval_request.py
+│   ├── sagi_atomic_approval.py
+│   ├── sagi_browser_runtime.py
+│   ├── sagi_canonical_browser_effect.py
+│   ├── sagi_computer_dispatch.py
+│   ├── sagi_computer_session.py
+│   ├── sagi_computer_use.py
+│   ├── sagi_planning.py
+│   ├── sagi_production_gate.py
+│   ├── sagi_screen_freshness.py
+│   ├── sagi_worker_fencing.py
+│   ├── sagi_zloop_binding.py
+│   ├── samsung_builder_preflight.py
+│   ├── samsung_compat.py
+│   ├── samsung_manifest.py
+│   ├── samsung_sdk_probe.py
+│   ├── samsung_tv.py
+│   ├── scheduler.py
+│   ├── secret_canary.py
+│   ├── secret_store.py
+│   ├── security.py
+│   ├── service_broker.py
+│   ├── service_broker_payment.py
+│   ├── skill_registry.py
+│   ├── skills.py
+│   ├── solana_notary.py
+│   ├── static
+│   │   ├── app.js
+│   │   ├── dashboard
+│   │   │   ├── bootstrap.js
+│   │   │   ├── core
+│   │   │   │   ├── realtime.js
+│   │   │   │   └── registry.js
+│   │   │   └── packages
+│   │   │       └── realtime
+│   │   │           └── index.js
+│   │   ├── index.html
+│   │   ├── styles.css
+│   │   ├── zarvis-hud.css
+│   │   ├── zarvis-hud.js
+│   │   └── zarvis-voice-worklet.js
+│   ├── telemetry.py
+│   ├── tools.py
+│   ├── tunnel.py
+│   ├── tunnel_client.py
+│   ├── workflow.py
+│   ├── workspace_api.py
+│   ├── workspace_cli.py
+│   ├── workspace_command_api.py
+│   ├── workspace_commands.py
+│   ├── workspace_context_api.py
+│   ├── workspace_evidence.py
+│   ├── workspace_evidence_api.py
+│   ├── workspace_grant_api.py
+│   ├── workspace_grants.py
+│   ├── workspace_tool_executor.py
+│   ├── workspace_worktrees.py
+│   ├── worktree.py
+│   ├── zarvis_voice.py
+│   ├── zchat_integration.py
+│   ├── zeazverse_adapters.py
+│   ├── zeazverse_api.py
+│   ├── zeazverse_bibles.py
+│   ├── zeazverse_domain.py
+│   ├── zknowbase_client.py
+│   ├── zktcoder.py
+│   └── zloop_bridge.py
+├── zworkforce-tree.txt
+└── zworkforce.egg-info
+    ├── PKG-INFO
+    ├── SOURCES.txt
+    ├── dependency_links.txt
+    ├── entry_points.txt
+    ├── requires.txt
+    └── top_level.txt
+
+692 directories, 3412 files

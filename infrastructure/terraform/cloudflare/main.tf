@@ -111,19 +111,27 @@ resource "cloudflare_dns_record" "piewdash" {
 # Cloudflare Access application for the MooPiew engineering dashboard. Access is
 # granted to exact operator emails only (no domain-wide selector).
 resource "cloudflare_zero_trust_access_application" "piewdash" {
-  account_id = var.cloudflare_account_id
-  domain     = var.piewdash_hostname
-  name       = "MooPiew engineering dashboard"
+  account_id                 = var.cloudflare_account_id
+  domain                     = var.piewdash_hostname
+  name                       = "MooPiew engineering dashboard"
+  type                       = "self_hosted"
+  session_duration           = "8h"
+  app_launcher_visible       = false
   enable_binding_cookie      = true
   http_only_cookie_attribute = true
 
-  include = [
-    for email in var.piewdash_access_allowed_emails : {
-      email = {
-        email = email
+  policies = [{
+    name       = "Approved dashboard operators"
+    precedence = 1
+    decision   = "allow"
+    include = [
+      for email in var.piewdash_access_allowed_emails : {
+        email = {
+          email = email
+        }
       }
-    }
-  ]
+    ]
+  }]
 }
 
 resource "cloudflare_dns_record" "zerp" {
