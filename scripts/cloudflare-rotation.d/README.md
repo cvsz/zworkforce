@@ -22,6 +22,13 @@ later verification or persistence fails, stderr reports the recovery-file
 path; use that assignment to recover `.env.cloudflare` securely, then remove
 the recovery file. A successful update removes the recovery copy.
 
+The hook reports the recovery copy as saved only after verifying its contents
+and restrictive file mode. If the write or verification fails after the
+remote token roll, the hook fails with an explicit recovery-persistence error
+and does not claim that the replacement token is recoverable. Treat the prior
+runtime token as invalidated and follow the operator bootstrap recovery
+procedure; never test this path by rotating a production credential.
+
 The bootstrap token must not be the same token as `CLOUDFLARE_API_TOKEN`.
 Keep it outside the repository and outside the runtime environment whenever
 possible. Do not revoke the bootstrap token until a replacement bootstrap
