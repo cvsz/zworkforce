@@ -41,6 +41,12 @@ spec:
                 secretKeyRef:
                   name: ztrader-intelligence-secrets
                   key: ZTRADER_INTEL_SERVICE_TOKEN
+            - name: ZTRADER_PAPER_TENANT_TOKENS
+              valueFrom:
+                secretKeyRef:
+                  name: ztrader-intelligence-secrets
+                  key: ZTRADER_PAPER_TENANT_TOKENS
+                  optional: true
             - name: XAI_API_KEY
               valueFrom:
                 secretKeyRef:
