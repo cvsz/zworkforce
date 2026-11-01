@@ -140,95 +140,17 @@ resource "cloudflare_dns_record" "prod" {
   comment = "ZSME production control surface via Cloudflare Tunnel"
 }
 
-resource "cloudflare_zero_trust_access_application" "zsme" {
-  account_id                 = var.cloudflare_account_id
-  name                       = "ZSME Accounting Platform"
-  domain                     = var.zsme_hostname
-  type                       = "self_hosted"
-  session_duration           = "8h"
-  app_launcher_visible       = false
-  enable_binding_cookie      = true
-  http_only_cookie_attribute = true
-
-  policies = [{
-    name       = "Approved ZSME operators"
-    precedence = 1
-    decision   = "allow"
-    include = [
-      for email in sort(tolist(local.zsme_access_allowed_emails)) :
-      { email = { email = lower(email) } }
-    ]
-  }]
-}
-
-resource "cloudflare_zero_trust_access_application" "ai_dbc" {
-  account_id                 = var.cloudflare_account_id
-  name                       = "ZSME AI Document & Business Control"
-  domain                     = var.ai_dbc_hostname
-  type                       = "self_hosted"
-  session_duration           = "8h"
-  app_launcher_visible       = false
-  enable_binding_cookie      = true
-  http_only_cookie_attribute = true
-
-  policies = [{
-    name       = "Approved ZSME operators"
-    precedence = 1
-    decision   = "allow"
-    include = [
-      for email in sort(tolist(local.zsme_access_allowed_emails)) :
-      { email = { email = lower(email) } }
-    ]
-  }]
-}
-
-resource "cloudflare_zero_trust_access_application" "prod" {
-  account_id                 = var.cloudflare_account_id
-  name                       = "ZSME Production Control Surface"
-  domain                     = var.prod_hostname
-  type                       = "self_hosted"
-  session_duration           = "8h"
-  app_launcher_visible       = false
-  enable_binding_cookie      = true
-  http_only_cookie_attribute = true
-
-  policies = [{
-    name       = "Approved ZSME operators"
-    precedence = 1
-    decision   = "allow"
-    include = [
-      for email in sort(tolist(local.zsme_access_allowed_emails)) :
-      { email = { email = lower(email) } }
-    ]
-  }]
-}
-
 output "zsme_url" {
   value       = "https://${var.zsme_hostname}"
-  description = "Protected ZSME accounting platform URL after DNS, tunnel ingress, and Cloudflare Access are active."
-}
-
-output "zsme_access_audience" {
-  value       = cloudflare_zero_trust_access_application.zsme.aud
-  description = "Audience claim expected on Cloudflare Access JWTs for ZSME."
+  description = "Protected ZSME accounting platform URL after DNS and tunnel ingress are active."
 }
 
 output "ai_dbc_url" {
   value       = "https://${var.ai_dbc_hostname}"
-  description = "Protected ZSME AI document & business control URL after DNS, tunnel ingress, and Cloudflare Access are active."
-}
-
-output "ai_dbc_access_audience" {
-  value       = cloudflare_zero_trust_access_application.ai_dbc.aud
-  description = "Audience claim expected on Cloudflare Access JWTs for ZSME AI DBC."
+  description = "Protected ZSME AI document & business control URL after DNS and tunnel ingress are active."
 }
 
 output "prod_url" {
   value       = "https://${var.prod_hostname}"
-  description = "Protected ZSME production control surface URL after DNS, tunnel ingress, and Cloudflare Access are active."
-}
-
-output "prod_access_audience" {
-  value       = cloudflare_zero_trust_access_application.prod.aud
-  description = "Audience claim expected on Cloudflare Access JWTs for ZSME production."
+  description = "Protected ZSME production control surface URL after DNS and tunnel ingress are active."
 }

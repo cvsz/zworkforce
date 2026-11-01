@@ -57,35 +57,9 @@ resource "cloudflare_dns_record" "coin" {
   comment = "zCoin Evidence Auditor via Cloudflare Tunnel"
 }
 
-resource "cloudflare_zero_trust_access_application" "coin" {
-  account_id                 = var.cloudflare_account_id
-  name                       = "zCoin Evidence Auditor"
-  domain                     = var.coin_hostname
-  type                       = "self_hosted"
-  session_duration           = "8h"
-  app_launcher_visible       = false
-  enable_binding_cookie      = true
-  http_only_cookie_attribute = true
-
-  policies = [{
-    name       = "Approved zCoin operators"
-    precedence = 1
-    decision   = "allow"
-    include = [
-      for email in sort(tolist(local.coin_access_allowed_emails)) :
-      { email = { email = lower(email) } }
-    ]
-  }]
-}
-
 output "coin_url" {
   value       = "https://${var.coin_hostname}"
   description = "Protected zCoin URL after DNS, tunnel ingress, and Cloudflare Access are active."
-}
-
-output "coin_access_audience" {
-  value       = cloudflare_zero_trust_access_application.coin.aud
-  description = "Audience claim expected on Cloudflare Access JWTs for zCoin."
 }
 
 output "coin_dns_record" {

@@ -15,12 +15,56 @@ variable "zwsl_hostname" {
 
 variable "zwsl_origin" {
   type        = string
-  default     = "http://127.0.0.1:80"
-  description = "Loopback Caddy origin routing zwslcore paths to its private services."
+  default     = "http://127.0.0.1:8080"
+  description = "Loopback origin for zwslcore Provider (chat/completions, models) via Cloudflare Tunnel."
 
   validation {
-    condition     = var.zwsl_origin == "http://127.0.0.1:80"
-    error_message = "zwsl_origin must use the reviewed loopback Caddy proxy at http://127.0.0.1:80."
+    condition     = can(regex("^http://127\\.0\\.0\\.1:[0-9]+$", var.zwsl_origin))
+    error_message = "zwsl_origin must use a loopback address."
+  }
+}
+
+variable "zwsl_ollama_origin" {
+  type        = string
+  default     = "http://127.0.0.1:11434"
+  description = "Loopback origin for Ollama embeddings / completions under zwsl.zeaz.dev."
+
+  validation {
+    condition     = can(regex("^http://127\\.0\\.0\\.1:[0-9]+$", var.zwsl_ollama_origin))
+    error_message = "zwsl_ollama_origin must use a loopback address."
+  }
+}
+
+variable "zwsl_litellm_origin" {
+  type        = string
+  default     = "http://127.0.0.1:4000"
+  description = "Loopback origin for LiteLLM gateway under zwsl.zeaz.dev."
+
+  validation {
+    condition     = can(regex("^http://127\\.0\\.0\\.1:[0-9]+$", var.zwsl_litellm_origin))
+    error_message = "zwsl_litellm_origin must use a loopback address."
+  }
+}
+
+variable "zwsl_openwebui_origin" {
+  type        = string
+  default     = "http://127.0.0.1:3000"
+  description = "Loopback origin for Open WebUI under zwsl.zeaz.dev."
+
+  validation {
+    condition     = can(regex("^http://127\\.0\\.0\\.1:[0-9]+$", var.zwsl_openwebui_origin))
+    error_message = "zwsl_openwebui_origin must use a loopback address."
+  }
+}
+
+variable "zwsl_postgres_origin" {
+  type        = string
+  default     = "http://127.0.0.1:5432"
+  description = "Loopback origin for PostgreSQL under zwsl.zeaz.dev (loopback-only, no public exposure)."
+
+  validation {
+    condition     = can(regex("^http://127\\.0\\.0\\.1:[0-9]+$", var.zwsl_postgres_origin))
+    error_message = "zwsl_postgres_origin must use a loopback address."
   }
 }
 
@@ -150,6 +194,15 @@ variable "zider_origin" {
 # configuration from silently diverging.
 locals {
   zwsl_ingress = [
+    { hostname = var.zwsl_hostname, path = "^/api/v1/models$", service = var.zwsl_origin },
+    { hostname = var.zwsl_hostname, path = "^/api/v1/chat/completions$", service = var.zwsl_origin },
+    { hostname = var.zwsl_hostname, path = "^/api/v1/responses$", service = var.zwsl_origin },
+    { hostname = var.zwsl_hostname, path = "^/api/v1/messages$", service = var.zwsl_origin },
+    { hostname = var.zwsl_hostname, path = "^/api/v1(/.*)?$", service = var.zwsl_origin },
+    { hostname = var.zwsl_hostname, path = "^/ollama(/.*)?$", service = var.zwsl_ollama_origin },
+    { hostname = var.zwsl_hostname, path = "^/litellm(/.*)?$", service = var.zwsl_litellm_origin },
+    { hostname = var.zwsl_hostname, path = "^/open-webui(/.*)?$", service = var.zwsl_openwebui_origin },
+    { hostname = var.zwsl_hostname, path = "^/postgres(/.*)?$", service = var.zwsl_postgres_origin },
     { hostname = var.zwsl_hostname, service = var.zwsl_origin },
   ]
 

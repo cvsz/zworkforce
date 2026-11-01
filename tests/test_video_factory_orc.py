@@ -2,12 +2,16 @@
 import importlib.util
 import io
 import json
+import shutil
 import subprocess
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+# Check for FFmpeg availability
+HAS_FFMPEG = shutil.which("ffmpeg") is not None
 
 
 def load_orc():
@@ -75,6 +79,8 @@ class VideoFactoryOrcTests(unittest.TestCase):
             store.close()
 
     def test_create_import_guards_and_cli_rights_gate(self):
+        if not HAS_FFMPEG:
+            self.skipTest("FFmpeg not available; skipping video factory ORC test")
         base = Path(self._tmp())
         db = base / "jobs.sqlite"
         out = base / "artifacts"

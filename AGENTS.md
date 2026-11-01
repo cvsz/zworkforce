@@ -77,7 +77,7 @@ External evidence remains **PENDING** for the `v3.0.4` corrective candidate:
 - **Stage C** — Production OIDC/JWKS identity and API-key lifecycle (positive & negative cases)
 - **Stage D** — Provider routing, failover, bounded execution, mutation deny-by-default
 - **Stage E** — Scheduler/worker/outbox HA lease exclusivity, failure takeover, dead-letter
-- **Stage F** — External S3 artifact write/read with SHA-256 verification (currently BLOCKED: HTTP 403)
+- **Stage F** — External S3 artifact write/read with SHA-256 verification (PASS — Supabase project `aqbtiobrpwstjbbwtqap`, recorded 2026-10-29 UTC)
 - **Stage G** — OTLP trace correlation, alert receipt at operator-owned endpoint
 - **Stage H** — Trusted Windows MSIX signing, live HTTPS operator install/smoke
 - **Stage I** — Final GO decision: exact frozen SHA, required checks green, approvals, rollback target

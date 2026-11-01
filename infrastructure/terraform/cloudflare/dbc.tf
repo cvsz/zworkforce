@@ -30,33 +30,7 @@ resource "cloudflare_dns_record" "dbc" {
   comment = "QwenDBC chat interface via Cloudflare Tunnel"
 }
 
-resource "cloudflare_zero_trust_access_application" "dbc" {
-  account_id                 = var.cloudflare_account_id
-  name                       = "QwenDBC"
-  domain                     = var.dbc_hostname
-  type                       = "self_hosted"
-  session_duration           = "8h"
-  app_launcher_visible       = false
-  enable_binding_cookie      = true
-  http_only_cookie_attribute = true
-
-  policies = [{
-    name       = "Approved QwenDBC operators"
-    precedence = 1
-    decision   = "allow"
-    include = [
-      for email in sort(tolist(var.piewdash_access_allowed_emails)) :
-      { email = { email = lower(email) } }
-    ]
-  }]
-}
-
 output "dbc_url" {
   value       = "https://${var.dbc_hostname}"
-  description = "Public QwenDBC URL after DNS, tunnel ingress, and Cloudflare Access are active."
-}
-
-output "dbc_access_audience" {
-  value       = cloudflare_zero_trust_access_application.dbc.aud
-  description = "Audience claim expected on Cloudflare Access JWTs for QwenDBC."
+  description = "Public QwenDBC URL after DNS and tunnel ingress are active."
 }

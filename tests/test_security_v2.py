@@ -1,4 +1,5 @@
 import os
+import shutil
 from pathlib import Path
 import sys
 import unittest
@@ -65,6 +66,10 @@ class SecurityV2Tests(unittest.TestCase):
     def test_shell_does_not_inherit_secrets(self):
         from dataclasses import replace
         python_command = Path(sys.executable).name
+        # interpreter ที่ใช้รันทดสอบอาจมีชื่อต่างกันตามช่องทาง (python / python3 / python3.14);
+        # เลือกชื่อที่เจอบน PATH จริงเพื่อให้ sandboxed shell ค้นหาคำสั่ง allowlisted ได้ทุกสภาพแวดล้อม
+        if shutil.which(python_command) is None:
+            python_command = "python3"
         os.environ["TOP_SECRET_FOR_TEST"]="do-not-leak"; settings=replace(self.settings,shell_enabled=True,shell_allowlist=(python_command,),shell_env_allowlist=("PATH",)); tools=ToolExecutor(settings,self.db)
         result=tools.execute("shell_exec",{"command":python_command,"args":["-c","import os; print(os.getenv('TOP_SECRET_FOR_TEST','missing'))"]},tenant_id="default",agent_id="software-engineer",actor="test"); self.assertIn("missing",result["stdout"])
 

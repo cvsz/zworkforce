@@ -74,6 +74,19 @@ def require_clean_value(label: str, value: object) -> str:
     return value
 
 
+def normalize_bool(label: str, value: object) -> bool:
+    """ยอมรับค่า boolean จริง หรือสตริง "true"/"false" (จาก TF_VAR_env) แล้วคืนค่าเป็น boolean"""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered == "true":
+            return True
+        if lowered == "false":
+            return False
+    fail(f"{label} must be boolean or 'true'/'false' string, got: {value!r}")
+
+
 def configuration_sha256(directory: Path, environment_file: Path) -> str:
     if not directory.is_dir() or directory.is_symlink():
         fail("Terraform configuration directory must be a regular directory")
@@ -158,13 +171,14 @@ def create(args: argparse.Namespace) -> int:
         fail("Planned Cloudflare tunnel differs from the current environment")
 
     features = {
-        "zeaz_one_enabled": plan_variable(plan, "enable_zeaz_one"),
-        "zeaz_one_api_route_enabled": plan_variable(
-            plan, "enable_zeaz_one_api_route"
+        "zeaz_one_enabled": normalize_bool(
+            "enable_zeaz_one", plan_variable(plan, "enable_zeaz_one")
+        ),
+        "zeaz_one_api_route_enabled": normalize_bool(
+            "enable_zeaz_one_api_route",
+            plan_variable(plan, "enable_zeaz_one_api_route"),
         ),
     }
-    if not all(isinstance(value, bool) for value in features.values()):
-        fail("Terraform plan ZEAZ One feature flags must be booleans")
     health_checks = {
         "zeaz_one_origin": plan_variable(plan, "zeaz_one_origin"),
         "zeaz_one_hostname": plan_variable(plan, "zeaz_one_hostname"),

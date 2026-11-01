@@ -48,33 +48,7 @@ resource "cloudflare_dns_record" "zdash" {
   comment = "Protected zDash operations dashboard via Cloudflare Tunnel"
 }
 
-resource "cloudflare_zero_trust_access_application" "zdash" {
-  account_id                 = var.cloudflare_account_id
-  name                       = "zDash Operations Dashboard"
-  domain                     = var.zdash_hostname
-  type                       = "self_hosted"
-  session_duration           = "8h"
-  app_launcher_visible       = false
-  enable_binding_cookie      = true
-  http_only_cookie_attribute = true
-
-  policies = [{
-    name       = "Approved zDash operators"
-    precedence = 1
-    decision   = "allow"
-    include = [
-      for email in sort(tolist(local.zdash_access_allowed_emails)) :
-      { email = { email = lower(email) } }
-    ]
-  }]
-}
-
 output "zdash_url" {
   value       = "https://${var.zdash_hostname}"
-  description = "Protected zDash URL after DNS, tunnel ingress, and Cloudflare Access are active."
-}
-
-output "zdash_access_audience" {
-  value       = cloudflare_zero_trust_access_application.zdash.aud
-  description = "Audience claim expected on Cloudflare Access JWTs for zDash."
+  description = "Protected zDash URL after DNS and tunnel ingress are active."
 }

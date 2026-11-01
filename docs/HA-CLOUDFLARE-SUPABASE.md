@@ -7,7 +7,7 @@ zWorkforce uses two independent runtime VMs behind a shared Supabase durable dat
 - **VM-A (ha-a.zeaz.dev / 192.168.74.134):** primary zWorkforce runtime — API/control plane, scheduler, worker, outbox.
 - **VM-B (ha-b.zeaz.dev / 192.168.74.135):** secondary zWorkforce runtime — API/control plane, scheduler, worker, outbox.
 - **Observability (obs.zeaz.dev / 192.168.74.134):** OTel Collector, Prometheus, Alertmanager. Co-located on VM-B for this release.
-- **Supabase (qhprcfdgajhmdzvnsffb):** shared durable PostgreSQL and Supabase Storage data plane. **Not an HTTP origin substitute.**
+- **Supabase (aqbtiobrpwstjbbwtqap):** shared durable PostgreSQL and Supabase Storage data plane. **Not an HTTP origin substitute.**
 - **Vercel:** frontend / stateless web compute.
 
 ```text
@@ -99,7 +99,7 @@ Shared environment template: `deploy/ha/compose.shared.env.example`
 
 Both stacks point to the same Supabase PostgreSQL DSN and S3-compatible artifact backend.
 For the zWorkforce release target, the DSN uses the
-`qhprcfdgajhmdzvnsffb` project's `aws-0-ap-northeast-1` session pooler on port
+`aqbtiobrpwstjbbwtqap` project's `aws-0-ap-northeast-1` session pooler on port
 `5432` with TLS required. The password remains in the external secret
 boundary; the public API hostname is not a PostgreSQL endpoint.
 The runtime Compose contract receives this value as `ZWORKFORCE_DATABASE_URL`;
@@ -252,8 +252,8 @@ External Stage F storage verification is pinned to the intended Supabase
 project instead of accepting an arbitrary S3-compatible endpoint.
 
 ```bash
-SUPABASE_EXPECTED_PROJECT_REF=qhprcfdgajhmdzvnsffb
-SUPABASE_S3_ENDPOINT=https://qhprcfdgajhmdzvnsffb.storage.supabase.co/storage/v1/s3
+SUPABASE_EXPECTED_PROJECT_REF=aqbtiobrpwstjbbwtqap
+SUPABASE_S3_ENDPOINT=https://aqbtiobrpwstjbbwtqap.storage.supabase.co/storage/v1/s3
 ./scripts/close-zworkforce-external-gates.sh F
 ```
 

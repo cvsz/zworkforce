@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=zWorkforce Control Plane
+Comment=Start zWorkforce AI Workforce control plane server
+Exec=bash -c 'cd /home/cvsz/zworkforce && PYTHONPATH=. python3 -m zworkforce.cli serve'
+Icon=applications-internet
+Terminal=true
+Type=Application
+Categories=Development;Network;Server;
+StartupNotify=true
+Keywords=zworkforce;ai;control-plane;server;
