@@ -1,6 +1,7 @@
 // Candidate-only identity boundary. Not wired to HTTP, payments, or production.
 // An authenticated tenant requires a verified JWT AND an independent membership lookup.
 import { createPublicKey, verify as verifySignature } from 'node:crypto';
+import { parseJsonRejectingDuplicateKeys } from './strict-json.mjs';
 
 export class FinancialIdentityError extends Error {
   constructor(message = 'Financial identity denied', status = 403) {
@@ -19,7 +20,7 @@ function parsePart(part) {
   if (typeof part !== 'string' || !/^[A-Za-z0-9_-]+$/.test(part)) throw deny();
   const bytes = Buffer.from(part, 'base64url');
   if (bytes.toString('base64url') !== part) throw deny();
-  return JSON.parse(bytes.toString('utf8'));
+  return parseJsonRejectingDuplicateKeys(bytes.toString('utf8'));
 }
 
 export function createFinancialTenantResolver({ issuer, audience, getJwks, lookupMembership, now = () => Date.now(), maxTokenSeconds = 3600 } = {}) {
@@ -47,7 +48,11 @@ export function createFinancialTenantResolver({ issuer, audience, getJwks, looku
     const seconds = Math.floor(now() / 1000);
     if (!Number.isSafeInteger(seconds) || seconds < 0) throw new FinancialIdentityError('Clock unavailable', 503);
     const { iss, aud, sub, tenant_id: tenant, exp, iat, nbf, scope } = claims;
-    if (iss !== issuer || !(aud === audience || (Array.isArray(aud) && aud.length > 0 && aud.every(value => stringId(value, 256)) && aud.includes(audience))) ||
+    // A token addressed to multiple services is ambiguous for billing. Until
+    // an issuer-specific authorized-party contract exists, require exactly one
+    // audience to prevent cross-service token substitution.
+    const exactAudience = aud === audience || (Array.isArray(aud) && aud.length === 1 && aud[0] === audience);
+    if (iss !== issuer || !exactAudience ||
         !stringId(sub) || !stringId(tenant) || !Number.isSafeInteger(exp) ||
         !Number.isSafeInteger(iat) || !Number.isSafeInteger(nbf) ||
         exp <= seconds || iat > seconds + 30 || nbf > seconds + 30 ||

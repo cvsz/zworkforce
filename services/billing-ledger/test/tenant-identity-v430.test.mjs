@@ -99,10 +99,21 @@ test('configuration requires HTTPS issuer, membership and key providers', () => 
   assert.throws(() => createFinancialTenantResolver({ issuer: 'http://identity.test', audience: 'a', getJwks: async () => ({ keys: [jwk] }), lookupMembership: async () => true }), e => e.status === 503);
   assert.throws(() => createFinancialTenantResolver({ issuer: validClaims.iss, audience: validClaims.aud, getJwks: async () => ({ keys: [jwk] }) }), e => e.status === 503);
 });
-test('accepts audience arrays only when expected audience is present', async () => {
+test('accepts only a single exact billing audience, including a singleton array', async () => {
   const h = harness();
-  assert.equal(await h.resolver({ token: jwt({ ...validClaims, aud: ['other-service', validClaims.aud] }) }), 'tenant-a');
-  await rejects(jwt({ ...validClaims, aud: ['other-service'] }));
+  assert.equal(await h.resolver({ token: jwt({ ...validClaims, aud: [validClaims.aud] }) }), 'tenant-a');
+  assert.deepEqual(h.calls, [{ subject: 'subject-a', tenantId: 'tenant-a' }]);
+  for (const aud of [
+    ['other-service', validClaims.aud],
+    [validClaims.aud, 'other-service'],
+    [validClaims.aud, validClaims.aud],
+    ['other-service'],
+    [],
+    [validClaims.aud, 42],
+  ]) {
+    const denied = await rejects(jwt({ ...validClaims, aud }));
+    assert.equal(denied.calls.length, 0, 'ambiguous token must not reach membership lookup');
+  }
 });
 test('rejects expired tokens even within a former clock-skew grace window', async () => {
   await rejects(jwt({ ...validClaims, exp: nowSeconds - 1 }));
