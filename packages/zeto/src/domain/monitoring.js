@@ -109,27 +109,58 @@ function classifyMention(mention) {
 
   // Question signals
   if (/[?]/.test(text)) scores.question += 2;
-  if (/\b(how(?!\s+much)|what|when|where|why|can you|do you|is there)\b/.test(text)) scores.question += 2;
+  if (
+    /\b(how(?!\s+much)|what|when|where|why|can you|do you|is there)\b/.test(
+      text,
+    )
+  )
+    scores.question += 2;
 
   // Complaint signals
-  if (/\b(broken|terrible|horrible|awful|hate|worst|scam|fraud|refund|problem|issue|bug|failed|disappoint)\b/.test(text)) scores.complaint += 3;
-  if (/\b(not working|doesn.t work|doesn.t work|won.t|can.t|cannot)\b/.test(text)) scores.complaint += 2;
+  if (
+    /\b(broken|terrible|horrible|awful|hate|worst|scam|fraud|refund|problem|issue|bug|failed|disappoint)\b/.test(
+      text,
+    )
+  )
+    scores.complaint += 3;
+  if (
+    /\b(not working|doesn.t work|doesn.t work|won.t|can.t|cannot)\b/.test(text)
+  )
+    scores.complaint += 2;
 
   // Praise signals
-  if (/\b(amazing|excellent|love|great|fantastic|awesome|perfect|brilliant|outstanding)\b/.test(text)) scores.praise += 3;
-  if (/\b(thank|thanks|good job|well done|impressed|recommend)\b/.test(text)) scores.praise += 2;
+  if (
+    /\b(amazing|excellent|love|great|fantastic|awesome|perfect|brilliant|outstanding)\b/.test(
+      text,
+    )
+  )
+    scores.praise += 3;
+  if (/\b(thank|thanks|good job|well done|impressed|recommend)\b/.test(text))
+    scores.praise += 2;
 
   // Lead signals
-  if (/\b(buy|purchase|price|cost|how much|quote|interested in|trial|demo|sign up|get started)\b/.test(text)) scores.lead += 3;
-  if (/\b(business|enterprise|team|company|organization)\b/.test(text)) scores.lead += 1;
+  if (
+    /\b(buy|purchase|price|cost|how much|quote|interested in|trial|demo|sign up|get started)\b/.test(
+      text,
+    )
+  )
+    scores.lead += 3;
+  if (/\b(business|enterprise|team|company|organization)\b/.test(text))
+    scores.lead += 1;
 
   // Spam signals
-  if (/http[s]?:\/\//.test(text) && scores.question === 0 && scores.praise === 0) scores.spam += 2;
+  if (
+    /http[s]?:\/\//.test(text) &&
+    scores.question === 0 &&
+    scores.praise === 0
+  )
+    scores.spam += 2;
   if (/(.+)\1{3,}/.test(text)) scores.spam += 2; // repetitive text
 
   const top = Object.entries(scores).sort(([, a], [, b]) => b - a)[0];
   const totalSignal = Object.values(scores).reduce((a, b) => a + b, 0);
-  const confidence = totalSignal > 0 ? Math.min(0.95, (top[1] / totalSignal) + 0.4) : 0.5;
+  const confidence =
+    totalSignal > 0 ? Math.min(0.95, top[1] / totalSignal + 0.4) : 0.5;
 
   return { category: top[0], confidence: Math.round(confidence * 100) / 100 };
 }
@@ -153,4 +184,9 @@ function normalizeSentiment(raw) {
   return Math.max(0, Math.min(100, Math.round(raw)));
 }
 
-module.exports = { analyzeMention, evaluateAlerts, classifyMention, normalizeSentiment };
+module.exports = {
+  analyzeMention,
+  evaluateAlerts,
+  classifyMention,
+  normalizeSentiment,
+};

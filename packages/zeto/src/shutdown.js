@@ -12,9 +12,12 @@
  *   registerShutdown({ server, pool, log });
  */
 
-'use strict';
+"use strict";
 
-const DEFAULT_TIMEOUT_MS = parseInt(process.env.GRACEFUL_SHUTDOWN_TIMEOUT_MS ?? '10000', 10);
+const DEFAULT_TIMEOUT_MS = parseInt(
+  process.env.GRACEFUL_SHUTDOWN_TIMEOUT_MS ?? "10000",
+  10,
+);
 
 /**
  * @param {object} opts
@@ -24,7 +27,13 @@ const DEFAULT_TIMEOUT_MS = parseInt(process.env.GRACEFUL_SHUTDOWN_TIMEOUT_MS ?? 
  * @param {number} [opts.timeoutMs] - Drain timeout in ms
  * @param {NodeJS.Process} [opts.proc] - Process reference (for testing)
  */
-function registerShutdown({ server, pool = null, log = console.error, timeoutMs = DEFAULT_TIMEOUT_MS, proc = process }) {
+function registerShutdown({
+  server,
+  pool = null,
+  log = console.error,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+  proc = process,
+}) {
   let shutting_down = false;
 
   async function shutdown(signal) {
@@ -33,26 +42,30 @@ function registerShutdown({ server, pool = null, log = console.error, timeoutMs 
     log(`[shutdown] ${signal} received — draining (timeout=${timeoutMs}ms)`);
 
     const timer = setTimeout(() => {
-      log('[shutdown] drain timeout exceeded — forcing exit 1');
+      log("[shutdown] drain timeout exceeded — forcing exit 1");
       proc.exit(1);
     }, timeoutMs);
     timer.unref();
 
     await new Promise((resolve) => server.close(resolve));
-    log('[shutdown] HTTP server closed');
+    log("[shutdown] HTTP server closed");
 
     if (pool) {
-      try { await pool.end(); log('[shutdown] DB pool released'); }
-      catch (err) { log(`[shutdown] DB pool release error: ${err.message}`); }
+      try {
+        await pool.end();
+        log("[shutdown] DB pool released");
+      } catch (err) {
+        log(`[shutdown] DB pool release error: ${err.message}`);
+      }
     }
 
     clearTimeout(timer);
-    log('[shutdown] clean exit 0');
+    log("[shutdown] clean exit 0");
     proc.exit(0);
   }
 
-  proc.once('SIGTERM', () => shutdown('SIGTERM'));
-  proc.once('SIGINT', () => shutdown('SIGINT'));
+  proc.once("SIGTERM", () => shutdown("SIGTERM"));
+  proc.once("SIGINT", () => shutdown("SIGINT"));
 }
 
 module.exports = { registerShutdown };
