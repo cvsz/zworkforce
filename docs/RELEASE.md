@@ -17,6 +17,14 @@ Before creating a release tag:
 9. Confirm the Z.A.R.V.I.S. API audit and test suite pass for the exact release commit when those paths changed.
 10. Reconcile `.github/rulesets/main.json` with the server-side GitHub Ruleset using repository administration permissions; the checked-in desired-state file alone is not proof that GitHub enforcement is active.
 
+## ARIN-Z exact-SHA gate
+
+For v3.0.4 and later, the release workflow requires a current GO decision from the deployed zWorkforce release-gate API. Before tagging, operators must complete Stages A–H, obtain independent approval for the current gate-bundle digest, and record Stage I GO for the exact full commit SHA. For v3.0.4 the rollback target must be v3.0.3.
+
+Configure repository variable ZWORKFORCE_RELEASE_GATE_URL as the HTTPS origin of the deployed zWorkforce API and repository secret ZWORKFORCE_RELEASE_GATE_TOKEN as a dedicated viewer API token with only release:verify. The workflow fails closed if either value is missing or if the API response does not confirm the exact tag version/SHA, current GO, independent approval, ledger integrity, and audit-chain integrity.
+
+The workflow checks the gate before build work and again immediately before OCI image and GitHub Release publication. This prevents publication without a valid gate result; it does not prevent creation of a Git tag. The pre-tag operator checklist and repository tag governance remain mandatory. See docs/ARIN-Z-GATE-GOVERNANCE.md for identities, scope assignment, evaluator fields, and the audit model.
+
 ## Tag format
 
 Use an immutable semantic version tag:

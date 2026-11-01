@@ -15,6 +15,10 @@ class GovernanceMixin:
         details_json = json_dumps(details or {})
         with self.connection() as c:
             c.execute("BEGIN IMMEDIATE")
+            if self.backend_kind == "postgres":
+                c.execute("SELECT id FROM tenants WHERE id=? FOR UPDATE", (tenant_id,)).fetchone()
+            else:
+                c.execute("SELECT id FROM tenants WHERE id=?", (tenant_id,)).fetchone()
             prev = c.execute("SELECT event_hash FROM audit_events2 WHERE tenant_id=? ORDER BY id DESC LIMIT 1", (tenant_id,)).fetchone()
             prev_hash = prev[0] if prev else ""
             material = json_dumps({"tenant_id": tenant_id, "actor": actor, "action": action, "target_type": target_type, "target_id": target_id, "details": json_loads(details_json, {}), "prev_hash": prev_hash, "created_at": now})
