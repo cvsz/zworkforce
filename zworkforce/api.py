@@ -16,7 +16,7 @@ import uuid
 from typing import Any
 
 from . import __version__
-from .artifacts import build_artifact_store
+from .artifacts import ArtifactTooLargeError, build_artifact_store
 from .economics import capacity_forecast, chargeback_report, slo_status
 from .evaluation_suite import EvaluationRunner
 from .metrics import prometheus
@@ -111,7 +111,7 @@ class App:
                 microphone_policy = "microphone=(self)" if (app.voice.microphone_enabled or app.live_voice.config.enabled) else "microphone=()"
                 self.send_header("Permissions-Policy", f"camera=(), {microphone_policy}, geolocation=()")
                 connect_sources = " ".join(("'self'", *app.voice.csp_connect_sources, *app.live_voice.csp_connect_sources))
-                self.send_header("Content-Security-Policy", f"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src {connect_sources}; frame-ancestors 'none'; base-uri 'none'")
+                self.send_header("Content-Security-Policy", f"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' data:; connect-src {connect_sources}; frame-ancestors 'none'; base-uri 'none'")
                 self.send_header("X-Request-ID", _sanitize_header_value(self.request_id))
                 if self._cors_origin:
                     self.send_header("Access-Control-Allow-Origin", _sanitize_header_value(self._cors_origin))
@@ -371,6 +371,35 @@ class App:
                     if response: return response
                     _, tenant_id = ctx
                     return self._json(200, {"items": app.db.list_tool_events(tenant_id, _strq(q, "task_id") or None, _intq(q, "limit", 100))})
+
+                artifact_content = re.fullmatch(r"/api/v1/artifacts/([0-9A-Fa-f-]{36})/content", path)
+                if artifact_content:
+                    ctx, response = self._principal("operator", "artifact:read")
+                    if response: return response
+                    principal, tenant_id = ctx
+                    artifact = app.db.get_artifact(tenant_id, artifact_content.group(1))
+                    if not artifact: return self._error(404, "artifact_not_found", "artifact not found")
+                    size = int(artifact.get("size_bytes") or 0)
+                    if size < 0 or size > 8 * 1024 * 1024:
+                        return self._error(413, "artifact_too_large", "artifact exceeds the 8 MiB content limit")
+                    try:
+                        content = app.artifacts.read_bytes(
+                            str(artifact.get("storage_uri") or ""),
+                            str(artifact.get("sha256") or ""),
+                            max_bytes=8 * 1024 * 1024,
+                        )
+                    except ArtifactTooLargeError:
+                        return self._error(413, "artifact_too_large", "artifact exceeds the 8 MiB content limit")
+                    except Exception:
+                        return self._error(409, "artifact_integrity_error", "artifact content could not be verified")
+                    if len(content) != size:
+                        return self._error(409, "artifact_integrity_error", "artifact size does not match durable metadata")
+                    app.db.audit(tenant_id, principal.name, "artifact.read", "artifact", artifact["id"],
+                                 {"sha256": artifact.get("sha256", ""), "size_bytes": size})
+                    return self._json(200, {"id": artifact["id"], "name": artifact.get("name", "artifact.bin"),
+                        "content_type": artifact.get("content_type", "application/octet-stream"),
+                        "sha256": artifact.get("sha256", ""), "size_bytes": size,
+                        "content_base64": base64.b64encode(content).decode("ascii")})
 
                 ctx, response = self._principal("viewer", "workforce:read")
                 if response: return response

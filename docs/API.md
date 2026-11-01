@@ -2,6 +2,32 @@
 
 All `/api/v1/*` endpoints require authentication. Tenant scope comes from the credential; superadmin may set `X-Tenant-ID`. JSON errors use `{"error":{"code","message"},"request_id"}`.
 
+## ZEAZVERSE Studio
+
+ZEAZVERSE routes require an authenticated operator with `automation:write` for mutations and an authenticated viewer with `workforce:read` for reads. Records are tenant scoped.
+
+| Method and path | Purpose |
+| --- | --- |
+| `GET /api/v1/zeazverse/brand` | Brand, content classes, and publishing states |
+| `GET /api/v1/zeazverse/channel` | Channel setup checklist |
+| `POST /api/v1/zeazverse/channel/setup-step` | Update a known checklist step |
+| `GET /api/v1/zeazverse/characters` | Canonical character bibles |
+| `GET /api/v1/zeazverse/series` / `POST /api/v1/zeazverse/series` | List or create series |
+| `GET /api/v1/zeazverse/episodes` / `POST /api/v1/zeazverse/episodes` | List or create episodes |
+| `GET /api/v1/zeazverse/episodes/{id}` | Read an episode |
+| `GET /api/v1/zeazverse/episodes/{id}/scenes` | Read storyboard scenes |
+| `POST /api/v1/zeazverse/episodes/{id}/generate-storyboard` | Generate a structured storyboard |
+| `POST /api/v1/zeazverse/episodes/{id}/generate-seo` | Generate private-first SEO metadata |
+| `POST /api/v1/zeazverse/episodes/{id}/render` | Render and store an offline abstract storyboard sample |
+| `POST /api/v1/zeazverse/episodes/{id}/qa-review` | Record a human visual QA decision (`visual_review_passed` must be boolean) |
+| `POST /api/v1/zeazverse/episodes/{id}/request-approval` | Request independent publishing approval after QA |
+| `GET /api/v1/zeazverse/approvals` / `POST /api/v1/zeazverse/approvals/decide` | List or independently decide pending approvals |
+| `GET /api/v1/zeazverse/publications` | List publication records |
+| `GET /api/v1/artifacts/{id}/content` | Read a tenant-owned artifact up to 8 MiB with the `artifact:read` scope |
+| `POST /api/v1/zeazverse/episodes/{id}/publish` | Attempt YouTube publish; returns `503 youtube_provider_unavailable` until a real provider is configured |
+
+The current renderer produces an `abstract_storyboard_sample` with silent audio, not generated character imagery, animation, voice, or music. Encoder checks set the episode to `QA_PENDING`; a human visual QA action is required before approval. A successful approval does not mean a YouTube upload occurred. Without the real YouTube provider, publish returns `503` and leaves the approval unconsumed. Do not present these states as a completed episode or published video.
+
 ## Core
 
 ```text
