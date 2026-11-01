@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import subprocess
 import unittest
 
@@ -26,6 +27,26 @@ POSTGRES_CONNECTION_HELPER = ROOT / "scripts" / "lib" / "postgres-connection.sh"
 
 
 class ReleaseWorkflowTests(unittest.TestCase):
+    def test_all_workflow_actions_are_pinned_to_immutable_commit_shas(self):
+        pattern = re.compile(r"^\s*-?\s*uses:\s*([^\s#]+)", re.MULTILINE)
+        unpinned = []
+        workflow_dir = ROOT / ".github" / "workflows"
+        for path in sorted((*workflow_dir.glob("*.yml"), *workflow_dir.glob("*.yaml"))):
+            for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+                match = pattern.match(line)
+                if not match:
+                    continue
+                action_ref = match.group(1)
+                if action_ref.startswith("./"):
+                    continue
+                if action_ref.startswith("docker://"):
+                    if not re.search(r"@sha256:[0-9a-f]{64}$", action_ref):
+                        unpinned.append(f"{path.relative_to(ROOT)}:{line_number}: {action_ref}")
+                    continue
+                if not re.fullmatch(r".+@[0-9a-f]{40}", action_ref):
+                    unpinned.append(f"{path.relative_to(ROOT)}:{line_number}: {action_ref}")
+        self.assertEqual([], unpinned, "GitHub Actions must be pinned to immutable SHAs")
+
     def test_postgres_backup_and_restore_keep_dsn_out_of_process_arguments(self):
         helper = POSTGRES_CONNECTION_HELPER.read_text(encoding="utf-8")
         self.assertIn("PGSERVICEFILE", helper)
@@ -76,8 +97,8 @@ postgres_cleanup_service
 
         self.assertIn("id-token: write", workflow)
         self.assertIn("environment: production", workflow)
-        self.assertIn("uses: azure/login@v3", workflow)
-        self.assertIn("uses: azure/artifact-signing-action@v2", workflow)
+        self.assertIn("uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906", workflow)
+        self.assertIn("uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82", workflow)
         self.assertIn("AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}", workflow)
         self.assertIn("AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}", workflow)
         self.assertIn("AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}", workflow)
@@ -101,8 +122,8 @@ postgres_cleanup_service
         self.assertIn("git merge-base --is-ancestor", workflow)
         self.assertIn("environment: production", workflow)
         self.assertIn("id-token: write", workflow)
-        self.assertIn("uses: azure/login@v3", workflow)
-        self.assertIn("uses: azure/artifact-signing-action@v2", workflow)
+        self.assertIn("uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906", workflow)
+        self.assertIn("uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82", workflow)
         self.assertIn("Package-Client.ps1 -Configuration Release -Platform x64 -Unsigned", workflow)
         self.assertIn('ExpectedVersion "$($env:RELEASE_VERSION).0"', workflow)
         self.assertIn("Upload signed candidate evidence", workflow)
@@ -148,11 +169,11 @@ postgres_cleanup_service
         self.assertNotIn("WINDOWS_MSIX_SIGNING_PFX_PATH", gates)
 
     def test_release_policy_requires_azure_artifact_signing(self):
-        policy = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        policy = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
 
-        self.assertIn("azure/artifact-signing-action@v2", policy)
-        self.assertIn("azure/login@v3", policy)
-        self.assertIn("Package-Client.ps1 -Unsigned", policy)
+        self.assertIn("azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82", policy)
+        self.assertIn("azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906", policy)
+        self.assertRegex(policy, r"(?m)^\s*run: .*Package-Client\.ps1\b.*\s-Unsigned\b")
         self.assertNotIn("WINDOWS_MSIX_PFX_BASE64", policy)
 
     def test_external_gates_bind_evidence_to_runtime_and_candidate(self):
