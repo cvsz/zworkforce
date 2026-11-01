@@ -36,7 +36,7 @@ SELECT (
 )::int;
 ")"
 [[ "$existing" == "0" ]] || { echo 'Acceptance database contains pre-existing user objects' >&2; exit 3; }
-for file in services/billing-ledger/migrations/0001_financial_pg17_disposable.sql services/billing-ledger/acceptance/pg17_disposable_contract.sql; do
+for file in services/billing-ledger/migrations/0001_financial_pg17_disposable.sql services/billing-ledger/acceptance/pg17_disposable_contract.sql services/billing-ledger/acceptance/pg17_dedicated_login_contract.sql; do
   docker exec -i "$container" psql -X -v ON_ERROR_STOP=1 -U postgres -d zeaz_financial_acceptance < "$root/$file" >/dev/null
 done
 # Competing synthetic inserts must produce exactly one record and one audit event.
