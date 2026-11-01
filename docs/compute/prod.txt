@@ -1,0 +1,27 @@
+# PROD — Production Server Specification
+
+Role: Planned production host
+Target address: 192.168.1.100 (planned; not yet verified)
+
+Operating environment:
+- Windows 11 Enterprise x64 reported
+- Final production OS and deployment architecture: pending confirmation
+
+Hardware:
+- CPU: Intel Xeon E3-1225 v5
+- CPU topology: 4 cores / 4 threads
+- Memory: 32 GB
+- Graphics: NVIDIA GeForce 210
+- Storage: SATA SSD and HDDs
+- Storage allocation and available capacity: verify before deployment
+
+Deployment requirements:
+- Confirm OS suitability and supported container runtime.
+- Verify disk health, free space and backup/restore procedures.
+- Expose only approved services through the intended HTTPS ingress.
+- Do not expose administrative interfaces directly to the internet.
+- Keep secrets, machine identifiers and raw hardware reports out of Git.
+
+Production status:
+- Not approved for deployment until the OS, network, storage,
+  monitoring and recovery requirements have been verified.
