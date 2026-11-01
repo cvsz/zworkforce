@@ -53,7 +53,7 @@ jobs:
           ! is_live_code 401
           ! is_live_code 403
           ! is_live_code 000
-      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: 1.13.3
       - name: Test canonical CMe hostname contract
