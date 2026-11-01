@@ -1,14 +1,24 @@
 from __future__ import annotations
 
 import json
+import ntpath
 import os
 from pathlib import Path
+import urllib.error
 import urllib.parse
 import urllib.request
 
 
 class SecretStoreError(ValueError):
     pass
+
+
+def _is_network_path(path_text: str) -> bool:
+    drive, _ = ntpath.splitdrive(path_text.replace("/", "\\"))
+    normalized_drive = drive.lower()
+    if normalized_drive.startswith("\\\\?\\unc\\"):
+        return True
+    return drive.startswith("\\\\") and not normalized_drive.startswith("\\\\?\\")
 
 
 class SecretResolver:
@@ -41,10 +51,31 @@ class SecretResolver:
                 raise SecretStoreError(f"environment secret not found: {name}")
             return os.environ[name]
         if scheme == "file":
-            path = Path(urllib.request.url2pathname(parts.path))
+            authority = parts.netloc.lower()
+            if authority.startswith("[") and authority.endswith("]"):
+                authority = authority[1:-1]
+            if authority and authority not in {"localhost", "127.0.0.1", "::1"}:
+                raise SecretStoreError("file secret reference must not carry a remote host")
+            if not parts.path:
+                raise SecretStoreError("file secret reference must be an absolute path")
+            decoded_path = urllib.parse.unquote(parts.path)
+            if _is_network_path(decoded_path):
+                raise SecretStoreError("file secret reference must not use a network path")
             try:
-                raw = path.read_text(encoding="utf-8")
-            except OSError as exc:
+                path_text = urllib.request.url2pathname(parts.path)
+            except urllib.error.URLError as exc:
+                raise SecretStoreError("invalid file secret path") from exc
+            if _is_network_path(path_text):
+                raise SecretStoreError("file secret reference must not use a network path")
+            path = Path(path_text)
+            if not path.is_absolute():
+                raise SecretStoreError("file secret reference must be an absolute path")
+            try:
+                resolved = path.resolve(strict=True)
+                if _is_network_path(str(resolved)):
+                    raise SecretStoreError("file secret reference must not resolve to a network path")
+                raw = resolved.read_text(encoding="utf-8")
+            except (OSError, RuntimeError) as exc:
                 raise SecretStoreError(f"cannot read secret file: {path}") from exc
             if parts.fragment:
                 try:
