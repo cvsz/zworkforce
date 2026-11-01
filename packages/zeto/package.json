@@ -42,5 +42,8 @@
     "globals": "16.5.0",
     "prettier": "3.8.2"
   },
+  "overrides": {
+    "raw-body@<4.0.0": "4.0.0"
+  },
   "packageManager": "npm@9.2.0"
 }
