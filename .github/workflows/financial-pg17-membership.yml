@@ -1,0 +1,129 @@
+name: Financial PostgreSQL 17 Membership Admission
+
+on:
+  pull_request:
+    paths:
+      - "services/billing-ledger/**"
+      - "scripts/financial-pg17-disposable-admission.sh"
+      - ".github/workflows/financial-pg17-membership.yml"
+  push:
+    branches: [main]
+    paths:
+      - "services/billing-ledger/**"
+      - "scripts/financial-pg17-disposable-admission.sh"
+      - ".github/workflows/financial-pg17-membership.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  pg17-membership:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_DB: zeaz_financial_acceptance
+          POSTGRES_PASSWORD: ${{ github.run_id }}-${{ github.sha }}
+        options: >-
+          --label zeaz.financial.acceptance=disposable
+          --health-cmd "pg_isready -U postgres -d zeaz_financial_acceptance"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Attest disposable database and install baseline schema
+        shell: bash
+        env:
+          POSTGRES_TEST_CONTAINER_ID: ${{ job.services.postgres.id }}
+          Z_FINANCIAL_PG17_DISPOSABLE_ATTESTED: "true"
+        run: |
+          set -euo pipefail
+          bash scripts/financial-pg17-disposable-admission.sh
+      - name: Verify membership least privilege and revocation on PostgreSQL 17
+        shell: bash
+        env:
+          POSTGRES_TEST_CONTAINER_ID: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          [[ "$POSTGRES_TEST_CONTAINER_ID" =~ ^[0-9a-f]{12,64}$ ]]
+          for file in \
+            services/billing-ledger/migrations/0002_financial_membership_disposable.sql \
+            services/billing-ledger/acceptance/pg17_membership_contract.sql; do
+            docker exec -i "$POSTGRES_TEST_CONTAINER_ID" psql -X -v ON_ERROR_STOP=1 \
+              -U postgres -d zeaz_financial_acceptance < "$file"
+          done
+      - name: Real driver JWT and membership authorization regression
+        shell: bash
+        env:
+          POSTGRES_TEST_CONTAINER_ID: ${{ job.services.postgres.id }}
+          Z_FINANCIAL_PG17_REAL_DRIVER: "true"
+          PGHOST: "127.0.0.1"
+          PGPORT: "5432"
+          PGDATABASE: "zeaz_financial_acceptance"
+          PG_MEMBERSHIP_USER: "zeaz_financial_membership_app_test"
+        run: |
+          set -euo pipefail
+          [[ "$POSTGRES_TEST_CONTAINER_ID" =~ ^[0-9a-f]{12,64}$ ]]
+          npm --prefix services/billing-ledger install --no-save --ignore-scripts --no-package-lock --workspaces=false pg@8.23.1
+          test "$(node -p "require('./services/billing-ledger/node_modules/pg/package.json').version")" = "8.23.1"
+          PG_MEMBERSHIP_TEST_PASSWORD="$(openssl rand -hex 32)"
+          echo "::add-mask::$PG_MEMBERSHIP_TEST_PASSWORD"
+          export PG_MEMBERSHIP_TEST_PASSWORD
+          docker exec -i "$POSTGRES_TEST_CONTAINER_ID" psql -X -v ON_ERROR_STOP=1 \
+            -U postgres -d zeaz_financial_acceptance \
+            -c "ALTER ROLE zeaz_financial_membership_app_test PASSWORD '$PG_MEMBERSHIP_TEST_PASSWORD';" >/dev/null
+          node --test services/billing-ledger/acceptance/pg17_membership_driver_v433.test.mjs
+      - name: Fail-closed in-process membership regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check services/billing-ledger/pg-membership.mjs
+          node --test services/billing-ledger/test/pg-membership-v433.test.mjs
+
+      - name: Verify audited revocation lifecycle and rollback
+        shell: bash
+        env:
+          POSTGRES_TEST_CONTAINER_ID: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          [[ "$POSTGRES_TEST_CONTAINER_ID" =~ ^[0-9a-f]{12,64}$ ]]
+          for file in \
+            services/billing-ledger/migrations/0003_financial_membership_audit_disposable.sql \
+            services/billing-ledger/acceptance/pg17_membership_revocation_audit_v434.sql; do
+            docker exec -i "$POSTGRES_TEST_CONTAINER_ID" psql -X -v ON_ERROR_STOP=1 \
+              -U postgres -d zeaz_financial_acceptance < "$file"
+          done
+
+      - name: Verify concurrent revocation and audit cardinality with real PostgreSQL driver
+        shell: bash
+        env:
+          POSTGRES_TEST_CONTAINER_ID: ${{ job.services.postgres.id }}
+          Z_FINANCIAL_PG17_REAL_DRIVER: "true"
+          PGHOST: "127.0.0.1"
+          PGPORT: "5432"
+          PGDATABASE: "zeaz_financial_acceptance"
+          PG_REVOKER_USER: "zeaz_financial_membership_revoker_app_test"
+        run: |
+          set -euo pipefail
+          [[ "$POSTGRES_TEST_CONTAINER_ID" =~ ^[0-9a-f]{12,64}$ ]]
+          docker exec -i "$POSTGRES_TEST_CONTAINER_ID" psql -X -v ON_ERROR_STOP=1 \
+            -U postgres -d zeaz_financial_acceptance < \
+            services/billing-ledger/acceptance/pg17_membership_revocation_concurrency_setup_v434.sql
+          PG_REVOKER_TEST_PASSWORD="$(openssl rand -hex 32)"
+          echo "::add-mask::$PG_REVOKER_TEST_PASSWORD"
+          export PG_REVOKER_TEST_PASSWORD
+          docker exec -i "$POSTGRES_TEST_CONTAINER_ID" psql -X -v ON_ERROR_STOP=1 \
+            -U postgres -d zeaz_financial_acceptance \
+            -c "ALTER ROLE zeaz_financial_membership_revoker_app_test PASSWORD '$PG_REVOKER_TEST_PASSWORD';" >/dev/null
+          node --test services/billing-ledger/acceptance/pg17_membership_revocation_concurrency_v434.test.mjs
+          docker exec -i "$POSTGRES_TEST_CONTAINER_ID" psql -X -v ON_ERROR_STOP=1 \
+            -U postgres -d zeaz_financial_acceptance < \
+            services/billing-ledger/acceptance/pg17_membership_revocation_concurrency_verify_v434.sql
