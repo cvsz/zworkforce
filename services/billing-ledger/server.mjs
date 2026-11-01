@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 
 const defaultHost = process.env.HOST || "127.0.0.1";
 const defaultPort = Number(process.env.PORT || 8700);
@@ -42,6 +43,15 @@ function requireString(value, name) {
   return value.trim();
 }
 
+// ห้ามแปลง Token Counts จาก boolean, array, object, exponent/hex หรือ whitespace โดยอัตโนมัติ
+// อนุญาตเฉพาะตัวเลขและ canonical decimal strings เพื่อรักษาความถูกต้องของ Financial Usage
+function normalizeUsageTokens(value) {
+  if (value === undefined || value === null) return 0;
+  if (typeof value === "number") return value;
+  if (typeof value === "string" && /^(?:0|[1-9][0-9]*)$/.test(value)) return Number(value);
+  throw new BillingLedgerError("usage tokens must be non-negative safe integers");
+}
+
 function normalizeUsage(input) {
   return {
     event_type: "ai.usage.recorded.v1",
@@ -51,23 +61,68 @@ function normalizeUsage(input) {
     tenant_id: requireString(input.tenant_id, "tenant_id"),
     subject_id: input.subject_id ? requireString(input.subject_id, "subject_id") : "unknown",
     model: requireString(input.model || "unknown", "model"),
-    input_tokens: Number(input.input_tokens || 0),
-    output_tokens: Number(input.output_tokens || 0),
+    input_tokens: normalizeUsageTokens(input.input_tokens),
+    output_tokens: normalizeUsageTokens(input.output_tokens),
     recorded_at: input.recorded_at || new Date().toISOString(),
   };
 }
 
+function normalizeInvoiceMinorUnits(value) {
+  // Only canonical decimal integer strings may be coerced; never coerce booleans or objects.
+  if (typeof value === "number") {
+    if (Number.isSafeInteger(value) && value > 0) return value;
+  } else if (typeof value === "string" && /^(?:0|[1-9][0-9]*)$/.test(value)) {
+    const amount = Number(value);
+    if (Number.isSafeInteger(amount) && amount > 0) return amount;
+  }
+  throw new BillingLedgerError("amount_minor must be a positive safe integer");
+}
+
+// Idempotency compares business semantics, not server-generated metadata.
+// Unknown payload fields are compared as well: changed financial data must fail closed.
+function sameFinancialSemantics(existing, incoming, ignoredFields) {
+  const semantic = (value) => Object.fromEntries(
+    Object.entries(value).filter(([field]) => !ignoredFields.has(field)),
+  );
+  return isDeepStrictEqual(semantic(existing), semantic(incoming));
+}
+
+const usageMetadata = new Set(["recorded_at"]);
+const invoiceMetadata = new Set(["intent_id", "created_at"]);
+
 export class MemoryLedgerStore {
   constructor() {
     this.records = new Map();
+    this.usageIdentity = new Map();
     this.credits = new Map();
     this.invoiceIntents = new Map();
   }
 
   async recordUsage(record) {
-    if (this.records.has(record.idempotency_key)) return { duplicate: true, record: this.records.get(record.idempotency_key) };
-    this.records.set(record.idempotency_key, structuredClone(record));
-    return { duplicate: false, record };
+    // Enforce both request idempotency and the event identity within one tenant.
+    const tenantId = requireString(record?.tenant_id, "tenant_id");
+    const requestKey = requireString(record?.idempotency_key, "idempotency_key");
+    const usageId = requireString(record?.usage_id, "usage_id");
+    // Direct-store callers bypass BillingLedger normalization; reject unsafe raw counts.
+    if (!Number.isSafeInteger(record.input_tokens) || record.input_tokens < 0 ||
+        !Number.isSafeInteger(record.output_tokens) || record.output_tokens < 0) {
+      throw new BillingLedgerError("usage tokens must be non-negative safe integers");
+    }
+    const key = JSON.stringify([tenantId, requestKey]);
+    if (this.records.has(key)) {
+      const existing = this.records.get(key);
+      if (!sameFinancialSemantics(existing, record, usageMetadata)) {
+        throw new BillingLedgerError("Conflicting usage idempotency replay", 409);
+      }
+      return { duplicate: true, record: structuredClone(existing) };
+    }
+    const usageKey = JSON.stringify([tenantId, usageId]);
+    if (this.usageIdentity.has(usageKey)) {
+      throw new BillingLedgerError("Usage identity already recorded under another request key", 409);
+    }
+    this.records.set(key, structuredClone(record));
+    this.usageIdentity.set(usageKey, key);
+    return { duplicate: false, record: structuredClone(record) };
   }
 
   async setCredits() {
@@ -76,9 +131,25 @@ export class MemoryLedgerStore {
   }
 
   async createInvoiceIntent(intent) {
-    if (this.invoiceIntents.has(intent.idempotency_key)) return this.invoiceIntents.get(intent.idempotency_key);
-    this.invoiceIntents.set(intent.idempotency_key, structuredClone(intent));
-    return intent;
+    const tenantId = requireString(intent?.tenant_id, "tenant_id");
+    const requestKey = requireString(intent?.idempotency_key, "idempotency_key");
+    if (!Number.isSafeInteger(intent.amount_minor) || intent.amount_minor <= 0) {
+      throw new BillingLedgerError("amount_minor must be a positive safe integer");
+    }
+    const key = JSON.stringify([tenantId, requestKey]);
+    if (this.invoiceIntents.has(key)) {
+      const existing = this.invoiceIntents.get(key);
+      if (!sameFinancialSemantics(existing, intent, invoiceMetadata)) {
+        throw new BillingLedgerError("Conflicting invoice idempotency replay", 409);
+      }
+      return structuredClone(existing);
+    }
+    // This store creates intents only; settlement state requires a separate authorized workflow.
+    if (intent.status !== undefined && intent.status !== "requires_payment_processor") {
+      throw new BillingLedgerError("invoice intent status must be requires_payment_processor");
+    }
+    this.invoiceIntents.set(key, structuredClone(intent));
+    return structuredClone(intent);
   }
 }
 
@@ -91,7 +162,10 @@ export class BillingLedger {
 
   async recordUsage(input) {
     const record = normalizeUsage({ ...input, recorded_at: input.recorded_at || this.now() });
-    if (record.input_tokens < 0 || record.output_tokens < 0) throw new BillingLedgerError("usage tokens must be non-negative");
+    if (!Number.isSafeInteger(record.input_tokens) || record.input_tokens < 0 ||
+        !Number.isSafeInteger(record.output_tokens) || record.output_tokens < 0) {
+      throw new BillingLedgerError("usage tokens must be non-negative safe integers");
+    }
     return this.store.recordUsage(record);
   }
 
@@ -106,11 +180,11 @@ export class BillingLedger {
       idempotency_key: requireString(input.idempotency_key, "idempotency_key"),
       tenant_id: requireString(input.tenant_id, "tenant_id"),
       currency: requireString(input.currency, "currency").toUpperCase(),
-      amount_minor: Number(input.amount_minor),
+      amount_minor: normalizeInvoiceMinorUnits(input.amount_minor),
       status: "requires_payment_processor",
       created_at: this.now(),
     };
-    if (!Number.isInteger(intent.amount_minor) || intent.amount_minor <= 0) throw new BillingLedgerError("amount_minor must be a positive integer");
+    if (!Number.isSafeInteger(intent.amount_minor) || intent.amount_minor <= 0) throw new BillingLedgerError("amount_minor must be a positive safe integer");
     return this.store.createInvoiceIntent(intent);
   }
 }
