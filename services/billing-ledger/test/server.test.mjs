@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { BillingLedger, createBillingLedgerServer } from "../server.mjs";
+import { BillingLedger, BillingLedgerError, createBillingLedgerServer } from "../server.mjs";
 
 const env = { Z_PLATFORM_SERVICE_TOKEN: "service-token", NODE_ENV: "test" };
 
@@ -39,6 +39,27 @@ test("creates credits and invoice intents without wallet authority", async () =>
     status: "requires_payment_processor",
     created_at: "2026-07-14T00:00:00.000Z",
   });
+});
+
+test("invoice idempotency is tenant-scoped and rejects payload conflicts", async () => {
+  let nextId = 0;
+  const ledger = new BillingLedger({
+    idGenerator: () => `intent-${++nextId}`,
+    now: () => "2026-07-14T00:00:00.000Z",
+  });
+  const input = { tenant_id: "tenant-1", idempotency_key: "shared-key", currency: "usd", amount_minor: 500 };
+  const first = await ledger.createInvoiceIntent(input);
+  const retry = await ledger.createInvoiceIntent({ ...input, currency: "USD" });
+  assert.deepEqual(retry, first);
+
+  await assert.rejects(
+    ledger.createInvoiceIntent({ ...input, amount_minor: 501 }),
+    (error) => error instanceof BillingLedgerError && error.status === 409,
+  );
+
+  const otherTenant = await ledger.createInvoiceIntent({ ...input, tenant_id: "tenant-2" });
+  assert.equal(otherTenant.tenant_id, "tenant-2");
+  assert.notEqual(otherTenant.intent_id, first.intent_id);
 });
 
 test("HTTP routes require service auth and expose no wallet/card authority", async () => {
