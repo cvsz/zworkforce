@@ -36,6 +36,8 @@ class ProviderConfig:
     retries: int = 2
     models: dict[str, str] = field(default_factory=dict)
     enabled: bool = True
+    cf_access_client_id: str = ""
+    cf_access_client_secret: str = ""
 
     def model_for_tier(self, tier: str) -> str:
         return self.models.get(tier, "")
@@ -238,6 +240,14 @@ def _providers_from_env(env: str) -> tuple[ProviderConfig, ...]:
             if api_key_env:
                 api_key = os.getenv(api_key_env, "")
             base_url = str(item.get("base_url") or "").rstrip("/")
+            access_id_env = str(item.get("cf_access_client_id_env") or "")
+            access_secret_env = str(item.get("cf_access_client_secret_env") or "")
+            access_id = os.getenv(access_id_env, "") if access_id_env else ""
+            access_secret = os.getenv(access_secret_env, "") if access_secret_env else ""
+            if bool(access_id) != bool(access_secret):
+                raise ValueError(f"provider {name} requires both Cloudflare Access service token fields")
+            if (access_id or access_secret) and not base_url.lower().startswith("https://"):
+                raise ValueError(f"provider {name} requires HTTPS for Cloudflare Access credentials")
             if kind == "openai-compatible" and (not base_url or not any(models.values())):
                 raise ValueError(f"provider {name} requires base_url and at least one model")
             if kind in {"zworkforce-local", "zworkforce-native"} and not any(models.values()):
@@ -254,6 +264,8 @@ def _providers_from_env(env: str) -> tuple[ProviderConfig, ...]:
                 retries=max(1, int(item.get("retries", 2))),
                 models=models,
                 enabled=bool(item.get("enabled", True)),
+                cf_access_client_id=access_id,
+                cf_access_client_secret=access_secret,
             ))
         return tuple(sorted(providers, key=lambda p: p.priority))
 
@@ -265,12 +277,19 @@ def _providers_from_env(env: str) -> tuple[ProviderConfig, ...]:
     if legacy_kind != "openai-compatible":
         raise ValueError("ZWORKFORCE_PROVIDER must be mock or openai-compatible")
     key = os.getenv("ZWORKFORCE_PROVIDER_API_KEY", "")
+    access_id = os.getenv("ZWORKFORCE_CF_ACCESS_CLIENT_ID", "")
+    access_secret = os.getenv("ZWORKFORCE_CF_ACCESS_CLIENT_SECRET", "")
+    if bool(access_id) != bool(access_secret):
+        raise ValueError("Both Cloudflare Access service token values are required")
+    base_url = os.getenv("ZWORKFORCE_PROVIDER_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+    if (access_id or access_secret) and not base_url.lower().startswith("https://"):
+        raise ValueError("Cloudflare Access service token requires HTTPS provider URL")
     if env == "production" and not key:
         raise ValueError("ZWORKFORCE_PROVIDER_API_KEY is required in production")
     return (ProviderConfig(
         name="primary",
         kind="openai-compatible",
-        base_url=os.getenv("ZWORKFORCE_PROVIDER_BASE_URL", "https://api.openai.com/v1").rstrip("/"),
+        base_url=base_url,
         api_key=key,
         priority=100,
         models={
@@ -278,6 +297,8 @@ def _providers_from_env(env: str) -> tuple[ProviderConfig, ...]:
             "terra": os.getenv("ZWORKFORCE_MODEL_TERRA", "gpt-5.6-terra"),
             "luna": os.getenv("ZWORKFORCE_MODEL_LUNA", "gpt-5.6-luna"),
         },
+        cf_access_client_id=access_id,
+        cf_access_client_secret=access_secret,
     ),)
 
 
