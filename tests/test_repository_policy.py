@@ -160,29 +160,37 @@ class RepositoryPolicyTests(unittest.TestCase):
 
     def test_submodules_are_pinned_accessible_and_security_validated(self):
         gitmodules = GITMODULES.read_text(encoding="utf-8")
-        self.assertIn("url = git@github.com:cvsz/zksato.git", gitmodules)
-        self.assertIn("url = git@github.com:cvsz/zttshop-php.git", gitmodules)
-        self.assertIn("url = ../zmovie.git", gitmodules)
-        self.assertIn("url = ../zok.git", gitmodules)
-        self.assertNotIn("url = https://github.com/cvsz/", gitmodules)
+        expected_urls = {
+            "https://github.com/cvsz/zksato.git",
+            "https://github.com/cvsz/zttshop-php.git",
+            "https://github.com/cvsz/zmovie.git",
+            "https://github.com/cvsz/zok.git",
+        }
+        urls = set(re.findall(r"^\s*url\s*=\s*(\S+)\s*$", gitmodules, re.MULTILINE))
+        self.assertEqual(expected_urls, urls)
 
         ci = CI.read_text(encoding="utf-8")
         self.assertIn("submodule-validation:", ci)
         self.assertIn("needs: submodule-validation", ci)
         self.assertIn("git submodule update --init --recursive --depth=1", ci)
         self.assertIn("python -m pip install --upgrade pip 'setuptools>=83.0.0'", ci)
-        self.assertIn("ZKSATO_SUBMODULE_SSH_KEY: ${{ secrets.ZKSATO_SUBMODULE_SSH_KEY }}", ci)
-        self.assertIn("ZTTSHOP_PHP_SUBMODULE_SSH_KEY: ${{ secrets.ZTTSHOP_PHP_SUBMODULE_SSH_KEY }}", ci)
-        self.assertIn("git@github.com-zksato:cvsz/zksato.git", ci)
-        self.assertIn("git@github.com-zttshop-php:cvsz/zttshop-php.git", ci)
-        sync_index = ci.index("git submodule sync --recursive")
-        for alias in [
-            "git config --local submodule.packages/zksato.url git@github.com-zksato:cvsz/zksato.git",
-            "git config --local submodule.packages/zttshop-php.url git@github.com-zttshop-php:cvsz/zttshop-php.git",
-        ]:
-            with self.subTest(alias=alias):
-                self.assertGreater(ci.index(alias), sync_index)
-        self.assertIn("~/.ssh/known_hosts", ci)
+        self.assertIn("Checkout pinned public submodules", ci)
+        self.assertIn("Verify pinned submodule revisions", ci)
+        for marker in (
+            "ZKSATO_SUBMODULE_SSH_KEY",
+            "ZTTSHOP_PHP_SUBMODULE_SSH_KEY",
+            "git@github.com",
+            "IdentityFile",
+            "ssh.github.com",
+            "~/.ssh/known_hosts",
+        ):
+            with self.subTest(marker=marker):
+                self.assertNotIn(marker, ci)
+        self.assertIn("persist-credentials: false", ci)
+        self.assertIn("if: always()", ci)
+        self.assertIn('run: test "${{ needs.submodule-validation.result }}" = success', ci)
+        self.assertIn("Reject untrusted submodule changes", ci)
+        self.assertIn(".gitmodules packages/zksato packages/zttshop-php packages/zmovie packages/zok", ci)
         self.assertIn("persist-credentials: false", ci)
         self.assertIn("if: always()", ci)
         self.assertIn('run: test "${{ needs.submodule-validation.result }}" = success', ci)
