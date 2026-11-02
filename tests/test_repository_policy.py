@@ -191,11 +191,6 @@ class RepositoryPolicyTests(unittest.TestCase):
         self.assertIn('run: test "${{ needs.submodule-validation.result }}" = success', ci)
         self.assertIn("Reject untrusted submodule changes", ci)
         self.assertIn(".gitmodules packages/zksato packages/zttshop-php packages/zmovie packages/zok", ci)
-        self.assertIn("persist-credentials: false", ci)
-        self.assertIn("if: always()", ci)
-        self.assertIn('run: test "${{ needs.submodule-validation.result }}" = success', ci)
-        self.assertIn("Reject untrusted submodule changes", ci)
-        self.assertIn(".gitmodules packages/zksato packages/zttshop-php packages/zmovie packages/zok", ci)
         self.assertIn(
             'test "$(git -C packages/zmovie rev-parse HEAD)" = "$(git rev-parse HEAD:packages/zmovie)"',
             ci,
