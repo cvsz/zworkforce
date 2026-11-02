@@ -1,12 +1,12 @@
 [submodule "packages/zksato"]
 	path = packages/zksato
-	url = git@github.com:cvsz/zksato.git
+	url = https://github.com/cvsz/zksato.git
 [submodule "packages/zttshop-php"]
 	path = packages/zttshop-php
-	url = git@github.com:cvsz/zttshop-php.git
+	url = https://github.com/cvsz/zttshop-php.git
 [submodule "packages/zmovie"]
 	path = packages/zmovie
-	url = ../zmovie.git
+	url = https://github.com/cvsz/zmovie.git
 [submodule "packages/zok"]
 	path = packages/zok
-	url = ../zok.git
+	url = https://github.com/cvsz/zok.git
