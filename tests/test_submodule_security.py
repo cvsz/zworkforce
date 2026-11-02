@@ -18,7 +18,7 @@ EXPECTED_PUBLIC_SUBMODULES = {
 class PublicSubmoduleSecurityTests(unittest.TestCase):
     def test_all_submodules_use_explicit_public_https_remotes(self):
         source = GITMODULES.read_text(encoding="utf-8")
-        urls = set(re.findall(r"^\\s*url\\s*=\\s*(\\S+)\\s*$", source, re.MULTILINE))
+        urls = set(re.findall(r"^\s*url\s*=\s*(\S+)\s*$", source, re.MULTILINE))
 
         self.assertEqual(EXPECTED_PUBLIC_SUBMODULES, urls)
         self.assertTrue(all(url.startswith("https://github.com/cvsz/") for url in urls))
@@ -40,29 +40,29 @@ class PublicSubmoduleSecurityTests(unittest.TestCase):
             with self.subTest(marker=marker):
                 self.assertNotIn(marker, workflow)
 
-        self.assertIn("permissions:\\n  contents: read", workflow)
+        self.assertIn("permissions:\n  contents: read", workflow)
         self.assertIn("persist-credentials: false", workflow)
 
     def test_public_submodule_checkout_is_anonymous_and_gitlink_pinned(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
 
         checkout = re.search(
-            r"^      - name: Checkout pinned public submodules\\n(?P<body>.*?)(?=^      - name: Verify pinned submodule revisions$)",
+            r"^      - name: Checkout pinned public submodules\n(?P<body>.*?)(?=^      - name: Verify pinned submodule revisions$)",
             workflow,
             re.MULTILINE | re.DOTALL,
         )
         self.assertIsNotNone(checkout)
-        self.assertNotRegex(checkout.group("body"), r"^\\s*if:", msg="public submodule checkout must run for every PR")
+        self.assertNotRegex(checkout.group("body"), r"^\s*if:", msg="public submodule checkout must run for every PR")
         self.assertIn("git submodule sync --recursive", checkout.group("body"))
         self.assertIn("git submodule update --init --recursive --depth=1", checkout.group("body"))
 
         verify = re.search(
-            r"^      - name: Verify pinned submodule revisions\\n(?P<body>.*?)(?=^      - uses: actions/setup-python@)",
+            r"^      - name: Verify pinned submodule revisions\n(?P<body>.*?)(?=^      - uses: actions/setup-python@)",
             workflow,
             re.MULTILINE | re.DOTALL,
         )
         self.assertIsNotNone(verify)
-        self.assertNotRegex(verify.group("body"), r"^\\s*if:", msg="gitlink verification must run for every PR")
+        self.assertNotRegex(verify.group("body"), r"^\s*if:", msg="gitlink verification must run for every PR")
         for path in ("packages/zksato", "packages/zttshop-php", "packages/zmovie", "packages/zok"):
             with self.subTest(path=path):
                 self.assertIn(f"git -C {path} rev-parse HEAD", verify.group("body"))
@@ -71,7 +71,7 @@ class PublicSubmoduleSecurityTests(unittest.TestCase):
         workflow = WORKFLOW.read_text(encoding="utf-8")
 
         guard = re.search(
-            r"^      - name: Reject untrusted submodule changes\\n(?P<body>.*?)(?=^      - name: Checkout pinned public submodules$)",
+            r"^      - name: Reject untrusted submodule changes\n(?P<body>.*?)(?=^      - name: Checkout pinned public submodules$)",
             workflow,
             re.MULTILINE | re.DOTALL,
         )
