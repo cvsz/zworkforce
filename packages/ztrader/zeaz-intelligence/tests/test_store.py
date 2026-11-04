@@ -94,6 +94,7 @@ def test_event_bus_isolates_sse_streams_by_tenant():
 
 def test_api_tenant_isolation_and_optional_auth_enforcement(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
+
     from ztrader_intel import api
 
     test_store = AnalysisStore(str(tmp_path / "api_intel.db"))

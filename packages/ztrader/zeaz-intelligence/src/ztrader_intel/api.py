@@ -8,6 +8,7 @@ from typing import Annotated
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.responses import StreamingResponse
+
 try:
     from prometheus_fastapi_instrumentator import Instrumentator
 except ImportError:  # pragma: no cover - optional in minimal test environments
