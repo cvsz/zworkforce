@@ -21,6 +21,8 @@ The customer-facing defaults are:
 
 Do not expose container port 8080 or host port 3080 directly on a LAN/public interface. The Cloudflare Tunnel must continue to terminate at the reviewed loopback Caddy origin; this source change does not modify DNS, Tunnel configuration, Terraform state, or live routes.
 
+The Open WebUI Compose file is a standalone service definition. The zWorkforce API is not a service in that file, so no cross-project `depends_on` is declared. Before traffic admission, the operator must verify the configured provider URL resolves on the actual container network and that the API health/readiness check passes.
+
 ## Persistent configuration and operator acceptance
 
 Open WebUI persists configuration and user state in `open-webui-data`. Environment defaults alone do not prove the persisted application state is safe. Before any approved maintenance-window rollout, an operator must:
