@@ -53,9 +53,6 @@ services:
     volumes:
       - open-webui-data:/app/backend/data
     restart: unless-stopped
-    depends_on:
-      api:
-        condition: service_started
 
 volumes:
   open-webui-data:
