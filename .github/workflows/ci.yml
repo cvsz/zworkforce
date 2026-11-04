@@ -189,7 +189,7 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: ${{ matrix.python }}
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         if: matrix.python == '3.12'
         with:
           node-version: "24"
@@ -383,6 +383,19 @@ jobs:
           ZARVIS_ACTION_WORKER_TOKEN: ci-only-action-worker-token-at-least-32-bytes
           ZARVIS_PROACTIVE_WORKER_TOKEN: ci-only-proactive-worker-token-at-least-32-bytes
         run: docker compose config -q
+      - name: Validate Open WebUI fail-closed configuration
+        env:
+          WEBUI_SECRET_KEY: ci-only-webui-secret-key-at-least-32-bytes-long
+          OPEN_WEBUI_PROVIDER_API_KEY: ci-only-open-webui-provider-key
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose -f compose.open-webui.yml config --quiet
+          if env -u WEBUI_SECRET_KEY -u OPEN_WEBUI_PROVIDER_API_KEY docker compose -f compose.open-webui.yml config --quiet; then
+            echo "Open WebUI Compose unexpectedly rendered without required secrets" >&2
+            exit 1
+          fi
+
       - name: Verify release workflow capabilities
         run: |
           grep -Eq 'actions/attest-build-provenance@[0-9a-f]{40}' .github/workflows/release.yml
