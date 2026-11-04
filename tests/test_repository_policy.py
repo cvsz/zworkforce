@@ -14,6 +14,8 @@ GITMODULES = ROOT / ".gitmodules"
 CONTROL = ROOT / "control.sh"
 DEPENDENCY_REVIEW = ROOT / ".github" / "workflows" / "dependency-review.yml"
 WINDOWS = ROOT / ".github" / "workflows" / "windows-client.yml"
+OPEN_WEBUI_COMPOSE = ROOT / "compose.open-webui.yml"
+CADDYFILE = ROOT / "deploy" / "caddy" / "Caddyfile"
 ZARVIS = ROOT / ".github" / "workflows" / "zarvis.yml"
 INDEPENDENT_REVIEW = ROOT / ".github" / "workflows" / "request-independent-review.yml"
 
@@ -224,6 +226,44 @@ class RepositoryPolicyTests(unittest.TestCase):
         )
         self.assertNotIn("(cd packages/zok && npm install || true)", control)
 
+
+    def test_open_webui_customer_boundary_is_fail_closed(self):
+        compose = OPEN_WEBUI_COMPOSE.read_text(encoding="utf-8")
+        required_settings = (
+            '"127.0.0.1:${OPEN_WEBUI_PORT:-3080}:8080"',
+            'WEBUI_AUTH: "true"',
+            'ENABLE_SIGNUP: "false"',
+            'DEFAULT_USER_ROLE: "pending"',
+            'ENABLE_CODE_EXECUTION: "false"',
+            'ENABLE_HTML_PREVIEW: "false"',
+            'ENABLE_ARTIFACTS: "false"',
+            'ENABLE_FUNCTIONS: "false"',
+            'ENABLE_OPENAPI: "false"',
+        )
+        for setting in required_settings:
+            with self.subTest(setting=setting):
+                self.assertIn(setting, compose)
+
+        self.assertRegex(
+            compose,
+            r'(?m)^\\s*WEBUI_SECRET_KEY:\\s*"\\$\\{WEBUI_SECRET_KEY:\?[^"]+\\}"\\s*
+    unittest.main()
+,
+        )
+        self.assertRegex(
+            compose,
+            r'(?m)^\\s*OPENAI_API_KEY:\\s*"\\$\\{OPEN_WEBUI_PROVIDER_API_KEY:\?[^"]+\\}"\\s*
+    unittest.main()
+,
+        )
+        self.assertNotIn('ENABLE_SIGNUP: "true"', compose)
+        self.assertNotIn('DEFAULT_USER_ROLE: "admin"', compose)
+        self.assertNotIn("zwf-openwebui-secret-key", compose)
+
+        caddy = CADDYFILE.read_text(encoding="utf-8")
+        chat_route = caddy.split("http://chat.zeaz.dev:8080", 1)[1].split("\\n}", 1)[0]
+        self.assertIn("bind 127.0.0.1", chat_route)
+        self.assertIn("reverse_proxy 127.0.0.1:3080", chat_route)
 
 if __name__ == "__main__":
     unittest.main()
