@@ -244,24 +244,20 @@ class RepositoryPolicyTests(unittest.TestCase):
             with self.subTest(setting=setting):
                 self.assertIn(setting, compose)
 
-        self.assertRegex(
+        self.assertIn(
+            'WEBUI_SECRET_KEY: "${WEBUI_SECRET_KEY:?WEBUI_SECRET_KEY must be set}"',
             compose,
-            r'(?m)^\\s*WEBUI_SECRET_KEY:\\s*"\\$\\{WEBUI_SECRET_KEY:\?[^"]+\\}"\\s*
-    unittest.main()
-,
         )
-        self.assertRegex(
+        self.assertIn(
+            'OPENAI_API_KEY: "${OPEN_WEBUI_PROVIDER_API_KEY:?OPEN_WEBUI_PROVIDER_API_KEY must be set}"',
             compose,
-            r'(?m)^\\s*OPENAI_API_KEY:\\s*"\\$\\{OPEN_WEBUI_PROVIDER_API_KEY:\?[^"]+\\}"\\s*
-    unittest.main()
-,
         )
         self.assertNotIn('ENABLE_SIGNUP: "true"', compose)
         self.assertNotIn('DEFAULT_USER_ROLE: "admin"', compose)
         self.assertNotIn("zwf-openwebui-secret-key", compose)
 
         caddy = CADDYFILE.read_text(encoding="utf-8")
-        chat_route = caddy.split("http://chat.zeaz.dev:8080", 1)[1].split("\\n}", 1)[0]
+        chat_route = caddy.split("http://chat.zeaz.dev:8080", 1)[1].split(chr(10) + "}", 1)[0]
         self.assertIn("bind 127.0.0.1", chat_route)
         self.assertIn("reverse_proxy 127.0.0.1:3080", chat_route)
 
