@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 import unittest
 
@@ -14,6 +15,8 @@ GITMODULES = ROOT / ".gitmodules"
 CONTROL = ROOT / "control.sh"
 DEPENDENCY_REVIEW = ROOT / ".github" / "workflows" / "dependency-review.yml"
 WINDOWS = ROOT / ".github" / "workflows" / "windows-client.yml"
+OPEN_WEBUI_COMPOSE = ROOT / "compose.open-webui.yml"
+CADDYFILE = ROOT / "deploy" / "caddy" / "Caddyfile"
 ZARVIS = ROOT / ".github" / "workflows" / "zarvis.yml"
 INDEPENDENT_REVIEW = ROOT / ".github" / "workflows" / "request-independent-review.yml"
 
@@ -160,29 +163,32 @@ class RepositoryPolicyTests(unittest.TestCase):
 
     def test_submodules_are_pinned_accessible_and_security_validated(self):
         gitmodules = GITMODULES.read_text(encoding="utf-8")
-        self.assertIn("url = git@github.com:cvsz/zksato.git", gitmodules)
-        self.assertIn("url = git@github.com:cvsz/zttshop-php.git", gitmodules)
-        self.assertIn("url = ../zmovie.git", gitmodules)
-        self.assertIn("url = ../zok.git", gitmodules)
-        self.assertNotIn("url = https://github.com/cvsz/", gitmodules)
+        expected_urls = {
+            "https://github.com/cvsz/zksato.git",
+            "https://github.com/cvsz/zttshop-php.git",
+            "https://github.com/cvsz/zmovie.git",
+            "https://github.com/cvsz/zok.git",
+        }
+        urls = set(re.findall(r"^\s*url\s*=\s*(\S+)\s*$", gitmodules, re.MULTILINE))
+        self.assertEqual(expected_urls, urls)
 
         ci = CI.read_text(encoding="utf-8")
         self.assertIn("submodule-validation:", ci)
         self.assertIn("needs: submodule-validation", ci)
         self.assertIn("git submodule update --init --recursive --depth=1", ci)
         self.assertIn("python -m pip install --upgrade pip 'setuptools>=83.0.0'", ci)
-        self.assertIn("ZKSATO_SUBMODULE_SSH_KEY: ${{ secrets.ZKSATO_SUBMODULE_SSH_KEY }}", ci)
-        self.assertIn("ZTTSHOP_PHP_SUBMODULE_SSH_KEY: ${{ secrets.ZTTSHOP_PHP_SUBMODULE_SSH_KEY }}", ci)
-        self.assertIn("git@github.com-zksato:cvsz/zksato.git", ci)
-        self.assertIn("git@github.com-zttshop-php:cvsz/zttshop-php.git", ci)
-        sync_index = ci.index("git submodule sync --recursive")
-        for alias in [
-            "git config --local submodule.packages/zksato.url git@github.com-zksato:cvsz/zksato.git",
-            "git config --local submodule.packages/zttshop-php.url git@github.com-zttshop-php:cvsz/zttshop-php.git",
-        ]:
-            with self.subTest(alias=alias):
-                self.assertGreater(ci.index(alias), sync_index)
-        self.assertIn("~/.ssh/known_hosts", ci)
+        self.assertIn("Checkout pinned public submodules", ci)
+        self.assertIn("Verify pinned submodule revisions", ci)
+        for marker in (
+            "ZKSATO_SUBMODULE_SSH_KEY",
+            "ZTTSHOP_PHP_SUBMODULE_SSH_KEY",
+            "git@github.com",
+            "IdentityFile",
+            "ssh.github.com",
+            "~/.ssh/known_hosts",
+        ):
+            with self.subTest(marker=marker):
+                self.assertNotIn(marker, ci)
         self.assertIn("persist-credentials: false", ci)
         self.assertIn("if: always()", ci)
         self.assertIn('run: test "${{ needs.submodule-validation.result }}" = success', ci)
@@ -223,6 +229,66 @@ class RepositoryPolicyTests(unittest.TestCase):
             control,
         )
         self.assertNotIn("(cd packages/zok && npm install || true)", control)
+
+
+    def test_open_webui_customer_boundary_is_fail_closed(self):
+        compose = OPEN_WEBUI_COMPOSE.read_text(encoding="utf-8")
+        required_settings = (
+            '"127.0.0.1:${OPEN_WEBUI_PORT:-3080}:8080"',
+            'WEBUI_AUTH: "true"',
+            'ENABLE_SIGNUP: "false"',
+            'DEFAULT_USER_ROLE: "pending"',
+            'ENABLE_CODE_EXECUTION: "false"',
+            'ENABLE_HTML_PREVIEW: "false"',
+            'ENABLE_ARTIFACTS: "false"',
+            'ENABLE_FUNCTIONS: "false"',
+            'ENABLE_OPENAPI: "false"',
+        )
+        for setting in required_settings:
+            with self.subTest(setting=setting):
+                self.assertIn(setting, compose)
+
+        self.assertIn(
+            'WEBUI_SECRET_KEY: "${WEBUI_SECRET_KEY:?WEBUI_SECRET_KEY must be set}"',
+            compose,
+        )
+        self.assertIn(
+            'OPENAI_API_KEY: "${OPEN_WEBUI_PROVIDER_API_KEY:?OPEN_WEBUI_PROVIDER_API_KEY must be set}"',
+            compose,
+        )
+        self.assertNotIn('ENABLE_SIGNUP: "true"', compose)
+        self.assertNotIn('DEFAULT_USER_ROLE: "admin"', compose)
+        self.assertNotIn("zwf-openwebui-secret-key", compose)
+
+        caddy = CADDYFILE.read_text(encoding="utf-8")
+        chat_route = caddy.split("http://chat.zeaz.dev:8080", 1)[1].split(chr(10) + "}", 1)[0]
+        self.assertIn("bind 127.0.0.1", chat_route)
+        self.assertIn("reverse_proxy 127.0.0.1:3080", chat_route)
+
+    def test_kubernetes_manifests_have_unique_resource_identities(self):
+        k8s_base = ROOT / "infrastructure" / "kubernetes" / "base"
+        for manifest_name in ("deployments.yaml", "services.yaml", "poddisruptionbudgets.yaml"):
+            manifest_path = k8s_base / manifest_name
+            raw = manifest_path.read_text(encoding="utf-8")
+            docs = [doc.strip() for doc in raw.split("\n---") if doc.strip()]
+            seen: set[tuple[str, str, str]] = set()
+            for doc in docs:
+                kind_match = re.search(r"^kind:\s*(\S+)", doc, re.MULTILINE)
+                name_match = re.search(r"^\s*name:\s*(\S+)", doc, re.MULTILINE)
+                ns_match = re.search(r"^\s*namespace:\s*(\S+)", doc, re.MULTILINE)
+                if not kind_match or not name_match:
+                    continue
+                identity = (
+                    kind_match.group(1),
+                    ns_match.group(1) if ns_match else "default",
+                    name_match.group(1),
+                )
+                self.assertNotIn(
+                    identity,
+                    seen,
+                    f"Duplicate Kubernetes resource identity {identity} in {manifest_name}",
+                )
+                seen.add(identity)
 
 
 if __name__ == "__main__":

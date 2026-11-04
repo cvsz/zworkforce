@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { randomUUID, timingSafeEqual } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const defaultHost = process.env.HOST || "127.0.0.1";
@@ -35,9 +35,49 @@ async function readJson(request) {
   return text.trim() ? JSON.parse(text) : {};
 }
 
-function requireApproval(input, action) {
+export function computeApprovalSignature(action, approval, targetValue, secret) {
+  const requester = String(approval?.requester_id || "");
+  const approver = String(approval?.approver_id || "");
+  const expiresAt = String(approval?.expires_at || "");
+  const payload = `${action}:${requester}:${approver}:${expiresAt}:${String(targetValue || "")}`;
+  return createHmac("sha256", secret).update(payload).digest("hex");
+}
+
+function requireApproval(input, action, env = process.env, nowIso = () => new Date().toISOString()) {
   if (!input.approval || input.approval.state !== "approved") throw new WorkspaceRuntimeError(`${action} requires explicit approval`, 403);
   if (!Array.isArray(input.approval.grants) || !input.approval.grants.includes(action)) throw new WorkspaceRuntimeError(`${action} approval grant is missing`, 403);
+
+  const requesterId = typeof input.approval.requester_id === "string" ? input.approval.requester_id.trim() : "";
+  const approverId = typeof input.approval.approver_id === "string" ? input.approval.approver_id.trim() : "";
+  const requireFourEyes = env.Z_PLATFORM_REQUIRE_FOUR_EYES === "true" || Boolean(requesterId || approverId);
+  if (requireFourEyes) {
+    if (!requesterId || !approverId) {
+      throw new WorkspaceRuntimeError("four-eyes approval requires both requester_id and approver_id", 403);
+    }
+    if (requesterId === approverId) {
+      throw new WorkspaceRuntimeError("four-eyes approval prohibits self-approval", 403);
+    }
+  }
+
+  if (input.approval.expires_at !== undefined) {
+    const expiresMs = Date.parse(String(input.approval.expires_at));
+    const currentMs = Date.parse(nowIso());
+    if (Number.isNaN(expiresMs) || expiresMs <= currentMs) {
+      throw new WorkspaceRuntimeError("approval has expired", 403);
+    }
+  }
+
+  const signingSecret = env.Z_PLATFORM_APPROVAL_SIGNING_SECRET;
+  if (signingSecret) {
+    const targetValue = action === "shell" ? input.command : input.target;
+    const expectedSig = computeApprovalSignature(action, input.approval, targetValue, signingSecret);
+    const providedSig = typeof input.approval.signature === "string" ? input.approval.signature : "";
+    const a = Buffer.from(providedSig);
+    const b = Buffer.from(expectedSig);
+    if (!providedSig || a.length !== b.length || !timingSafeEqual(a, b)) {
+      throw new WorkspaceRuntimeError("approval signature is invalid or missing", 403);
+    }
+  }
 }
 
 function assertSafeProject(input) {
@@ -50,9 +90,10 @@ function assertSafeProject(input) {
 }
 
 export class WorkspaceRuntime {
-  constructor({ idGenerator = randomUUID, now = () => new Date().toISOString() } = {}) {
+  constructor({ idGenerator = randomUUID, now = () => new Date().toISOString(), env = process.env } = {}) {
     this.idGenerator = idGenerator;
     this.now = now;
+    this.env = env;
   }
 
   validateGeneratedProject(input) {
@@ -67,17 +108,17 @@ export class WorkspaceRuntime {
   }
 
   requestShell(input) {
-    requireApproval(input, "shell");
+    requireApproval(input, "shell", this.env, this.now);
     return { request_id: this.idGenerator(), status: "accepted", action: "shell", command: input.command, accepted_at: this.now() };
   }
 
   requestDeploy(input) {
-    requireApproval(input, "deploy");
+    requireApproval(input, "deploy", this.env, this.now);
     return { request_id: this.idGenerator(), status: "accepted", action: "deploy", target: input.target, accepted_at: this.now() };
   }
 }
 
-export function createWorkspaceRuntimeServer({ env = process.env, runtime = new WorkspaceRuntime() } = {}) {
+export function createWorkspaceRuntimeServer({ env = process.env, runtime = new WorkspaceRuntime({ env }) } = {}) {
   return createServer(async (request, response) => {
     if (request.method === "GET" && request.url === "/health") return send(response, 200, { status: "ok", service: "workspace-runtime", sandbox: "approval-gated" });
     if (!authorized(request, env)) return send(response, 401, { error: "Unauthorized" });

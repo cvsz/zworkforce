@@ -63,9 +63,6 @@ ingress:
     path: '^/open-webui(/.*)?$'
     service: http://127.0.0.1:3000
   - hostname: zwsl.zeaz.dev
-    path: '^/postgres(/.*)?$'
-    service: http://127.0.0.1:5432
-  - hostname: zwsl.zeaz.dev
     service: http://127.0.0.1:8080
 
   # 5. OpenWebUI Multi-Model AI Interface

@@ -5,6 +5,11 @@ spec: {minAvailable: 2, selector: {matchLabels: {app.kubernetes.io/name: zc-api}
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
+metadata: {name: zcoder-api}
+spec: {minAvailable: 2, selector: {matchLabels: {app.kubernetes.io/name: zcoder-api}}}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
 metadata: {name: ai-gateway}
 spec: {minAvailable: 2, selector: {matchLabels: {app.kubernetes.io/name: ai-gateway}}}
 ---

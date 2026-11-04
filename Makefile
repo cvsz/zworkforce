@@ -199,16 +199,21 @@ stage-f:
 CLOUDFLARE_STACK := infrastructure/terraform/cloudflare
 
 cloudflare-plan:
-	@test -n "$${TF_VAR_cloudflare_api_token:-}" || (echo "set TF_VAR_cloudflare_api_token" >&2; exit 2)
-	@test -n "$${TF_VAR_cloudflare_account_id:-}" || (echo "set TF_VAR_cloudflare_account_id" >&2; exit 2)
-	@test -n "$${TF_VAR_cloudflare_zone_id:-}" || (echo "set TF_VAR_cloudflare_zone_id" >&2; exit 2)
-	@test -n "$${TF_VAR_cloudflare_tunnel_id:-}" || (echo "set TF_VAR_cloudflare_tunnel_id" >&2; exit 2)
+	@test -n "${TF_VAR_cloudflare_api_token:-}" || (echo "set TF_VAR_cloudflare_api_token" >&2; exit 2)
+	@test -n "${TF_VAR_cloudflare_account_id:-}" || (echo "set TF_VAR_cloudflare_account_id" >&2; exit 2)
+	@test -n "${TF_VAR_cloudflare_zone_id:-}" || (echo "set TF_VAR_cloudflare_zone_id" >&2; exit 2)
+	@test -n "${TF_VAR_cloudflare_tunnel_id:-}" || (echo "set TF_VAR_cloudflare_tunnel_id" >&2; exit 2)
 	cd $(CLOUDFLARE_STACK) && terraform init && terraform validate && terraform plan -out=tfplan
-	@echo "Terraform plan created. Review before applying."
+	@$(PYTHON) scripts/verify_terraform_plan.py "$(REPO_ROOT)/$(CLOUDFLARE_STACK)/tfplan"
 
 cloudflare-apply:
-	@test -n "$${approved_plan_sha256:-}" || (echo "set approved_plan_sha256 (from plan mode output)" >&2; exit 2)
-	cd $(CLOUDFLARE_STACK) && terraform apply -auto-approve tfplan
+	@set -eu; \
+	expected="${approved_plan_sha256:-}"; \
+	test -n "$expected" || { echo "set approved_plan_sha256 (64-char SHA-256 from the reviewed plan)" >&2; exit 2; }; \
+	verified_plan="$(mktemp "$(REPO_ROOT)/$(CLOUDFLARE_STACK)/tfplan.approved.XXXXXX")"; \
+	trap 'rm -f "$verified_plan"' EXIT HUP INT TERM; \
+	$(PYTHON) scripts/verify_terraform_plan.py "$(REPO_ROOT)/$(CLOUDFLARE_STACK)/tfplan" "$expected" --copy-to "$verified_plan"; \
+	cd "$(REPO_ROOT)/$(CLOUDFLARE_STACK)" && terraform apply -auto-approve "$verified_plan"
 
 cloudflare-status:
 	@echo "=== Cloudflare stack files ==="

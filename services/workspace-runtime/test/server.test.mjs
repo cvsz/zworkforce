@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { WorkspaceRuntime, createWorkspaceRuntimeServer } from "../server.mjs";
+import { WorkspaceRuntime, computeApprovalSignature, createWorkspaceRuntimeServer } from "../server.mjs";
 
 const env = { Z_PLATFORM_SERVICE_TOKEN: "service-token" };
 
@@ -58,4 +58,65 @@ test("HTTP runtime validates and gates actions", async () => {
   });
   assert.equal(response.status, 200);
   assert.equal((await response.json()).status, "validated");
+});
+
+test("enforces four-eyes separation, expiry, and cryptographic signature when configured", () => {
+  const signingSecret = "approval-hmac-secret";
+  const runtime = new WorkspaceRuntime({
+    idGenerator: () => "req-4eyes",
+    now: () => "2026-07-13T12:00:00.000Z",
+    env: {
+      Z_PLATFORM_REQUIRE_FOUR_EYES: "true",
+      Z_PLATFORM_APPROVAL_SIGNING_SECRET: signingSecret,
+    },
+  });
+
+  // Self-approval must be rejected
+  assert.throws(() => runtime.requestShell({
+    command: "npm test",
+    approval: {
+      state: "approved",
+      grants: ["shell"],
+      requester_id: "alice",
+      approver_id: "alice",
+    },
+  }), /prohibits self-approval/);
+
+  // Expired approval must be rejected
+  assert.throws(() => runtime.requestShell({
+    command: "npm test",
+    approval: {
+      state: "approved",
+      grants: ["shell"],
+      requester_id: "alice",
+      approver_id: "bob",
+      expires_at: "2026-07-13T11:59:59.000Z",
+    },
+  }), /expired/);
+
+  // Missing or invalid signature must be rejected
+  assert.throws(() => runtime.requestDeploy({
+    target: "production",
+    approval: {
+      state: "approved",
+      grants: ["deploy"],
+      requester_id: "alice",
+      approver_id: "bob",
+      expires_at: "2026-07-13T13:00:00.000Z",
+      signature: "forged",
+    },
+  }), /signature is invalid/);
+
+  // Valid four-eyes signed approval succeeds
+  const validApproval = {
+    state: "approved",
+    grants: ["deploy"],
+    requester_id: "alice",
+    approver_id: "bob",
+    expires_at: "2026-07-13T13:00:00.000Z",
+  };
+  validApproval.signature = computeApprovalSignature("deploy", validApproval, "production", signingSecret);
+  const res = runtime.requestDeploy({ target: "production", approval: validApproval });
+  assert.equal(res.status, "accepted");
+  assert.equal(res.target, "production");
 });

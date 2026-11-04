@@ -1,0 +1,10 @@
+source_path,target_path,action,rationale,status
+packages/zeto/test.txt,,delete,"Dead test scratch output committed accidentally",queued_pr
+packages/zeto/test_out.txt,,delete,"Dead test scratch output committed accidentally",queued_pr
+packages/zeto/test/operatorApi.integration.test.js.bak,,delete,"Superseded backup file without runner references",queued_pr
+packages/zeto/test/operatorRuntime.integration.test.js.bak,,delete,"Superseded backup file without runner references",queued_pr
+services/zc-api,services/zcoder-api,retain_alias,"Renamed Kubernetes identities to resolve #377; retain path for backwards compatibility",verified
+deploy/cloudflare/tunnel-ingress.yml:5432,,delete_route,"Remove direct PostgreSQL ingress exposure per #385/#399",completed
+infrastructure/terraform/cloudflare/zworkforce.tf:zwsl_postgres_origin,,delete_resource,"Remove Cloudflare PostgreSQL ingress resource per #385/#399",completed
+packages/zarvis/services/zarvis-orchestrator,services/zarvis-orchestrator,sync_drift,"Sync live_voice and skill catalog features from canonical to mirror",staged_phase2
+packages/zarvis/services/zarvis-task-gateway,services/zarvis-task-gateway,sync_drift,"Sync durable adapters and orchestrator core from canonical to mirror",staged_phase2

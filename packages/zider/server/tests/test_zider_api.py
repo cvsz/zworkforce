@@ -1,3 +1,4 @@
+import asyncio
 import unittest
 import base64
 import sys
@@ -10,10 +11,52 @@ if str(ZIDER_ROOT) not in sys.path:
 import warnings
 warnings.filterwarnings("ignore", message=".*starlette.testclient.*")
 
-from fastapi.testclient import TestClient
-from app.main import app
+from app.services.pdf_service import PDFService
+
+try:
+    from fastapi.testclient import TestClient
+    from app.main import app
+except ModuleNotFoundError:
+    TestClient = None
+    app = None
 
 
+class TestZiderPDFTenantIsolationUnit(unittest.TestCase):
+    def setUp(self):
+        PDFService._docs.clear()
+
+    def test_pdf_service_isolates_documents_by_tenant(self):
+        doc_a = asyncio.run(
+            PDFService.process_pdf(
+                b"Confidential Tenant A Financial Forecast 2026",
+                "forecast-a.pdf",
+                tenant_id="tenant-a",
+            )
+        )
+        self.assertEqual(doc_a["tenant_id"], "tenant-a")
+
+        cross_tenant = asyncio.run(
+            PDFService.query_doc(
+                doc_id=doc_a["doc_id"],
+                query="Forecast",
+                model="gpt-4o-mini",
+                tenant_id="tenant-b",
+            )
+        )
+        self.assertIn("not found or expired", cross_tenant["answer"])
+
+        same_tenant = asyncio.run(
+            PDFService.query_doc(
+                doc_id=doc_a["doc_id"],
+                query="Forecast",
+                model="gpt-4o-mini",
+                tenant_id="tenant-a",
+            )
+        )
+        self.assertIn("forecast-a.pdf", same_tenant["answer"])
+
+
+@unittest.skipIf(TestClient is None, "fastapi is not installed in this environment")
 class TestZiderAPI(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -157,6 +200,68 @@ class TestZiderAPI(unittest.TestCase):
         })
         self.assertEqual(resp.status_code, 503)
         self.assertIn("executor is not configured", resp.json()["detail"])
+
+    def test_api_token_auth_and_tenant_pdf_isolation(self):
+        import os
+        from unittest.mock import patch
+
+        with patch.dict(os.environ, {"ZIDER_API_TOKEN": "zider-secret-token", "ZIDER_REQUIRE_TENANT": "true"}):
+            unauth = self.client.get("/api/prompts")
+            self.assertEqual(unauth.status_code, 401)
+
+            missing_tenant = self.client.get(
+                "/api/prompts",
+                headers={"Authorization": "Bearer zider-secret-token"},
+            )
+            self.assertEqual(missing_tenant.status_code, 403)
+
+            invalid_tenant = self.client.get(
+                "/api/prompts",
+                headers={
+                    "Authorization": "Bearer zider-secret-token",
+                    "X-Tenant-ID": "../bad-tenant",
+                },
+            )
+            self.assertEqual(invalid_tenant.status_code, 400)
+
+            upload_a = self.client.post(
+                "/api/pdf/upload",
+                headers={
+                    "Authorization": "Bearer zider-secret-token",
+                    "X-Tenant-ID": "tenant-a",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "filename": "alpha.pdf",
+                    "file_base64": base64.b64encode(b"Confidential alpha revenue report 2026").decode("utf-8"),
+                },
+            )
+            self.assertEqual(upload_a.status_code, 200)
+            doc_id = upload_a.json()["doc_id"]
+
+            # Cross-tenant query must not find tenant-a's document
+            cross_query = self.client.post(
+                "/api/pdf/query",
+                headers={
+                    "Authorization": "Bearer zider-secret-token",
+                    "X-Tenant-ID": "tenant-b",
+                },
+                json={"doc_id": doc_id, "query": "revenue", "model": "gpt-4o-mini"},
+            )
+            self.assertEqual(cross_query.status_code, 200)
+            self.assertIn("not found or expired", cross_query.json()["answer"])
+
+            # Same-tenant query succeeds
+            same_query = self.client.post(
+                "/api/pdf/query",
+                headers={
+                    "Authorization": "Bearer zider-secret-token",
+                    "X-Tenant-ID": "tenant-a",
+                },
+                json={"doc_id": doc_id, "query": "revenue", "model": "gpt-4o-mini"},
+            )
+            self.assertEqual(same_query.status_code, 200)
+            self.assertIn("alpha.pdf", same_query.json()["answer"])
 
 
 if __name__ == "__main__":

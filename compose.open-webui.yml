@@ -7,6 +7,9 @@
 #   4. Plugin & Functions Pipeline (OpenAPI Tools & MCP Allowlist)
 #   5. Multi-Model Provider Gateway (All 9 Unlocked Models)
 # ==============================================================================
+#
+# Customer-facing admission defaults are fail-closed. Supply the required
+# values from the approved secret manager before rendering or starting Compose.
 
 services:
   # ----------------------------------------------------------------------------
@@ -17,43 +20,39 @@ services:
     container_name: zworkforce-open-webui
     command: ["bash", "/app/backend/start.sh"]
     ports:
-      - "${OPEN_WEBUI_PORT:-3080}:8080"
+      - "127.0.0.1:${OPEN_WEBUI_PORT:-3080}:8080"
     environment:
       # General & Branding
       WEBUI_NAME: "zWorkforce Enterprise AI"
       WEBUI_URL: "https://chat.zeaz.dev"
-      WEBUI_SECRET_KEY: "${WEBUI_SECRET_KEY:-zwf-openwebui-secret-key-32bytes-long-token}"
+      WEBUI_SECRET_KEY: "${WEBUI_SECRET_KEY:?WEBUI_SECRET_KEY must be set}"
       ENV: "production"
       ENABLE_OLLAMA_API: "false"
       HF_HUB_OFFLINE: "1"
       TRANSFORMERS_OFFLINE: "1"
       RAG_EMBEDDING_ENGINE: ""
-      
+
       # OpenAI Compatible Gateway pointing to zWorkforce Multi-Model Router
       OPENAI_API_BASE_URL: "http://api:9569/v1"
-      OPENAI_API_KEY: "3AYBMzp9IC8x33ATtSyQa0kmQR2L0pKuZIcxiTnmkbs"
-      
-      # Code Artifacts & Interactive HTML/SVG Preview
-      ENABLE_CODE_EXECUTION: "true"
-      ENABLE_HTML_PREVIEW: "true"
-      ENABLE_ARTIFACTS: "true"
-      
-      # Plugins & Tools
-      ENABLE_FUNCTIONS: "true"
-      ENABLE_OPENAPI: "true"
+      OPENAI_API_KEY: "${OPEN_WEBUI_PROVIDER_API_KEY:?OPEN_WEBUI_PROVIDER_API_KEY must be set}"
+
+      # Untrusted execution and plugin surfaces remain disabled until their
+      # sandbox, RBAC, egress, and tenant-isolation controls pass independent tests.
+      ENABLE_CODE_EXECUTION: "false"
+      ENABLE_HTML_PREVIEW: "false"
+      ENABLE_ARTIFACTS: "false"
+      ENABLE_FUNCTIONS: "false"
+      ENABLE_OPENAPI: "false"
       ENABLE_COMMUNITY_SHARING: "false"
-      
-      # Enterprise Auth & Security
-      WEBUI_AUTH: "${WEBUI_AUTH:-true}" # Set to true when existing users are present
-      ENABLE_SIGNUP: "true"
-      DEFAULT_USER_ROLE: "admin"
-      
+
+      # Customer-facing authentication and account admission
+      WEBUI_AUTH: "true"
+      ENABLE_SIGNUP: "false"
+      DEFAULT_USER_ROLE: "pending"
+
     volumes:
       - open-webui-data:/app/backend/data
     restart: unless-stopped
-    depends_on:
-      api:
-        condition: service_started
 
 volumes:
   open-webui-data:

@@ -8,7 +8,10 @@ from typing import Annotated
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from prometheus_fastapi_instrumentator import Instrumentator
+try:
+    from prometheus_fastapi_instrumentator import Instrumentator
+except ImportError:  # pragma: no cover - optional in minimal test environments
+    Instrumentator = None  # type: ignore[assignment,misc]
 
 from . import __version__
 from .alerts import evaluate_alert
@@ -58,7 +61,7 @@ from .service import (
     submit_canonical_advisory_intent,
     trending_narratives,
 )
-from .store import AnalysisStore
+from .store import AnalysisStore, normalize_tenant_id
 from .trade_plan import build_trade_plan
 from .wallets import analyze_wallet_flows
 
@@ -70,7 +73,8 @@ app = FastAPI(
         "decision-support sidecar for zTrader."
     ),
 )
-Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
+if Instrumentator is not None:
+    Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 store = AnalysisStore()
 paper_store = PaperTradingStore()
 
@@ -95,6 +99,31 @@ def _integration_token(
 
 
 IntegrationToken = Annotated[str, Depends(_integration_token)]
+
+
+def _intel_tenant_scope(
+    tenant_id: Annotated[str | None, Header(alias="X-Tenant-ID")] = None,
+    authorization: Annotated[str | None, Header()] = None,
+    x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
+) -> str:
+    require_auth = os.getenv("ZTRADER_REQUIRE_AUTH", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    if require_auth:
+        _integration_token(authorization=authorization, x_api_key=x_api_key)
+        if not tenant_id or not tenant_id.strip():
+            raise HTTPException(status_code=400, detail="X-Tenant-ID header is required")
+
+    try:
+        return normalize_tenant_id(tenant_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid X-Tenant-ID header") from exc
+
+
+IntelTenantScope = Annotated[str, Depends(_intel_tenant_scope)]
 
 
 def _paper_tenant_scope(
@@ -172,9 +201,9 @@ def _verify_advisory_scope(
         raise HTTPException(status_code=403, detail="account scope mismatch")
 
 
-async def _record(result: IntelligenceResponse) -> IntelligenceResponse:
-    store.save(result)
-    await event_bus.publish(result.model_dump_json())
+async def _record(result: IntelligenceResponse, tenant_id: str = "default") -> IntelligenceResponse:
+    store.save(result, tenant_id=tenant_id)
+    await event_bus.publish(result.model_dump_json(), tenant_id=tenant_id)
     return result
 
 
@@ -189,13 +218,19 @@ async def health():
 
 
 @app.post("/v1/analyze", response_model=IntelligenceResponse)
-async def analyze_payload(payload: IntelligenceRequest):
-    return await _record(analyze(payload))
+async def analyze_payload(
+    payload: IntelligenceRequest,
+    tenant_id: IntelTenantScope = "default",
+):
+    return await _record(analyze(payload), tenant_id=tenant_id)
 
 
 @app.post("/v1/enrich", response_model=IntelligenceResponse)
-async def enrich(payload: IntelligenceRequest):
-    return await _record(await enrich_and_analyze(payload))
+async def enrich(
+    payload: IntelligenceRequest,
+    tenant_id: IntelTenantScope = "default",
+):
+    return await _record(await enrich_and_analyze(payload), tenant_id=tenant_id)
 
 
 @app.post("/v1/narrative/velocity", response_model=AttentionVelocity)
@@ -214,7 +249,10 @@ async def discover_candidates(payload: DiscoveryRequest):
 
 
 @app.post("/v1/discover/live", response_model=DiscoveryResponse)
-async def discover_live(payload: LiveDiscoveryRequest):
+async def discover_live(
+    payload: LiveDiscoveryRequest,
+    _tenant_id: IntelTenantScope = "default",
+):
     return await live_discovery(payload)
 
 
@@ -316,19 +354,25 @@ async def history(
     symbol: str,
     chain: str | None = None,
     limit: int = Query(default=100, ge=1, le=1000),
+    tenant_id: IntelTenantScope = "default",
 ):
-    return {"items": store.history(symbol=symbol, chain=chain, limit=limit)}
+    return {"items": store.history(symbol=symbol, chain=chain, limit=limit, tenant_id=tenant_id)}
 
 
 @app.post("/v1/watchlist")
-async def watchlist_add(payload: WatchlistEntry):
-    store.upsert_watchlist(payload)
+async def watchlist_add(
+    payload: WatchlistEntry,
+    tenant_id: IntelTenantScope = "default",
+):
+    store.upsert_watchlist(payload, tenant_id=tenant_id)
     return {"status": "stored", "entry": payload}
 
 
 @app.get("/v1/watchlist", response_model=list[WatchlistEntry])
-async def watchlist_list():
-    return store.list_watchlist()
+async def watchlist_list(
+    tenant_id: IntelTenantScope = "default",
+):
+    return store.list_watchlist(tenant_id=tenant_id)
 
 
 @app.post("/v1/integrations/zwallet/evidence")
@@ -355,10 +399,12 @@ async def canonical_advisory_submission(
 
 
 @app.get("/v1/events")
-async def events():
+async def events(
+    tenant_id: IntelTenantScope = "default",
+):
     async def stream():
         yield ": ztrader-intelligence connected\n\n"
-        async for message in event_bus.stream():
+        async for message in event_bus.stream(tenant_id=tenant_id):
             yield f"event: intelligence\ndata: {message}\n\n"
 
     return StreamingResponse(stream(), media_type="text/event-stream")

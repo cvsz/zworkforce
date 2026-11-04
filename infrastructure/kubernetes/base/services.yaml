@@ -24,9 +24,9 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: zc-api
+  name: zcoder-api
 spec:
-  selector: {app.kubernetes.io/name: zc-api}
+  selector: {app.kubernetes.io/name: zcoder-api}
   ports:
     - name: http
       port: 8420

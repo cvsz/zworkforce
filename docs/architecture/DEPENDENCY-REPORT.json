@@ -1,0 +1,43 @@
+{
+  "generated_at": "2026-11-04T22:33:02.916073+00:00",
+  "summary": {
+    "python_files_analyzed": 687,
+    "top_third_party_deps": {
+      "typing": 252,
+      "json": 233,
+      "pathlib": 194,
+      "os": 154,
+      "unittest": 150,
+      "urllib": 106,
+      "pytest": 95,
+      "re": 94,
+      "datetime": 78,
+      "dataclasses": 77,
+      "wire": 74,
+      "sys": 70,
+      "time": 68,
+      "hashlib": 68,
+      "uuid": 60,
+      "subprocess": 43,
+      "fastapi": 41,
+      "asyncio": 41,
+      "httpx": 39,
+      "threading": 37,
+      "ai": 37,
+      "app": 36,
+      "tempfile": 32,
+      "logging": 30,
+      "pydantic": 28,
+      "collections": 27,
+      "importlib": 26,
+      "argparse": 25,
+      "common": 24,
+      "http": 23
+    },
+    "internal_module_references": {
+      "zworkforce": 113,
+      "ztrader_intel": 14,
+      "zworkforce_bridge": 4
+    }
+  }
+}

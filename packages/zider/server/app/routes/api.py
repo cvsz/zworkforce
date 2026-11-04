@@ -1,5 +1,8 @@
 import base64
-from fastapi import APIRouter, Request, HTTPException
+import hmac
+import os
+import re
+from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import StreamingResponse
 from typing import Optional
 try:
@@ -61,7 +64,38 @@ except ImportError:
     from server.app.services.image_gen_service import ImageGenService
     from server.app.services.zworkforce_bridge import ZWorkforceBridge, ZWorkforceBridgeError
 
-router = APIRouter(prefix="/api")
+_TENANT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+
+
+async def verify_zider_request(request: Request) -> str:
+    expected_token = os.getenv("ZIDER_API_TOKEN", "").strip()
+    require_auth = os.getenv("ZIDER_REQUIRE_AUTH", "").strip().lower() in ("1", "true", "yes")
+    if expected_token or require_auth:
+        auth_header = request.headers.get("authorization", "")
+        scheme, _, token = auth_header.partition(" ")
+        if scheme.lower() != "bearer" or not expected_token or not token or not hmac.compare_digest(token, expected_token):
+            raise HTTPException(status_code=401, detail="Invalid or missing Zider API bearer token")
+
+    raw_tenant = (
+        request.headers.get("x-authenticated-tenant")
+        or request.headers.get("x-tenant-id")
+        or ""
+    ).strip()
+    require_tenant = os.getenv("ZIDER_REQUIRE_TENANT", "").strip().lower() in ("1", "true", "yes")
+    if not raw_tenant:
+        if require_tenant:
+            raise HTTPException(status_code=403, detail="Authenticated tenant identity is required")
+        tenant_id = "default"
+    else:
+        if not _TENANT_ID_RE.fullmatch(raw_tenant):
+            raise HTTPException(status_code=400, detail="Invalid tenant identifier")
+        tenant_id = raw_tenant
+
+    request.state.tenant_id = tenant_id
+    return tenant_id
+
+
+router = APIRouter(prefix="/api", dependencies=[Depends(verify_zider_request)])
 
 
 @router.post("/chat/stream")
@@ -182,6 +216,7 @@ async def summarize_webpage(req: SummarizeRequest):
 async def upload_pdf(request: Request):
     content_type = request.headers.get("content-type", "")
     filename = request.headers.get("x-filename", "uploaded.pdf")
+    tenant_id = getattr(request.state, "tenant_id", "default")
 
     if "application/json" in content_type:
         body = await request.json()
@@ -191,15 +226,17 @@ async def upload_pdf(request: Request):
     else:
         content = await request.body()
 
-    return await PDFService.process_pdf(content, filename)
+    return await PDFService.process_pdf(content, filename, tenant_id=tenant_id)
 
 
 @router.post("/pdf/query")
-async def query_pdf(req: PdfQueryRequest):
+async def query_pdf(req: PdfQueryRequest, request: Request):
+    tenant_id = getattr(request.state, "tenant_id", "default")
     return await PDFService.query_doc(
         doc_id=req.doc_id,
         query=req.query,
-        model=req.model
+        model=req.model,
+        tenant_id=tenant_id,
     )
 
 
