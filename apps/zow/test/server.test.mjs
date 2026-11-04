@@ -56,3 +56,27 @@ test("API propagates runtime rejection without local execution", async () => {
   assert.equal(response.status, 400);
   assert.deepEqual(await response.json(), { error: "shell requires explicit approval" });
 });
+
+test("API enforces ZOW_OPERATOR_TOKEN when configured", async () => {
+  const gatedEnv = { ...env, ZOW_OPERATOR_TOKEN: "operator-secret" };
+  const server = createZowServer({
+    env: gatedEnv,
+    fetchImpl: async () => Response.json({ status: "validated" }),
+  });
+  const unauth = await request(server, "/api/projects/validate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: "p1", files: [] }),
+  });
+  assert.equal(unauth.status, 401);
+
+  const authed = await request(createZowServer({
+    env: gatedEnv,
+    fetchImpl: async () => Response.json({ status: "validated" }),
+  }), "/api/projects/validate", {
+    method: "POST",
+    headers: { Authorization: "Bearer operator-secret", "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: "p1", files: [] }),
+  });
+  assert.equal(authed.status, 200);
+});

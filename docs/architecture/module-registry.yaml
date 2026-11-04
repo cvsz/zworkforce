@@ -1,0 +1,275 @@
+modules:
+
+  # ── Core Python Control Plane ──────────────────────────────────────────────
+  - id: zworkforce
+    path: zworkforce/
+    language: python
+    type: control_plane
+    owner: cvsz
+    description: >
+      Core zWorkforce Python control plane: API, scheduler, worker, outbox,
+      repository, MCP server, auth/RBAC, telemetry, and plugin runtime.
+    canonical: true
+    release_scope: v3.0.4 required / complete
+    ci_checks:
+      - python-compile
+      - unit-tests
+      - zworkforce-doctor
+    notes: Canonical entry point. Do not duplicate logic into apps/ or packages/.
+
+  # ── Python Packages ────────────────────────────────────────────────────────
+  - id: ztrader_intel
+    path: packages/ztrader/zeaz-intelligence/
+    language: python
+    type: service_package
+    owner: cvsz
+    description: >
+      zTrader Intelligence sidecar: narrative analysis, discovery, smart-money,
+      rug-risk scoring, portfolio, paper trading, backtest, and SSE event bus.
+      Tenant-isolated store (AnalysisStore) and EventBus (per-tenant SSE).
+    canonical: true
+    release_scope: forward roadmap
+    drift_notes: Tenant isolation added 2026-11-05 (store.py, events.py, api.py).
+
+  - id: zider
+    path: packages/zider/
+    language: python
+    type: browser_companion
+    owner: cvsz
+    description: >
+      Browser companion / AI sidebar. FastAPI BFF with tenant-scoped PDF store,
+      Playwright executor (approve-gated), multi-model router, and zWorkforce bridge.
+    canonical: true
+    release_scope: forward roadmap
+    drift_notes: Auth + CORS + tenant PDF isolation hardened 2026-11-05.
+
+  - id: zarvis
+    path: packages/zarvis/
+    language: mixed
+    type: platform_package
+    owner: cvsz
+    description: >
+      Z.A.R.V.I.S. platform: voice gateway (Gemini Live), session/task orchestrator,
+      memory, perception, proactive, action gateway, Windows client, zctl CLI.
+      CANONICAL source for zarvis-* services — services/ directories are mirrors.
+    canonical: true
+    release_scope: forward roadmap
+    notes: >
+      packages/zarvis/services/* is ahead of services/* for orchestrator and task-gateway.
+      Do not use services/ as source of truth for Z.A.R.V.I.S. components.
+
+  - id: zeto
+    path: packages/zeto/
+    language: javascript
+    type: content_factory
+    owner: cvsz
+    description: >
+      Zeto AI Content Factory: ProMeta prompt compiler, multi-platform publishing,
+      QA scorecard, M12 tool registry.
+    canonical: true
+    release_scope: forward roadmap
+    dead_files:
+      - packages/zeto/test.txt
+      - packages/zeto/test_out.txt
+      - packages/zeto/test/operatorApi.integration.test.js.bak
+      - packages/zeto/test/operatorRuntime.integration.test.js.bak
+
+  - id: zsp_aitool
+    path: packages/zsp-aitool/
+    language: typescript
+    type: web_app
+    owner: cvsz
+    description: >
+      ZSP AI Tool: Next.js app with admin, analytics, content, affiliate, render,
+      and hyperframe pipelines. Uses Prisma + PostgreSQL.
+    canonical: true
+    release_scope: forward roadmap
+
+  - id: wall_street
+    path: packages/wall-street/
+    language: javascript
+    type: service_package
+    owner: cvsz
+    description: >
+      Wall Street trading signal service (Node.js).
+    canonical: true
+    release_scope: forward roadmap
+
+  - id: contracts
+    path: packages/contracts/
+    language: typescript
+    type: shared_types
+    owner: cvsz
+    description: >
+      Shared TypeScript type contracts for Z.A.R.V.I.S. inter-service communication.
+    canonical: true
+    release_scope: forward roadmap
+
+  # ── Services ───────────────────────────────────────────────────────────────
+  - id: ai_gateway
+    path: services/ai-gateway/
+    language: javascript
+    type: microservice
+    owner: cvsz
+    description: >
+      AI provider gateway: reverse proxy to Anthropic/OpenAI with tenant-scoped
+      rate-limiting, Redis key pools, and request tracking.
+    canonical: true
+    release_scope: v3.0.4 required / complete
+    drift_notes: Tenant isolation hardened 2026-11-05.
+
+  - id: billing_ledger
+    path: services/billing-ledger/
+    language: javascript
+    type: microservice
+    owner: cvsz
+    description: >
+      Durable billing ledger: Node.js with SQLite (default) or PostgreSQL (production).
+      Idempotent credit deduction, tenant-scoped balances and transactions.
+    canonical: true
+    release_scope: v3.0.4 required / complete
+    drift_notes: PostgreSQL durable store added 2026-11-05.
+
+  - id: workspace_runtime
+    path: services/workspace-runtime/
+    language: javascript
+    type: microservice
+    owner: cvsz
+    description: >
+      Workspace code execution runtime: sandboxed project validation/generation
+      with four-eyes HMAC approval gate.
+    canonical: true
+    release_scope: v3.0.4 required / complete
+    drift_notes: Four-eyes authorization hardened 2026-11-05.
+
+  - id: zarvis_services_mirror
+    path: services/zarvis-*/
+    language: mixed
+    type: mirror
+    owner: cvsz
+    description: >
+      Mirror copies of packages/zarvis/services/*. The packages/zarvis/ versions
+      are canonical and ahead for zarvis-orchestrator and zarvis-task-gateway.
+    canonical: false
+    canonical_source: packages/zarvis/services/
+    release_scope: forward roadmap
+    notes: >
+      Do not independently modify services/zarvis-* without syncing packages/zarvis/services/.
+      zarvis-action-gateway, zarvis-memory, zarvis-perception, zarvis-proactive are identical.
+      zarvis-orchestrator: packages/zarvis has live_voice.mjs, skill-catalog.mjs (extra).
+      zarvis-task-gateway: packages/zarvis has durable-adapters.mjs, orchestrator-core.mjs (extra).
+
+  - id: zc_service
+    path: services/zc/
+    language: python
+    type: microservice
+    owner: cvsz
+    description: >
+      ZCoder service: AI coding assistant wire protocol and workspace tool execution.
+    canonical: true
+    release_scope: forward roadmap
+
+  # ── Applications ──────────────────────────────────────────────────────────
+  - id: zarvis_console
+    path: apps/zarvis-console/
+    language: javascript
+    type: web_app
+    owner: cvsz
+    description: Z.A.R.V.I.S. web console (voice + dashboard UI).
+    canonical: false
+    canonical_source: packages/zarvis/apps/zarvis-console/
+    notes: Check drift before modifying.
+
+  - id: zchat
+    path: apps/zchat/
+    language: javascript
+    type: web_app
+    owner: cvsz
+    description: ZChat browser chat application.
+    canonical: true
+    release_scope: forward roadmap
+
+  - id: zow
+    path: apps/zow/
+    language: javascript
+    type: web_app
+    owner: cvsz
+    description: >
+      ZOW operator workbench. Four-eyes approval gate for workspace/deploy mutations.
+    canonical: true
+    release_scope: v3.0.4 required / complete
+    drift_notes: Operator token gate hardened 2026-11-05.
+
+  - id: zwallet
+    path: apps/zwallet/
+    language: javascript
+    type: web_app
+    owner: cvsz
+    description: ZWallet crypto wallet frontend.
+    canonical: true
+    release_scope: forward roadmap
+
+  - id: zaicoder
+    path: apps/zaicoder/
+    language: mixed
+    type: web_app
+    owner: cvsz
+    description: ZAICoder IDE frontend + backend.
+    canonical: true
+    release_scope: forward roadmap
+
+  # ── Windows Client ─────────────────────────────────────────────────────────
+  - id: zworkforce_client
+    path: ZWorkforceClient/
+    language: csharp
+    type: windows_client
+    owner: cvsz
+    description: >
+      Windows native WinUI 3 client (.NET). Displays control-plane dashboard,
+      task management, and agent status. MSIX signed release.
+    canonical: true
+    release_scope: v3.0.4 required / complete
+
+  # ── Infrastructure ─────────────────────────────────────────────────────────
+  - id: kubernetes
+    path: infrastructure/kubernetes/
+    language: yaml
+    type: infrastructure
+    owner: cvsz
+    description: >
+      Kubernetes base + production overlay (kustomize). Deployments, services,
+      PodDisruptionBudgets. All resource IDs are now unique (zcoder-api vs zc-api).
+    canonical: true
+    release_scope: external evidence
+    drift_notes: Duplicate zc-api resource IDs fixed 2026-11-05.
+
+  - id: cloudflare_terraform
+    path: infrastructure/terraform/cloudflare/
+    language: terraform
+    type: infrastructure
+    owner: cvsz
+    description: >
+      Cloudflare DNS, Access, and Tunnel Terraform configuration.
+      PostgreSQL direct ingress removed 2026-11-05.
+    canonical: true
+    release_scope: external evidence
+
+  - id: deploy_caddy
+    path: deploy/caddy/
+    language: caddyfile
+    type: infrastructure
+    owner: cvsz
+    description: >
+      Caddy reverse proxy configuration. Open WebUI bound to 127.0.0.1 only.
+    canonical: true
+    release_scope: v3.0.4 required / complete
+
+  - id: deploy_cloudflare_tunnel
+    path: deploy/cloudflare/
+    language: yaml
+    type: infrastructure
+    owner: cvsz
+    description: >
+      Cloudflare tunnel ingress YAML. PostgreSQL route removed 2026-11-05.
+    canonical: true
+    release_scope: v3.0.4 required / complete

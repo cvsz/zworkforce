@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
@@ -8,6 +9,17 @@ const defaultPort = Number(process.env.PORT || 3030);
 function send(response, status, body, type = "application/json; charset=utf-8") {
   response.writeHead(status, { "Content-Type": type });
   response.end(body);
+}
+
+function verifyOperatorAuth(request, env) {
+  const expected = env.ZOW_OPERATOR_TOKEN;
+  const requireAuth = env.ZOW_REQUIRE_AUTH === "true" || Boolean(expected);
+  if (!requireAuth) return true;
+  if (!expected) return false;
+  const supplied = request.headers.authorization?.replace(/^Bearer\s+/i, "") || "";
+  const a = Buffer.from(supplied);
+  const b = Buffer.from(expected);
+  return supplied.length > 0 && a.length === b.length && timingSafeEqual(a, b);
 }
 
 async function readJson(request) {
@@ -55,6 +67,9 @@ export function createZowServer({ env = process.env, fetchImpl = fetch } = {}) {
     try {
       if (request.method === "GET" && request.url === "/health") {
         return send(response, 200, JSON.stringify({ status: "ok", service: "zow", runtime_configured: Boolean(env.Z_PLATFORM_WORKSPACE_RUNTIME_URL && env.Z_PLATFORM_SERVICE_TOKEN) }));
+      }
+      if (request.url?.startsWith("/api/") && !verifyOperatorAuth(request, env)) {
+        return send(response, 401, JSON.stringify({ error: "Unauthorized" }));
       }
       if (request.method === "POST" && request.url === "/api/projects/validate") return send(response, 200, JSON.stringify(await validateProject(await readJson(request), env, fetchImpl)));
       if (request.method === "POST" && request.url === "/api/shell") return send(response, 202, JSON.stringify(await requestShell(await readJson(request), env, fetchImpl)));

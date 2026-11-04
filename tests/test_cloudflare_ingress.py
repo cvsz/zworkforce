@@ -229,6 +229,12 @@ class CloudflareIngressTests(unittest.TestCase):
             "each allowlist entry must match one exact address",
         )
 
+    def test_tunnel_ingress_never_exposes_postgresql_port(self):
+        for manifest in (INGRESS, INGRESS_EXAMPLE, TERRAFORM):
+            content = manifest.read_text(encoding="utf-8")
+            self.assertNotIn(":5432", content)
+            self.assertNotIn("/postgres", content)
+
 
 if __name__ == "__main__":
     unittest.main()

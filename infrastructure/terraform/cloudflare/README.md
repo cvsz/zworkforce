@@ -32,8 +32,7 @@ the origin is not published as a directly reachable DNS target.
 - Ollama (`/ollama/*`) → `127.0.0.1:11434`
 - LiteLLM (`/litellm/*`) → `127.0.0.1:4000`
 - Open WebUI (`/open-webui/*`) → `127.0.0.1:3000`
-- PostgreSQL (`/postgres/*`) → `127.0.0.1:5432`
-ทุก service ต้อง bind เฉพาะ loopback ห้ามชี้ Tunnel ตรงไปยัง service ภายนอกที่ไม่ใช่ loopback
+ทุก service ต้อง bind เฉพาะ loopback ห้ามชี้ Tunnel ตรงไปยัง service ภายนอกที่ไม่ใช่ loopback และห้ามเปิดพอร์ตฐานข้อมูล PostgreSQL (`5432`) ผ่าน Cloudflare Tunnel เด็ดขาด
 
 ## Safe setup
 

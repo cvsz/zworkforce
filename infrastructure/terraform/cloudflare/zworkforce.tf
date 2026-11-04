@@ -57,17 +57,6 @@ variable "zwsl_openwebui_origin" {
   }
 }
 
-variable "zwsl_postgres_origin" {
-  type        = string
-  default     = "http://127.0.0.1:5432"
-  description = "Loopback origin for PostgreSQL under zwsl.zeaz.dev (loopback-only, no public exposure)."
-
-  validation {
-    condition     = can(regex("^http://127\\.0\\.0\\.1:[0-9]+$", var.zwsl_postgres_origin))
-    error_message = "zwsl_postgres_origin must use a loopback address."
-  }
-}
-
 variable "zwf_hostname" {
   type        = string
   default     = "zwf.zeaz.dev"
@@ -202,7 +191,6 @@ locals {
     { hostname = var.zwsl_hostname, path = "^/ollama(/.*)?$", service = var.zwsl_ollama_origin },
     { hostname = var.zwsl_hostname, path = "^/litellm(/.*)?$", service = var.zwsl_litellm_origin },
     { hostname = var.zwsl_hostname, path = "^/open-webui(/.*)?$", service = var.zwsl_openwebui_origin },
-    { hostname = var.zwsl_hostname, path = "^/postgres(/.*)?$", service = var.zwsl_postgres_origin },
     { hostname = var.zwsl_hostname, service = var.zwsl_origin },
   ]
 

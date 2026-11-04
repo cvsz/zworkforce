@@ -8,7 +8,7 @@ import pino from 'pino';
 import pinoHttp from 'pino-http';
 import dotenv from 'dotenv';
 import { rateLimit } from 'express-rate-limit';
-import { corsConfig, rateLimitConfig } from './security-config.mjs';
+import { corsConfig, rateLimitConfig, resolveTenantId } from './security-config.mjs';
 
 dotenv.config();
 
@@ -16,7 +16,11 @@ dotenv.config();
 const logger = pino({
   level: process.env.LOG_LEVEL || 'info',
   redact: {
-    paths: ['req.headers.authorization', 'req.headers["x-api-key"]'],
+    paths: [
+      'req.headers.authorization',
+      'req.headers["x-api-key"]',
+      'req.headers["x-tenant-assertion-signature"]'
+    ],
     censor: '[REDACTED]'
   }
 });
@@ -32,10 +36,39 @@ async function seedProviderKeys(redisClient, appLogger = logger) {
   }
   if (!configured || typeof configured !== 'object') return;
   for (const [provider, values] of Object.entries(configured)) {
+    if (provider === 'tenants' && values && typeof values === 'object' && !Array.isArray(values)) {
+      for (const [tenantId, tenantProviders] of Object.entries(values)) {
+        if (!tenantProviders || typeof tenantProviders !== 'object') continue;
+        for (const [tenantProvider, tenantKeys] of Object.entries(tenantProviders)) {
+          const keys = Array.isArray(tenantKeys) ? tenantKeys : [tenantKeys];
+          const usable = keys.filter((value) => typeof value === 'string' && value.trim());
+          if (usable.length) {
+            await redisClient.sadd(`tenant:${tenantId}:provider:${tenantProvider}:active_keys`, ...usable);
+          }
+        }
+      }
+      continue;
+    }
     const keys = Array.isArray(values) ? values : [values];
     const usable = keys.filter((value) => typeof value === 'string' && value.trim());
     if (usable.length) await redisClient.sadd(`provider:${provider}:active_keys`, ...usable);
   }
+}
+
+async function selectProviderKey(redisClient, provider, tenantId) {
+  if (tenantId && tenantId !== 'default') {
+    const tenantPrefix = `tenant:${tenantId}:provider:${provider}`;
+    const tenantKey = await redisClient.srandmember(`${tenantPrefix}:active_keys`);
+    if (tenantKey) {
+      return { key: tenantKey, poolPrefix: tenantPrefix };
+    }
+    if (process.env.AI_GATEWAY_ALLOW_SHARED_PROVIDER_KEYS === 'false') {
+      return { key: null, poolPrefix: tenantPrefix };
+    }
+  }
+  const sharedPrefix = `provider:${provider}`;
+  const sharedKey = await redisClient.srandmember(`${sharedPrefix}:active_keys`);
+  return { key: sharedKey, poolPrefix: sharedPrefix };
 }
 
 export function createGatewayApp({ redis, fetchImpl = globalThis.fetch, logger: appLogger = logger } = {}) {
@@ -62,6 +95,13 @@ export function createGatewayApp({ redis, fetchImpl = globalThis.fetch, logger: 
       appLogger.warn({ ip: req.ip }, 'Unauthorized access attempt');
       return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid or missing service token' } });
     }
+    const tenant = resolveTenantId(req, process.env);
+    if (!tenant.ok) {
+      appLogger.warn({ ip: req.ip, code: tenant.code }, 'Tenant isolation check failed');
+      return res.status(tenant.status).json({ error: { code: tenant.code, message: tenant.message } });
+    }
+    req.tenantId = tenant.tenantId;
+    res.setHeader('x-tenant-id', tenant.tenantId);
     next();
   };
 
@@ -121,10 +161,10 @@ export function createGatewayApp({ redis, fetchImpl = globalThis.fetch, logger: 
         return;
       }
 
-      const key = await redisClient.srandmember(`provider:${provider}:active_keys`);
+      const { key, poolPrefix } = await selectProviderKey(redisClient, provider, req.tenantId);
 
       if (!key) {
-        appLogger.error({ provider }, 'No active keys available in pool');
+        appLogger.error({ provider, tenantId: req.tenantId }, 'No active keys available in pool');
         return res.status(503).json({ error: { code: 'SERVICE_UNAVAILABLE', message: 'No upstream provider keys available' } });
       }
 
@@ -172,17 +212,17 @@ export function createGatewayApp({ redis, fetchImpl = globalThis.fetch, logger: 
         }
 
         if (response.status === 429) {
-          await redisClient.srem(`provider:${provider}:active_keys`, key);
-          await redisClient.set(`provider:${provider}:cooldown_keys:${key}`, 'cooldown', 'EX', 3600);
-          appLogger.warn({ provider, attempt }, 'Anthropic rate limit hit (429). Key rotated to cooldown.');
+          await redisClient.srem(`${poolPrefix}:active_keys`, key);
+          await redisClient.set(`${poolPrefix}:cooldown_keys:${key}`, 'cooldown', 'EX', 3600);
+          appLogger.warn({ provider, tenantId: req.tenantId, attempt }, 'Anthropic rate limit hit (429). Key rotated to cooldown.');
           lastError = { status: 429, message: 'Upstream rate limit' };
           continue;
         }
 
         if (response.status === 401 || response.status === 403) {
-          await redisClient.srem(`provider:${provider}:active_keys`, key);
-          await redisClient.sadd(`provider:${provider}:invalid_keys`, key);
-          appLogger.warn({ provider, attempt, status: response.status }, 'Anthropic key invalid. Permanently removed.');
+          await redisClient.srem(`${poolPrefix}:active_keys`, key);
+          await redisClient.sadd(`${poolPrefix}:invalid_keys`, key);
+          appLogger.warn({ provider, tenantId: req.tenantId, attempt, status: response.status }, 'Anthropic key invalid. Permanently removed.');
           lastError = { status: response.status, message: 'Upstream authentication failed' };
           continue;
         }
@@ -233,10 +273,10 @@ export function createGatewayApp({ redis, fetchImpl = globalThis.fetch, logger: 
         return;
       }
 
-      const key = await redisClient.srandmember(`provider:${provider}:active_keys`);
+      const { key, poolPrefix } = await selectProviderKey(redisClient, provider, req.tenantId);
 
       if (!key) {
-        appLogger.error({ provider }, 'No active keys available in pool');
+        appLogger.error({ provider, tenantId: req.tenantId }, 'No active keys available in pool');
         return res.status(503).json({ error: { code: 'SERVICE_UNAVAILABLE', message: 'No upstream provider keys available' } });
       }
 
@@ -270,15 +310,15 @@ export function createGatewayApp({ redis, fetchImpl = globalThis.fetch, logger: 
             return res.status(200).json(data);
           }
         } else if (response.status === 429) {
-          await redisClient.srem(`provider:${provider}:active_keys`, key);
-          await redisClient.set(`provider:${provider}:cooldown_keys:${key}`, 'cooldown', 'EX', 3600);
-          appLogger.warn({ provider, attempt }, 'Rate limit hit (429). Key rotated to cooldown.');
+          await redisClient.srem(`${poolPrefix}:active_keys`, key);
+          await redisClient.set(`${poolPrefix}:cooldown_keys:${key}`, 'cooldown', 'EX', 3600);
+          appLogger.warn({ provider, tenantId: req.tenantId, attempt }, 'Rate limit hit (429). Key rotated to cooldown.');
           lastError = { status: 429, message: 'Upstream rate limit' };
           continue;
         } else if (response.status === 401 || response.status === 403) {
-          await redisClient.srem(`provider:${provider}:active_keys`, key);
-          await redisClient.sadd(`provider:${provider}:invalid_keys`, key);
-          appLogger.warn({ provider, attempt, status: response.status }, 'Key invalid. Permanently removed.');
+          await redisClient.srem(`${poolPrefix}:active_keys`, key);
+          await redisClient.sadd(`${poolPrefix}:invalid_keys`, key);
+          appLogger.warn({ provider, tenantId: req.tenantId, attempt, status: response.status }, 'Key invalid. Permanently removed.');
           lastError = { status: response.status, message: 'Upstream authentication failed' };
           continue;
         } else {

@@ -192,3 +192,77 @@ test('Anthropic Messages transport rejects malformed requests before upstream se
     if (server) await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test('Gateway isolates provider key selection per tenant and fails closed when AI_GATEWAY_REQUIRE_TENANT is enabled', async () => {
+  const previousToken = process.env.Z_PLATFORM_SERVICE_TOKEN;
+  const previousRequireTenant = process.env.AI_GATEWAY_REQUIRE_TENANT;
+  const previousAllowShared = process.env.AI_GATEWAY_ALLOW_SHARED_PROVIDER_KEYS;
+  process.env.Z_PLATFORM_SERVICE_TOKEN = 'test-service-token';
+  process.env.AI_GATEWAY_REQUIRE_TENANT = 'true';
+  process.env.AI_GATEWAY_ALLOW_SHARED_PROVIDER_KEYS = 'false';
+  let server;
+  const lookedUpPools = [];
+  const usedApiKeys = [];
+
+  try {
+    const redis = {
+      on() {},
+      async srandmember(pool) {
+        lookedUpPools.push(pool);
+        if (pool === 'tenant:acme:provider:anthropic:active_keys') {
+          return 'acme-dedicated-anthropic-key';
+        }
+        return null;
+      },
+      async srem() {},
+      async set() {},
+      async sadd() {}
+    };
+
+    const { app } = createGatewayApp({
+      redis,
+      fetchImpl: async (_url, options = {}) => {
+        usedApiKeys.push(options.headers['x-api-key']);
+        return new Response(JSON.stringify({ id: 'msg_acme', content: [] }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        });
+      },
+      logger: createSilentLogger()
+    });
+
+    server = app.listen(0);
+    await once(server, 'listening');
+    const { port } = server.address();
+
+    const missingTenant = await postJson(port, '/v1/messages', {
+      model: 'claude-sonnet-5',
+      max_tokens: 64,
+      messages: [{ role: 'user', content: 'hi' }]
+    });
+    assert.equal(missingTenant.status, 403);
+    assert.equal(missingTenant.body.error.code, 'TENANT_REQUIRED');
+
+    const unprovisionedTenant = await postJson(port, '/v1/messages', {
+      model: 'claude-sonnet-5',
+      max_tokens: 64,
+      messages: [{ role: 'user', content: 'hi' }]
+    }, { 'x-authenticated-tenant': 'other-tenant' });
+    assert.equal(unprovisionedTenant.status, 503);
+
+    const acmeResponse = await postJson(port, '/v1/messages', {
+      model: 'claude-sonnet-5',
+      max_tokens: 64,
+      messages: [{ role: 'user', content: 'hi' }]
+    }, { 'x-authenticated-tenant': 'acme' });
+    assert.equal(acmeResponse.status, 200);
+    assert.equal(acmeResponse.headers.get('x-tenant-id'), 'acme');
+    assert.deepEqual(usedApiKeys, ['acme-dedicated-anthropic-key']);
+    assert.ok(lookedUpPools.includes('tenant:acme:provider:anthropic:active_keys'));
+  } finally {
+    restoreEnv('Z_PLATFORM_SERVICE_TOKEN', previousToken);
+    restoreEnv('AI_GATEWAY_REQUIRE_TENANT', previousRequireTenant);
+    restoreEnv('AI_GATEWAY_ALLOW_SHARED_PROVIDER_KEYS', previousAllowShared);
+    if (server) await new Promise((resolve) => server.close(resolve));
+  }
+});
