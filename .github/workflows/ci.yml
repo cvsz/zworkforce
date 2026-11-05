@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: ghcr.io/cvsz/zwf/zpostgresql:latest
+        image: postgres:17-alpine
         env:
           POSTGRES_DB: zksato_test
           POSTGRES_USER: zksato
@@ -216,7 +216,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: ghcr.io/cvsz/zwf/zpostgresql:latest
+        image: postgres:17-alpine
         env:
           POSTGRES_USER: zworkforce
           POSTGRES_PASSWORD: zworkforce
@@ -246,7 +246,7 @@ jobs:
           set -euo pipefail
           restore_url="${ZWORKFORCE_TEST_POSTGRES_URL%/zworkforce_ci}/zworkforce_restore"
           docker run --rm --network host \
-            ghcr.io/cvsz/zwf/zpostgresql:latest \
+            postgres:17-alpine \
             psql "$ZWORKFORCE_TEST_POSTGRES_URL" -v ON_ERROR_STOP=1 -c 'CREATE DATABASE zworkforce_restore'
           ZWORKFORCE_DATABASE_URL="$ZWORKFORCE_TEST_POSTGRES_URL" PYTHONPATH=. python - <<'PY'
           import os
@@ -265,7 +265,7 @@ jobs:
             -v "$PWD:/workspace" \
             -v "$backup_dir:$backup_dir" \
             -w /workspace \
-            ghcr.io/cvsz/zwf/zpostgresql:latest \
+            postgres:17-alpine \
             bash scripts/backup-postgres.sh "$backup_path"
           test -s "$backup_path"
           test -s "$backup_path.sha256"
@@ -275,7 +275,7 @@ jobs:
             -v "$PWD:/workspace" \
             -v "$backup_dir:$backup_dir" \
             -w /workspace \
-            ghcr.io/cvsz/zwf/zpostgresql:latest \
+            postgres:17-alpine \
             bash scripts/restore-postgres.sh "$backup_path"
           ZWORKFORCE_DATABASE_URL="$restore_url" PYTHONPATH=. python - <<'PY'
           import os
