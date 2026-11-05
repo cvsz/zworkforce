@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:17-alpine
+    image: ${ZWORKFORCE_POSTGRES_IMAGE:-zwf/zpostgresql:latest}
     environment:
       POSTGRES_DB: zworkforce
       POSTGRES_USER: zworkforce
