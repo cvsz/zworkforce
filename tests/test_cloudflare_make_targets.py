@@ -91,6 +91,35 @@ printf '%s\\n' "$@" > "$CAPTURE_FILE"
         self.assertIn("set approved_plan_sha256", result.stderr)
         self.assertFalse(self.invocation_marker.exists())
 
+    def test_explicit_make_approval_overrides_ambient_environment_value(self) -> None:
+        ambient_digest = "b" * 64
+        self.env["CLOUDFLARE_APPROVED_PLAN_SHA256"] = ambient_digest
+        result = self.run_make(
+            "cloudflare-apply",
+            f"approved_plan_sha256={APPROVAL_DIGEST}",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(self.invocation_marker.exists())
+        self.assertEqual(
+            self.capture_file.read_text(encoding="utf-8").splitlines(),
+            [
+                "--apply",
+                "--plan-file",
+                "infrastructure/terraform/cloudflare/tfplan",
+                "--approved-plan-sha256",
+                APPROVAL_DIGEST,
+            ],
+        )
+
+    def test_ambient_approval_environment_alone_is_not_authorization(self) -> None:
+        self.env["CLOUDFLARE_APPROVED_PLAN_SHA256"] = APPROVAL_DIGEST
+        result = self.run_make("cloudflare-apply")
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("set approved_plan_sha256", result.stderr)
+        self.assertFalse(self.invocation_marker.exists())
+
 
 if __name__ == "__main__":
     unittest.main()
