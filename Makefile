@@ -199,19 +199,21 @@ stage-f:
 
 CLOUDFLARE_STACK := infrastructure/terraform/cloudflare
 CLOUDFLARE_PLAN_FILE ?= $(CLOUDFLARE_STACK)/tfplan
-CLOUDFLARE_APPROVED_PLAN_SHA256 ?= $(approved_plan_sha256)
+# Ignore an ambient CLOUDFLARE_APPROVED_PLAN_SHA256 value. The documented
+# approved_plan_sha256 make variable is the sole approval input for this target.
+override CLOUDFLARE_APPROVED_PLAN_SHA256 := $(approved_plan_sha256)
 export CLOUDFLARE_PLAN_FILE CLOUDFLARE_APPROVED_PLAN_SHA256
 
 # Plan creation is non-applying and skips DNS import/reconciliation by default.
 # Use scripts/cloudflare-apply.sh directly for an explicitly reviewed reconciliation mode.
 cloudflare-plan:
-	@./scripts/cloudflare-apply.sh --skip-import --plan-file "$${CLOUDFLARE_PLAN_FILE}"
+	@./scripts/cloudflare-apply.sh --skip-import --plan-file "${CLOUDFLARE_PLAN_FILE}"
 
 # Never apply from this Make target directly. The canonical wrapper verifies the
 # operator approval manifest, exact plan bytes, target, workspace, backend and config.
 cloudflare-apply:
-	@test -n "$${CLOUDFLARE_APPROVED_PLAN_SHA256:-}" || { echo "set approved_plan_sha256=<64-char approval digest from the reviewed plan>" >&2; exit 2; }
-	@./scripts/cloudflare-apply.sh --apply --plan-file "$${CLOUDFLARE_PLAN_FILE}" --approved-plan-sha256 "$${CLOUDFLARE_APPROVED_PLAN_SHA256}"
+	@test -n "${CLOUDFLARE_APPROVED_PLAN_SHA256:-}" || { echo "set approved_plan_sha256=<64-char approval digest from the reviewed plan>" >&2; exit 2; }
+	@./scripts/cloudflare-apply.sh --apply --plan-file "${CLOUDFLARE_PLAN_FILE}" --approved-plan-sha256 "${CLOUDFLARE_APPROVED_PLAN_SHA256}"
 
 cloudflare-status:
 	@echo "=== Cloudflare stack files ==="
