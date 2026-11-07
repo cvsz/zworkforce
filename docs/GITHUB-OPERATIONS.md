@@ -102,6 +102,23 @@ and regression-tested by `tests/test_repository_policy.py`. If a workflow or
 job is added, renamed, path-filtered, or removed, update the ruleset contract,
 this table, and the policy test in the same pull request.
 
+### Independent reviewer credential boundary
+
+There is deliberately no automated review, approval, or PR auto-fix workflow.
+The independent reviewer identity `policedbc` must submit a deliberate human
+review through GitHub after inspecting the exact final head and its evidence.
+Only the authorized merge account `cvsz` may merge after all enforced checks,
+review, CODEOWNERS, and governance gates pass.
+
+Never store a reviewer PAT or GPG signing secret in a workflow that checks out,
+parses, or executes PR-controlled source. PR validation must be secretless,
+read-only, and use `persist-credentials: false`. A workflow that only requests
+a reviewer using the event's PR number may use the minimum `pull-requests: write`
+permission, but must not check out PR code, post reviews, approve, merge, or
+access reviewer credentials. Credential revocation/rotation and audit-log
+review are separate operator actions; deleting a workflow does not rotate a
+previously issued token.
+
 ## Dependency maintenance
 
 Dependabot coverage is declared in `.github/dependabot.yml` for:
