@@ -25,6 +25,7 @@ locals {
     { hostname = var.zksato_api_hostname, service = var.zksato_api_origin },
     { hostname = var.zksato_dash_hostname, service = var.zksato_dash_origin },
     { hostname = var.llmwiki_hostname, service = var.llmwiki_origin },
+    { hostname = var.zedge_hostname, service = var.zedge_origin },
   ]
   tunnel_id_compact = lower(replace(var.cloudflare_tunnel_id, "-", ""))
   tunnel_uuid = format(
@@ -222,6 +223,16 @@ resource "cloudflare_dns_record" "core" {
   ttl     = 1
   proxied = false
   comment = "Windows build host private IP"
+}
+
+resource "cloudflare_dns_record" "zedge" {
+  zone_id = var.cloudflare_zone_id
+  name    = var.zedge_hostname
+  type    = "CNAME"
+  content = local.tunnel_cname
+  ttl     = 1
+  proxied = true
+  comment = "Zedge console via Cloudflare Tunnel"
 }
 
 resource "cloudflare_dns_record" "zttato" {

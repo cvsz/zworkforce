@@ -465,3 +465,23 @@ variable "zttato_origin" {
     error_message = "zttato_origin must use a loopback address."
   }
 }
+
+variable "zedge_hostname" {
+  type        = string
+  default     = "zedge.zeaz.dev"
+  description = "Public hostname for the Zedge console."
+  validation {
+    condition     = endswith(lower(var.zedge_hostname), ".${lower(var.zone_name)}")
+    error_message = "zedge_hostname must be a subdomain of zone_name."
+  }
+}
+
+variable "zedge_origin" {
+  type        = string
+  default     = "http://127.0.0.1:15787"
+  description = "Loopback origin for Zedge console (reverse proxy port 15787)."
+  validation {
+    condition     = can(regex("^http://127\\.0\\.0\\.1:[0-9]+$", var.zedge_origin))
+    error_message = "zedge_origin must use a loopback address."
+  }
+}
