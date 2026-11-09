@@ -291,5 +291,23 @@ class RepositoryPolicyTests(unittest.TestCase):
                 seen.add(identity)
 
 
+    def test_privileged_reviewer_automation_is_absent(self):
+        forbidden_paths = (
+            ROOT / ".github" / "workflows" / "automated-audit-review-approve.yml",
+            ROOT / ".github" / "workflows" / "auto-fix-open-prs.yml",
+            ROOT / ".github" / "scripts" / "post-review-comment.sh",
+        )
+        for path in forbidden_paths:
+            with self.subTest(path=path.relative_to(ROOT).as_posix()):
+                self.assertFalse(path.exists(), f"Privileged legacy automation must not exist: {path}")
+
+        for workflow in (ROOT / ".github" / "workflows").glob("*.y*ml"):
+            source = workflow.read_text(encoding="utf-8")
+            with self.subTest(workflow=workflow.name):
+                self.assertNotIn("secrets.POLIEDBC_PAT", source)
+                self.assertNotIn("secrets.GPG_SIGNING_KEY", source)
+                self.assertNotIn("secrets.GPG_PASSPHRASE", source)
+
+
 if __name__ == "__main__":
     unittest.main()
