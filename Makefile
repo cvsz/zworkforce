@@ -44,8 +44,9 @@ help:
 	@echo "  make stage-f        - Run Stage F S3 artifact write/read + SHA-256 verification"
 	@echo ""
 	@echo "Cloudflare / Terraform:"
-	@echo "  make cloudflare-plan - Create Terraform plan (review only, no apply)"
-	@echo "  make cloudflare-apply - Apply approved Terraform plan (requires --approved-plan-sha256)"
+	@echo "  make cloudflare-plan - Create a guarded saved plan (no DNS reconciliation or apply)"
+	@echo "  make cloudflare-apply - Apply only the exact operator-approved saved plan (approved_plan_sha256=<digest>)"
+	@echo "  Cloudflare plan/apply uses scripts/cloudflare-apply.sh and its approval manifest."
 	@echo "  make cloudflare-status - Show Cloudflare stack status"
 	@echo ""
 	@echo "Runtime:"
@@ -197,23 +198,22 @@ stage-f:
 # ------------------------------------------------------------------------------
 
 CLOUDFLARE_STACK := infrastructure/terraform/cloudflare
+CLOUDFLARE_PLAN_FILE ?= $(CLOUDFLARE_STACK)/tfplan
+# Ignore an ambient CLOUDFLARE_APPROVED_PLAN_SHA256 value. The documented
+# approved_plan_sha256 make variable is the sole approval input for this target.
+override CLOUDFLARE_APPROVED_PLAN_SHA256 := $(approved_plan_sha256)
+export CLOUDFLARE_PLAN_FILE CLOUDFLARE_APPROVED_PLAN_SHA256
 
+# Plan creation is non-applying and skips DNS import/reconciliation by default.
+# Use scripts/cloudflare-apply.sh directly for an explicitly reviewed reconciliation mode.
 cloudflare-plan:
-	@test -n "${TF_VAR_cloudflare_api_token:-}" || (echo "set TF_VAR_cloudflare_api_token" >&2; exit 2)
-	@test -n "${TF_VAR_cloudflare_account_id:-}" || (echo "set TF_VAR_cloudflare_account_id" >&2; exit 2)
-	@test -n "${TF_VAR_cloudflare_zone_id:-}" || (echo "set TF_VAR_cloudflare_zone_id" >&2; exit 2)
-	@test -n "${TF_VAR_cloudflare_tunnel_id:-}" || (echo "set TF_VAR_cloudflare_tunnel_id" >&2; exit 2)
-	cd $(CLOUDFLARE_STACK) && terraform init && terraform validate && terraform plan -out=tfplan
-	@$(PYTHON) scripts/verify_terraform_plan.py "$(REPO_ROOT)/$(CLOUDFLARE_STACK)/tfplan"
+	@./scripts/cloudflare-apply.sh --skip-import --plan-file "${CLOUDFLARE_PLAN_FILE}"
 
+# Never apply from this Make target directly. The canonical wrapper verifies the
+# operator approval manifest, exact plan bytes, target, workspace, backend and config.
 cloudflare-apply:
-	@set -eu; \
-	expected="${approved_plan_sha256:-}"; \
-	test -n "$expected" || { echo "set approved_plan_sha256 (64-char SHA-256 from the reviewed plan)" >&2; exit 2; }; \
-	verified_plan="$(mktemp "$(REPO_ROOT)/$(CLOUDFLARE_STACK)/tfplan.approved.XXXXXX")"; \
-	trap 'rm -f "$verified_plan"' EXIT HUP INT TERM; \
-	$(PYTHON) scripts/verify_terraform_plan.py "$(REPO_ROOT)/$(CLOUDFLARE_STACK)/tfplan" "$expected" --copy-to "$verified_plan"; \
-	cd "$(REPO_ROOT)/$(CLOUDFLARE_STACK)" && terraform apply -auto-approve "$verified_plan"
+	@test -n "${CLOUDFLARE_APPROVED_PLAN_SHA256:-}" || { echo "set approved_plan_sha256=<64-char approval digest from the reviewed plan>" >&2; exit 2; }
+	@./scripts/cloudflare-apply.sh --apply --plan-file "${CLOUDFLARE_PLAN_FILE}" --approved-plan-sha256 "${CLOUDFLARE_APPROVED_PLAN_SHA256}"
 
 cloudflare-status:
 	@echo "=== Cloudflare stack files ==="
